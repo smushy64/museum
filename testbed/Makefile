@@ -43,7 +43,7 @@ $(test_bed_obj_path)/%.cpp.o:%.cpp
 	@mkdir -p $(dir $@)
 	@$(CXX) $< -o $@ $(compiler_flags) -c $(preprocessor_flags) $(INCLUDE_PATHS)
 
-$(pch):testbed_pch.h
+$(pch):pch.h
 	@echo "    Make: compiling pre-compiled header . . ."
 	@mkdir -p $(dir $@)
 	@$(CXX) $(pch_flags) $< -o $@ $(compiler_flags) -c $(preprocessor_flags) $(INCLUDE_PATHS)
