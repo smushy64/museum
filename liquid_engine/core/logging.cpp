@@ -4,7 +4,10 @@
  * File Created: April 27, 2023
 */
 #include "logging.h"
+#include "platform/memory.h"
+
 // TODO(alicia): custom printf!
+// TODO(alicia): custom mutex!
 #include <stdio.h>
 #include <pthread.h>
 
@@ -25,13 +28,23 @@ static LogLevel GLOBAL_LOG_LEVEL = LOG_LEVEL_NONE;
     LOG_LEVEL_VERBOSE \
 )
 
-SM_API void logging_init( LogLevel level ) {
+static usize BUFFER_SIZE        = KILOBYTES(1);
+static MemoryBlock PRINT_BUFFER = {};
+
+SM_API void log_init( LogLevel level ) {
     #if defined(LD_LOGGING)
         SM_ASSERT( level <= MAX_LOG_LEVEL );
         GLOBAL_LOG_LEVEL = level;
 
+        MemoryBlock print_buffer = heap_alloc( BUFFER_SIZE );
+        SM_ASSERT( print_buffer.pointer );
+
+        PRINT_BUFFER = print_buffer;
+
         #if defined(SM_PLATFORM_WINDOWS)
             CONSOLE_HANDLE = GetStdHandle( STD_OUTPUT_HANDLE );
+            SM_ASSERT( CONSOLE_HANDLE );
+
             DWORD dwMode = 0;
             GetConsoleMode(
                 CONSOLE_HANDLE,
@@ -72,9 +85,11 @@ inline b32 is_level_valid( LogLevel level ) {
     return false;
 }
 
-static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+// this is for locking the logging function
+// so that multiple threads can't print over each other
+static pthread_mutex_t MUTEX = PTHREAD_MUTEX_INITIALIZER;
 
-SM_API void log_formatted(
+SM_API void log_formatted_locked(
     LogLevel    level,
     LogColor    color,
     LogFlags    flags,
@@ -83,31 +98,66 @@ SM_API void log_formatted(
 ) {
 #if defined(LD_LOGGING)
 
+    #if defined(SM_ASSERTIONS)
+        if( !PRINT_BUFFER.pointer ) {
+            printf(
+                "LOG INIT WAS NOT CALLED BEFORE THIS LOG MESSAGE!\n"
+            );
+            #if defined(SM_PLATFORM_WINDOWS) && defined(LD_OUTPUT_DEBUG_STRING)
+                OutputDebugStringA(
+                    "LOG INIT WAS NOT CALLED BEFORE THIS LOG MESSAGE!\n"
+                );
+            #endif
+            SM_PANIC();
+        }
+    #endif
+
+    pthread_mutex_lock( &MUTEX );
+
     b32 always_print =
         (flags & LOG_FLAG_ALWAYS_PRINT) == LOG_FLAG_ALWAYS_PRINT;
     b32 new_line =
         (flags & LOG_FLAG_NEW_LINE) == LOG_FLAG_NEW_LINE;
 
     if( !(always_print || is_level_valid( level )) ) {
+        pthread_mutex_unlock( &MUTEX );
         return;
     }
 
-    pthread_mutex_lock( &mutex );
-
-    set_color( color );
 
     va_list args;
     va_start( args, format );
-    vprintf( format, args );
+
+    int write_size = vsnprintf(
+        (char*)PRINT_BUFFER.pointer,
+        BUFFER_SIZE,
+        format,
+        args
+    );
+
     va_end( args );
 
-    set_color( LOG_COLOR_RESET );
-    
-    if( new_line ) {
-        printf( "\n" );
+    if(
+        (!write_size || write_size < 0) ||
+        (((usize)write_size) >= (BUFFER_SIZE - 1))
+    ) {
+        pthread_mutex_unlock( &MUTEX );
+        return;
     }
 
-    pthread_mutex_unlock( &mutex );
+    if( new_line ) {
+        ((char*)PRINT_BUFFER.pointer)[write_size] = '\n';
+        ((char*)PRINT_BUFFER.pointer)[write_size + 1] = 0;
+    }
 
+    set_color( color );
+    printf( (char*)PRINT_BUFFER.pointer );
+    set_color( LOG_COLOR_RESET );
+
+    #if defined(SM_PLATFORM_WINDOWS) && defined(LD_OUTPUT_DEBUG_STRING)
+        OutputDebugStringA( (char*)PRINT_BUFFER.pointer );
+    #endif
+
+    pthread_mutex_unlock( &MUTEX );
 #endif
 }

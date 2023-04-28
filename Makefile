@@ -7,7 +7,9 @@ MAKEFLAGS += -s
 
 export IS_DEBUG        := true
 export BUILD_PATH      := build/$(if $(IS_DEBUG),debug,release)
-export PROJECT_VERSION := 0.1
+export PROJECT_VERSION_MAJOR := 0
+export PROJECT_VERSION_MINOR := 1
+export PROJECT_VERSION := $(PROJECT_VERSION_MAJOR).$(PROJECT_VERSION_MINOR)
 export ENGINE_NAME     := LiquidEngine
 
 export project_version_underscore := $(subst .,_,$(PROJECT_VERSION))
@@ -40,8 +42,11 @@ DEBUG_C_FLAGS   := -O0 -g -gcodeview -Wall -Wextra -Wno-missing-braces
 C_FLAGS         := -march=native -MMD -MP
 
 RELEASE_CPP_FLAGS :=
-DEBUG_CPP_FLAGS   := -DDEBUG -DLD_LOGGING -DSM_ASSERTIONS
-CPP_FLAGS         := -DSM_SIMD_WIDTH=4 -DUNICODE -DPROJECT_VERSION=$(PROJECT_VERSION)
+DEBUG_CPP_FLAGS   := -DDEBUG -DLD_LOGGING -DSM_ASSERTIONS -DLD_OUTPUT_DEBUG_STRING
+CPP_FLAGS         := -DSM_SIMD_WIDTH=4 -DUNICODE
+CPP_FLAGS += -DLIQUID_ENGINE_VERSION=\""$(ENGINE_NAME) $(PROJECT_VERSION)"\"
+CPP_FLAGS += -DLIQUID_ENGINE_VERSION_MAJOR=$(PROJECT_VERSION_MAJOR)
+CPP_FLAGS += -DLIQUID_ENGINE_VERSION_MINOR=$(PROJECT_VERSION_MINOR)
 
 RELEASE_LINKER_FLAGS :=
 DEBUG_LINKER_FLAGS   := -g -fuse-ld=lld -Wl,//debug
@@ -65,16 +70,19 @@ all:
 
 run: all
 	@echo Make: running Project Museum $(PROJECT_VERSION) . . .
+	@echo
 	@echo not yet implemented!
 
 test: all
 	@echo Make: running Test Bed $(PROJECT_VERSION) . . .
+	@echo
 	@./$(BUILD_PATH)/$(testbed_name)
 
 debug: all $(if windows,debug_win32,)
 
 debug_win32:
 	@echo Make: running Project Museum $(PROJECT_VERSION) in RemedyBG . . .
+	@echo
 	@remedybg start-debugging 1
 
 clean:
@@ -82,8 +90,9 @@ clean:
 	@rm -r -f build/debug/*
 	@rm -r -f build/release/*
 
+# for debugging variables
 spit:
-	@echo $(deps)
+	@echo $(PROJECT_VERSION_MINOR)
 
 help:
 	@echo Help for Project Museum Makefile

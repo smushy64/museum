@@ -342,4 +342,26 @@ namespace I64 {
     static const i64 MIN = -9223372036854775807 - 1;
 };
 
+#define BYTES_TO_KB(bytes) ((f32)bytes / 1024.0f)
+#define KB_TO_MB(kb)       ((f32)kb / 1024.0f)
+#define MB_TO_GB(mb)       ((f32)mb / 1024.0f)
+
+#define KB_TO_BYTES(kb) ((f32)kb * 1024.0f)
+#define MB_TO_KB(mb)    ((f32)mb * 1024.0f)
+#define GB_TO_MB(gb)    ((f32)gb * 1024.0f)
+
+#define BYTES_TO_BEST_REPRESENTATION(bytes, result) do {\
+    if( bytes >= 1024 ) {\
+        result = BYTES_TO_KB(bytes);\
+        if( result >= 1024.0f ) {\
+            result = KB_TO_MB(result);\
+            if( result >= 1024.0f ) {\
+                result = MB_TO_GB(result);\
+            }\
+        }\
+    } else {\
+        result = (f32)bytes;\
+    }\
+} while(0)
+
 #endif
