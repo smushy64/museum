@@ -1,0 +1,10 @@
+clang++
+-std=c++20
+-D_CLANGD
+-DDEBUG
+-DSM_SIMD_WIDTH=4
+-DLD_LOGGING
+-DSM_ASSERTIONS
+-DUNICODE
+-I.
+-I../liquid_engine
