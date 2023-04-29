@@ -22,6 +22,9 @@ ThreadReturnValue test_proc( void* ) {
 
 int main( int, char** ) {
     log_init( LOG_LEVEL_ALL_VERBOSE );
+    if( !platform_init( PLATFORM_INIT_DPI_AWARE ) ) {
+        return -1;
+    }
     
     LOG_NOTE("Liquid Engine Version: %i.%i",
         LIQUID_ENGINE_VERSION_MAJOR,
@@ -31,6 +34,31 @@ int main( int, char** ) {
     SystemInfo sys_info = query_system_info();
     print_system_info( &sys_info );
 
+    Surface surface = {};
+    if( !surface_create(
+        "Hello World",
+        { 800, 600 },
+        SURFACE_FLAG_SHOW_ON_CREATE,
+        nullptr,
+        &surface
+    ) ) {
+        return -1;
+    }
+
+    b32 running = true;
+    i32 counter = 0;
+    while( running ) {
+        Event foo = {};
+        while( next_event( surface.handle, &foo ) ) {
+            SM_UNUSED(foo);
+        }
+        counter++;
+        if( counter >= 999999 ) {
+            running = false;
+        }
+    }
+
+    platform_shutdown();
     return 0;
 }
 

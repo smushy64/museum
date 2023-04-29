@@ -48,6 +48,10 @@ typedef double f64;
 /// void* pointer alias, might come in handy at some point
 typedef void* pvoid;
 
+#define SM_INTERNAL static
+#define SM_LOCAL    static
+#define SM_GLOBAL   static
+
 /// compiler defines
 #if defined(__GNUC__) || defined(__GNUG__)
     #define SM_COMPILER_GCC

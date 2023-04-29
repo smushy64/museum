@@ -12,8 +12,16 @@
 #include "core/logging.h"
 
 #include <intrin.h>
+
+#define WIN32_LEAN_AND_MEAN
+#define NOGDI
 #include <windows.h>
+#include <psapi.h>
+#include <xinput.h>
+
 #include <stdio.h>
+
+SM_GLOBAL b32 IS_DPI_AWARE = false;
 
 // LOGGING | BEGIN --------------------------------------------------------
 
@@ -57,7 +65,7 @@
 
     #define WIN_LOG_NOTE_TRACE( ... ) \
         log_formatted_locked(\
-            LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
+            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,\
             LOG_COLOR_RESET, 0,\
             "[NOTE WIN32  | %s | %s:%i] ",\
             __FUNCTION__,\
@@ -65,11 +73,12 @@
             __LINE__\
         );\
         log_formatted_locked(\
-            LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
+            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,\
             LOG_COLOR_RESET,\
             LOG_FLAG_NEW_LINE,\
             __VA_ARGS__\
         )
+
     #define WIN_LOG_INFO_TRACE( ... ) \
         log_formatted_locked(\
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
@@ -201,6 +210,445 @@ DWORD win_log_error( b32 present_message_box ) {
 
 // LOGGING | END ----------------------------------------------------------
 
+// PLATFORM INIT | BEGIN --------------------------------------------------
+
+/// from https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-pixelformatdescriptor
+typedef struct tagPIXELFORMATDESCRIPTOR {
+    WORD  nSize;
+    WORD  nVersion;
+    DWORD dwFlags;
+    BYTE  iPixelType;
+    BYTE  cColorBits;
+    BYTE  cRedBits;
+    BYTE  cRedShift;
+    BYTE  cGreenBits;
+    BYTE  cGreenShift;
+    BYTE  cBlueBits;
+    BYTE  cBlueShift;
+    BYTE  cAlphaBits;
+    BYTE  cAlphaShift;
+    BYTE  cAccumBits;
+    BYTE  cAccumRedBits;
+    BYTE  cAccumGreenBits;
+    BYTE  cAccumBlueBits;
+    BYTE  cAccumAlphaBits;
+    BYTE  cDepthBits;
+    BYTE  cStencilBits;
+    BYTE  cAuxBuffers;
+    BYTE  iLayerType;
+    BYTE  bReserved;
+    DWORD dwLayerMask;
+    DWORD dwVisibleMask;
+    DWORD dwDamageMask;
+} PIXELFORMATDESCRIPTOR, *PPIXELFORMATDESCRIPTOR, *LPPIXELFORMATDESCRIPTOR;
+
+namespace internal {
+    [[maybe_unused]]
+    SM_INTERNAL b32 win_library_load(
+        const wchar_t* module_name,
+        HMODULE* out_module
+    ) {
+        HMODULE module = LoadLibrary(
+            module_name
+        );
+        if( !module ) {
+            return false;
+        }
+        *out_module = module;
+        return true;
+    }
+    [[maybe_unused]]
+    SM_INTERNAL b32 win_library_load_trace(
+        const wchar_t* module_name,
+        HMODULE* out_module,
+        const char* function,
+        const char* file,
+        i32 line
+    ) {
+        HMODULE module = LoadLibrary(
+            module_name
+        );
+        if( !module ) {
+            log_formatted_locked(
+                LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,
+                LOG_COLOR_RED, 0,
+                "[ERROR WIN32  | %s | %s:%i] ",
+                function,
+                file,
+                line
+            );
+            log_formatted_locked(
+                LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,
+                LOG_COLOR_RED,
+                LOG_FLAG_NEW_LINE,
+                "Failed to load library \"%ls\"!",
+                module_name
+            );
+            return false;
+        }
+
+        *out_module = module;
+        log_formatted_locked(
+            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
+            LOG_COLOR_RESET, 0,
+            "[NOTE WIN32  | %s | %s:%i] ",
+            function,
+            file,
+            line
+        );
+        log_formatted_locked(
+            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
+            LOG_COLOR_RESET,
+            LOG_FLAG_NEW_LINE,
+            "Library \"%ls\" has been loaded successfully.",
+            module_name
+        );
+
+        return true;
+    }
+
+    [[maybe_unused]]
+    SM_INTERNAL void win_library_free(
+        HMODULE module
+    ) {
+        FreeLibrary( module );
+    }
+    [[maybe_unused]]
+    SM_INTERNAL void win_library_free_trace(
+        HMODULE module,
+        const char* function,
+        const char* file,
+        i32 line
+    ) {
+        static const u32 NAME_BUFFER_SIZE = 128;
+        wchar_t name_buffer[NAME_BUFFER_SIZE];
+        GetModuleBaseName(
+            GetCurrentProcess(),
+            module,
+            name_buffer,
+            NAME_BUFFER_SIZE
+        );
+        log_formatted_locked(
+            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
+            LOG_COLOR_RESET, 0,
+            "[NOTE WIN32  | %s | %s:%i] ",
+            function,
+            file,
+            line
+        );
+        log_formatted_locked(
+            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
+            LOG_COLOR_RESET,
+            LOG_FLAG_NEW_LINE,
+            "Library \"%ls\" has been freed.",
+            name_buffer
+        );
+        FreeLibrary( module );
+    }
+
+    typedef BOOL (*SetProcessDpiAwarenessContext_fn)( DPI_AWARENESS_CONTEXT );
+    inline SetProcessDpiAwarenessContext_fn in_SetProcessDpiAwarenessContext = nullptr;
+
+    typedef UINT (*GetDpiForSystem_fn)();
+    inline GetDpiForSystem_fn in_GetDpiForSystem = nullptr;
+
+    typedef BOOL (*AdjustWindowRectExForDpi_fn)( LPRECT, DWORD, BOOL, DWORD, UINT );
+    inline AdjustWindowRectExForDpi_fn in_AdjustWindowRectExForDpi = nullptr;
+
+    typedef DWORD (*XInputGetState_fn)( DWORD, XINPUT_STATE* );
+    inline XInputGetState_fn in_XInputGetState = nullptr;
+
+    typedef DWORD (*XInputSetState_fn)( DWORD, XINPUT_VIBRATION* );
+    inline XInputSetState_fn in_XInputSetState = nullptr;
+
+    typedef HGLRC (*wglCreateContext_fn)(HDC);
+    inline wglCreateContext_fn in_wglCreateContext = nullptr;
+
+    typedef BOOL (*wglMakeCurrent_fn)(HDC, HGLRC);
+    inline wglMakeCurrent_fn in_wglMakeCurrent = nullptr;
+
+    typedef BOOL (*wglDeleteContext_fn)(HGLRC);
+    inline wglDeleteContext_fn in_wglDeleteContext = nullptr;
+
+    typedef PROC (*wglGetProcAddress_fn)(LPCSTR);
+    inline wglGetProcAddress_fn in_wglGetProcAddress = nullptr;
+
+    typedef HGLRC (*wglCreateContextAttribsARB_fn)(HDC, HGLRC, const int*);
+    inline wglCreateContextAttribsARB_fn in_wglCreateContextAttribsARB = nullptr;
+
+    typedef int (*DescribePixelFormat_fn)(HDC, int, UINT, LPPIXELFORMATDESCRIPTOR);
+    inline DescribePixelFormat_fn in_DescribePixelFormat = nullptr;
+
+    typedef int (*ChoosePixelFormat_fn)(HDC, const PIXELFORMATDESCRIPTOR*);
+    inline ChoosePixelFormat_fn in_ChoosePixelFormat = nullptr;
+
+    typedef BOOL (*SetPixelFormat_fn)(HDC, int, const PIXELFORMATDESCRIPTOR*);
+    inline SetPixelFormat_fn in_SetPixelFormat = nullptr;
+
+    typedef BOOL (*SwapBuffers_fn)(HDC);
+    inline SwapBuffers_fn in_SwapBuffers = nullptr;
+
+    typedef void (*XInputEnable_fn)( BOOL );
+    inline void XInputEnableStub( BOOL enable ) {
+        SM_UNUSED( enable );
+    }
+    inline XInputEnable_fn in_XInputEnable = XInputEnableStub;
+
+} // namespace internal
+
+#if defined(LD_LOGGING)
+    #define win_library_load( module_name, out_module )\
+        internal::win_library_load_trace(\
+            module_name,\
+            out_module,\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__\
+        )
+    #define win_library_free( module )\
+        internal::win_library_free_trace(\
+            module,\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__\
+        )
+#else
+    #define win_library_load( module_name, out_module ) \
+        internal::win_library_load( module_name, out_module )
+    #define win_library_free( module )\
+        internal::win_library_free( module )
+#endif
+
+#define SetProcessDpiAwarenessContext ::internal::in_SetProcessDpiAwarenessContext
+#define GetDpiForSystem               ::internal::in_GetDpiForSystem
+#define AdjustWindowRectExForDpi      ::internal::in_AdjustWindowRectExForDpi
+#define XInputGetState                ::internal::in_XInputGetState
+#define XInputSetState                ::internal::in_XInputSetState
+#define XInputEnable                  ::internal::in_XInputEnable
+#define wglCreateContext              ::internal::in_wglCreateContext
+#define wglMakeCurrent                ::internal::in_wglMakeCurrent
+#define wglDeleteContext              ::internal::in_wglDeleteContext
+#define wglGetProcAddress             ::internal::in_wglGetProcAddress
+#define wglCreateContextAttribsARB    ::internal::in_wglCreateContextAttribsARB
+#define DescribePixelFormat           ::internal::in_DescribePixelFormat
+#define ChoosePixelFormat             ::internal::in_ChoosePixelFormat
+#define SetPixelFormat                ::internal::in_SetPixelFormat
+#define SwapBuffers                   ::internal::in_SwapBuffers
+
+#define WGL_CONTEXT_MAJOR_VERSION_ARB             0x2091
+#define WGL_CONTEXT_MINOR_VERSION_ARB             0x2092
+#define WGL_CONTEXT_LAYER_PLANE_ARB               0x2093
+#define WGL_CONTEXT_FLAGS_ARB                     0x2094
+#define WGL_CONTEXT_PROFILE_MASK_ARB              0x9126
+#define WGL_CONTEXT_DEBUG_BIT_ARB                 0x0001
+#define WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB    0x0002
+#define WGL_CONTEXT_CORE_PROFILE_BIT_ARB          0x00000001
+#define WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
+#define ERROR_INVALID_VERSION_ARB                 0x2095
+#define ERROR_INVALID_PROFILE_ARB                 0x2096
+
+SM_GLOBAL HMODULE LIB_USER32 = nullptr;
+SM_GLOBAL HMODULE LIB_XINPUT = nullptr;
+SM_GLOBAL HMODULE LIB_GL     = nullptr;
+SM_GLOBAL HMODULE LIB_GDI32  = nullptr;
+
+SM_API b32 platform_init(
+    PlatformInitFlags flags
+) {
+
+    if( !win_library_load(
+        L"USER32.DLL",
+        &LIB_USER32
+    ) ) {
+        MESSAGE_BOX_FATAL(
+            "Failed to load library!",
+            "Failed to load user32.dll!"
+        );
+        return false;
+    }
+    if( !win_library_load(
+        L"XINPUT1_4.DLL",
+        &LIB_XINPUT
+    ) ) {
+        if( !win_library_load(
+            L"XINPUT9_1_0.DLL",
+            &LIB_XINPUT
+        ) ) {
+            if( !win_library_load(
+                L"XINPUT1_3.DLL",
+                &LIB_XINPUT
+            ) ) {
+                MESSAGE_BOX_FATAL(
+                    "Failed to load library!",
+                    "Failed to load any version of XInput!"
+                );
+                return false;
+            }
+        }
+    }
+    if( !win_library_load(
+        L"OPENGL32.DLL",
+        &LIB_GL
+    ) ) {
+        MESSAGE_BOX_FATAL(
+            "Failed to load library!",
+            "Failed to load opengl32.dll!"
+        );
+        return false;
+    }
+    if( !win_library_load(
+        L"GDI32.DLL",
+        &LIB_GDI32
+    ) ) {
+        MESSAGE_BOX_FATAL(
+            "Failed to load library!",
+            "Failed to load gdi32.dll!"
+        );
+        return false;
+    }
+
+    SetProcessDpiAwarenessContext =
+    (::internal::SetProcessDpiAwarenessContext_fn) GetProcAddress(
+        LIB_USER32,
+        "SetProcessDpiAwarenessContext"
+    );
+    if( !SetProcessDpiAwarenessContext ) {
+        WIN_LOG_ERROR("Failed to load SetProcessDpiAwarenessContext");
+        return false;
+    }
+
+    GetDpiForSystem =
+    (::internal::GetDpiForSystem_fn)GetProcAddress(
+        LIB_USER32,
+        "GetDpiForSystem"
+    );
+    if( !GetDpiForSystem ) {
+        WIN_LOG_ERROR("Failed to load GetDpiForSystem");
+        return false;
+    }
+
+    AdjustWindowRectExForDpi =
+    (::internal::AdjustWindowRectExForDpi_fn)GetProcAddress(
+        LIB_USER32,
+        "AdjustWindowRectExForDpi"
+    );
+    if( !AdjustWindowRectExForDpi ) {
+        WIN_LOG_ERROR("Failed to load AdjustWindowRectExForDpi");
+        return false;
+    }
+
+    XInputGetState =
+    (::internal::XInputGetState_fn)GetProcAddress(
+        LIB_XINPUT,
+        "XInputGetState"
+    );
+    if( !XInputGetState ) {
+        WIN_LOG_ERROR("Failed to load XInputGetState");
+        return false;
+    }
+    XInputSetState =
+    (::internal::XInputSetState_fn)GetProcAddress(
+        LIB_XINPUT,
+        "XInputSetState"
+    );
+    if( !XInputSetState ) {
+        WIN_LOG_ERROR("Failed to load XInputSetState");
+        return false;
+    }
+
+    wglCreateContext =
+    (::internal::wglCreateContext_fn)GetProcAddress(
+        LIB_GL,
+        "wglCreateContext"
+    );
+    if( !wglCreateContext ) {
+        WIN_LOG_ERROR("Failed to load wglCreateContext");
+        return false;
+    }
+    wglMakeCurrent =
+    (::internal::wglMakeCurrent_fn)GetProcAddress(
+        LIB_GL,
+        "wglMakeCurrent"
+    );
+    if( !wglMakeCurrent ) {
+        WIN_LOG_ERROR("Failed to load wglMakeCurrent");
+        return false;
+    }
+    wglDeleteContext =
+    (::internal::wglDeleteContext_fn)GetProcAddress(
+        LIB_GL,
+        "wglDeleteContext"
+    );
+    if( !wglDeleteContext ) {
+        WIN_LOG_ERROR("Failed to load wglDeleteContext");
+        return false;
+    }
+    wglGetProcAddress =
+    (::internal::wglGetProcAddress_fn)GetProcAddress(
+        LIB_GL,
+        "wglGetProcAddress"
+    );
+    if( !wglGetProcAddress ) {
+        WIN_LOG_ERROR("Failed to load wglGetProcAddress");
+        return false;
+    }
+
+    DescribePixelFormat =
+    (::internal::DescribePixelFormat_fn)GetProcAddress(
+        LIB_GDI32,
+        "DescribePixelFormat"
+    );
+    if( !DescribePixelFormat ) {
+        WIN_LOG_ERROR("Failed to load DescribePixelFormat");
+        return false;
+    }
+    ChoosePixelFormat =
+    (::internal::ChoosePixelFormat_fn)GetProcAddress(
+        LIB_GDI32,
+        "ChoosePixelFormat"
+    );
+    if( !ChoosePixelFormat ) {
+        WIN_LOG_ERROR("Failed to load ChoosePixelFormat");
+        return false;
+    }
+    SetPixelFormat =
+    (::internal::SetPixelFormat_fn)GetProcAddress(
+        LIB_GDI32,
+        "SetPixelFormat"
+    );
+    if( !SetPixelFormat ) {
+        WIN_LOG_ERROR("Failed to load SetPixelFormat");
+        return false;
+    }
+    SwapBuffers =
+    (::internal::SwapBuffers_fn)GetProcAddress(
+        LIB_GDI32,
+        "SwapBuffers"
+    );
+    if( !SwapBuffers ) {
+        WIN_LOG_ERROR("Failed to load SwapBuffers");
+        return false;
+    }
+
+    if( (flags & PLATFORM_INIT_DPI_AWARE) == PLATFORM_INIT_DPI_AWARE ) {
+        SetProcessDpiAwarenessContext(
+            DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
+        );
+        IS_DPI_AWARE = true;
+    }
+
+    return true;
+}
+
+SM_API void platform_shutdown() {
+    win_library_free( LIB_USER32 );
+    win_library_free( LIB_XINPUT );
+    win_library_free( LIB_GL );
+    win_library_free( LIB_GDI32 );
+}
+
+// PLATFORM INIT | END ----------------------------------------------------
+
 // MEMORY | BEGIN ---------------------------------------------------------
 
 static usize HEAP_MEMORY_USAGE = 0;
@@ -283,7 +731,7 @@ struct Win32ThreadHandle {
     DWORD      id;
 };
 
-DWORD WINAPI win32_thread_proc( void* params ) {
+DWORD WINAPI win_thread_proc( void* params ) {
     Win32ThreadHandle* thread_handle = (Win32ThreadHandle*)params;
 
     DWORD return_value = thread_handle->proc(
@@ -329,7 +777,7 @@ SM_API ThreadHandle thread_create(
     thread_handle->handle = CreateThread(
         lpThreadAttributes,
         dwStackSize,
-        win32_thread_proc,
+        win_thread_proc,
         thread_handle,
         dwCreationFlags,
         &thread_handle->id
@@ -558,6 +1006,253 @@ SM_API MessageBoxResult message_box(
 }
 
 // MESSAGE BOX | END   ----------------------------------------------------
+
+// SURFACE | BEGIN --------------------------------------------------------
+
+struct Win32SurfaceData {
+    HDC hDc;
+};
+
+HINSTANCE HINSTANCE_HANDLE = nullptr;
+HINSTANCE get_hinstance() {
+    if( !HINSTANCE_HANDLE ) {
+        HINSTANCE_HANDLE = GetModuleHandleA(0);
+    }
+    return HINSTANCE_HANDLE;
+}
+
+LRESULT win_proc(
+    HWND hWnd, UINT Msg,
+    WPARAM wParam, LPARAM lParam
+) {
+    return DefWindowProc(
+        hWnd,
+        Msg,
+        wParam,
+        lParam
+    );
+}
+
+SM_API b32 surface_create(
+    const char*        surface_name,
+    ivec2              dimensions,
+    SurfaceCreateFlags flags,
+    SurfaceHandle      opt_parent_surface,
+    Surface*           out_surface
+) {
+    HWND hWndParent = (HWND)opt_parent_surface;
+
+    void* win32_surface_data_buffer = HeapAlloc(
+        GetProcessHeap(),
+        HEAP_ZERO_MEMORY,
+        sizeof(Win32SurfaceData)
+    );
+    if( !win32_surface_data_buffer ) {
+        MESSAGE_BOX_FATAL(
+            "Out of memory",
+            "Could not allocate Win32 surface data!"
+        );
+        return false;
+    }
+    
+    Win32SurfaceData* win32_surface = (Win32SurfaceData*)win32_surface_data_buffer;
+
+    WNDCLASSEX window_class    = {};
+    window_class.cbSize        = sizeof(WNDCLASSEX);
+    window_class.lpfnWndProc   = win_proc;
+    window_class.hInstance     = get_hinstance();
+
+    static const wchar_t* BASE_CLASS_NAME = L"LiquidEngineWindowClass";
+    static const usize BASE_CLASS_NAME_LEN = wcslen(BASE_CLASS_NAME);
+    static int SURFACE_COUNT = 0;
+
+    static const usize CLASS_NAME_BUFFER_SIZE = BASE_CLASS_NAME_LEN + 8;
+    wchar_t class_name_buffer[CLASS_NAME_BUFFER_SIZE];
+    snwprintf(
+        class_name_buffer,
+        CLASS_NAME_BUFFER_SIZE,
+        L"%ls%i",
+        BASE_CLASS_NAME,
+        SURFACE_COUNT
+    );
+
+    window_class.lpszClassName = class_name_buffer;
+
+    if( !RegisterClassEx( &window_class ) ) {
+        win_log_error( true );
+        HeapFree(
+            GetProcessHeap(),
+            0,
+            win32_surface
+        );
+        return false;
+    }
+
+    DWORD dwStyle = WS_OVERLAPPEDWINDOW;
+
+    i32 width = 0, height = 0;
+    RECT window_rect = {};
+    if( IS_DPI_AWARE ) {
+        UINT dpi = GetDpiForSystem();
+
+        width = MulDiv(
+            dimensions.x,
+            dpi,
+            96
+        );
+        height = MulDiv(
+            dimensions.y,
+            dpi,
+            96
+        );
+
+        out_surface->width  = width;
+        out_surface->height = height;
+
+        window_rect.right  = width;
+        window_rect.bottom = height;
+
+        if( !AdjustWindowRectExForDpi(
+            &window_rect,
+            dwStyle,
+            FALSE,
+            0,
+            dpi
+        ) ) {
+            win_log_error( true );
+            HeapFree(
+                GetProcessHeap(),
+                0,
+                win32_surface
+            );
+            return false;
+        }
+    } else {
+        // TODO(alicia): non dpi aware!
+        LOG_ASSERT(false, "what the fuck");
+    }
+
+    int window_name_len = strlen(surface_name) + 1;
+    wchar_t window_name_buffer[window_name_len];
+    mbstowcs(
+        window_name_buffer,
+        surface_name,
+        window_name_len
+    );
+
+    HWND hWnd = CreateWindowEx(
+        0,
+        window_class.lpszClassName,
+        window_name_buffer,
+        dwStyle,
+        // TODO(alicia): center window!
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        window_rect.right - window_rect.left,
+        window_rect.bottom - window_rect.top,
+        hWndParent,
+        nullptr,
+        get_hinstance(),
+        nullptr
+    );
+    if( !hWnd ) {
+        win_log_error( true );
+        HeapFree(
+            GetProcessHeap(),
+            0,
+            win32_surface
+        );
+        return false;
+    }
+
+    // TODO(alicia): set window position!
+    out_surface->handle     = hWnd;
+    out_surface->is_focused = false;
+
+    if( (flags & SURFACE_FLAG_SHOW_ON_CREATE) == SURFACE_FLAG_SHOW_ON_CREATE ) {
+        ShowWindow( hWnd, SW_SHOW );
+    }
+
+    return true;
+}
+
+SM_API b32 next_event( SurfaceHandle surface, Event* event ) {
+    HWND window = (HWND)surface;
+
+    *event = {};
+
+    MSG message = {};
+    if( !PeekMessage(
+        &message,
+        window,
+        0, 0,
+        PM_REMOVE
+    ) ) {
+        return false;
+    }
+
+    switch( message.message ) {
+        case WM_ACTIVATE: {
+            event->type = EVENT_SURFACE_FOCUS_CHANGE;
+            event->focus_change.is_focused =
+                message.wParam == WA_ACTIVE ||
+                message.wParam == WA_CLICKACTIVE;
+        } break;
+
+        case WM_DESTROY: {
+            event->type = EVENT_SURFACE_DESTROY;
+        } break;
+
+        case WM_WINDOWPOSCHANGED: {
+            WINDOWPOS* lpWindowPos =
+                (WINDOWPOS*)message.lParam;
+
+            if( !lpWindowPos ) {
+                break;
+            }
+            
+            // moved
+            if(
+                ((lpWindowPos->flags & SWP_NOSIZE) == SWP_NOSIZE) &&
+                !((lpWindowPos->flags & SWP_NOMOVE) == SWP_NOMOVE)
+            ) {
+                event->type = EVENT_SURFACE_POSITION_CHANGE;
+                event->position_change.x = lpWindowPos->x;
+                event->position_change.y = lpWindowPos->y;
+
+                return true;
+            // resized
+            } else {
+                RECT client_rect = {};
+                if( GetClientRect(
+                    window,
+                    &client_rect
+                ) ) {
+                    event->type = EVENT_SURFACE_DIMENSIONS_CHANGE;
+
+                    static const i64 MIN_DIMENSIONS = 1;
+                    event->dimensions_change.width =
+                        max( client_rect.right, MIN_DIMENSIONS );
+                    event->dimensions_change.height =
+                        max( client_rect.bottom, MIN_DIMENSIONS );
+                    
+                    return true;
+                }
+            }
+
+            return false;
+        } break;
+
+        default: {
+            TranslateMessage( &message );
+            DispatchMessage( &message );
+        } return false;
+    }
+
+    return true;
+}
+
+// SURFACE | END ----------------------------------------------------------
 
 SM_API void sleep( u32 ms ) {
     DWORD dwMilliseconds = ms;

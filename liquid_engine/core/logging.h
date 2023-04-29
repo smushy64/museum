@@ -117,7 +117,7 @@ SM_API void log_formatted_locked(
 
     #define LOG_NOTE_TRACE( ... ) \
         log_formatted_locked(\
-            LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
+            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,\
             LOG_COLOR_RESET, 0,\
             "[NOTE  | %s | %s:%i] ",\
             __FUNCTION__,\
@@ -125,7 +125,7 @@ SM_API void log_formatted_locked(
             __LINE__\
         );\
         log_formatted_locked(\
-            LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
+            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,\
             LOG_COLOR_RESET,\
             LOG_FLAG_NEW_LINE,\
             __VA_ARGS__\
