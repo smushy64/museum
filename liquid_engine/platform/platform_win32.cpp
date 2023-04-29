@@ -13,6 +13,193 @@
 
 #include <intrin.h>
 #include <windows.h>
+#include <stdio.h>
+
+// LOGGING | BEGIN --------------------------------------------------------
+
+#if defined(LD_LOGGING)
+    #define WIN_LOG_NOTE( ... ) \
+        log_formatted_locked(\
+            LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE,\
+            LOG_COLOR_RESET,\
+            LOG_FLAG_NEW_LINE,\
+            "[NOTE WIN32  ] " __VA_ARGS__\
+        )
+    #define WIN_LOG_INFO( ... ) \
+        log_formatted_locked(\
+            LOG_LEVEL_INFO,\
+            LOG_COLOR_WHITE,\
+            LOG_FLAG_NEW_LINE,\
+            "[INFO WIN32  ] " __VA_ARGS__\
+        )
+    #define WIN_LOG_DEBUG( ... ) \
+        log_formatted_locked(\
+            LOG_LEVEL_DEBUG,\
+            LOG_COLOR_BLUE,\
+            LOG_FLAG_NEW_LINE,\
+            "[DEBUG WIN32 ] " __VA_ARGS__\
+        )
+    #define WIN_LOG_WARN( ... ) \
+        log_formatted_locked(\
+            LOG_LEVEL_WARN,\
+            LOG_COLOR_YELLOW,\
+            LOG_FLAG_NEW_LINE,\
+            "[WARN WIN32  ] " __VA_ARGS__\
+        )
+    #define WIN_LOG_ERROR( ... ) \
+        log_formatted_locked(\
+            LOG_LEVEL_ERROR,\
+            LOG_COLOR_RED,\
+            LOG_FLAG_NEW_LINE,\
+            "[ERROR WIN32 ] " __VA_ARGS__\
+        )
+
+
+    #define WIN_LOG_NOTE_TRACE( ... ) \
+        log_formatted_locked(\
+            LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
+            LOG_COLOR_RESET, 0,\
+            "[NOTE WIN32  | %s | %s:%i] ",\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__\
+        );\
+        log_formatted_locked(\
+            LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
+            LOG_COLOR_RESET,\
+            LOG_FLAG_NEW_LINE,\
+            __VA_ARGS__\
+        )
+    #define WIN_LOG_INFO_TRACE( ... ) \
+        log_formatted_locked(\
+            LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
+            LOG_COLOR_WHITE, 0,\
+            "[INFO WIN32  | %s | %s:%i] ",\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__\
+        );\
+        log_formatted_locked(\
+            LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
+            LOG_COLOR_WHITE,\
+            LOG_FLAG_NEW_LINE,\
+            __VA_ARGS__\
+        )
+    #define WIN_LOG_DEBUG_TRACE( ... ) \
+        log_formatted_locked(\
+            LOG_LEVEL_DEBUG | LOG_LEVEL_TRACE,\
+            LOG_COLOR_BLUE, 0,\
+            "[DEBUG WIN32 | %s | %s:%i] ",\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__\
+        );\
+        log_formatted_locked(\
+            LOG_LEVEL_DEBUG | LOG_LEVEL_TRACE,\
+            LOG_COLOR_BLUE,\
+            LOG_FLAG_NEW_LINE,\
+            __VA_ARGS__\
+        )
+    #define WIN_LOG_WARN_TRACE( ... ) \
+        log_formatted_locked(\
+            LOG_LEVEL_WARN | LOG_LEVEL_TRACE,\
+            LOG_COLOR_YELLOW, 0,\
+            "[WARN WIN32  | %s | %s:%i] ",\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__\
+        );\
+        log_formatted_locked(\
+            LOG_LEVEL_WARN | LOG_LEVEL_TRACE,\
+            LOG_COLOR_YELLOW,\
+            LOG_FLAG_NEW_LINE,\
+            __VA_ARGS__\
+        )
+    #define WIN_LOG_ERROR_TRACE( ... ) \
+        log_formatted_locked(\
+            LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
+            LOG_COLOR_RED, 0,\
+            "[ERROR WIN32 | %s | %s:%i] ",\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__\
+        );\
+        log_formatted_locked(\
+            LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
+            LOG_COLOR_RED,\
+            LOG_FLAG_NEW_LINE,\
+            __VA_ARGS__\
+        )
+#else
+    #define WIN_LOG_NOTE( ... )
+    #define WIN_LOG_INFO( ... )
+    #define WIN_LOG_DEBUG( ... )
+    #define WIN_LOG_WARN( ... )
+    #define WIN_LOG_ERROR( ... )
+    #define WIN_LOG_NOTE_TRACE( ... )
+    #define WIN_LOG_INFO_TRACE( ... )
+    #define WIN_LOG_DEBUG_TRACE( ... )
+    #define WIN_LOG_WARN_TRACE( ... )
+    #define WIN_LOG_ERROR_TRACE( ... )
+#endif
+
+DWORD win_log_error( b32 present_message_box ) {
+    DWORD error_code = GetLastError();
+    if( error_code == ERROR_SUCCESS ) {
+        return error_code;
+    }
+
+    wchar_t* message_buffer = nullptr;
+    DWORD message_buffer_size = FormatMessage(
+        FORMAT_MESSAGE_FROM_SYSTEM |
+        FORMAT_MESSAGE_IGNORE_INSERTS |
+        FORMAT_MESSAGE_ALLOCATE_BUFFER |
+        FORMAT_MESSAGE_MAX_WIDTH_MASK,
+        nullptr,
+        error_code,
+        0,
+        (LPWSTR)&message_buffer,
+        0,
+        nullptr
+    );
+
+    if( message_buffer_size > 0 ) {
+        WIN_LOG_ERROR(
+            "%u: %ls",
+            error_code,
+            message_buffer
+        );
+
+        if( present_message_box ) {
+            static const usize TITLE_BUFFER_SIZE = 128;
+            char title_buffer[TITLE_BUFFER_SIZE];
+            snprintf(
+                title_buffer,
+                TITLE_BUFFER_SIZE,
+                "Windows Error 0x%X",
+                error_code
+            );
+
+            usize new_message_buffer_size = message_buffer_size + 128;
+            char new_message_buffer[new_message_buffer_size];
+            snprintf(
+                new_message_buffer,
+                new_message_buffer_size,
+                "Please contact me at smushybusiness@gmail.com\n%ls",
+                message_buffer
+            );
+
+            MESSAGE_BOX_FATAL(
+                title_buffer,
+                new_message_buffer
+            );
+        }
+    }
+
+    return error_code;
+}
+
+// LOGGING | END ----------------------------------------------------------
 
 // MEMORY | BEGIN ---------------------------------------------------------
 
@@ -89,7 +276,176 @@ SM_API void page_free( MemoryBlock* memory ) {
 
 // MULTI-THREADING | BEGIN ------------------------------------------------
 
+struct Win32ThreadHandle {
+    HANDLE     handle;
+    ThreadProc proc;
+    void*      params;
+    DWORD      id;
+};
 
+DWORD WINAPI win32_thread_proc( void* params ) {
+    Win32ThreadHandle* thread_handle = (Win32ThreadHandle*)params;
+
+    DWORD return_value = thread_handle->proc(
+        thread_handle->params
+    );
+
+    HeapFree(
+        GetProcessHeap(),
+        0,
+        params
+    );
+
+    return return_value;
+}
+
+#define THREAD_STACK_SIZE_SAME_AS_MAIN 0
+#define THREAD_RUN_ON_CREATE 0
+SM_API ThreadHandle thread_create(
+    ThreadProc thread_proc,
+    void*      params,
+    b32        run_on_creation
+) {
+    void* handle_buffer = HeapAlloc(
+        GetProcessHeap(),
+        HEAP_ZERO_MEMORY,
+        sizeof(Win32ThreadHandle)
+    );
+    if( !handle_buffer ) {
+        return nullptr;
+    }
+    Win32ThreadHandle* thread_handle = (Win32ThreadHandle*)handle_buffer;
+    thread_handle->proc   = thread_proc;
+    thread_handle->params = params;
+
+    // we don't care about this
+    LPSECURITY_ATTRIBUTES lpThreadAttributes = nullptr;
+
+    SIZE_T dwStackSize     = THREAD_STACK_SIZE_SAME_AS_MAIN;
+    DWORD  dwCreationFlags = CREATE_SUSPENDED;
+
+    mem_fence();
+
+    thread_handle->handle = CreateThread(
+        lpThreadAttributes,
+        dwStackSize,
+        win32_thread_proc,
+        thread_handle,
+        dwCreationFlags,
+        &thread_handle->id
+    );
+
+    if( !thread_handle->handle ) {
+        win_log_error( true );
+        return nullptr;
+    }
+
+    if( run_on_creation ) {
+        thread_resume( handle_buffer );
+    }
+
+    return handle_buffer;
+}
+SM_API void thread_resume( ThreadHandle thread ) {
+    Win32ThreadHandle* win32_thread = (Win32ThreadHandle*)thread;
+    ResumeThread( win32_thread->handle );
+}
+
+SM_API Semaphore semaphore_create(
+    u32 initial_count,
+    u32 maximum_count
+) {
+    // we don't care about these
+    LPSECURITY_ATTRIBUTES security_attributes = nullptr;
+    LPCWSTR name = nullptr;
+    DWORD flags = 0;
+
+    DWORD desired_access = SEMAPHORE_ALL_ACCESS;
+
+    HANDLE semaphore_handle = CreateSemaphoreExW(
+        security_attributes,
+        initial_count,
+        maximum_count,
+        name,
+        flags,
+        desired_access
+    );
+
+    return (Semaphore*)semaphore_handle;
+}
+SM_API void semaphore_increment(
+    Semaphore semaphore,
+    u32       increment,
+    u32*      opt_out_previous_count
+) {
+    HANDLE win32_handle = (HANDLE)semaphore;
+    ReleaseSemaphore(
+        win32_handle,
+        increment,
+        (LONG*)opt_out_previous_count
+    );
+}
+SM_API void semaphore_wait_for(
+    Semaphore semaphore,
+    u32       timeout_ms
+) {
+    HANDLE win32_handle = (HANDLE)semaphore;
+    WaitForSingleObjectEx(
+        win32_handle,
+        timeout_ms,
+        FALSE
+    );
+}
+SM_API void semaphore_wait_for_multiple(
+    usize      count,
+    Semaphore* semaphores,
+    b32        wait_for_all,
+    u32        timeout_ms
+) {
+    const HANDLE* win32_handles = (const HANDLE*)semaphores;
+    WaitForMultipleObjects(
+        count,
+        win32_handles,
+        wait_for_all ? TRUE : FALSE,
+        timeout_ms
+    );
+}
+SM_API void semaphore_destroy( Semaphore semaphore ) {
+    HANDLE win32_handle = (HANDLE)semaphore;
+    CloseHandle( win32_handle );
+}
+
+SM_API u32 interlocked_increment( volatile u32* addend ) {
+    return InterlockedIncrement( addend );
+}
+SM_API u32 interlocked_decrement( volatile u32* addend ) {
+    return InterlockedDecrement( addend );
+}
+SM_API u32 interlocked_exchange( volatile u32* target, u32 value ) {
+    return InterlockedExchange( target, value );
+}
+SM_API void* interlocked_compare_exchange_pointer(
+    void* volatile* dst,
+    void* exchange,
+    void* comperand
+) {
+    return InterlockedCompareExchangePointer(
+        dst,
+        exchange,
+        comperand
+    );
+}
+SM_API u32 interlocked_compare_exchange(
+    u32 volatile* dst,
+    u32 exchange,
+    u32 comperand
+) {
+    return InterlockedCompareExchange(
+        dst,
+        exchange,
+        comperand
+    );
+}
 
 SM_API void mem_fence() {
     _ReadWriteBarrier();
@@ -151,7 +507,7 @@ SM_API MessageBoxResult message_box(
     }
 
     if( !uType ) {
-        LOG_ERROR("Message Box requires a valid type.");
+        WIN_LOG_ERROR("Message Box requires a valid type.");
         return MBRESULT_UNKNOWN_ERROR;
     }
 
@@ -193,7 +549,7 @@ SM_API MessageBoxResult message_box(
             result = MBRESULT_CANCEL;
             break;
         default:
-            LOG_ERROR("Message Box returned an unknown result.");
+            WIN_LOG_ERROR("Message Box returned an unknown result.");
             result = MBRESULT_UNKNOWN_ERROR;
             break;
     }

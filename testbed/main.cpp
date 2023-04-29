@@ -8,9 +8,17 @@
 #include <core/string.h>
 #include <platform/os.h>
 #include <platform/memory.h>
+#include <platform/threading.h>
 #include <stdio.h>
 
 void print_system_info( SystemInfo* info );
+
+ThreadReturnValue test_proc( void* ) {
+    for( usize i = 0; i < 10; ++i ) {
+        LOG_DEBUG("test proc!");
+    }
+    return 0;
+}
 
 int main( int, char** ) {
     log_init( LOG_LEVEL_ALL_VERBOSE );

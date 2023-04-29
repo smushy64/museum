@@ -148,4 +148,23 @@ struct SystemInfo {
 /// Get information about the current processor.
 SM_API SystemInfo query_system_info();
 
+/// Platform events.
+enum EventType : u32 {
+    EVENT_WINDOW_ACTIVATE,
+    EVENT_WINDOW_DESTROY,
+    
+    EVENT_SURFACE_DIMENSIONS_CHANGED,
+    EVENT_SURFACE_POSITION_CHANGED,
+
+    EVENT_KEY_DOWN,
+    EVENT_KEY_UP,
+
+    EVENT_MOUSE_BUTTON_DOWN,
+    EVENT_MOUSE_BUTTON_UP,
+    EVENT_MOUSE_MOVE,
+    EVENT_MOUSE_WHEEL,
+
+    EVENT_TYPE_COUNT
+};
+
 #endif
