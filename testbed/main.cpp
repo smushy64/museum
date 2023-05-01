@@ -21,8 +21,14 @@ ThreadReturnValue test_proc( void* ) {
 }
 
 int main( int, char** ) {
-    log_init( LOG_LEVEL_ALL_VERBOSE );
-    if( !platform_init( PLATFORM_INIT_DPI_AWARE ) ) {
+    if(!log_init( LOG_LEVEL_ALL_VERBOSE )) {
+        return -1;
+    }
+    PlatformState platform = {};
+    if( !platform_init(
+        PLATFORM_INIT_DPI_AWARE,
+        &platform
+    ) ) {
         return -1;
     }
     
@@ -46,19 +52,30 @@ int main( int, char** ) {
     }
 
     b32 running = true;
-    i32 counter = 0;
     while( running ) {
-        Event foo = {};
-        while( next_event( surface.handle, &foo ) ) {
-            SM_UNUSED(foo);
-        }
-        counter++;
-        if( counter >= 999999 ) {
-            running = false;
+        Event event = {};
+        while( next_event( surface.handle, &event ) ) {
+            isize buffer_size = format_event(
+                0, 0, &event
+            );
+            if( buffer_size ) {
+                buffer_size += 1;
+                char event_formatted_buffer[buffer_size];
+                format_event(
+                    buffer_size,
+                    event_formatted_buffer,
+                    &event
+                );
+                LOG_NOTE("%s", event_formatted_buffer);
+            }
+
+            if( event.type == EVENT_SURFACE_DESTROY ) {
+                running = false;
+            }
         }
     }
 
-    platform_shutdown();
+    platform_shutdown( &platform );
     return 0;
 }
 

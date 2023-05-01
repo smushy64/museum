@@ -4,8 +4,8 @@
  * File Created: April 27, 2023
 */
 #include "defines.h"
-
 #if defined(SM_PLATFORM_WINDOWS)
+
 #include "os.h"
 #include "memory.h"
 #include "threading.h"
@@ -16,6 +16,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOGDI
 #include <windows.h>
+#include <windowsx.h>
 #include <psapi.h>
 #include <xinput.h>
 
@@ -347,52 +348,65 @@ namespace internal {
     }
 
     typedef BOOL (*SetProcessDpiAwarenessContext_fn)( DPI_AWARENESS_CONTEXT );
-    inline SetProcessDpiAwarenessContext_fn in_SetProcessDpiAwarenessContext = nullptr;
+    [[maybe_unused]]
+    SM_GLOBAL SetProcessDpiAwarenessContext_fn in_SetProcessDpiAwarenessContext = nullptr;
 
     typedef UINT (*GetDpiForSystem_fn)();
-    inline GetDpiForSystem_fn in_GetDpiForSystem = nullptr;
+    [[maybe_unused]]
+    SM_GLOBAL GetDpiForSystem_fn in_GetDpiForSystem = nullptr;
 
     typedef BOOL (*AdjustWindowRectExForDpi_fn)( LPRECT, DWORD, BOOL, DWORD, UINT );
-    inline AdjustWindowRectExForDpi_fn in_AdjustWindowRectExForDpi = nullptr;
+    [[maybe_unused]]
+    SM_GLOBAL AdjustWindowRectExForDpi_fn in_AdjustWindowRectExForDpi = nullptr;
 
     typedef DWORD (*XInputGetState_fn)( DWORD, XINPUT_STATE* );
-    inline XInputGetState_fn in_XInputGetState = nullptr;
+    [[maybe_unused]]
+    SM_GLOBAL XInputGetState_fn in_XInputGetState = nullptr;
 
     typedef DWORD (*XInputSetState_fn)( DWORD, XINPUT_VIBRATION* );
-    inline XInputSetState_fn in_XInputSetState = nullptr;
+    [[maybe_unused]]
+    SM_GLOBAL XInputSetState_fn in_XInputSetState = nullptr;
 
     typedef HGLRC (*wglCreateContext_fn)(HDC);
-    inline wglCreateContext_fn in_wglCreateContext = nullptr;
+    [[maybe_unused]]
+    SM_GLOBAL wglCreateContext_fn in_wglCreateContext = nullptr;
 
     typedef BOOL (*wglMakeCurrent_fn)(HDC, HGLRC);
-    inline wglMakeCurrent_fn in_wglMakeCurrent = nullptr;
+    [[maybe_unused]]
+    SM_GLOBAL wglMakeCurrent_fn in_wglMakeCurrent = nullptr;
 
     typedef BOOL (*wglDeleteContext_fn)(HGLRC);
-    inline wglDeleteContext_fn in_wglDeleteContext = nullptr;
+    [[maybe_unused]]
+    SM_GLOBAL wglDeleteContext_fn in_wglDeleteContext = nullptr;
 
     typedef PROC (*wglGetProcAddress_fn)(LPCSTR);
-    inline wglGetProcAddress_fn in_wglGetProcAddress = nullptr;
+    [[maybe_unused]]
+    SM_GLOBAL wglGetProcAddress_fn in_wglGetProcAddress = nullptr;
 
     typedef HGLRC (*wglCreateContextAttribsARB_fn)(HDC, HGLRC, const int*);
-    inline wglCreateContextAttribsARB_fn in_wglCreateContextAttribsARB = nullptr;
+    [[maybe_unused]]
+    SM_GLOBAL wglCreateContextAttribsARB_fn in_wglCreateContextAttribsARB = nullptr;
 
     typedef int (*DescribePixelFormat_fn)(HDC, int, UINT, LPPIXELFORMATDESCRIPTOR);
-    inline DescribePixelFormat_fn in_DescribePixelFormat = nullptr;
+    [[maybe_unused]]
+    SM_GLOBAL DescribePixelFormat_fn in_DescribePixelFormat = nullptr;
 
     typedef int (*ChoosePixelFormat_fn)(HDC, const PIXELFORMATDESCRIPTOR*);
-    inline ChoosePixelFormat_fn in_ChoosePixelFormat = nullptr;
+    [[maybe_unused]]
+    SM_GLOBAL ChoosePixelFormat_fn in_ChoosePixelFormat = nullptr;
 
     typedef BOOL (*SetPixelFormat_fn)(HDC, int, const PIXELFORMATDESCRIPTOR*);
-    inline SetPixelFormat_fn in_SetPixelFormat = nullptr;
+    [[maybe_unused]]
+    SM_GLOBAL SetPixelFormat_fn in_SetPixelFormat = nullptr;
 
     typedef BOOL (*SwapBuffers_fn)(HDC);
-    inline SwapBuffers_fn in_SwapBuffers = nullptr;
+    [[maybe_unused]]
+    SM_GLOBAL SwapBuffers_fn in_SwapBuffers = nullptr;
 
     typedef void (*XInputEnable_fn)( BOOL );
-    inline void XInputEnableStub( BOOL enable ) {
-        SM_UNUSED( enable );
-    }
-    inline XInputEnable_fn in_XInputEnable = XInputEnableStub;
+    SM_INTERNAL void XInputEnableStub( BOOL enable ) { SM_UNUSED( enable ); }
+    [[maybe_unused]]
+    SM_GLOBAL XInputEnable_fn in_XInputEnable = XInputEnableStub;
 
 } // namespace internal
 
@@ -447,18 +461,123 @@ namespace internal {
 #define ERROR_INVALID_VERSION_ARB                 0x2095
 #define ERROR_INVALID_PROFILE_ARB                 0x2096
 
-SM_GLOBAL HMODULE LIB_USER32 = nullptr;
-SM_GLOBAL HMODULE LIB_XINPUT = nullptr;
-SM_GLOBAL HMODULE LIB_GL     = nullptr;
-SM_GLOBAL HMODULE LIB_GDI32  = nullptr;
+[[maybe_unused]]
+SM_INTERNAL void* win_proc_address(
+    HMODULE module,
+    const char* proc_name
+) {
+    void* result = (void*)GetProcAddress(
+        module,
+        proc_name
+    );
+
+#if defined(LD_LOGGING)
+    static const usize MODULE_NAME_BUFFER_SIZE = 128;
+    wchar_t module_name_buffer[MODULE_NAME_BUFFER_SIZE];
+    GetModuleBaseName(
+        GetCurrentProcess(),
+        module,
+        module_name_buffer,
+        MODULE_NAME_BUFFER_SIZE
+    );
+    if( result ) {
+        WIN_LOG_NOTE(
+            "Function \"%s\" loaded from module \"%ls\".",
+            proc_name,
+            module_name_buffer
+        );
+    } else {
+        WIN_LOG_ERROR(
+            "Failed to load function \"%s\" from module \"%ls\"!",
+            proc_name,
+            module_name_buffer
+        );
+    }
+#endif
+
+    return result;
+}
+[[maybe_unused]]
+SM_INTERNAL void* win_proc_address_required(
+    HMODULE module,
+    const char* proc_name
+) {
+    void* result = (void*)GetProcAddress(
+        module,
+        proc_name
+    );
+
+    if( result ) {
+#if defined(LD_LOGGING)
+        static const usize MODULE_NAME_BUFFER_SIZE = 128;
+        wchar_t module_name_buffer[MODULE_NAME_BUFFER_SIZE];
+        GetModuleBaseName(
+            GetCurrentProcess(),
+            module,
+            module_name_buffer,
+            MODULE_NAME_BUFFER_SIZE
+        );
+        WIN_LOG_NOTE(
+            "Function \"%s\" loaded from module \"%ls\".",
+            proc_name,
+            module_name_buffer
+        );
+#endif
+    } else {
+        static const usize MODULE_NAME_BUFFER_SIZE = 128;
+        wchar_t module_name_buffer[MODULE_NAME_BUFFER_SIZE];
+        GetModuleBaseName(
+            GetCurrentProcess(),
+            module,
+            module_name_buffer,
+            MODULE_NAME_BUFFER_SIZE
+        );
+        static const usize MESSAGE_BUFFER_SIZE = 512;
+        char message_buffer[MESSAGE_BUFFER_SIZE];
+        snprintf(
+            message_buffer,
+            MESSAGE_BUFFER_SIZE,
+            "Failed to load function \"%s\" from module \"%ls\"!",
+            proc_name,
+            module_name_buffer
+        );
+        WIN_LOG_ERROR("%s", message_buffer);
+        MESSAGE_BOX_FATAL(
+            "Failed to load function.",
+            message_buffer
+        );
+    }
+
+    return result;
+}
+
+struct Win32State {
+    HINSTANCE hInstace;
+
+    HMODULE   libUser32;
+    HMODULE   libXinput;
+    HMODULE   libGl;
+    HMODULE   libGdi32;
+};
 
 SM_API b32 platform_init(
-    PlatformInitFlags flags
+    PlatformInitFlags flags,
+    PlatformState* out_state
 ) {
+    void* win32_state_buffer = heap_alloc( sizeof(Win32State) );
+    if( !win32_state_buffer ) {
+        MESSAGE_BOX_FATAL(
+            "Out of Memory",
+            "Could not allocate space for Win32 State!"
+        );
+        return false;
+    }
+    *out_state = win32_state_buffer;
+    Win32State* state = (Win32State*)out_state;
 
     if( !win_library_load(
         L"USER32.DLL",
-        &LIB_USER32
+        &state->libUser32
     ) ) {
         MESSAGE_BOX_FATAL(
             "Failed to load library!",
@@ -468,15 +587,15 @@ SM_API b32 platform_init(
     }
     if( !win_library_load(
         L"XINPUT1_4.DLL",
-        &LIB_XINPUT
+        &state->libXinput
     ) ) {
         if( !win_library_load(
             L"XINPUT9_1_0.DLL",
-            &LIB_XINPUT
+            &state->libXinput
         ) ) {
             if( !win_library_load(
                 L"XINPUT1_3.DLL",
-                &LIB_XINPUT
+                &state->libXinput
             ) ) {
                 MESSAGE_BOX_FATAL(
                     "Failed to load library!",
@@ -488,7 +607,7 @@ SM_API b32 platform_init(
     }
     if( !win_library_load(
         L"OPENGL32.DLL",
-        &LIB_GL
+        &state->libGl
     ) ) {
         MESSAGE_BOX_FATAL(
             "Failed to load library!",
@@ -498,7 +617,7 @@ SM_API b32 platform_init(
     }
     if( !win_library_load(
         L"GDI32.DLL",
-        &LIB_GDI32
+        &state->libGdi32
     ) ) {
         MESSAGE_BOX_FATAL(
             "Failed to load library!",
@@ -508,125 +627,112 @@ SM_API b32 platform_init(
     }
 
     SetProcessDpiAwarenessContext =
-    (::internal::SetProcessDpiAwarenessContext_fn) GetProcAddress(
-        LIB_USER32,
+    (::internal::SetProcessDpiAwarenessContext_fn)win_proc_address_required(
+        state->libUser32,
         "SetProcessDpiAwarenessContext"
     );
     if( !SetProcessDpiAwarenessContext ) {
-        WIN_LOG_ERROR("Failed to load SetProcessDpiAwarenessContext");
         return false;
     }
 
     GetDpiForSystem =
-    (::internal::GetDpiForSystem_fn)GetProcAddress(
-        LIB_USER32,
+    (::internal::GetDpiForSystem_fn)win_proc_address_required(
+        state->libUser32,
         "GetDpiForSystem"
     );
     if( !GetDpiForSystem ) {
-        WIN_LOG_ERROR("Failed to load GetDpiForSystem");
         return false;
     }
 
     AdjustWindowRectExForDpi =
-    (::internal::AdjustWindowRectExForDpi_fn)GetProcAddress(
-        LIB_USER32,
+    (::internal::AdjustWindowRectExForDpi_fn)win_proc_address_required(
+        state->libUser32,
         "AdjustWindowRectExForDpi"
     );
     if( !AdjustWindowRectExForDpi ) {
-        WIN_LOG_ERROR("Failed to load AdjustWindowRectExForDpi");
         return false;
     }
 
     XInputGetState =
-    (::internal::XInputGetState_fn)GetProcAddress(
-        LIB_XINPUT,
+    (::internal::XInputGetState_fn)win_proc_address_required(
+        state->libXinput,
         "XInputGetState"
     );
     if( !XInputGetState ) {
-        WIN_LOG_ERROR("Failed to load XInputGetState");
         return false;
     }
     XInputSetState =
-    (::internal::XInputSetState_fn)GetProcAddress(
-        LIB_XINPUT,
+    (::internal::XInputSetState_fn)win_proc_address_required(
+        state->libXinput,
         "XInputSetState"
     );
     if( !XInputSetState ) {
-        WIN_LOG_ERROR("Failed to load XInputSetState");
         return false;
     }
 
     wglCreateContext =
-    (::internal::wglCreateContext_fn)GetProcAddress(
-        LIB_GL,
+    (::internal::wglCreateContext_fn)win_proc_address_required(
+        state->libGl,
         "wglCreateContext"
     );
     if( !wglCreateContext ) {
-        WIN_LOG_ERROR("Failed to load wglCreateContext");
         return false;
     }
     wglMakeCurrent =
-    (::internal::wglMakeCurrent_fn)GetProcAddress(
-        LIB_GL,
+    (::internal::wglMakeCurrent_fn)win_proc_address_required(
+        state->libGl,
         "wglMakeCurrent"
     );
     if( !wglMakeCurrent ) {
-        WIN_LOG_ERROR("Failed to load wglMakeCurrent");
         return false;
     }
     wglDeleteContext =
-    (::internal::wglDeleteContext_fn)GetProcAddress(
-        LIB_GL,
+    (::internal::wglDeleteContext_fn)win_proc_address_required(
+        state->libGl,
         "wglDeleteContext"
     );
     if( !wglDeleteContext ) {
-        WIN_LOG_ERROR("Failed to load wglDeleteContext");
         return false;
     }
     wglGetProcAddress =
-    (::internal::wglGetProcAddress_fn)GetProcAddress(
-        LIB_GL,
+    (::internal::wglGetProcAddress_fn)win_proc_address_required(
+        state->libGl,
         "wglGetProcAddress"
     );
     if( !wglGetProcAddress ) {
-        WIN_LOG_ERROR("Failed to load wglGetProcAddress");
         return false;
     }
 
     DescribePixelFormat =
-    (::internal::DescribePixelFormat_fn)GetProcAddress(
-        LIB_GDI32,
+    (::internal::DescribePixelFormat_fn)win_proc_address_required(
+        state->libGdi32,
         "DescribePixelFormat"
     );
     if( !DescribePixelFormat ) {
-        WIN_LOG_ERROR("Failed to load DescribePixelFormat");
         return false;
     }
     ChoosePixelFormat =
-    (::internal::ChoosePixelFormat_fn)GetProcAddress(
-        LIB_GDI32,
+    (::internal::ChoosePixelFormat_fn)win_proc_address_required(
+        state->libGdi32,
         "ChoosePixelFormat"
     );
     if( !ChoosePixelFormat ) {
-        WIN_LOG_ERROR("Failed to load ChoosePixelFormat");
         return false;
     }
     SetPixelFormat =
-    (::internal::SetPixelFormat_fn)GetProcAddress(
-        LIB_GDI32,
+    (::internal::SetPixelFormat_fn)win_proc_address_required(
+        state->libGdi32,
         "SetPixelFormat"
     );
     if( !SetPixelFormat ) {
-        WIN_LOG_ERROR("Failed to load SetPixelFormat");
         return false;
     }
     SwapBuffers =
-    (::internal::SwapBuffers_fn)GetProcAddress(
-        LIB_GDI32,
+    (::internal::SwapBuffers_fn)win_proc_address_required(
+        state->libGdi32,
         "SwapBuffers"
     );
     if( !SwapBuffers ) {
-        WIN_LOG_ERROR("Failed to load SwapBuffers");
         return false;
     }
 
@@ -640,84 +746,115 @@ SM_API b32 platform_init(
     return true;
 }
 
-SM_API void platform_shutdown() {
-    win_library_free( LIB_USER32 );
-    win_library_free( LIB_XINPUT );
-    win_library_free( LIB_GL );
-    win_library_free( LIB_GDI32 );
+SM_API void platform_shutdown( PlatformState* pstate ) {
+    Win32State* state = (Win32State*)pstate;
+
+    win_library_free( state->libUser32 );
+    win_library_free( state->libXinput );
+    win_library_free( state->libGl );
+    win_library_free( state->libGdi32 );
+
+    heap_free( state );
 }
 
 // PLATFORM INIT | END ----------------------------------------------------
 
 // MEMORY | BEGIN ---------------------------------------------------------
 
-static usize HEAP_MEMORY_USAGE = 0;
+SM_GLOBAL usize HEAP_MEMORY_USAGE = 0;
+SM_GLOBAL usize PAGE_MEMORY_USAGE = 0;
 SM_API usize query_heap_memory_usage() {
     return HEAP_MEMORY_USAGE;
 }
+SM_API usize query_page_memory_usage() {
+    return PAGE_MEMORY_USAGE;
+}
 
-SM_API MemoryBlock heap_alloc( usize size ) {
-    MemoryBlock result = {};
+SM_API void* heap_alloc( usize size ) {
     void* pointer = (void*)HeapAlloc(
         GetProcessHeap(),
         HEAP_ZERO_MEMORY,
         size
     );
+#if defined(LD_PROFILING)
     if( pointer ) {
         HEAP_MEMORY_USAGE += size;
-        result.pointer = pointer;
-        result.size    = size;
     }
-    return result;
+#endif
+    return pointer;
 }
-SM_API b32 heap_realloc( MemoryBlock* memory, usize new_size ) {
-    void* new_pointer = (void*)HeapReAlloc(
+SM_API void* heap_realloc( void* memory, usize new_size ) {
+
+#if defined(LD_PROFILING)
+    SIZE_T previous_size = HeapSize(
         GetProcessHeap(),
-        HEAP_ZERO_MEMORY |
-        HEAP_REALLOC_IN_PLACE_ONLY,
-        memory->pointer,
+        0,
+        memory
+    );
+#endif
+
+    void* pointer = (void*)HeapReAlloc(
+        GetProcessHeap(),
+        HEAP_ZERO_MEMORY,
+        memory,
         new_size
     );
-    if( !new_pointer ) {
-        return false;
+
+#if defined(LD_PROFILING)
+    if( pointer && previous_size != (SIZE_T)-1 ) {
+        usize diff = new_size - previous_size;
+        HEAP_MEMORY_USAGE += diff;
+    }
+#endif
+
+    return pointer;
+}
+SM_API void heap_free( void* memory ) {
+
+#if defined(LD_PROFILING)
+    SIZE_T mem_size = HeapSize(
+        GetProcessHeap(),
+        0,
+        memory
+    );
+    if( mem_size != (SIZE_T)-1 ) {
+        HEAP_MEMORY_USAGE -= mem_size;
     }
 
-    usize size_diff = new_size - memory->size;
-    HEAP_MEMORY_USAGE += size_diff;
+#endif
 
-    memory->pointer = new_pointer;
-    memory->size    = new_size;
-
-    return true;
-}
-SM_API void heap_free( MemoryBlock* memory ) {
-    HeapFree( GetProcessHeap(), 0, memory->pointer );
-    HEAP_MEMORY_USAGE -= memory->size;
-    *memory = {};
+    HeapFree( GetProcessHeap(), 0, memory );
 }
 
-SM_API MemoryBlock page_alloc( usize size ) {
-    MemoryBlock result = {};
+SM_API void* page_alloc( usize size ) {
     void* pointer = (void*)VirtualAlloc(
         nullptr,
         size,
         MEM_RESERVE | MEM_COMMIT,
         PAGE_READWRITE
     );
-    if( pointer ) {
-        result.pointer = pointer;
-        result.size    = size;
-    }
 
-    return result;
+#if defined(LD_PROFILING)
+    PAGE_MEMORY_USAGE += size;
+#endif
+    return pointer;
 }
-SM_API void page_free( MemoryBlock* memory ) {
+SM_API void page_free( void* memory ) {
+#if defined(LD_PROFILING)
+    MEMORY_BASIC_INFORMATION info;
+    if(VirtualQuery(
+        memory,
+        &info,
+        sizeof(MEMORY_BASIC_INFORMATION)
+    )) {
+        PAGE_MEMORY_USAGE -= info.RegionSize;
+    }
+#endif
     VirtualFree(
-        memory->pointer,
+        memory,
         0,
         MEM_RELEASE | MEM_DECOMMIT
     );
-    *memory = {};
 }
 
 // MEMORY | END   ---------------------------------------------------------
@@ -731,18 +868,14 @@ struct Win32ThreadHandle {
     DWORD      id;
 };
 
-DWORD WINAPI win_thread_proc( void* params ) {
+SM_INTERNAL DWORD WINAPI win_thread_proc( void* params ) {
     Win32ThreadHandle* thread_handle = (Win32ThreadHandle*)params;
 
     DWORD return_value = thread_handle->proc(
         thread_handle->params
     );
 
-    HeapFree(
-        GetProcessHeap(),
-        0,
-        params
-    );
+    heap_free( params );
 
     return return_value;
 }
@@ -754,11 +887,7 @@ SM_API ThreadHandle thread_create(
     void*      params,
     b32        run_on_creation
 ) {
-    void* handle_buffer = HeapAlloc(
-        GetProcessHeap(),
-        HEAP_ZERO_MEMORY,
-        sizeof(Win32ThreadHandle)
-    );
+    void* handle_buffer = heap_alloc( sizeof(Win32ThreadHandle) );
     if( !handle_buffer ) {
         return nullptr;
     }
@@ -934,6 +1063,7 @@ SM_API MessageBoxResult message_box(
     LPCSTR lpText    = message;
     LPCSTR lpCaption = window_title;
 
+    b32  valid_type = true;
     UINT uType = 0;
     switch( type ) {
         case MBTYPE_OK:
@@ -951,10 +1081,12 @@ SM_API MessageBoxResult message_box(
         case MBTYPE_YESNOCANCEL:
             uType |= MB_YESNOCANCEL;
             break;
-        default: break;
+        default:
+            valid_type = false;
+            break;
     }
 
-    if( !uType ) {
+    if( !valid_type ) {
         WIN_LOG_ERROR("Message Box requires a valid type.");
         return MBRESULT_UNKNOWN_ERROR;
     }
@@ -1013,24 +1145,26 @@ struct Win32SurfaceData {
     HDC hDc;
 };
 
-HINSTANCE HINSTANCE_HANDLE = nullptr;
-HINSTANCE get_hinstance() {
+SM_GLOBAL HINSTANCE HINSTANCE_HANDLE = nullptr;
+SM_INTERNAL HINSTANCE get_hinstance() {
     if( !HINSTANCE_HANDLE ) {
         HINSTANCE_HANDLE = GetModuleHandleA(0);
     }
     return HINSTANCE_HANDLE;
 }
 
-LRESULT win_proc(
+SM_INTERNAL LRESULT win_proc(
     HWND hWnd, UINT Msg,
     WPARAM wParam, LPARAM lParam
 ) {
-    return DefWindowProc(
-        hWnd,
-        Msg,
-        wParam,
-        lParam
-    );
+    switch( Msg ) {
+        default: return DefWindowProc(
+            hWnd,
+            Msg,
+            wParam,
+            lParam
+        );
+    }
 }
 
 SM_API b32 surface_create(
@@ -1057,10 +1191,10 @@ SM_API b32 surface_create(
     
     Win32SurfaceData* win32_surface = (Win32SurfaceData*)win32_surface_data_buffer;
 
-    WNDCLASSEX window_class    = {};
-    window_class.cbSize        = sizeof(WNDCLASSEX);
-    window_class.lpfnWndProc   = win_proc;
-    window_class.hInstance     = get_hinstance();
+    WNDCLASSEX window_class  = {};
+    window_class.cbSize      = sizeof(WNDCLASSEX);
+    window_class.lpfnWndProc = win_proc;
+    window_class.hInstance   = get_hinstance();
 
     static const wchar_t* BASE_CLASS_NAME = L"LiquidEngineWindowClass";
     static const usize BASE_CLASS_NAME_LEN = wcslen(BASE_CLASS_NAME);
@@ -1128,8 +1262,7 @@ SM_API b32 surface_create(
             return false;
         }
     } else {
-        // TODO(alicia): non dpi aware!
-        LOG_ASSERT(false, "what the fuck");
+        DEBUG_UNIMPLEMENTED();
     }
 
     int window_name_len = strlen(surface_name) + 1;
@@ -1166,10 +1299,10 @@ SM_API b32 surface_create(
     }
 
     // TODO(alicia): set window position!
-    out_surface->handle     = hWnd;
-    out_surface->is_focused = false;
+    out_surface->handle = hWnd;
 
     if( (flags & SURFACE_FLAG_SHOW_ON_CREATE) == SURFACE_FLAG_SHOW_ON_CREATE ) {
+        out_surface->is_focused = true;
         ShowWindow( hWnd, SW_SHOW );
     }
 
@@ -1240,7 +1373,6 @@ SM_API b32 next_event( SurfaceHandle surface, Event* event ) {
                 }
             }
 
-            return false;
         } break;
 
         default: {
@@ -1343,4 +1475,4 @@ SM_API SystemInfo query_system_info() {
     return result;
 }
 
-#endif
+#endif // SM_PLATFORM_WINDOWS

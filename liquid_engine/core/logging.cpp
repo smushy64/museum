@@ -29,17 +29,19 @@ static LogLevel GLOBAL_LOG_LEVEL = LOG_LEVEL_NONE;
 )
 
 static usize BUFFER_SIZE        = KILOBYTES(1);
-static MemoryBlock PRINT_BUFFER = {};
+static char* PRINT_BUFFER = {};
 
-SM_API void log_init( LogLevel level ) {
+SM_API b32 log_init( LogLevel level ) {
     #if defined(LD_LOGGING)
         SM_ASSERT( level <= MAX_LOG_LEVEL );
         GLOBAL_LOG_LEVEL = level;
 
-        MemoryBlock print_buffer = heap_alloc( BUFFER_SIZE );
-        SM_ASSERT( print_buffer.pointer );
+        void* print_buffer = heap_alloc( BUFFER_SIZE );
+        if( !print_buffer ) {
+            return false;
+        }
 
-        PRINT_BUFFER = print_buffer;
+        PRINT_BUFFER = (char*)print_buffer;
 
         #if defined(SM_PLATFORM_WINDOWS)
             CONSOLE_HANDLE = GetStdHandle( STD_OUTPUT_HANDLE );
@@ -57,6 +59,8 @@ SM_API void log_init( LogLevel level ) {
             );
         #endif
     #endif
+
+    return true;
 }
 
 static const char* LOG_COLOR_CODES[LOG_COLOR_COUNT] = {
@@ -99,7 +103,7 @@ SM_API void log_formatted_locked(
 #if defined(LD_LOGGING)
 
     #if defined(SM_ASSERTIONS)
-        if( !PRINT_BUFFER.pointer ) {
+        if( !PRINT_BUFFER ) {
             printf(
                 "LOG INIT WAS NOT CALLED BEFORE THIS LOG MESSAGE!\n"
             );
@@ -129,7 +133,7 @@ SM_API void log_formatted_locked(
     va_start( args, format );
 
     int write_size = vsnprintf(
-        (char*)PRINT_BUFFER.pointer,
+        PRINT_BUFFER,
         BUFFER_SIZE,
         format,
         args
@@ -146,16 +150,16 @@ SM_API void log_formatted_locked(
     }
 
     if( new_line ) {
-        ((char*)PRINT_BUFFER.pointer)[write_size] = '\n';
-        ((char*)PRINT_BUFFER.pointer)[write_size + 1] = 0;
+        PRINT_BUFFER[write_size] = '\n';
+        PRINT_BUFFER[write_size + 1] = 0;
     }
 
     set_color( color );
-    printf( (char*)PRINT_BUFFER.pointer );
+    printf( PRINT_BUFFER );
     set_color( LOG_COLOR_RESET );
 
     #if defined(SM_PLATFORM_WINDOWS) && defined(LD_OUTPUT_DEBUG_STRING)
-        OutputDebugStringA( (char*)PRINT_BUFFER.pointer );
+        OutputDebugStringA( PRINT_BUFFER );
     #endif
 
     pthread_mutex_unlock( &MUTEX );

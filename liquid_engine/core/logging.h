@@ -6,8 +6,9 @@
  * File Created: April 27, 2023
  * Notes:        define LD_LOGGING to enable logging
  *               define LD_OUTPUT_DEBUG_STRING to
- *                  use OutputDebugStringA on Win32
- *               always call "log_init" at the very start of the program
+ *                 use OutputDebugStringA on Win32
+ *               always call "log_init" at the
+ *                 very start of the program
 */
 #include "defines.h"
 
@@ -66,7 +67,7 @@ typedef u32 LogLevel;
 typedef u32 LogFlags;
 
 /// initialize logging library
-SM_API void log_init( LogLevel level );
+SM_API b32 log_init( LogLevel level );
 /// log a formatted message, uses a mutex
 /// to prevent crosstalk between threads.
 SM_API void log_formatted_locked(
