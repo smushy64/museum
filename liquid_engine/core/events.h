@@ -7,6 +7,7 @@
 */
 #include "defines.h"
 #include "input.h"
+#include "smath.h"
 
 #define MIN_EVENT_BUFFER_SIZE 32
 
@@ -14,25 +15,24 @@ enum EventType : u32 {
     EVENT_TYPE_SURFACE_DESTROY,
 };
 
+#define EVENT_MAX_USER_DATA_SIZE 16
+
 struct Event {
     EventType type;
-    u32 surface_id;
-    union {
-        i64 int64_2[2];
-        u64 uint64_2[2];
-        f64 double_2[2];
-
-        i32 int32_4[4];
-        u32 uint32_4[4];
-        f32 float_4[4];
-
-        i16 int16_8[8];
-        u16 uint16_8[8];
-
-        i8 int8_16[16];
-        u8 uint8_16[16];
-
-        char char16[16];
+    union EventData {
+        u8 bytes[EVENT_MAX_USER_DATA_SIZE];
+        struct {
+            KeyCode code;
+            b32     is_down;
+        } keyboard;
+        struct {
+            MouseCode code;
+            b32       is_down;
+        } mouse_button;
+        union {
+            i32   x, y;
+            ivec2 coord;
+        } mouse_position;
     } data;
 };
 

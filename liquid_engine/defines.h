@@ -133,9 +133,9 @@ typedef void* pvoid;
     #define SM_API_INTERNAL
 #endif
 
-#define KILOBYTES( num ) ( num * 1024ULL )
-#define MEGABYTES( num ) ( KILOBYTES( num ) * 1024ULL )
-#define GIGABYTES( num ) ( MEGABYTES( num ) * 1024ULL )
+#define KILOBYTES(num) ( num * 1024ULL )
+#define MEGABYTES(num) ( KILOBYTES( num ) * 1024ULL )
+#define GIGABYTES(num) ( MEGABYTES( num ) * 1024ULL )
 
 // assert that type sizes are correct
 SM_STATIC_ASSERT(sizeof(u8)  == 1, "Expected u8 to be 1 byte!");

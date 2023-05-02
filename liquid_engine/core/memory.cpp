@@ -5,7 +5,7 @@
 */
 #include "memory.h"
 #include "logging.h"
-#include "platform/os.h"
+#include "platform/platform.h"
 
 #define MEMORY_FIELD_SIZE  0
 #define MEMORY_FIELD_TYPE  1

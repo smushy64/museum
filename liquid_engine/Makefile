@@ -3,7 +3,7 @@
 # * File Created: April 27, 2023
 # * Notes:        
 
-MAKEFLAGS += -j5
+MAKEFLAGS += -j4
 
 target  := ../$(BUILD_PATH)/$(liquid_engine_dll)
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
@@ -13,9 +13,10 @@ engine_obj_path := $(obj_path)/engine
 cpp := $(call recurse,,*.cpp)
 c   := $(call recurse,,*.c)
 
-
 c_obj   := $(c:%=$(engine_obj_path)/%.o)
 cpp_obj := $(cpp:%=$(engine_obj_path)/%.o)
+
+deps := $(subst .o,.d,$(c_obj)) $(subst .o,.d,$(cpp_obj))
 
 engine_cpp_flags := $(preprocessor_flags) -DSM_EXPORT
 

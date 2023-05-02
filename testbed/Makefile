@@ -3,7 +3,7 @@
 # * File Created: April 27, 2023
 # * Notes:        
 
-MAKEFLAGS += -j5
+MAKEFLAGS += -j4
 
 target  := ../$(BUILD_PATH)/$(testbed_name)
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))

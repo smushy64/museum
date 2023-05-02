@@ -5,11 +5,12 @@
 */
 #include "string.h"
 #include "logging.h"
+#include "memory.h"
 
 // TODO(alicia): custom format functions!
 #include <stdio.h>
 
-usize string_length( const char* string ) {
+usize str_length( const char* string ) {
     usize result = 0;
 
     if( *string ) {
@@ -21,13 +22,98 @@ usize string_length( const char* string ) {
     return result;
 }
 
-SM_INTERNAL b32 is_whitespace( char character ) {
-    return
-        character == ' ' ||
-        character == '\t';
+SM_INTERNAL isize str_concat_sized(
+    usize a_length,
+    const char* a,
+    usize b_length,
+    const char* b,
+    usize dst_size,
+    char* dst
+) {
+    SM_ASSERT( a && b && dst && dst_size );
+
+    usize total_length = a_length + b_length + 1;
+    
+    usize remaining_dst_size = dst_size;
+
+    if( a_length > remaining_dst_size ) {
+        mem_copy( dst, a, remaining_dst_size );
+        dst[dst_size - 1] = 0;
+        return total_length - dst_size;
+    }
+
+    mem_copy( dst, a, a_length );
+    remaining_dst_size -= a_length;
+
+    if( b_length > remaining_dst_size ) {
+        mem_copy(
+            dst + a_length,
+            b,
+            remaining_dst_size
+        );
+        dst[dst_size - 1] = 0;
+        return total_length - dst_size;
+    }
+
+    mem_copy(
+        dst + a_length,
+        b,
+        b_length
+    );
+
+    remaining_dst_size -= b_length;
+
+    dst[dst_size - 1] = 0;
+    return --remaining_dst_size;
 }
 
-void string_trim_trailing_whitespace(
+isize str_concat(
+    const char* a,
+    const char* b,
+    usize dst_size,
+    char* dst
+) {
+    return str_concat_sized(
+        str_length(a),
+        a,
+        str_length(b),
+        b,
+        dst_size,
+        dst
+    );
+}
+
+isize str_overlap_concat(
+    const char* a,
+    const char* b,
+    usize dst_size,
+    char* dst
+) {
+    usize a_length = str_length(a);
+    usize b_length = str_length(b);
+    usize total_size = a_length + b_length + 1;
+    char intermediate[total_size];
+    str_concat_sized(
+        a_length,
+        a,
+        b_length,
+        b,
+        total_size,
+        intermediate
+    );
+
+    isize copy_size = total_size > dst_size ? dst_size : total_size;
+    mem_copy(
+        dst,
+        intermediate,
+        copy_size
+    );
+    dst[dst_size - 1] = 0;
+
+    return copy_size - (isize)dst_size;
+}
+
+void str_trim_trailing_whitespace(
     isize buffer_size,
     char* string_buffer
 ) {

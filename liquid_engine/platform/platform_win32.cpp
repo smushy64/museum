@@ -6,8 +6,7 @@
 #include "defines.h"
 #if defined(SM_PLATFORM_WINDOWS)
 
-#include "os.h"
-#include "threading.h"
+#include "platform.h"
 #include "core/logging.h"
 #include "core/string.h"
 #include "core/memory.h"
@@ -53,130 +52,117 @@ SM_GLOBAL b32 IS_DPI_AWARE = false;
 // LOGGING | BEGIN --------------------------------------------------------
 
 #if defined(LD_LOGGING)
-    #define WIN_LOG_NOTE( ... ) \
+    #define WIN_LOG_NOTE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE,\
             LOG_COLOR_RESET,\
             LOG_FLAG_NEW_LINE,\
-            "[NOTE WIN32  ] " __VA_ARGS__\
+            "[NOTE WIN32  ] " format,\
+            ##__VA_ARGS__\
         )
-    #define WIN_LOG_INFO( ... ) \
+    #define WIN_LOG_INFO( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_INFO,\
             LOG_COLOR_WHITE,\
             LOG_FLAG_NEW_LINE,\
-            "[INFO WIN32  ] " __VA_ARGS__\
+            "[INFO WIN32  ] " format,\
+            ##__VA_ARGS__\
         )
-    #define WIN_LOG_DEBUG( ... ) \
+    #define WIN_LOG_DEBUG( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_DEBUG,\
             LOG_COLOR_BLUE,\
             LOG_FLAG_NEW_LINE,\
-            "[DEBUG WIN32 ] " __VA_ARGS__\
+            "[DEBUG WIN32 ] " format,\
+            ##__VA_ARGS__\
         )
-    #define WIN_LOG_WARN( ... ) \
+    #define WIN_LOG_WARN( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_WARN,\
             LOG_COLOR_YELLOW,\
             LOG_FLAG_NEW_LINE,\
-            "[WARN WIN32  ] " __VA_ARGS__\
+            "[WARN WIN32  ] " format,\
+            ##__VA_ARGS__\
         )
-    #define WIN_LOG_ERROR( ... ) \
+    #define WIN_LOG_ERROR( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_ERROR,\
             LOG_COLOR_RED,\
             LOG_FLAG_NEW_LINE,\
-            "[ERROR WIN32 ] " __VA_ARGS__\
+            "[ERROR WIN32 ] " format,\
+            ##__VA_ARGS__\
         )
 
-
-    #define WIN_LOG_NOTE_TRACE( ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,\
-            LOG_COLOR_RESET, 0,\
-            "[NOTE WIN32  | %s | %s:%i] ",\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__\
-        );\
+    #define WIN_LOG_NOTE_TRACE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,\
             LOG_COLOR_RESET,\
             LOG_FLAG_NEW_LINE,\
-            __VA_ARGS__\
-        )
-
-    #define WIN_LOG_INFO_TRACE( ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
-            LOG_COLOR_WHITE, 0,\
-            "[INFO WIN32  | %s | %s:%i] ",\
+            "[NOTE WIN32  | %s() | %s:%i] " format,\
             __FUNCTION__,\
             __FILE__,\
-            __LINE__\
-        );\
+            __LINE__,\
+            ##__VA_ARGS__\
+        )
+
+    #define WIN_LOG_INFO_TRACE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
             LOG_COLOR_WHITE,\
             LOG_FLAG_NEW_LINE,\
-            __VA_ARGS__\
-        )
-    #define WIN_LOG_DEBUG_TRACE( ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_DEBUG | LOG_LEVEL_TRACE,\
-            LOG_COLOR_BLUE, 0,\
-            "[DEBUG WIN32 | %s | %s:%i] ",\
+            "[INFO WIN32  | %s() | %s:%i] " format,\
             __FUNCTION__,\
             __FILE__,\
-            __LINE__\
-        );\
+            __LINE__,\
+            ##__VA_ARGS__\
+        )
+
+    #define WIN_LOG_DEBUG_TRACE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_DEBUG | LOG_LEVEL_TRACE,\
             LOG_COLOR_BLUE,\
             LOG_FLAG_NEW_LINE,\
-            __VA_ARGS__\
-        )
-    #define WIN_LOG_WARN_TRACE( ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_WARN | LOG_LEVEL_TRACE,\
-            LOG_COLOR_YELLOW, 0,\
-            "[WARN WIN32  | %s | %s:%i] ",\
+            "[DEBUG WIN32 | %s() | %s:%i] " format,\
             __FUNCTION__,\
             __FILE__,\
-            __LINE__\
-        );\
+            __LINE__,\
+            ##__VA_ARGS__\
+        )
+        
+    #define WIN_LOG_WARN_TRACE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_WARN | LOG_LEVEL_TRACE,\
             LOG_COLOR_YELLOW,\
             LOG_FLAG_NEW_LINE,\
-            __VA_ARGS__\
-        )
-    #define WIN_LOG_ERROR_TRACE( ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
-            LOG_COLOR_RED, 0,\
-            "[ERROR WIN32 | %s | %s:%i] ",\
+            "[WARN WIN32  | %s() | %s:%i] " format,\
             __FUNCTION__,\
             __FILE__,\
-            __LINE__\
-        );\
+            __LINE__,\
+            ##__VA_ARGS__\
+        )
+
+    #define WIN_LOG_ERROR_TRACE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
             LOG_COLOR_RED,\
             LOG_FLAG_NEW_LINE,\
-            __VA_ARGS__\
+            "[ERROR WIN32 | %s() | %s:%i] " format,\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__,\
+            ##__VA_ARGS__\
         )
 #else
-    #define WIN_LOG_NOTE( ... )
-    #define WIN_LOG_INFO( ... )
-    #define WIN_LOG_DEBUG( ... )
-    #define WIN_LOG_WARN( ... )
-    #define WIN_LOG_ERROR( ... )
-    #define WIN_LOG_NOTE_TRACE( ... )
-    #define WIN_LOG_INFO_TRACE( ... )
-    #define WIN_LOG_DEBUG_TRACE( ... )
-    #define WIN_LOG_WARN_TRACE( ... )
-    #define WIN_LOG_ERROR_TRACE( ... )
+    #define WIN_LOG_NOTE( format, ... )
+    #define WIN_LOG_INFO( format, ... )
+    #define WIN_LOG_DEBUG( format, ... )
+    #define WIN_LOG_WARN( format, ... )
+    #define WIN_LOG_ERROR( format, ... )
+    #define WIN_LOG_NOTE_TRACE( format, ... )
+    #define WIN_LOG_INFO_TRACE( format, ... )
+    #define WIN_LOG_DEBUG_TRACE( format, ... )
+    #define WIN_LOG_WARN_TRACE( format, ... )
+    #define WIN_LOG_ERROR_TRACE( format, ... )
 #endif
 
 DWORD win_log_error( b32 present_message_box ) {
@@ -802,7 +788,7 @@ b32 platform_init(
         return false;
     }
 
-    if( (flags & PLATFORM_INIT_DPI_AWARE) == PLATFORM_INIT_DPI_AWARE ) {
+    if( CHECK_FLAG( flags, PLATFORM_DPI_AWARE ) ) {
         SetProcessDpiAwarenessContext(
             DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
         );
@@ -1221,7 +1207,7 @@ b32 surface_create(
 ) {
     Win32State* state = (Win32State*)platform_state->platform_data;
 
-    usize surface_name_length = string_length( surface_name ) + 1;
+    usize surface_name_length = str_length( surface_name ) + 1;
     out_surface->name = (char*)mem_alloc( surface_name_length, MEMTYPE_PLATFORM_DATA );
     if( !out_surface->name ) {
         MESSAGE_BOX_FATAL(
@@ -1357,7 +1343,7 @@ b32 surface_create(
         Win32Surface* parent_surface = (Win32Surface*)opt_parent->platform_data;
         hWndParent = parent_surface->window;
     }
-    usize window_name_len = string_length(surface_name) + 1;
+    usize window_name_len = str_length(surface_name) + 1;
     wchar_t lpWindowName[window_name_len];
     mbstowcs(
         lpWindowName,
@@ -1439,7 +1425,7 @@ void surface_swap_buffers( Surface* surface ) {
     SwapBuffers( win_surface->hDc );
 }
 void surface_set_name( Surface* surface, const char* new_name ) {
-    usize new_name_length = string_length(new_name) + 1;
+    usize new_name_length = str_length(new_name) + 1;
     if( new_name_length > surface->name_length ) {
         void* new_buffer = mem_realloc(
             surface->name,
@@ -1599,7 +1585,7 @@ SystemInfo query_system_info() {
         sizeof(cpu_info)
     );
 
-    string_trim_trailing_whitespace(
+    str_trim_trailing_whitespace(
         CPU_NAME_BUFFER_LEN,
         result.cpu_name_buffer
     );
