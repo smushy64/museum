@@ -4,11 +4,51 @@
  * File Created: April 28, 2023
 */
 #include "string.h"
+#include "logging.h"
 
 // TODO(alicia): custom format functions!
 #include <stdio.h>
 
-SM_API isize format_bytes(
+usize string_length( const char* string ) {
+    usize result = 0;
+
+    if( *string ) {
+        do {
+            result++;
+        } while( *string++ );
+    }
+
+    return result;
+}
+
+SM_INTERNAL b32 is_whitespace( char character ) {
+    return
+        character == ' ' ||
+        character == '\t';
+}
+
+void string_trim_trailing_whitespace(
+    isize buffer_size,
+    char* string_buffer
+) {
+    for( isize i = buffer_size - 1; i > 0; --i ) {
+        char current = string_buffer[i];
+        if(
+            !is_whitespace(current) &&
+            current != 0
+        ) {
+            isize index = i + 1;
+            if( index >= buffer_size ) {
+                return;
+            }
+            string_buffer[i + 1] = 0;
+
+            return;
+        }
+    }
+}
+
+isize format_bytes(
     usize bytes,
     char* buffer,
     usize buffer_size
@@ -34,16 +74,16 @@ SM_API isize format_bytes(
         }
     }
 
-    const char* format = "%5.2f B";
+    const char* format = "%10.3f B";
     switch( type ) {
         case IS_KB:
-            format = "%5.2f KB";
+            format = "%10.3f KB";
             break;
         case IS_MB:
-            format = "%5.2f MB";
+            format = "%10.3f MB";
             break;
         case IS_GB:
-            format = "%5.2f GB";
+            format = "%10.3f GB";
             break;
         default: break;
     }

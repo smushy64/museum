@@ -4,7 +4,7 @@
  * File Created: April 27, 2023
 */
 #include "logging.h"
-#include "platform/memory.h"
+#include "memory.h"
 
 // TODO(alicia): custom printf!
 // TODO(alicia): custom mutex!
@@ -36,7 +36,10 @@ SM_API b32 log_init( LogLevel level ) {
         SM_ASSERT( level <= MAX_LOG_LEVEL );
         GLOBAL_LOG_LEVEL = level;
 
-        void* print_buffer = heap_alloc( BUFFER_SIZE );
+        void* print_buffer = internal::impl_mem_alloc(
+            BUFFER_SIZE,
+            MEMTYPE_PLATFORM_DATA
+        );
         if( !print_buffer ) {
             return false;
         }

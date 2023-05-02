@@ -79,172 +79,153 @@ SM_API void log_formatted_locked(
 );
 
 #if defined(LD_LOGGING)
-    #define LOG_NOTE( ... ) \
+
+    #define LOG_NOTE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE,\
             LOG_COLOR_RESET,\
             LOG_FLAG_NEW_LINE,\
-            "[NOTE  ] " __VA_ARGS__\
+            "[NOTE  ] " format,\
+            ##__VA_ARGS__\
         )
-    #define LOG_INFO( ... ) \
+    #define LOG_INFO( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_INFO,\
             LOG_COLOR_WHITE,\
             LOG_FLAG_NEW_LINE,\
-            "[INFO  ] " __VA_ARGS__\
+            "[INFO  ] " format,\
+            ##__VA_ARGS__\
         )
-    #define LOG_DEBUG( ... ) \
+    #define LOG_DEBUG( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_DEBUG,\
             LOG_COLOR_BLUE,\
             LOG_FLAG_NEW_LINE,\
-            "[DEBUG ] " __VA_ARGS__\
+            "[DEBUG ] " format,\
+            ##__VA_ARGS__\
         )
-    #define LOG_WARN( ... ) \
+    #define LOG_WARN( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_WARN,\
             LOG_COLOR_YELLOW,\
             LOG_FLAG_NEW_LINE,\
-            "[WARN  ] " __VA_ARGS__\
+            "[WARN  ] " format,\
+            ##__VA_ARGS__\
         )
-    #define LOG_ERROR( ... ) \
+    #define LOG_ERROR( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_ERROR,\
             LOG_COLOR_RED,\
             LOG_FLAG_NEW_LINE,\
-            "[ERROR ] " __VA_ARGS__\
+            "[ERROR ] " format,\
+            ##__VA_ARGS__\
         )
 
-
-    #define LOG_NOTE_TRACE( ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,\
-            LOG_COLOR_RESET, 0,\
-            "[NOTE  | %s | %s:%i] ",\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__\
-        );\
+    #define LOG_NOTE_TRACE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,\
             LOG_COLOR_RESET,\
             LOG_FLAG_NEW_LINE,\
-            __VA_ARGS__\
-        )
-    #define LOG_INFO_TRACE( ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
-            LOG_COLOR_WHITE, 0,\
-            "[INFO  | %s | %s:%i] ",\
+            "[NOTE  | %s() | %s:%i] " format,\
             __FUNCTION__,\
             __FILE__,\
-            __LINE__\
-        );\
+            __LINE__,\
+            ##__VA_ARGS__\
+        )
+
+    #define LOG_INFO_TRACE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
             LOG_COLOR_WHITE,\
             LOG_FLAG_NEW_LINE,\
-            __VA_ARGS__\
-        )
-    #define LOG_DEBUG_TRACE( ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_DEBUG | LOG_LEVEL_TRACE,\
-            LOG_COLOR_BLUE, 0,\
-            "[DEBUG | %s | %s:%i] ",\
+            "[INFO  | %s() | %s:%i] " format,\
             __FUNCTION__,\
             __FILE__,\
-            __LINE__\
-        );\
+            __LINE__,\
+            ##__VA_ARGS__\
+        )
+
+    #define LOG_DEBUG_TRACE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_DEBUG | LOG_LEVEL_TRACE,\
             LOG_COLOR_BLUE,\
             LOG_FLAG_NEW_LINE,\
-            __VA_ARGS__\
-        )
-    #define LOG_WARN_TRACE( ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_WARN | LOG_LEVEL_TRACE,\
-            LOG_COLOR_YELLOW, 0,\
-            "[WARN  | %s | %s:%i] ",\
+            "[DEBUG | %s() | %s:%i] " format,\
             __FUNCTION__,\
             __FILE__,\
-            __LINE__\
-        );\
+            __LINE__,\
+            ##__VA_ARGS__\
+        )
+        
+    #define LOG_WARN_TRACE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_WARN | LOG_LEVEL_TRACE,\
             LOG_COLOR_YELLOW,\
             LOG_FLAG_NEW_LINE,\
-            __VA_ARGS__\
-        )
-    #define LOG_ERROR_TRACE( ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
-            LOG_COLOR_RED, 0,\
-            "[ERROR | %s | %s:%i] ",\
+            "[WARN  | %s() | %s:%i] " format,\
             __FUNCTION__,\
             __FILE__,\
-            __LINE__\
-        );\
+            __LINE__,\
+            ##__VA_ARGS__\
+        )
+
+    #define LOG_ERROR_TRACE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
             LOG_COLOR_RED,\
             LOG_FLAG_NEW_LINE,\
-            __VA_ARGS__\
-        )
-    #define LOG_FATAL( ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
-            LOG_COLOR_RED,\
-            LOG_FLAG_ALWAYS_PRINT,\
-            "[FATAL | %s | %s:%i] ",\
+            "[ERROR | %s() | %s:%i] " format,\
             __FUNCTION__,\
             __FILE__,\
-            __LINE__\
-        );\
+            __LINE__,\
+            ##__VA_ARGS__\
+        )
+        
+    #define LOG_FATAL( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
             LOG_COLOR_RED,\
             LOG_FLAG_ALWAYS_PRINT | LOG_FLAG_NEW_LINE,\
-            __VA_ARGS__\
+            "[FATAL | %s() | %s:%i] " format,\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__,\
+            ##__VA_ARGS__\
         )
+        
 #else
-    #define LOG_NOTE( ... )
-    #define LOG_INFO( ... )
-    #define LOG_DEBUG( ... )
-    #define LOG_WARN( ... )
-    #define LOG_ERROR( ... )
+    #define LOG_NOTE( format, ... )
+    #define LOG_INFO( format, ... )
+    #define LOG_DEBUG( format, ... )
+    #define LOG_WARN( format, ... )
+    #define LOG_ERROR( format, ... )
 
-    #define LOG_NOTE_TRACE( ... )
-    #define LOG_INFO_TRACE( ... )
-    #define LOG_DEBUG_TRACE( ... )
-    #define LOG_WARN_TRACE( ... )
-    #define LOG_ERROR_TRACE( ... )
+    #define LOG_NOTE_TRACE( format, ... )
+    #define LOG_INFO_TRACE( format, ... )
+    #define LOG_DEBUG_TRACE( format, ... )
+    #define LOG_WARN_TRACE( format, ... )
+    #define LOG_ERROR_TRACE( format, ... )
 
-    #define LOG_FATAL( ... )
+    #define LOG_FATAL( format, ... )
 #endif
 
 #if defined(SM_ASSERTIONS)
 
     #if defined(LD_LOGGING)
 
-        #define LOG_ASSERT( condition, ... ) \
+        #define LOG_ASSERT( condition, format, ... ) \
             do {\
                 if(!(condition)) {\
                     log_formatted_locked(\
                         LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
                         LOG_COLOR_RED,\
                         LOG_FLAG_NEW_LINE | LOG_FLAG_ALWAYS_PRINT,\
-                        "[ASSERTION FAILED | %s | %s:%i] %s",\
+                        "[ASSERTION FAILED | %s() | %s:%i] (%s) " format,\
                         __FUNCTION__,\
                         __FILE__,\
                         __LINE__,\
-                        #condition\
-                    );\
-                    log_formatted_locked(\
-                        LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
-                        LOG_COLOR_RED,\
-                        LOG_FLAG_ALWAYS_PRINT | LOG_FLAG_NEW_LINE,\
-                        __VA_ARGS__\
+                        #condition,\
+                        ##__VA_ARGS__\
                     );\
                     SM_PANIC();\
                 }\
@@ -256,7 +237,7 @@ SM_API void log_formatted_locked(
                     LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
                     LOG_COLOR_RED,\
                     LOG_FLAG_NEW_LINE | LOG_FLAG_ALWAYS_PRINT,\
-                    "[UNIMPLEMENTED | %s | %s:%i] ",\
+                    "[UNIMPLEMENTED | %s() | %s:%i] ",\
                     __FUNCTION__,\
                     __FILE__,\
                     __LINE__\
@@ -264,12 +245,12 @@ SM_API void log_formatted_locked(
                 SM_PANIC();\
             } while(0)
     #else
-        #define LOG_ASSERT( condition, ... ) SM_ASSERT( condition )
+        #define LOG_ASSERT( condition, format, ... ) SM_ASSERT( condition )
         #define DEBUG_UNIMPLEMENTED() SM_PANIC()
     #endif
 
 #else
-    #define LOG_ASSERT( condition, ... )
+    #define LOG_ASSERT( condition, format, ... )
     #define DEBUG_UNIMPLEMENTED()
 #endif
 

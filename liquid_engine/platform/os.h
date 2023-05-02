@@ -8,24 +8,29 @@
 #include "defines.h"
 #include "core/smath.h"
 #include "core/input.h"
+#include "core/events.h"
 
 typedef u32 PlatformInitFlags;
 
 #define PLATFORM_INIT_DPI_AWARE ( 1 << 0 )
 
-typedef void* PlatformState;
+struct PlatformState {
+    void* platform_data;
+};
 
 SM_API b32 platform_init(
     PlatformInitFlags flags,
     PlatformState* out_state
 );
+SM_API b32 platform_next_event(
+    PlatformState* state,
+    Event* out_event
+);
 SM_API void platform_shutdown(
     PlatformState* state
 );
 
-typedef void* SurfaceHandle;
 struct Surface {
-    SurfaceHandle handle;
     union {
         ivec2 position;
         struct { i32 x; i32 y; };
@@ -34,21 +39,34 @@ struct Surface {
         ivec2 dimensions;
         struct { i32 width; i32 height; };
     };
-    b32 is_focused;
+    char* name;
+    usize name_length;
     void* platform_data;
+
+    b32 is_focused;
+    b32 is_visible;
 };
 
 typedef u32 SurfaceCreateFlags;
-#define SURFACE_FLAG_SHOW_ON_CREATE    ( 1 << 1 )
-#define SURFACE_FLAG_POSITION_CENTERED ( 1 << 2 )
+#define SURFACE_CREATE_VISIBLE  ( 1 << 1 )
+#define SURFACE_CREATE_CENTERED ( 1 << 2 )
 
 SM_API b32 surface_create(
-    const char*        surface_name,
-    ivec2              dimensions,
+    const char* surface_name,
+    ivec2 position,
+    ivec2 dimensions,
     SurfaceCreateFlags flags,
-    SurfaceHandle      opt_parent_surface,
-    Surface*           out_surface
+    PlatformState* platform_state,
+    Surface* opt_parent,
+    Surface* out_surface
 );
+SM_API void surface_destroy(
+    Surface* surface
+);
+
+SM_API b32 surface_pump_events( Surface* surface );
+SM_API void surface_swap_buffers( Surface* surface );
+SM_API void surface_set_name( Surface* surface, const char* name );
 
 /// Types of message boxes
 enum MessageBoxType : u32 {
@@ -197,84 +215,23 @@ struct SystemInfo {
 /// Get information about the current processor.
 SM_API SystemInfo query_system_info();
 
-/// Platform events.
-enum EventType : u32 {
-    EVENT_SURFACE_FOCUS_CHANGE,
-    EVENT_SURFACE_DESTROY,
-    EVENT_SURFACE_DIMENSIONS_CHANGE,
-    EVENT_SURFACE_POSITION_CHANGE,
+#if defined(SM_API_INTERNAL)
 
-    EVENT_KEY_PRESS,
+/// Allocate memory on the heap.
+/// All platforms must zero out memory before returning pointer.
+void* heap_alloc( usize size );
+/// Reallocate memory on the heap.
+/// All platforms must zero out new memory before returning pointer.
+void* heap_realloc( void* memory, usize new_size );
+/// Free heap allocated memory.
+void heap_free( void* memory );
 
-    EVENT_MOUSE_BUTTON_PRESS,
-    EVENT_MOUSE_MOVE,
-    EVENT_MOUSE_WHEEL,
+/// Page allocate memory.
+/// All platforms must zero out memory before returning pointer.
+void* page_alloc( usize size );
+/// Free page allocated memory.
+void page_free( void* memory );
 
-    EVENT_TYPE_COUNT
-};
-inline const char* to_string( EventType event_type ) {
-    static const char* strings[EVENT_TYPE_COUNT] = {
-        "Surface Focus Change",
-        "Surface Destroy",
-        "Surface Dimensions Change",
-        "Surface Position Change",
-        "Key Press",
-        "Mouse Button Press",
-        "Mouse Moved",
-        "Mouse Wheel",
-    };
-    if( event_type >= EVENT_TYPE_COUNT ) {
-        return "Unknown";
-    }
-    return strings[event_type];
-}
-
-/// OS events
-struct Event {
-    EventType type;
-    union {
-        struct {
-            b32 is_focused;
-        } focus_change;
-        union {
-            union {
-                ivec2  dimensions;
-                struct { i32 width; i32 height; };
-            } dimensions_change;
-            union {
-                ivec2 position;
-                struct { i32 x; i32 y; };
-            } position_change;
-            union {
-                ivec2 position;
-                struct { i32 x; i32 y; };
-            } mouse_move;
-            ivec2 int2;
-        };
-        struct {
-            KeyCode keycode;
-            b8      is_down;
-        } key_press;
-        struct {
-            MouseCode mousecode;
-            b8        is_down;
-        } mouse_button_press;
-        struct {
-            i32 delta;
-            b8  is_horizontal;
-        } mouse_wheel;
-    };
-};
-
-/// Format a string buffer with event information
-SM_API isize format_event(
-    usize buffer_size,
-    char* buffer,
-    Event* event
-);
-
-/// Pop event from event queue.
-/// Returns true if there was a pending event in the queue.
-SM_API b32 next_event( SurfaceHandle surface, Event* event );
+#endif
 
 #endif

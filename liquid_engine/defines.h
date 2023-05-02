@@ -7,8 +7,8 @@
  *               <intrin.h> MSVC ONLY
  * Notes:        define SM_ASSERTIONS to enable DEBUG_ASSERT macro
 */
-#if !defined(SMDEF_HPP)
-#define SMDEF_HPP
+#if !defined(DEFINES_HPP)
+#define DEFINES_HPP
 
 #include <stdint.h>
 
@@ -51,6 +51,8 @@ typedef void* pvoid;
 #define SM_INTERNAL static
 #define SM_LOCAL    static
 #define SM_GLOBAL   static
+
+#define CHECK_FLAG( bits, mask ) ( (bits & mask) == mask )
 
 /// compiler defines
 #if defined(__GNUC__) || defined(__GNUG__)
@@ -126,6 +128,14 @@ typedef void* pvoid;
     #endif
 
 #endif
+
+#if defined(SM_EXPORT)
+    #define SM_API_INTERNAL
+#endif
+
+#define KILOBYTES( num ) ( num * 1024ULL )
+#define MEGABYTES( num ) ( KILOBYTES( num ) * 1024ULL )
+#define GIGABYTES( num ) ( MEGABYTES( num ) * 1024ULL )
 
 // assert that type sizes are correct
 SM_STATIC_ASSERT(sizeof(u8)  == 1, "Expected u8 to be 1 byte!");

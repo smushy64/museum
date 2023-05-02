@@ -7,9 +7,11 @@
 #if defined(SM_PLATFORM_WINDOWS)
 
 #include "os.h"
-#include "memory.h"
 #include "threading.h"
 #include "core/logging.h"
+#include "core/string.h"
+#include "core/memory.h"
+#include "core/collections.h"
 
 #include <intrin.h>
 
@@ -21,6 +23,30 @@
 #include <xinput.h>
 
 #include <stdio.h>
+
+struct Win32State {
+    HINSTANCE hInstance;
+
+    HMODULE   libUser32;
+    HMODULE   libXinput;
+    HMODULE   libGl;
+    HMODULE   libGdi32;
+
+    // dynamic list
+    Event* event_buffer;
+};
+
+struct Win32ThreadHandle {
+    HANDLE     handle;
+    ThreadProc proc;
+    void*      params;
+    DWORD      id;
+};
+
+struct Win32Surface {
+    HWND window;
+    HDC  hDc;
+};
 
 SM_GLOBAL b32 IS_DPI_AWARE = false;
 
@@ -551,29 +577,35 @@ SM_INTERNAL void* win_proc_address_required(
     return result;
 }
 
-struct Win32State {
-    HINSTANCE hInstace;
-
-    HMODULE   libUser32;
-    HMODULE   libXinput;
-    HMODULE   libGl;
-    HMODULE   libGdi32;
-};
-
-SM_API b32 platform_init(
+b32 platform_init(
     PlatformInitFlags flags,
     PlatformState* out_state
 ) {
-    void* win32_state_buffer = heap_alloc( sizeof(Win32State) );
-    if( !win32_state_buffer ) {
+    void* win_state_buffer = mem_alloc( sizeof(Win32State), MEMTYPE_PLATFORM_DATA );
+    if( !win_state_buffer ) {
         MESSAGE_BOX_FATAL(
             "Out of Memory",
             "Could not allocate space for Win32 State!"
         );
         return false;
     }
-    *out_state = win32_state_buffer;
-    Win32State* state = (Win32State*)out_state;
+    out_state->platform_data = win_state_buffer;
+    Win32State* state = (Win32State*)out_state->platform_data;
+
+    state->event_buffer = list_reserve(
+        Event,
+        MIN_EVENT_BUFFER_SIZE
+    );
+    if( !state->event_buffer ) {
+        MESSAGE_BOX_FATAL(
+            "Out of Memory",
+            "Could not allocate space for Win32 event buffer!"
+        );
+        mem_free( state );
+        return false;
+    }
+
+    state->hInstance = GetModuleHandleA(0);
 
     if( !win_library_load(
         L"USER32.DLL",
@@ -583,6 +615,8 @@ SM_API b32 platform_init(
             "Failed to load library!",
             "Failed to load user32.dll!"
         );
+        list_free( state->event_buffer );
+        mem_free( state );
         return false;
     }
     if( !win_library_load(
@@ -601,6 +635,8 @@ SM_API b32 platform_init(
                     "Failed to load library!",
                     "Failed to load any version of XInput!"
                 );
+                list_free( state->event_buffer );
+                mem_free( state );
                 return false;
             }
         }
@@ -613,6 +649,8 @@ SM_API b32 platform_init(
             "Failed to load library!",
             "Failed to load opengl32.dll!"
         );
+        list_free( state->event_buffer );
+        mem_free( state );
         return false;
     }
     if( !win_library_load(
@@ -623,6 +661,8 @@ SM_API b32 platform_init(
             "Failed to load library!",
             "Failed to load gdi32.dll!"
         );
+        list_free( state->event_buffer );
+        mem_free( state );
         return false;
     }
 
@@ -632,6 +672,8 @@ SM_API b32 platform_init(
         "SetProcessDpiAwarenessContext"
     );
     if( !SetProcessDpiAwarenessContext ) {
+        list_free( state->event_buffer );
+        mem_free( state );
         return false;
     }
 
@@ -641,6 +683,8 @@ SM_API b32 platform_init(
         "GetDpiForSystem"
     );
     if( !GetDpiForSystem ) {
+        list_free( state->event_buffer );
+        mem_free( state );
         return false;
     }
 
@@ -650,6 +694,8 @@ SM_API b32 platform_init(
         "AdjustWindowRectExForDpi"
     );
     if( !AdjustWindowRectExForDpi ) {
+        list_free( state->event_buffer );
+        mem_free( state );
         return false;
     }
 
@@ -659,6 +705,8 @@ SM_API b32 platform_init(
         "XInputGetState"
     );
     if( !XInputGetState ) {
+        list_free( state->event_buffer );
+        mem_free( state );
         return false;
     }
     XInputSetState =
@@ -667,6 +715,8 @@ SM_API b32 platform_init(
         "XInputSetState"
     );
     if( !XInputSetState ) {
+        list_free( state->event_buffer );
+        mem_free( state );
         return false;
     }
 
@@ -676,6 +726,8 @@ SM_API b32 platform_init(
         "wglCreateContext"
     );
     if( !wglCreateContext ) {
+        list_free( state->event_buffer );
+        mem_free( state );
         return false;
     }
     wglMakeCurrent =
@@ -684,6 +736,8 @@ SM_API b32 platform_init(
         "wglMakeCurrent"
     );
     if( !wglMakeCurrent ) {
+        list_free( state->event_buffer );
+        mem_free( state );
         return false;
     }
     wglDeleteContext =
@@ -692,6 +746,8 @@ SM_API b32 platform_init(
         "wglDeleteContext"
     );
     if( !wglDeleteContext ) {
+        list_free( state->event_buffer );
+        mem_free( state );
         return false;
     }
     wglGetProcAddress =
@@ -700,6 +756,8 @@ SM_API b32 platform_init(
         "wglGetProcAddress"
     );
     if( !wglGetProcAddress ) {
+        list_free( state->event_buffer );
+        mem_free( state );
         return false;
     }
 
@@ -709,6 +767,8 @@ SM_API b32 platform_init(
         "DescribePixelFormat"
     );
     if( !DescribePixelFormat ) {
+        list_free( state->event_buffer );
+        mem_free( state );
         return false;
     }
     ChoosePixelFormat =
@@ -717,6 +777,8 @@ SM_API b32 platform_init(
         "ChoosePixelFormat"
     );
     if( !ChoosePixelFormat ) {
+        list_free( state->event_buffer );
+        mem_free( state );
         return false;
     }
     SetPixelFormat =
@@ -725,6 +787,8 @@ SM_API b32 platform_init(
         "SetPixelFormat"
     );
     if( !SetPixelFormat ) {
+        list_free( state->event_buffer );
+        mem_free( state );
         return false;
     }
     SwapBuffers =
@@ -733,6 +797,8 @@ SM_API b32 platform_init(
         "SwapBuffers"
     );
     if( !SwapBuffers ) {
+        list_free( state->event_buffer );
+        mem_free( state );
         return false;
     }
 
@@ -741,20 +807,25 @@ SM_API b32 platform_init(
             DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
         );
         IS_DPI_AWARE = true;
+        WIN_LOG_NOTE( "Program is DPI Aware." );
+    } else {
+        WIN_LOG_NOTE( "Program is NOT DPI Aware." );
     }
 
     return true;
 }
 
-SM_API void platform_shutdown( PlatformState* pstate ) {
-    Win32State* state = (Win32State*)pstate;
+void platform_shutdown( PlatformState* platform_state ) {
+    Win32State* state = (Win32State*)platform_state->platform_data;
 
-    win_library_free( state->libUser32 );
-    win_library_free( state->libXinput );
-    win_library_free( state->libGl );
+    list_free( state->event_buffer );
+
     win_library_free( state->libGdi32 );
+    win_library_free( state->libGl );
+    win_library_free( state->libXinput );
+    win_library_free( state->libUser32 );
 
-    heap_free( state );
+    mem_free( state );
 }
 
 // PLATFORM INIT | END ----------------------------------------------------
@@ -763,14 +834,14 @@ SM_API void platform_shutdown( PlatformState* pstate ) {
 
 SM_GLOBAL usize HEAP_MEMORY_USAGE = 0;
 SM_GLOBAL usize PAGE_MEMORY_USAGE = 0;
-SM_API usize query_heap_memory_usage() {
+usize query_heap_usage() {
     return HEAP_MEMORY_USAGE;
 }
-SM_API usize query_page_memory_usage() {
+usize query_page_usage() {
     return PAGE_MEMORY_USAGE;
 }
 
-SM_API void* heap_alloc( usize size ) {
+void* heap_alloc( usize size ) {
     void* pointer = (void*)HeapAlloc(
         GetProcessHeap(),
         HEAP_ZERO_MEMORY,
@@ -783,7 +854,7 @@ SM_API void* heap_alloc( usize size ) {
 #endif
     return pointer;
 }
-SM_API void* heap_realloc( void* memory, usize new_size ) {
+void* heap_realloc( void* memory, usize new_size ) {
 
 #if defined(LD_PROFILING)
     SIZE_T previous_size = HeapSize(
@@ -809,7 +880,7 @@ SM_API void* heap_realloc( void* memory, usize new_size ) {
 
     return pointer;
 }
-SM_API void heap_free( void* memory ) {
+void heap_free( void* memory ) {
 
 #if defined(LD_PROFILING)
     SIZE_T mem_size = HeapSize(
@@ -826,7 +897,7 @@ SM_API void heap_free( void* memory ) {
     HeapFree( GetProcessHeap(), 0, memory );
 }
 
-SM_API void* page_alloc( usize size ) {
+void* page_alloc( usize size ) {
     void* pointer = (void*)VirtualAlloc(
         nullptr,
         size,
@@ -839,7 +910,7 @@ SM_API void* page_alloc( usize size ) {
 #endif
     return pointer;
 }
-SM_API void page_free( void* memory ) {
+void page_free( void* memory ) {
 #if defined(LD_PROFILING)
     MEMORY_BASIC_INFORMATION info;
     if(VirtualQuery(
@@ -861,13 +932,6 @@ SM_API void page_free( void* memory ) {
 
 // MULTI-THREADING | BEGIN ------------------------------------------------
 
-struct Win32ThreadHandle {
-    HANDLE     handle;
-    ThreadProc proc;
-    void*      params;
-    DWORD      id;
-};
-
 SM_INTERNAL DWORD WINAPI win_thread_proc( void* params ) {
     Win32ThreadHandle* thread_handle = (Win32ThreadHandle*)params;
 
@@ -875,19 +939,19 @@ SM_INTERNAL DWORD WINAPI win_thread_proc( void* params ) {
         thread_handle->params
     );
 
-    heap_free( params );
+    mem_free( params );
 
     return return_value;
 }
 
 #define THREAD_STACK_SIZE_SAME_AS_MAIN 0
 #define THREAD_RUN_ON_CREATE 0
-SM_API ThreadHandle thread_create(
+ThreadHandle thread_create(
     ThreadProc thread_proc,
     void*      params,
     b32        run_on_creation
 ) {
-    void* handle_buffer = heap_alloc( sizeof(Win32ThreadHandle) );
+    void* handle_buffer = mem_alloc( sizeof(Win32ThreadHandle), MEMTYPE_PLATFORM_DATA );
     if( !handle_buffer ) {
         return nullptr;
     }
@@ -923,12 +987,12 @@ SM_API ThreadHandle thread_create(
 
     return handle_buffer;
 }
-SM_API void thread_resume( ThreadHandle thread ) {
+void thread_resume( ThreadHandle thread ) {
     Win32ThreadHandle* win32_thread = (Win32ThreadHandle*)thread;
     ResumeThread( win32_thread->handle );
 }
 
-SM_API Semaphore semaphore_create(
+Semaphore semaphore_create(
     u32 initial_count,
     u32 maximum_count
 ) {
@@ -950,7 +1014,7 @@ SM_API Semaphore semaphore_create(
 
     return (Semaphore*)semaphore_handle;
 }
-SM_API void semaphore_increment(
+void semaphore_increment(
     Semaphore semaphore,
     u32       increment,
     u32*      opt_out_previous_count
@@ -962,7 +1026,7 @@ SM_API void semaphore_increment(
         (LONG*)opt_out_previous_count
     );
 }
-SM_API void semaphore_wait_for(
+void semaphore_wait_for(
     Semaphore semaphore,
     u32       timeout_ms
 ) {
@@ -973,7 +1037,7 @@ SM_API void semaphore_wait_for(
         FALSE
     );
 }
-SM_API void semaphore_wait_for_multiple(
+void semaphore_wait_for_multiple(
     usize      count,
     Semaphore* semaphores,
     b32        wait_for_all,
@@ -987,21 +1051,21 @@ SM_API void semaphore_wait_for_multiple(
         timeout_ms
     );
 }
-SM_API void semaphore_destroy( Semaphore semaphore ) {
+void semaphore_destroy( Semaphore semaphore ) {
     HANDLE win32_handle = (HANDLE)semaphore;
     CloseHandle( win32_handle );
 }
 
-SM_API u32 interlocked_increment( volatile u32* addend ) {
+u32 interlocked_increment( volatile u32* addend ) {
     return InterlockedIncrement( addend );
 }
-SM_API u32 interlocked_decrement( volatile u32* addend ) {
+u32 interlocked_decrement( volatile u32* addend ) {
     return InterlockedDecrement( addend );
 }
-SM_API u32 interlocked_exchange( volatile u32* target, u32 value ) {
+u32 interlocked_exchange( volatile u32* target, u32 value ) {
     return InterlockedExchange( target, value );
 }
-SM_API void* interlocked_compare_exchange_pointer(
+void* interlocked_compare_exchange_pointer(
     void* volatile* dst,
     void* exchange,
     void* comperand
@@ -1012,7 +1076,7 @@ SM_API void* interlocked_compare_exchange_pointer(
         comperand
     );
 }
-SM_API u32 interlocked_compare_exchange(
+u32 interlocked_compare_exchange(
     u32 volatile* dst,
     u32 exchange,
     u32 comperand
@@ -1024,7 +1088,7 @@ SM_API u32 interlocked_compare_exchange(
     );
 }
 
-SM_API void mem_fence() {
+void mem_fence() {
     _ReadWriteBarrier();
 #if defined(SM_ARCH_X86)
     _mm_mfence();
@@ -1032,7 +1096,7 @@ SM_API void mem_fence() {
     #error "mem_fence: Platform is not supported!"
 #endif
 }
-SM_API void read_fence() {
+void read_fence() {
     _ReadBarrier();
 #if defined(SM_ARCH_X86)
     _mm_lfence();
@@ -1040,7 +1104,7 @@ SM_API void read_fence() {
     #error "read_fence: Platform is not supported!"
 #endif
 }
-SM_API void write_fence() {
+void write_fence() {
     _WriteBarrier();
 #if defined(SM_ARCH_X86)
     _mm_sfence();
@@ -1053,7 +1117,7 @@ SM_API void write_fence() {
 
 // MESSAGE BOX | BEGIN ----------------------------------------------------
 
-SM_API MessageBoxResult message_box(
+MessageBoxResult message_box(
     const char* window_title,
     const char* message,
     MessageBoxType type,
@@ -1141,66 +1205,62 @@ SM_API MessageBoxResult message_box(
 
 // SURFACE | BEGIN --------------------------------------------------------
 
-struct Win32SurfaceData {
-    HDC hDc;
-};
-
-SM_GLOBAL HINSTANCE HINSTANCE_HANDLE = nullptr;
-SM_INTERNAL HINSTANCE get_hinstance() {
-    if( !HINSTANCE_HANDLE ) {
-        HINSTANCE_HANDLE = GetModuleHandleA(0);
-    }
-    return HINSTANCE_HANDLE;
-}
-
-SM_INTERNAL LRESULT win_proc(
+SM_INTERNAL LRESULT window_proc(
     HWND hWnd, UINT Msg,
     WPARAM wParam, LPARAM lParam
-) {
-    switch( Msg ) {
-        default: return DefWindowProc(
-            hWnd,
-            Msg,
-            wParam,
-            lParam
-        );
-    }
-}
+);
 
-SM_API b32 surface_create(
-    const char*        surface_name,
-    ivec2              dimensions,
+b32 surface_create(
+    const char* surface_name,
+    ivec2 position,
+    ivec2 dimensions,
     SurfaceCreateFlags flags,
-    SurfaceHandle      opt_parent_surface,
-    Surface*           out_surface
+    PlatformState* platform_state,
+    Surface* opt_parent,
+    Surface* out_surface
 ) {
-    HWND hWndParent = (HWND)opt_parent_surface;
+    Win32State* state = (Win32State*)platform_state->platform_data;
 
-    void* win32_surface_data_buffer = HeapAlloc(
-        GetProcessHeap(),
-        HEAP_ZERO_MEMORY,
-        sizeof(Win32SurfaceData)
-    );
-    if( !win32_surface_data_buffer ) {
+    usize surface_name_length = string_length( surface_name ) + 1;
+    out_surface->name = (char*)mem_alloc( surface_name_length, MEMTYPE_PLATFORM_DATA );
+    if( !out_surface->name ) {
         MESSAGE_BOX_FATAL(
-            "Out of memory",
-            "Could not allocate Win32 surface data!"
+            "Out of Memory",
+            "Could not allocate window name buffer!"
         );
+        WIN_LOG_ERROR("Could not allocate window name buffer!");
         return false;
     }
-    
-    Win32SurfaceData* win32_surface = (Win32SurfaceData*)win32_surface_data_buffer;
+    mem_copy(
+        out_surface->name,
+        surface_name,
+        surface_name_length
+    );
+    out_surface->name_length = surface_name_length;
 
-    WNDCLASSEX window_class  = {};
-    window_class.cbSize      = sizeof(WNDCLASSEX);
-    window_class.lpfnWndProc = win_proc;
-    window_class.hInstance   = get_hinstance();
+    void* win_surface_buffer = mem_alloc( sizeof(Win32Surface), MEMTYPE_PLATFORM_DATA );
+    if( !win_surface_buffer ) {
+        MESSAGE_BOX_FATAL(
+            "Out of Memory",
+            "Could not allocate window data!"
+        );
+        WIN_LOG_ERROR("Could not allocate window data!");
+        mem_free( out_surface->name );
+        return false;
+    }
+    out_surface->platform_data = win_surface_buffer;
+    Win32Surface* win_surface  = (Win32Surface*)out_surface->platform_data;
 
-    static const wchar_t* BASE_CLASS_NAME = L"LiquidEngineWindowClass";
-    static const usize BASE_CLASS_NAME_LEN = wcslen(BASE_CLASS_NAME);
-    static int SURFACE_COUNT = 0;
+    WNDCLASSEX windowClass  = {};
+    windowClass.cbSize      = sizeof(WNDCLASSEX);
+    windowClass.lpfnWndProc = window_proc;
+    windowClass.hInstance   = state->hInstance;
 
-    static const usize CLASS_NAME_BUFFER_SIZE = BASE_CLASS_NAME_LEN + 8;
+    SM_LOCAL const wchar_t* BASE_CLASS_NAME = L"LiquidEngineWindowClass";
+    SM_LOCAL const usize BASE_CLASS_NAME_LEN = wcslen(BASE_CLASS_NAME);
+    SM_LOCAL int SURFACE_COUNT = 0;
+
+    SM_LOCAL const usize CLASS_NAME_BUFFER_SIZE = BASE_CLASS_NAME_LEN + 8;
     wchar_t class_name_buffer[CLASS_NAME_BUFFER_SIZE];
     snwprintf(
         class_name_buffer,
@@ -1210,19 +1270,17 @@ SM_API b32 surface_create(
         SURFACE_COUNT
     );
 
-    window_class.lpszClassName = class_name_buffer;
+    windowClass.lpszClassName = class_name_buffer;
 
-    if( !RegisterClassEx( &window_class ) ) {
+    if( !RegisterClassEx( &windowClass ) ) {
         win_log_error( true );
-        HeapFree(
-            GetProcessHeap(),
-            0,
-            win32_surface
-        );
+        mem_free( win_surface );
+        mem_free( out_surface->name );
         return false;
     }
 
-    DWORD dwStyle = WS_OVERLAPPEDWINDOW;
+    DWORD dwStyle   = WS_OVERLAPPEDWINDOW;
+    DWORD dwExStyle = WS_EX_OVERLAPPEDWINDOW;
 
     i32 width = 0, height = 0;
     RECT window_rect = {};
@@ -1230,18 +1288,17 @@ SM_API b32 surface_create(
         UINT dpi = GetDpiForSystem();
 
         width = MulDiv(
-            dimensions.x,
+            dimensions.width,
             dpi,
             96
         );
         height = MulDiv(
-            dimensions.y,
+            dimensions.height,
             dpi,
             96
         );
 
-        out_surface->width  = width;
-        out_surface->height = height;
+        out_surface->dimensions = { width, height };
 
         window_rect.right  = width;
         window_rect.bottom = height;
@@ -1250,148 +1307,212 @@ SM_API b32 surface_create(
             &window_rect,
             dwStyle,
             FALSE,
-            0,
+            dwExStyle,
             dpi
         ) ) {
             win_log_error( true );
-            HeapFree(
-                GetProcessHeap(),
-                0,
-                win32_surface
-            );
+            mem_free( win_surface );
+            mem_free( out_surface->name );
             return false;
         }
     } else {
-        DEBUG_UNIMPLEMENTED();
+        width  = dimensions.width;
+        height = dimensions.height;
+
+        window_rect.right  = dimensions.width;
+        window_rect.bottom = dimensions.height;
+        if( !AdjustWindowRectEx(
+            &window_rect,
+            dwStyle,
+            FALSE,
+            dwExStyle
+        ) ) {
+            win_log_error( true );
+            mem_free( win_surface );
+            mem_free( out_surface->name );
+            return false;
+        }
     }
 
-    int window_name_len = strlen(surface_name) + 1;
-    wchar_t window_name_buffer[window_name_len];
+    i32 x = 0, y = 0;
+    if( CHECK_FLAG( flags, SURFACE_CREATE_CENTERED ) ) {
+        i32 screen_width  = GetSystemMetrics( SM_CXSCREEN );
+        i32 screen_height = GetSystemMetrics( SM_CYSCREEN );
+
+        i32 x_center = screen_width  / 2;
+        i32 y_center = screen_height / 2;
+
+        i32 half_width  = width / 2;
+        i32 half_height = height / 2;
+
+        x = x_center - half_width;
+        y = y_center - half_height;
+    } else {
+        x = position.x;
+        y = position.y;
+    }
+
+    HWND hWndParent = nullptr;
+    if( opt_parent ) {
+        Win32Surface* parent_surface = (Win32Surface*)opt_parent->platform_data;
+        hWndParent = parent_surface->window;
+    }
+    usize window_name_len = string_length(surface_name) + 1;
+    wchar_t lpWindowName[window_name_len];
     mbstowcs(
-        window_name_buffer,
+        lpWindowName,
         surface_name,
         window_name_len
     );
-
     HWND hWnd = CreateWindowEx(
-        0,
-        window_class.lpszClassName,
-        window_name_buffer,
+        dwExStyle,
+        windowClass.lpszClassName,
+        lpWindowName,
         dwStyle,
-        // TODO(alicia): center window!
-        CW_USEDEFAULT,
-        CW_USEDEFAULT,
+        x, y,
         window_rect.right - window_rect.left,
         window_rect.bottom - window_rect.top,
         hWndParent,
         nullptr,
-        get_hinstance(),
+        state->hInstance,
         nullptr
     );
     if( !hWnd ) {
         win_log_error( true );
-        HeapFree(
-            GetProcessHeap(),
-            0,
-            win32_surface
-        );
+        mem_free( win_surface );
+        mem_free( out_surface->name );
+        return false;
+    }
+    HDC dc = GetDC( hWnd );
+    if( !dc ) {
+        win_log_error( true );
+        mem_free( win_surface );
+        mem_free( out_surface->name );
         return false;
     }
 
-    // TODO(alicia): set window position!
-    out_surface->handle = hWnd;
+    win_surface->window   = hWnd;
+    win_surface->hDc      = dc;
+    out_surface->position = { x, y };
 
-    if( (flags & SURFACE_FLAG_SHOW_ON_CREATE) == SURFACE_FLAG_SHOW_ON_CREATE ) {
-        out_surface->is_focused = true;
+    SetWindowLongPtr(
+        win_surface->window,
+        GWLP_USERDATA,
+        (LONG_PTR)state
+    );
+
+    if( CHECK_FLAG( flags, SURFACE_CREATE_VISIBLE ) ) {
+        out_surface->is_visible = true;
         ShowWindow( hWnd, SW_SHOW );
     }
 
     return true;
 }
 
-SM_API b32 next_event( SurfaceHandle surface, Event* event ) {
-    HWND window = (HWND)surface;
+void surface_destroy( Surface* surface ) {
+    Win32Surface* win_surface = 
+        (Win32Surface*)surface->platform_data;
+    
+    DestroyWindow( win_surface->window );
 
-    *event = {};
+    mem_free( surface->name );
+    mem_free( surface->platform_data );
+}
 
-    MSG message = {};
-    if( !PeekMessage(
+b32 surface_pump_events( Surface* surface ) {
+    Win32Surface* win_surface = (Win32Surface*)surface->platform_data;
+    MSG message;
+    while(PeekMessage(
         &message,
-        window,
+        win_surface->window,
         0, 0,
         PM_REMOVE
-    ) ) {
-        return false;
-    }
-
-    switch( message.message ) {
-        case WM_ACTIVATE: {
-            event->type = EVENT_SURFACE_FOCUS_CHANGE;
-            event->focus_change.is_focused =
-                message.wParam == WA_ACTIVE ||
-                message.wParam == WA_CLICKACTIVE;
-        } break;
-
-        case WM_DESTROY: {
-            event->type = EVENT_SURFACE_DESTROY;
-        } break;
-
-        case WM_WINDOWPOSCHANGED: {
-            WINDOWPOS* lpWindowPos =
-                (WINDOWPOS*)message.lParam;
-
-            if( !lpWindowPos ) {
-                break;
-            }
-            
-            // moved
-            if(
-                ((lpWindowPos->flags & SWP_NOSIZE) == SWP_NOSIZE) &&
-                !((lpWindowPos->flags & SWP_NOMOVE) == SWP_NOMOVE)
-            ) {
-                event->type = EVENT_SURFACE_POSITION_CHANGE;
-                event->position_change.x = lpWindowPos->x;
-                event->position_change.y = lpWindowPos->y;
-
-                return true;
-            // resized
-            } else {
-                RECT client_rect = {};
-                if( GetClientRect(
-                    window,
-                    &client_rect
-                ) ) {
-                    event->type = EVENT_SURFACE_DIMENSIONS_CHANGE;
-
-                    static const i64 MIN_DIMENSIONS = 1;
-                    event->dimensions_change.width =
-                        max( client_rect.right, MIN_DIMENSIONS );
-                    event->dimensions_change.height =
-                        max( client_rect.bottom, MIN_DIMENSIONS );
-                    
-                    return true;
-                }
-            }
-
-        } break;
-
-        default: {
-            TranslateMessage( &message );
-            DispatchMessage( &message );
-        } return false;
+    )) {
+        TranslateMessage( &message );
+        DispatchMessage( &message );
     }
 
     return true;
 }
+void surface_swap_buffers( Surface* surface ) {
+    Win32Surface* win_surface = (Win32Surface*)surface->platform_data;
+    SwapBuffers( win_surface->hDc );
+}
+void surface_set_name( Surface* surface, const char* new_name ) {
+    usize new_name_length = string_length(new_name) + 1;
+    if( new_name_length > surface->name_length ) {
+        void* new_buffer = mem_realloc(
+            surface->name,
+            new_name_length
+        );
+        SM_ASSERT( new_buffer );
+        surface->name = (char*)new_buffer;
+    }
+
+    surface->name_length = new_name_length;
+    mem_copy(
+        surface->name,
+        new_name,
+        surface->name_length
+    );
+
+    Win32Surface* win_surface = (Win32Surface*)surface->platform_data;
+    SetWindowTextA( win_surface->window, new_name );
+}
+
+SM_INTERNAL LRESULT window_proc(
+    HWND hWnd, UINT Msg,
+    WPARAM wParam, LPARAM lParam
+) {
+
+    Win32State* state = (Win32State*)GetWindowLongPtr(
+        hWnd,
+        GWLP_USERDATA
+    );
+
+    if( !state ) {
+        return DefWindowProc(
+            hWnd,
+            Msg,
+            wParam,
+            lParam
+        );
+    }
+
+    Event event = {};
+    switch( Msg ) {
+        case WM_QUIT:
+        case WM_DESTROY: {
+            list_push(
+                state->event_buffer,
+                event
+            );
+        } break;
+    }
+
+    return DefWindowProc(
+        hWnd,
+        Msg,
+        wParam,
+        lParam
+    );
+}
+b32 platform_next_event(
+    PlatformState* pstate,
+    Event* out_event
+) {
+    Win32State* state = (Win32State*)pstate->platform_data;
+    return list_pop( state->event_buffer, out_event );
+}
 
 // SURFACE | END ----------------------------------------------------------
 
-SM_API void sleep( u32 ms ) {
+void sleep( u32 ms ) {
     DWORD dwMilliseconds = ms;
     Sleep( dwMilliseconds );
 }
 
-SM_API SystemInfo query_system_info() {
+SystemInfo query_system_info() {
     SystemInfo result = {};
 
     SYSTEM_INFO win32_info = {};
@@ -1451,6 +1572,13 @@ SM_API SystemInfo query_system_info() {
     result.thread_count = win32_info.dwNumberOfProcessors;
 
 #if defined(SM_ARCH_X86)
+    mem_set(
+        ' ',
+        CPU_NAME_BUFFER_LEN,
+        result.cpu_name_buffer
+    );
+    result.cpu_name_buffer[CPU_NAME_BUFFER_LEN - 1] = 0;
+
     int cpu_info[4] = {};
     __cpuid( cpu_info, 0x80000002 );
     memcpy(
@@ -1469,6 +1597,11 @@ SM_API SystemInfo query_system_info() {
         result.cpu_name_buffer + 32,
         cpu_info,
         sizeof(cpu_info)
+    );
+
+    string_trim_trailing_whitespace(
+        CPU_NAME_BUFFER_LEN,
+        result.cpu_name_buffer
     );
 #endif
 

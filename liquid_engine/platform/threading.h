@@ -9,7 +9,13 @@
 
 /// Opaque thread handle.
 typedef void* ThreadHandle;
-typedef unsigned long ThreadReturnValue;
+
+#if defined(SM_PLATFORM_WINDOWS)
+    typedef unsigned long ThreadReturnValue;
+#else
+    typedef int ThreadReThreadReturnValue;
+#endif
+
 /// Thread procedure prototype
 typedef ThreadReturnValue (*ThreadProc)( void* params );
 

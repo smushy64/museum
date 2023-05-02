@@ -6,8 +6,9 @@
 #include "pch.h"
 #include <core/logging.h>
 #include <core/string.h>
+#include <core/memory.h>
+#include <core/collections.h>
 #include <platform/os.h>
-#include <platform/memory.h>
 #include <platform/threading.h>
 #include <stdio.h>
 
@@ -24,9 +25,11 @@ int main( int, char** ) {
     if(!log_init( LOG_LEVEL_ALL_VERBOSE )) {
         return -1;
     }
+
+    PlatformInitFlags platform_flags = PLATFORM_INIT_DPI_AWARE;
     PlatformState platform = {};
     if( !platform_init(
-        PLATFORM_INIT_DPI_AWARE,
+        platform_flags,
         &platform
     ) ) {
         return -1;
@@ -40,48 +43,43 @@ int main( int, char** ) {
     SystemInfo sys_info = query_system_info();
     print_system_info( &sys_info );
 
+    SurfaceCreateFlags surface_flags =
+        SURFACE_CREATE_VISIBLE |
+        SURFACE_CREATE_CENTERED;
     Surface surface = {};
     if( !surface_create(
         "Hello World",
+        {},
         { 800, 600 },
-        SURFACE_FLAG_SHOW_ON_CREATE,
+        surface_flags,
+        &platform,
         nullptr,
         &surface
     ) ) {
         return -1;
     }
 
-    b32 running = true;
-    while( running ) {
-        Event event = {};
-        while( next_event( surface.handle, &event ) ) {
-            isize buffer_size = format_event(
-                0, 0, &event
-            );
-            if( buffer_size ) {
-                buffer_size += 1;
-                char event_formatted_buffer[buffer_size];
-                format_event(
-                    buffer_size,
-                    event_formatted_buffer,
-                    &event
-                );
-                LOG_NOTE("%s", event_formatted_buffer);
-            }
+    surface_set_name( &surface, "Test Bed" );
 
-            if( event.type == EVENT_SURFACE_DESTROY ) {
-                running = false;
+    b32 is_running = true;
+    while( is_running ) {
+        surface_pump_events( &surface );
+        Event event = {};
+        while( platform_next_event( &platform, &event ) ) {
+            if( event.type == EVENT_TYPE_SURFACE_DESTROY ) {
+                is_running = false;
             }
         }
     }
 
+    surface_destroy( &surface );
     platform_shutdown( &platform );
+
     return 0;
 }
 
 void print_system_info( SystemInfo* info ) {
-    LOG_NOTE("CPU Info:");
-    LOG_NOTE("  Vendor:       %s", info->cpu_name_buffer);
+    LOG_NOTE("Test Bed running on \"%s\"", info->cpu_name_buffer);
     LOG_NOTE("  Thread Count: %llu", info->thread_count);
 
     b32 sse    = ARE_SSE_INSTRUCTIONS_AVAILABLE(info->features);
@@ -110,16 +108,25 @@ void print_system_info( SystemInfo* info ) {
     }
 
     LOG_NOTE("Memory Info:");
-    LOG_NOTE("  Total RAM:             %5.2f GB",
+    LOG_NOTE("  Total RAM:             %6.3f GB",
         MB_TO_GB(KB_TO_MB(BYTES_TO_KB(info->total_memory)))
     );
 
-    char heap_usage_buffer[32];
-    format_bytes(
-        query_heap_memory_usage(),
-        heap_usage_buffer,
-        32
-    );
+    for( usize i = 0; i < MEMTYPE_COUNT; ++i ) {
+        MemoryType type = (MemoryType)i;
 
-    LOG_NOTE("  Heap memory allocated: %s", heap_usage_buffer );
+        char heap_usage_buffer[32];
+        format_bytes(
+            query_memory_usage(type),
+            heap_usage_buffer,
+            32
+        );
+
+        LOG_NOTE(
+            "  %s allocated: %s",
+            to_string(type),
+            heap_usage_buffer
+        );
+    }
+
 }
