@@ -4,265 +4,326 @@
  * Description:  Input Codes
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: May 01, 2023
+ * Notes:        Mouse Position Coordinates
+ *                 -X: Left  -Y: Bottom
+ *                  X: Right  Y: Top
 */
 #include "defines.h"
+#include "smath.h"
 
 /// Key Codes
-enum KeyCode : u16 {
-    KC_UNKNOWN = U16::MAX,
-    KC_SPACE = 0,
-    KC_A,
-    KC_B,
-    KC_C,
-    KC_D,
-    KC_E,
-    KC_F,
-    KC_G,
-    KC_H,
-    KC_I,
-    KC_J,
-    KC_K,
-    KC_L,
-    KC_M,
-    KC_N,
-    KC_O,
-    KC_P,
-    KC_Q,
-    KC_R,
-    KC_S,
-    KC_T,
-    KC_U,
-    KC_V,
-    KC_W,
-    KC_X,
-    KC_Y,
-    KC_Z,
-    KC_ESCAPE,
-    KC_F1,
-    KC_F2,
-    KC_F3,
-    KC_F4,
-    KC_F5,
-    KC_F6,
-    KC_F7,
-    KC_F8,
-    KC_F9,
-    KC_F10,
-    KC_F11,
-    KC_F12,
-    KC_F13,
-    KC_F14,
-    KC_F15,
-    KC_F16,
-    KC_F17,
-    KC_F18,
-    KC_F19,
-    KC_F20,
-    KC_F21,
-    KC_F22,
-    KC_F23,
-    KC_F24,
-    KC_PRINT_SCREEN,
-    KC_SCROLL_LOCK,
-    KC_PAUSE,
-    KC_BACKTICK,
-    KC_0,
-    KC_1,
-    KC_2,
-    KC_3,
-    KC_4,
-    KC_5,
-    KC_6,
-    KC_7,
-    KC_8,
-    KC_9,
-    KC_MINUS,
-    KC_EQUALS,
-    KC_BACKSPACE,
-    KC_INSERT,
-    KC_HOME,
-    KC_PAGE_UP,
-    KC_TAB,
-    KC_BRACKET_LEFT,
-    KC_BRACKET_RIGHT,
-    KC_SLASH_BACKWARD,
-    KC_DELETE,
-    KC_END,
-    KC_PAGE_DOWN,
-    KC_CAPSLOCK,
-    KC_SEMICOLON,
-    KC_QUOTE,
-    KC_ENTER,
-    KC_SHIFT_LEFT,
-    KC_COMMA,
-    KC_PERIOD,
-    KC_SLASH_FORWARD,
-    KC_SHIFT_RIGHT,
-    KC_CONTROL_LEFT,
-    KC_SUPER_LEFT,
-    KC_ALT_LEFT,
-    KC_ALT_RIGHT,
-    KC_SUPER_RIGHT,
-    KC_CONTROL_RIGHT,
-    KC_ARROW_LEFT,
-    KC_ARROW_RIGHT,
-    KC_ARROW_UP,
-    KC_ARROW_DOWN,
-    KC_NUM_LOCK,
-    KC_PAD_0,
-    KC_PAD_1,
-    KC_PAD_2,
-    KC_PAD_3,
-    KC_PAD_4,
-    KC_PAD_5,
-    KC_PAD_6,
-    KC_PAD_7,
-    KC_PAD_8,
-    KC_PAD_9,
+enum KeyCode : u8 {
+    KEY_BACKSPACE = 8,
+    KEY_TAB = 9,
 
-    KC_COUNT
+    KEY_ENTER = 13,
+
+    KEY_SHIFT_LEFT = 16,
+    KEY_CONTROL_LEFT,
+    KEY_ALT_LEFT,
+    KEY_PAUSE,
+    KEY_CAPSLOCK = 20,
+
+    KEY_ESCAPE = 27,
+
+    KEY_SPACE = 32,
+    KEY_PAGE_UP,
+    KEY_PAGE_DOWN,
+    KEY_END,
+    KEY_HOME,
+    KEY_ARROW_LEFT,
+    KEY_ARROW_UP,
+    KEY_ARROW_RIGHT,
+    KEY_ARROW_DOWN = 40,
+
+    KEY_PRINT_SCREEN = 44,
+    KEY_INSERT,
+    KEY_DELETE = 46,
+
+    KEY_0 = '0',
+    KEY_1 = '1',
+    KEY_2 = '2',
+    KEY_3 = '3',
+    KEY_4 = '4',
+    KEY_5 = '5',
+    KEY_6 = '6',
+    KEY_7 = '7',
+    KEY_8 = '8',
+    KEY_9 = '9',
+
+    KEY_A = 'A',
+    KEY_B = 'B',
+    KEY_C = 'C',
+    KEY_D = 'D',
+    KEY_E = 'E',
+    KEY_F = 'F',
+    KEY_G = 'G',
+    KEY_H = 'H',
+    KEY_I = 'I',
+    KEY_J = 'J',
+    KEY_K = 'K',
+    KEY_L = 'L',
+    KEY_M = 'M',
+    KEY_N = 'N',
+    KEY_O = 'O',
+    KEY_P = 'P',
+    KEY_Q = 'Q',
+    KEY_R = 'R',
+    KEY_S = 'S',
+    KEY_T = 'T',
+    KEY_U = 'U',
+    KEY_V = 'V',
+    KEY_W = 'W',
+    KEY_X = 'X',
+    KEY_Y = 'Y',
+    KEY_Z = 'Z',
+    KEY_SUPER_LEFT,
+    KEY_SUPER_RIGHT = 92,
+
+    KEY_PAD_0 = 96,
+    KEY_PAD_1,
+    KEY_PAD_2,
+    KEY_PAD_3,
+    KEY_PAD_4,
+    KEY_PAD_5,
+    KEY_PAD_6,
+    KEY_PAD_7,
+    KEY_PAD_8,
+    KEY_PAD_9 = 105,
+
+    KEY_F1 = 112,
+    KEY_F2,
+    KEY_F3,
+    KEY_F4,
+    KEY_F5,
+    KEY_F6,
+    KEY_F7,
+    KEY_F8,
+    KEY_F9,
+    KEY_F10,
+    KEY_F11,
+    KEY_F12,
+    KEY_F13,
+    KEY_F14,
+    KEY_F15,
+    KEY_F16,
+    KEY_F17,
+    KEY_F18,
+    KEY_F19,
+    KEY_F20,
+    KEY_F21,
+    KEY_F22,
+    KEY_F23,
+    KEY_F24 = 135,
+
+    KEY_NUM_LOCK = 144,
+    KEY_SCROLL_LOCK = 145,
+
+    KEY_SEMICOLON = 186,
+    KEY_EQUALS,
+    KEY_MINUS,
+    KEY_COMMA,
+    KEY_PERIOD,
+    KEY_SLASH_FORWARD,
+    KEY_BACKTICK = 192,
+
+    KEY_BRACKET_LEFT = 219,
+    KEY_SLASH_BACKWARD,
+    KEY_BRACKET_RIGHT,
+    KEY_QUOTE,
+    KEY_SHIFT_RIGHT,
+    KEY_ALT_RIGHT,
+    KEY_CONTROL_RIGHT = 225,
+
+    KEY_UNKNOWN = U8::MAX,
 };
+#define KEY_COUNT 109
 inline const char* to_string( KeyCode keycode ) {
-    SM_LOCAL const char* strings[KC_COUNT] = {
-        "Space",
-        "A",
-        "B",
-        "C",
-        "D",
-        "E",
-        "F",
-        "G",
-        "H",
-        "I",
-        "J",
-        "K",
-        "L",
-        "M",
-        "N",
-        "O",
-        "P",
-        "Q",
-        "R",
-        "S",
-        "T",
-        "U",
-        "V",
-        "W",
-        "X",
-        "Y",
-        "Z",
-        "Escape",
-        "F1",
-        "F2",
-        "F3",
-        "F4",
-        "F5",
-        "F6",
-        "F7",
-        "F8",
-        "F9",
-        "F10",
-        "F11",
-        "F12",
-        "F13",
-        "F14",
-        "F15",
-        "F16",
-        "F17",
-        "F18",
-        "F19",
-        "F20",
-        "F21",
-        "F22",
-        "F23",
-        "F24",
-        "Print Screen",
-        "Scroll Lock",
-        "Pause",
-        "`~",
-        "0",
-        "1",
-        "2",
-        "3",
-        "4",
-        "5",
-        "6",
-        "7",
-        "8",
-        "9",
-        "-_",
-        "=+",
-        "Backspace",
-        "Insert",
-        "Home",
-        "PageUp",
-        "Tab",
-        "[{",
-        "]}",
-        "\\|",
-        "Delete",
-        "End",
-        "Page Down",
-        "Capslock",
-        ";:",
-        "\'\"",
-        "Enter",
-        "Left Shift",
-        ",<",
-        ".>",
-        "/?",
-        "Right Shift",
-        "Left Control",
-        "Left Super",
-        "Left Alt",
-        "Right Alt",
-        "Right Super",
-        "Right Control",
-        "Left Arrow",
-        "Right Arrow",
-        "Up Arrow",
-        "Down Arrow",
-        "Numlock",
-        "Keypad 0",
-        "Keypad 1",
-        "Keypad 2",
-        "Keypad 3",
-        "Keypad 4",
-        "Keypad 5",
-        "Keypad 6",
-        "Keypad 7",
-        "Keypad 8",
-        "Keypad 9",
-    };
-    if( keycode >= KC_COUNT ) {
-        return "Unknown";
+    switch( keycode ) {
+        case KEY_SPACE:          return "Space";
+        case KEY_A:              return "A";
+        case KEY_B:              return "B";
+        case KEY_C:              return "C";
+        case KEY_D:              return "D";
+        case KEY_E:              return "E";
+        case KEY_F:              return "F";
+        case KEY_G:              return "G";
+        case KEY_H:              return "H";
+        case KEY_I:              return "I";
+        case KEY_J:              return "J";
+        case KEY_K:              return "K";
+        case KEY_L:              return "L";
+        case KEY_M:              return "M";
+        case KEY_N:              return "N";
+        case KEY_O:              return "O";
+        case KEY_P:              return "P";
+        case KEY_Q:              return "Q";
+        case KEY_R:              return "R";
+        case KEY_S:              return "S";
+        case KEY_T:              return "T";
+        case KEY_U:              return "U";
+        case KEY_V:              return "V";
+        case KEY_W:              return "W";
+        case KEY_X:              return "X";
+        case KEY_Y:              return "Y";
+        case KEY_Z:              return "Z";
+        case KEY_ESCAPE:         return "Escape";
+        case KEY_F1:             return "F1";
+        case KEY_F2:             return "F2";
+        case KEY_F3:             return "F3";
+        case KEY_F4:             return "F4";
+        case KEY_F5:             return "F5";
+        case KEY_F6:             return "F6";
+        case KEY_F7:             return "F7";
+        case KEY_F8:             return "F8";
+        case KEY_F9:             return "F9";
+        case KEY_F10:            return "F10";
+        case KEY_F11:            return "F11";
+        case KEY_F12:            return "F12";
+        case KEY_F13:            return "F13";
+        case KEY_F14:            return "F14";
+        case KEY_F15:            return "F15";
+        case KEY_F16:            return "F16";
+        case KEY_F17:            return "F17";
+        case KEY_F18:            return "F18";
+        case KEY_F19:            return "F19";
+        case KEY_F20:            return "F20";
+        case KEY_F21:            return "F21";
+        case KEY_F22:            return "F22";
+        case KEY_F23:            return "F23";
+        case KEY_F24:            return "F24";
+        case KEY_PRINT_SCREEN:   return "Print Screen";
+        case KEY_SCROLL_LOCK:    return "Scroll Lock";
+        case KEY_PAUSE:          return "Pause";
+        case KEY_BACKTICK:       return "`~";
+        case KEY_0:              return "0";
+        case KEY_1:              return "1";
+        case KEY_2:              return "2";
+        case KEY_3:              return "3";
+        case KEY_4:              return "4";
+        case KEY_5:              return "5";
+        case KEY_6:              return "6";
+        case KEY_7:              return "7";
+        case KEY_8:              return "8";
+        case KEY_9:              return "9";
+        case KEY_MINUS:          return "-_";
+        case KEY_EQUALS:         return "=+";
+        case KEY_BACKSPACE:      return "Backspace";
+        case KEY_INSERT:         return "Insert";
+        case KEY_HOME:           return "Home";
+        case KEY_PAGE_UP:        return "Page Up";
+        case KEY_TAB:            return "Tab";
+        case KEY_BRACKET_LEFT:   return "[{";
+        case KEY_BRACKET_RIGHT:  return "]}";
+        case KEY_SLASH_BACKWARD: return "\\|";
+        case KEY_DELETE:         return "Delete";
+        case KEY_END:            return "End";
+        case KEY_PAGE_DOWN:      return "Page Down";
+        case KEY_CAPSLOCK:       return "Capslock";
+        case KEY_SEMICOLON:      return ";:";
+        case KEY_QUOTE:          return "\'\"";
+        case KEY_ENTER:          return "Enter";
+        case KEY_SHIFT_LEFT:     return "Left Shift";
+        case KEY_COMMA:          return ",<";
+        case KEY_PERIOD:         return ".>";
+        case KEY_SLASH_FORWARD:  return "/?";
+        case KEY_SHIFT_RIGHT:    return "Right Shift";
+        case KEY_CONTROL_LEFT:   return "Left Control";
+        case KEY_SUPER_LEFT:     return "Left Super";
+        case KEY_ALT_LEFT:       return "Left Alt";
+        case KEY_ALT_RIGHT:      return "Right Alt";
+        case KEY_SUPER_RIGHT:    return "Right Super";
+        case KEY_CONTROL_RIGHT:  return "Right Control";
+        case KEY_ARROW_LEFT:     return "Left Arrow";
+        case KEY_ARROW_RIGHT:    return "Right Arrow";
+        case KEY_ARROW_UP:       return "Up Arrow";
+        case KEY_ARROW_DOWN:     return "Down Arrow";
+        case KEY_NUM_LOCK:       return "Numlock";
+        case KEY_PAD_0:          return "Keypad 0";
+        case KEY_PAD_1:          return "Keypad 1";
+        case KEY_PAD_2:          return "Keypad 2";
+        case KEY_PAD_3:          return "Keypad 3";
+        case KEY_PAD_4:          return "Keypad 4";
+        case KEY_PAD_5:          return "Keypad 5";
+        case KEY_PAD_6:          return "Keypad 6";
+        case KEY_PAD_7:          return "Keypad 7";
+        case KEY_PAD_8:          return "Keypad 8";
+        case KEY_PAD_9:          return "Keypad 9";
+        default:                 return "Unknown";
     }
-    return strings[keycode];
 }
 
 /// Mouse Button Codes
-enum MouseCode : u16 {
-    MC_UNKNOWN = U16::MAX,
-    MC_BUTTON_LEFT = 0,
-    MC_BUTTON_MIDDLE,
-    MC_BUTTON_RIGHT,
-    MC_BUTTON_EXTRA_1,
-    MC_BUTTON_EXTRA_2,
+enum MouseCode : u8 {
+    MBC_UNKNOWN = U8::MAX,
+    MBC_BUTTON_LEFT = 0,
+    MBC_BUTTON_MIDDLE,
+    MBC_BUTTON_RIGHT,
+    MBC_BUTTON_EXTRA_1,
+    MBC_BUTTON_EXTRA_2,
 
-    MC_COUNT
+    MBC_COUNT
 };
 inline const char* to_string( MouseCode mousecode ) {
-    SM_LOCAL const char* strings[MC_COUNT] = {
+    SM_LOCAL const char* strings[MBC_COUNT] = {
         "Mouse Button Left",
         "Mouse Button Middle",
         "Mouse Button Right",
         "Mouse Button Extra 1",
         "Mouse Button Extra 2",
     };
-    if( mousecode >= MC_COUNT ) {
+    if( mousecode >= MBC_COUNT ) {
         return "Unknown";
     }
     return strings[mousecode];
 }
 
-#endif
+#if defined(SM_API_INTERNAL)
+
+    b32 input_init();
+    b32 input_shutdown();
+
+    void input_set_key(
+        KeyCode keycode,
+        b8 is_down
+    );
+    void input_set_mouse_button(
+        MouseCode mousecode,
+        b8 is_down
+    );
+    void input_set_mouse_position( ivec2 position );
+    void input_set_mouse_wheel( i32 delta );
+    void input_set_horizontal_mouse_wheel( i32 delta );
+
+    void input_swap();
+
+#endif // internal
+
+SM_API b32 input_is_key_down( KeyCode code );
+SM_API b32 input_was_key_down( KeyCode code );
+
+SM_API b32 input_is_mousebutton_down( MouseCode code );
+SM_API b32 input_was_mousebutton_down( MouseCode code );
+
+SM_API ivec2 input_mouse_position();
+SM_API ivec2 input_last_mouse_position();
+
+SM_API i32 input_mouse_wheel();
+SM_API i32 input_last_mouse_wheel();
+
+SM_API i32 input_horizontal_mouse_wheel();
+SM_API i32 input_last_horizontal_mouse_wheel();
+
+inline vec2 mouse_position_to_ndc(
+    ivec2 position,
+    ivec2 surface_dimensions
+) {
+    vec2 result = {
+        (f32)position.x / (f32)surface_dimensions.x,
+        (f32)position.y / (f32)surface_dimensions.y,
+    };
+
+    return (result - v2(0.5f)) * 2.0f;
+}
+
+#endif // header guard

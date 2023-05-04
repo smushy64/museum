@@ -9,7 +9,27 @@
 #include <core/memory.h>
 #include <core/collections.h>
 #include <core/application.h>
+#include <core/input.h>
+#include <core/events.h>
 #include <stdio.h>
+
+b32 on_key_press( Event* event, void* ) {
+    LOG_DEBUG("%s | %s",
+        to_string(event->data.keyboard.code),
+        event->data.keyboard.is_down ? "Down" : "Up"
+    );
+
+    return EVENT_NOT_CONSUMED;
+}
+
+b32 on_mouse_press( Event* event, void* ) {
+    LOG_DEBUG("%s | %s",
+        to_string(event->data.mouse_button.code),
+        event->data.mouse_button.is_down ? "Down" : "Up"
+    );
+
+    return EVENT_NOT_CONSUMED;
+}
 
 b32 app_run(void*, f32) {
     return true;
@@ -40,9 +60,33 @@ int main( int, char** ) {
     if( !application_startup( &config ) ) {
         return -1;
     }
+
+    event_subscribe(
+        EVENT_CODE_INPUT_KEY,
+        on_key_press,
+        nullptr
+    );
+    event_subscribe(
+        EVENT_CODE_INPUT_MOUSE_BUTTON,
+        on_mouse_press,
+        nullptr
+    );
+
     if( !application_run() ) {
         return -1;
     }
+
+    event_unsubscribe(
+        EVENT_CODE_INPUT_MOUSE_BUTTON,
+        on_mouse_press,
+        nullptr
+    );
+    event_unsubscribe(
+        EVENT_CODE_INPUT_KEY,
+        on_key_press,
+        nullptr
+    );
+
     if( !application_shutdown() ) {
         return -1;
     }

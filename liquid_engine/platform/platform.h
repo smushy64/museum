@@ -8,7 +8,6 @@
 #include "defines.h"
 #include "core/smath.h"
 #include "core/input.h"
-#include "core/events.h"
 
 #include "flags.h"
 
@@ -19,10 +18,6 @@ struct PlatformState {
 SM_API b32 platform_init(
     PlatformInitFlags flags,
     PlatformState* out_state
-);
-SM_API b32 platform_next_event(
-    PlatformState* state,
-    Event* out_event
 );
 SM_API void platform_shutdown(
     PlatformState* state

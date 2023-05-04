@@ -30,7 +30,7 @@ SM_API void impl_list_field_write(
 SM_API void* impl_list_remove(
     void* list,
     usize index,
-    void* dst
+    void* opt_dst
 );
 SM_API void* impl_list_insert(
     void* list,

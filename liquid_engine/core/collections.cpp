@@ -11,63 +11,69 @@
 #define LIST_FIELDS_SIZE (LIST_NUM_FIELDS * sizeof(u64))
 #define LIST_REALLOC_FACTOR 2
 
+#define BUFFER_TO_BASE_POINTER( list ) \
+    (((u64*)list) - LIST_NUM_FIELDS)
+
+#define BASE_TO_BUFFER_POINTER( base )\
+    (((u64*)base) + LIST_NUM_FIELDS)
+
 namespace internal {
 
 SM_API void* impl_list_create( usize capacity, usize stride ) {
     usize total_size = (capacity * stride) + LIST_FIELDS_SIZE;
-    u64* buffer = (u64*)mem_alloc(
+    u64* base = (u64*)mem_alloc(
         total_size,
         MEMTYPE_DYNAMIC_LIST
     );
-    if( !buffer ) {
+    if( !base ) {
         return nullptr;
     }
 
-    buffer[LIST_FIELD_CAPACITY] = capacity;
-    buffer[LIST_FIELD_COUNT]    = 0;
-    buffer[LIST_FIELD_STRIDE]   = stride;
+    base[LIST_FIELD_CAPACITY] = capacity;
+    base[LIST_FIELD_COUNT]    = 0;
+    base[LIST_FIELD_STRIDE]   = stride;
 
-    return (void*)(buffer + LIST_NUM_FIELDS);
+    return BASE_TO_BUFFER_POINTER(base);
 }
 SM_API void  impl_list_free( void* list ) {
     if( !list ) {
         return;
     }
-    u64* list_start = ((u64*)list) - LIST_NUM_FIELDS;
-    mem_free( list_start );
+    u64* base = BUFFER_TO_BASE_POINTER(list);
+    mem_free( base );
 }
 
 SM_API void* impl_list_realloc( void* list, usize new_capacity ) {
-    u64* buffer = ((u64*)list) - LIST_NUM_FIELDS;
+    u64* base = BUFFER_TO_BASE_POINTER(list);
 
-    usize stride      = buffer[LIST_FIELD_STRIDE];
-    usize new_size    = (new_capacity * stride) + LIST_FIELDS_SIZE;
-    u64* new_buffer   = (u64*)mem_realloc( buffer, new_size );
+    usize stride   = base[LIST_FIELD_STRIDE];
+    usize new_size = (new_capacity * stride) + LIST_FIELDS_SIZE;
+    u64*  new_base = (u64*)mem_realloc( base, new_size );
 
-    if( !new_buffer ) {
+    if( !new_base ) {
         LOG_ERROR("Failed to realloc list!");
         return list;
     }
 
-    new_buffer[LIST_FIELD_CAPACITY] = new_capacity;
+    new_base[LIST_FIELD_CAPACITY] = new_capacity;
 
-    return new_buffer + LIST_NUM_FIELDS;
+    return BASE_TO_BUFFER_POINTER(new_base);
 }
 SM_API void* impl_list_push( void* list, const void* pvalue ) {
-    u64* list_start = ((u64*)list) - LIST_NUM_FIELDS;
-    usize count     = list_start[LIST_FIELD_COUNT];
-    usize capacity  = list_start[LIST_FIELD_CAPACITY];
-    usize stride    = list_start[LIST_FIELD_STRIDE];
+    u64*  base     = BUFFER_TO_BASE_POINTER(list);
+    usize count    = base[LIST_FIELD_COUNT];
+    usize capacity = base[LIST_FIELD_CAPACITY];
+    usize stride   = base[LIST_FIELD_STRIDE];
 
     if( count == capacity ) {
         list = impl_list_realloc(
             list,
             capacity * LIST_REALLOC_FACTOR
         );
-        list_start = ((u64*)list) - LIST_NUM_FIELDS;
-        count     = list_start[LIST_FIELD_COUNT];
-        capacity  = list_start[LIST_FIELD_CAPACITY];
-        stride    = list_start[LIST_FIELD_STRIDE];
+        base     = BUFFER_TO_BASE_POINTER(list);
+        count    = base[LIST_FIELD_COUNT];
+        capacity = base[LIST_FIELD_CAPACITY];
+        stride   = base[LIST_FIELD_STRIDE];
     }
     u8* bytes = (u8*)list;
 
@@ -75,14 +81,14 @@ SM_API void* impl_list_push( void* list, const void* pvalue ) {
     
     mem_copy( bytes + index, pvalue, stride );
 
-    list_start[LIST_FIELD_COUNT] += 1;
+    base[LIST_FIELD_COUNT] += 1;
 
     return list;
 }
 SM_API b32 impl_list_pop( void* list, void* dst ) {
-    u64* list_start = ((u64*)list) - LIST_NUM_FIELDS;
-    usize count  = list_start[LIST_FIELD_COUNT];
-    usize stride = list_start[LIST_FIELD_STRIDE];
+    u64*  base   = BUFFER_TO_BASE_POINTER(list);
+    usize count  = base[LIST_FIELD_COUNT];
+    usize stride = base[LIST_FIELD_STRIDE];
 
     if( count == 0 ) {
         return false;
@@ -90,22 +96,22 @@ SM_API b32 impl_list_pop( void* list, void* dst ) {
     u8* bytes = (u8*)list;
 
     mem_copy( dst, bytes + count, stride );
-    list_start[LIST_FIELD_COUNT] -= 1;
+    base[LIST_FIELD_COUNT] -= 1;
 
     return true;
 }
 
 SM_API usize impl_list_field_read( void* list, u32 field ) {
-    u64* list_start = ((u64*)list) - LIST_NUM_FIELDS;
-    return list_start[field];
+    u64*   base = BUFFER_TO_BASE_POINTER(list);
+    return base[field];
 }
 SM_API void impl_list_field_write(
     void* list,
     u32 field,
     usize value
 ) {
-    u64* list_start = (u64*)list - LIST_NUM_FIELDS;
-    list_start[field] = value;
+    u64* base   = BUFFER_TO_BASE_POINTER(list);
+    base[field] = value;
 }
 
 SM_API void* impl_list_remove(
@@ -113,10 +119,10 @@ SM_API void* impl_list_remove(
     usize i,
     void* dst
 ) {
-    u64* list_start  = ((u64*)list) - LIST_NUM_FIELDS;
-    usize capacity   = list_start[LIST_FIELD_CAPACITY];
-    usize count      = list_start[LIST_FIELD_COUNT];
-    usize stride     = list_start[LIST_FIELD_STRIDE];
+    u64*  base       = BUFFER_TO_BASE_POINTER(list);
+    usize capacity   = base[LIST_FIELD_CAPACITY];
+    usize count      = base[LIST_FIELD_COUNT];
+    usize stride     = base[LIST_FIELD_STRIDE];
     usize total_size = capacity * stride;
 
     if( i >= capacity || i >= count ) {
@@ -140,7 +146,7 @@ SM_API void* impl_list_remove(
         );
     }
 
-    list_start[LIST_FIELD_COUNT] -= 1;
+    base[LIST_FIELD_COUNT] -= 1;
 
     return list;
 }
@@ -149,13 +155,16 @@ SM_API void* impl_list_insert(
     usize index,
     void* pvalue
 ) {
-    u64* list_start  = ((u64*)list) - LIST_NUM_FIELDS;
-    usize capacity   = list_start[LIST_FIELD_CAPACITY];
-    usize count      = list_start[LIST_FIELD_COUNT];
-    usize stride     = list_start[LIST_FIELD_STRIDE];
+    u64*  base     = BUFFER_TO_BASE_POINTER(list);
+    usize capacity = base[LIST_FIELD_CAPACITY];
+    usize count    = base[LIST_FIELD_COUNT];
+    usize stride   = base[LIST_FIELD_STRIDE];
 
     if( index >= count ) {
-        LOG_FATAL("Index outside the bounds of the list! index: %llu", index);
+        LOG_FATAL(
+            "Index outside the bounds of the list! index: %llu",
+            index
+        );
         SM_PANIC();
         return nullptr;
     }
@@ -165,26 +174,26 @@ SM_API void* impl_list_insert(
             list,
             LIST_REALLOC_FACTOR * capacity
         );
-        list_start = ((u64*)list) - LIST_NUM_FIELDS;
+        base = BUFFER_TO_BASE_POINTER(list);
     }
     
-    u64 address = (u64)list;
+    u8* buffer_bytes = (u8*)list;
 
     if( index != count - 1 ) {
         mem_overlap_copy(
-            (void*)(address + ((index + 1) * stride)),
-            (void*)(address + (index * stride)),
+            buffer_bytes + ((index + 1) * stride),
+            buffer_bytes + (index * stride),
             stride * ( count - index )
         );
     }
 
     mem_copy(
-        (void*)(address + (index * stride)),
+        buffer_bytes + (index * stride),
         pvalue,
         stride
     );
 
-    list_start[LIST_FIELD_COUNT] += 1;
+    base[LIST_FIELD_COUNT] += 1;
 
     return list;
 }

@@ -5,7 +5,9 @@
 */
 #include "application.h"
 #include "platform/platform.h"
+#include "events.h"
 #include "logging.h"
+#include "input.h"
 
 struct AppContext {
     PlatformState platform;
@@ -18,7 +20,12 @@ struct AppContext {
     void*    application_params;
 };
 
-SM_GLOBAL AppContext context = {};
+SM_GLOBAL AppContext CONTEXT = {};
+
+b32 on_main_surface_destroy( Event*, void* ) {
+    CONTEXT.is_running = false;
+    return true;
+}
 
 b32 application_startup( AppConfig* config ) {
     if( !log_init( config->log_level ) ) {
@@ -26,8 +33,8 @@ b32 application_startup( AppConfig* config ) {
     }
 
     SM_ASSERT(config->application_run);
-    context.application_run    = config->application_run;
-    context.application_params = config->application_params;
+    CONTEXT.application_run    = config->application_run;
+    CONTEXT.application_params = config->application_params;
 
     LOG_NOTE("Liquid Engine Version: %i.%i",
         LIQUID_ENGINE_VERSION_MAJOR,
@@ -36,27 +43,42 @@ b32 application_startup( AppConfig* config ) {
 
     if( !platform_init(
         config->platform_flags,
-        &context.platform
+        &CONTEXT.platform
     ) ) {
         return false;
     }
+
+    if( !event_init() ) {
+        return false;
+    }
+    if( !input_init() ) {
+        return false;
+    }
+
+    if(!event_subscribe(
+        INTERNAL_EVENT_CODE_SURFACE_DESTROY,
+        on_main_surface_destroy,
+        nullptr
+    )) {
+        return false;
+    }
     
-    context.sysinfo = query_system_info();
-    LOG_NOTE("CPU: %s", context.sysinfo.cpu_name_buffer);
-    LOG_NOTE("  Threads: %llu", context.sysinfo.thread_count);
+    CONTEXT.sysinfo = query_system_info();
+    LOG_NOTE("CPU: %s", CONTEXT.sysinfo.cpu_name_buffer);
+    LOG_NOTE("  Threads: %llu", CONTEXT.sysinfo.thread_count);
 
 #if defined(SM_ARCH_X86)
     b32 sse  = ARE_SSE_INSTRUCTIONS_AVAILABLE(
-        context.sysinfo.features
+        CONTEXT.sysinfo.features
     );
     b32 avx    = IS_AVX_AVAILABLE(
-        context.sysinfo.features
+        CONTEXT.sysinfo.features
     );
     b32 avx2   = IS_AVX2_AVAILABLE(
-        context.sysinfo.features
+        CONTEXT.sysinfo.features
     );
     b32 avx512 = IS_AVX512_AVAILABLE(
-        context.sysinfo.features
+        CONTEXT.sysinfo.features
     );
 
     LOG_NOTE(
@@ -72,7 +94,7 @@ b32 application_startup( AppConfig* config ) {
         MB_TO_GB(
             KB_TO_MB(
                 BYTES_TO_KB(
-                    context.sysinfo.total_memory
+                    CONTEXT.sysinfo.total_memory
                 )
             )
         )
@@ -83,33 +105,24 @@ b32 application_startup( AppConfig* config ) {
         config->main_surface.position,
         config->main_surface.dimensions,
         config->main_surface.flags,
-        &context.platform,
+        &CONTEXT.platform,
         nullptr,
-        &context.main_surface
+        &CONTEXT.main_surface
     )) {
         return false;
     }
 
-    context.is_running = true;
+    CONTEXT.is_running = true;
     return true;
 }
 b32 application_run() {
 
-    while( context.is_running ) {
-        surface_pump_events(
-            &context.main_surface
-        );
-        Event event = {};
-        while( platform_next_event(
-            &context.platform,
-            &event
-        ) ) {
-            if( event.type == EVENT_TYPE_SURFACE_DESTROY ) {
-                context.is_running = false;
-            }
-        }
-        if(!context.application_run(
-            context.application_params,
+    while( CONTEXT.is_running ) {
+        input_swap();
+        surface_pump_events( &CONTEXT.main_surface );
+        
+        if(!CONTEXT.application_run(
+            CONTEXT.application_params,
             0.0f
         )) {
             return false;
@@ -119,8 +132,25 @@ b32 application_run() {
     return true;
 }
 b32 application_shutdown() {
-    context.is_running = false;
-    surface_destroy( &context.main_surface );
-    platform_shutdown( &context.platform );
-    return true;
+    b32 success = true;
+    if(!event_unsubscribe(
+        INTERNAL_EVENT_CODE_SURFACE_DESTROY,
+        on_main_surface_destroy,
+        nullptr
+    )) {
+        success = false;
+    }
+
+    if( !event_shutdown() ) {
+        success = false;
+    }
+    if( !input_shutdown() ) {
+        success = false;
+    }
+
+    CONTEXT.is_running = false;
+    surface_destroy( &CONTEXT.main_surface );
+    platform_shutdown( &CONTEXT.platform );
+
+    return success;
 }

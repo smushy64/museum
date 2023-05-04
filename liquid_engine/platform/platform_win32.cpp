@@ -11,6 +11,7 @@
 #include "core/string.h"
 #include "core/memory.h"
 #include "core/collections.h"
+#include "core/events.h"
 
 #include <intrin.h>
 
@@ -30,9 +31,6 @@ struct Win32State {
     HMODULE   libXinput;
     HMODULE   libGl;
     HMODULE   libGdi32;
-
-    // dynamic list
-    Event* event_buffer;
 };
 
 struct Win32ThreadHandle {
@@ -567,7 +565,10 @@ b32 platform_init(
     PlatformInitFlags flags,
     PlatformState* out_state
 ) {
-    void* win_state_buffer = mem_alloc( sizeof(Win32State), MEMTYPE_PLATFORM_DATA );
+    void* win_state_buffer = mem_alloc(
+        sizeof(Win32State),
+        MEMTYPE_PLATFORM_DATA
+    );
     if( !win_state_buffer ) {
         MESSAGE_BOX_FATAL(
             "Out of Memory",
@@ -577,19 +578,6 @@ b32 platform_init(
     }
     out_state->platform_data = win_state_buffer;
     Win32State* state = (Win32State*)out_state->platform_data;
-
-    state->event_buffer = list_reserve(
-        Event,
-        MIN_EVENT_BUFFER_SIZE
-    );
-    if( !state->event_buffer ) {
-        MESSAGE_BOX_FATAL(
-            "Out of Memory",
-            "Could not allocate space for Win32 event buffer!"
-        );
-        mem_free( state );
-        return false;
-    }
 
     state->hInstance = GetModuleHandleA(0);
 
@@ -601,7 +589,6 @@ b32 platform_init(
             "Failed to load library!",
             "Failed to load user32.dll!"
         );
-        list_free( state->event_buffer );
         mem_free( state );
         return false;
     }
@@ -621,7 +608,6 @@ b32 platform_init(
                     "Failed to load library!",
                     "Failed to load any version of XInput!"
                 );
-                list_free( state->event_buffer );
                 mem_free( state );
                 return false;
             }
@@ -635,7 +621,6 @@ b32 platform_init(
             "Failed to load library!",
             "Failed to load opengl32.dll!"
         );
-        list_free( state->event_buffer );
         mem_free( state );
         return false;
     }
@@ -647,7 +632,6 @@ b32 platform_init(
             "Failed to load library!",
             "Failed to load gdi32.dll!"
         );
-        list_free( state->event_buffer );
         mem_free( state );
         return false;
     }
@@ -658,7 +642,6 @@ b32 platform_init(
         "SetProcessDpiAwarenessContext"
     );
     if( !SetProcessDpiAwarenessContext ) {
-        list_free( state->event_buffer );
         mem_free( state );
         return false;
     }
@@ -669,7 +652,6 @@ b32 platform_init(
         "GetDpiForSystem"
     );
     if( !GetDpiForSystem ) {
-        list_free( state->event_buffer );
         mem_free( state );
         return false;
     }
@@ -680,7 +662,6 @@ b32 platform_init(
         "AdjustWindowRectExForDpi"
     );
     if( !AdjustWindowRectExForDpi ) {
-        list_free( state->event_buffer );
         mem_free( state );
         return false;
     }
@@ -691,7 +672,6 @@ b32 platform_init(
         "XInputGetState"
     );
     if( !XInputGetState ) {
-        list_free( state->event_buffer );
         mem_free( state );
         return false;
     }
@@ -701,7 +681,6 @@ b32 platform_init(
         "XInputSetState"
     );
     if( !XInputSetState ) {
-        list_free( state->event_buffer );
         mem_free( state );
         return false;
     }
@@ -712,7 +691,6 @@ b32 platform_init(
         "wglCreateContext"
     );
     if( !wglCreateContext ) {
-        list_free( state->event_buffer );
         mem_free( state );
         return false;
     }
@@ -722,7 +700,6 @@ b32 platform_init(
         "wglMakeCurrent"
     );
     if( !wglMakeCurrent ) {
-        list_free( state->event_buffer );
         mem_free( state );
         return false;
     }
@@ -732,7 +709,6 @@ b32 platform_init(
         "wglDeleteContext"
     );
     if( !wglDeleteContext ) {
-        list_free( state->event_buffer );
         mem_free( state );
         return false;
     }
@@ -742,7 +718,6 @@ b32 platform_init(
         "wglGetProcAddress"
     );
     if( !wglGetProcAddress ) {
-        list_free( state->event_buffer );
         mem_free( state );
         return false;
     }
@@ -753,7 +728,6 @@ b32 platform_init(
         "DescribePixelFormat"
     );
     if( !DescribePixelFormat ) {
-        list_free( state->event_buffer );
         mem_free( state );
         return false;
     }
@@ -763,7 +737,6 @@ b32 platform_init(
         "ChoosePixelFormat"
     );
     if( !ChoosePixelFormat ) {
-        list_free( state->event_buffer );
         mem_free( state );
         return false;
     }
@@ -773,7 +746,6 @@ b32 platform_init(
         "SetPixelFormat"
     );
     if( !SetPixelFormat ) {
-        list_free( state->event_buffer );
         mem_free( state );
         return false;
     }
@@ -783,7 +755,6 @@ b32 platform_init(
         "SwapBuffers"
     );
     if( !SwapBuffers ) {
-        list_free( state->event_buffer );
         mem_free( state );
         return false;
     }
@@ -803,8 +774,6 @@ b32 platform_init(
 
 void platform_shutdown( PlatformState* platform_state ) {
     Win32State* state = (Win32State*)platform_state->platform_data;
-
-    list_free( state->event_buffer );
 
     win_library_free( state->libGdi32 );
     win_library_free( state->libGl );
@@ -1446,6 +1415,10 @@ void surface_set_name( Surface* surface, const char* new_name ) {
     SetWindowTextA( win_surface->window, new_name );
 }
 
+#define TRANSITION_STATE_MASK (1 << 31)
+#define EXTENDED_KEY_MASK     (1 << 24)
+#define SCANCODE_MASK         0x00FF0000
+
 SM_INTERNAL LRESULT window_proc(
     HWND hWnd, UINT Msg,
     WPARAM wParam, LPARAM lParam
@@ -1469,11 +1442,119 @@ SM_INTERNAL LRESULT window_proc(
     switch( Msg ) {
         case WM_QUIT:
         case WM_DESTROY: {
-            list_push(
-                state->event_buffer,
-                event
-            );
+            event.code = INTERNAL_EVENT_CODE_SURFACE_DESTROY;
+            event_fire( event );
         } break;
+
+        case WM_SYSKEYUP:
+        case WM_SYSKEYDOWN:
+        case WM_KEYDOWN:
+        case WM_KEYUP: {
+
+            b32 previous_key_state = (lParam >> 30) == 1;
+            if( previous_key_state ) {
+                break;
+            }
+            u8 keycode = wParam;
+
+            if( CHECK_FLAG( lParam, EXTENDED_KEY_MASK ) ) {
+                if( keycode == KEY_CONTROL_LEFT ) {
+                    keycode = KEY_CONTROL_RIGHT;
+                } else if( keycode == KEY_ALT_LEFT ) {
+                    keycode = KEY_ALT_RIGHT;
+                }
+            }
+
+            if( keycode == KEY_SHIFT_LEFT ) {
+                LPARAM scancode = (lParam & SCANCODE_MASK) >> 16;
+                WPARAM new_vkcode = MapVirtualKey(
+                    scancode,
+                    MAPVK_VSC_TO_VK_EX
+                );
+                if( new_vkcode == VK_RSHIFT ) {
+                    keycode = KEY_SHIFT_RIGHT;
+                }
+            }
+
+            b32 is_down = !((lParam & TRANSITION_STATE_MASK) != 0);
+            input_set_key( (KeyCode)keycode, is_down );
+
+            event.code = INTERNAL_EVENT_CODE_INPUT_KEY;
+            event.data.keyboard.code    = (KeyCode)keycode;
+            event.data.keyboard.is_down = is_down;
+            event_fire( event );
+
+        } return TRUE;
+        
+        case WM_MOUSEMOVE: {
+            // TODO(alicia): fire event!
+
+            RECT client_rect = {};
+            GetClientRect( hWnd, &client_rect );
+
+            ivec2 mouse_position = {};
+            mouse_position.x = GET_X_LPARAM(lParam);
+            mouse_position.y = client_rect.bottom - GET_Y_LPARAM(lParam);
+            input_set_mouse_position( mouse_position );
+
+        } return TRUE;
+
+        case WM_LBUTTONDOWN:
+        case WM_LBUTTONUP:
+        case WM_RBUTTONDOWN:
+        case WM_RBUTTONUP:
+        case WM_MBUTTONDOWN:
+        case WM_MBUTTONUP: {
+            b32 is_down =
+                Msg == WM_LBUTTONDOWN ||
+                Msg == WM_MBUTTONDOWN ||
+                Msg == WM_RBUTTONDOWN;
+            MouseCode code;
+            if( Msg == WM_LBUTTONDOWN || Msg == WM_LBUTTONUP ) {
+                code = MBC_BUTTON_LEFT;
+            } else if( Msg == WM_RBUTTONDOWN || Msg == WM_RBUTTONUP ) {
+                code = MBC_BUTTON_RIGHT;
+            } else if( Msg == WM_MBUTTONDOWN || Msg == WM_MBUTTONUP ) {
+                code = MBC_BUTTON_MIDDLE;
+            } else {
+                break;
+            }
+
+            input_set_mouse_button( code, is_down );
+            event.code = EVENT_CODE_INPUT_MOUSE_BUTTON;
+            event.data.mouse_button.code    = code;
+            event.data.mouse_button.is_down = is_down;
+            event_fire( event );
+
+        } return TRUE;
+
+        case WM_XBUTTONDOWN:
+        case WM_XBUTTONUP: {
+            UINT button = GET_XBUTTON_WPARAM(wParam);
+            b32 is_down = Msg == WM_XBUTTONDOWN;
+            MouseCode code;
+            if( button == XBUTTON1 ) {
+                code = MBC_BUTTON_EXTRA_1;
+            } else if( button == XBUTTON2 ) {
+                code = MBC_BUTTON_EXTRA_2;
+            } else {
+                break;
+            }
+        } return TRUE;
+
+        case WM_MOUSEHWHEEL:
+        case WM_MOUSEWHEEL: {
+
+            i64 delta = GET_WHEEL_DELTA_WPARAM(wParam);
+            delta = delta == 0 ? 0 : absolute(delta);
+            if( Msg == WM_MOUSEWHEEL ) {
+                input_set_mouse_wheel( delta );
+            } else {
+                input_set_horizontal_mouse_wheel( delta );
+            }
+
+        } return TRUE;
+
     }
 
     return DefWindowProc(
@@ -1482,13 +1563,6 @@ SM_INTERNAL LRESULT window_proc(
         wParam,
         lParam
     );
-}
-b32 platform_next_event(
-    PlatformState* pstate,
-    Event* out_event
-) {
-    Win32State* state = (Win32State*)pstate->platform_data;
-    return list_pop( state->event_buffer, out_event );
 }
 
 // SURFACE | END ----------------------------------------------------------
