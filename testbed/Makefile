@@ -52,7 +52,7 @@ $(pch):pch.h
 
 $(test_bed_win_res):
 	@echo "    Make: compiling windows resources . . ."
-	@mkdir -p $(BUILD_PATH)/obj/
+	@mkdir -p ../$(BUILD_PATH)/obj/
 	@windres ../win32/resources.rc -o $(test_bed_win_res)
 
 .PHONY: all print_info

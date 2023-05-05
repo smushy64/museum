@@ -9,6 +9,9 @@
 #include "logging.h"
 #include "input.h"
 
+// TODO(alicia): custom string formatting!
+#include <stdio.h>
+
 struct AppContext {
     PlatformState platform;
     Surface       main_surface;
@@ -124,19 +127,46 @@ b32 application_startup( AppConfig* config ) {
     }
     
     CONTEXT.sysinfo = query_system_info();
+
     LOG_NOTE("CPU: %s", CONTEXT.sysinfo.cpu_name_buffer);
     LOG_NOTE("  Threads: %llu", CONTEXT.sysinfo.thread_count);
 
-#if defined(SM_ARCH_X86) && defined(LD_LOGGING)
-    b32 sse  = ARE_SSE_INSTRUCTIONS_AVAILABLE(
-        CONTEXT.sysinfo.features
-    );
-    b32 avx    = IS_AVX_AVAILABLE(
-        CONTEXT.sysinfo.features
-    );
-    b32 avx2   = IS_AVX2_AVAILABLE(
-        CONTEXT.sysinfo.features
-    );
+#if defined(SM_ARCH_X86)
+    b32 sse = ARE_SSE_INSTRUCTIONS_AVAILABLE( CONTEXT.sysinfo.features );
+    if( SM_SIMD_WIDTH == 4 && !sse ) {
+        SM_LOCAL usize ERROR_MESSAGE_SIZE = 0xFF;
+        char error_message_buffer[ERROR_MESSAGE_SIZE];
+        snprintf(
+            error_message_buffer,
+            ERROR_MESSAGE_SIZE,
+            "Your CPU does not support SSE instructions!\n"
+            "Missing instructions: %s%s%s%s%s%s",
+            IS_SSE_AVAILABLE(CONTEXT.sysinfo.features)    ? "" : "SSE, ",
+            IS_SSE2_AVAILABLE(CONTEXT.sysinfo.features)   ? "" : "SSE2, ",
+            IS_SSE3_AVAILABLE(CONTEXT.sysinfo.features)   ? "" : "SSE3, ",
+            IS_SSSE3_AVAILABLE(CONTEXT.sysinfo.features)  ? "" : "SSSE3, ",
+            IS_SSE4_1_AVAILABLE(CONTEXT.sysinfo.features) ? "" : "SSE4.1, ",
+            IS_SSE4_2_AVAILABLE(CONTEXT.sysinfo.features) ? "" : "SSE4.2"
+        );
+        MESSAGE_BOX_FATAL(
+            "Missing instructions.",
+            error_message_buffer
+        );
+        return false;
+    }
+
+    b32 avx  = IS_AVX_AVAILABLE( CONTEXT.sysinfo.features );
+    b32 avx2 = IS_AVX2_AVAILABLE( CONTEXT.sysinfo.features );
+
+    if( SM_SIMD_WIDTH == 8 && !(avx && avx2) ) {
+        MESSAGE_BOX_FATAL(
+            "Missing instructions.",
+            "Your CPU does not support AVX/AVX2 instructions! "
+            "This program requires them!"
+        );
+        return false;
+    }
+
     b32 avx512 = IS_AVX512_AVAILABLE(
         CONTEXT.sysinfo.features
     );
