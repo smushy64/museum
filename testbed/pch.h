@@ -7,5 +7,6 @@
 */
 
 #include <defines.h>
+#include <core/logging.h>
 
 #endif

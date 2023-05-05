@@ -24,12 +24,14 @@ test_bed_cpp_flags := $(preprocessor_flags)
 test_bed_debug_linker_flags := -Wl,--pdb=$(subst $(exe_ext),.pdb,$(target))
 test_bed_linker_flags := $(linker_flags) $(if $(IS_DEBUG),$(test_bed_debug_linker_flags),)
 
+test_bed_win_res := ../$(win_res)
+
 all: print_info $(target)
 
 print_info:
 	@echo Make: $(testbed_name)
 
-$(target): $(pch) $(c_obj) $(cpp_obj) $(if $(win_res), $(win_res), )
+$(target): $(pch) $(c_obj) $(cpp_obj) $(if $(win_res), $(test_bed_win_res), )
 	@echo "    Make: linking $(testbed_name) . . ."
 	@$(CL) ../$(BUILD_PATH)/$(liquid_engine_dll) $^ -o $@ $(preprocessor_flags) $(test_bed_linker_flags)
 
@@ -48,10 +50,10 @@ $(pch):pch.h
 	@mkdir -p $(dir $@)
 	@$(CXX) $(pch_flags) $< -o $@ $(compiler_flags) -c $(preprocessor_flags) $(INCLUDE_PATHS)
 
-$(win_res):
+$(test_bed_win_res):
 	@echo "    Make: compiling windows resources . . ."
 	@mkdir -p $(BUILD_PATH)/obj/
-	@windres ../win32/resources.rc -o $(win_res)
+	@windres ../win32/resources.rc -o $(test_bed_win_res)
 
 .PHONY: all print_info
 

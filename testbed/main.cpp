@@ -4,14 +4,12 @@
  * File Created: April 27, 2023
 */
 #include "pch.h"
-#include <core/logging.h>
 #include <core/string.h>
 #include <core/memory.h>
 #include <core/collections.h>
 #include <core/application.h>
 #include <core/input.h>
 #include <core/events.h>
-#include <platform/platform.h>
 #include <stdio.h>
 
 b32 app_run(void*, f32) {
@@ -43,13 +41,6 @@ int main( int, char** ) {
     if( !application_startup( &config ) ) {
         return -1;
     }
-
-    message_box(
-        "hello world",
-        "this is a test",
-        MBTYPE_OK,
-        MBICON_INFORMATION
-    );
 
     if( !application_run() ) {
         return -1;
