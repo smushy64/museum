@@ -16,7 +16,8 @@ export project_version_underscore := $(subst .,_,$(PROJECT_VERSION))
 ifeq ($(OS), Windows_NT)
 	export dll_ext := .dll
 	export exe_ext := .exe
-	windows := true
+	export windows := true
+	export win_res := $(BUILD_PATH)/obj/resources.o
 else
 	export dll_ext := .so
 	export exe_ext :=

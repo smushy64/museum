@@ -29,7 +29,7 @@ all: print_info $(target)
 print_info:
 	@echo Make: $(testbed_name)
 
-$(target): $(pch) $(c_obj) $(cpp_obj)
+$(target): $(pch) $(c_obj) $(cpp_obj) $(if $(win_res), $(win_res), )
 	@echo "    Make: linking $(testbed_name) . . ."
 	@$(CL) ../$(BUILD_PATH)/$(liquid_engine_dll) $^ -o $@ $(preprocessor_flags) $(test_bed_linker_flags)
 
@@ -47,6 +47,11 @@ $(pch):pch.h
 	@echo "    Make: compiling pre-compiled header . . ."
 	@mkdir -p $(dir $@)
 	@$(CXX) $(pch_flags) $< -o $@ $(compiler_flags) -c $(preprocessor_flags) $(INCLUDE_PATHS)
+
+$(win_res):
+	@echo "    Make: compiling windows resources . . ."
+	@mkdir -p $(BUILD_PATH)/obj/
+	@windres ../win32/resources.rc -o $(win_res)
 
 .PHONY: all print_info
 

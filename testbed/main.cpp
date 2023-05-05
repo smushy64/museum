@@ -11,38 +11,8 @@
 #include <core/application.h>
 #include <core/input.h>
 #include <core/events.h>
+#include <platform/platform.h>
 #include <stdio.h>
-
-EventConsumption on_input( Event* event, void* ) {
-
-    switch( event->code ) {
-        case EVENT_CODE_INPUT_KEY: {
-            LOG_DEBUG("%s: %s",
-                to_string( event->data.keyboard.code ),
-                event->data.keyboard.is_down ? "Down" : "Up"
-            );
-        } break;
-        case EVENT_CODE_INPUT_MOUSE_BUTTON: {
-            LOG_DEBUG("%s: %s",
-                to_string( event->data.mouse_button.code ),
-                event->data.mouse_button.is_down ? "Down" : "Up"
-            );
-        } break;
-        case EVENT_CODE_INPUT_MOUSE_MOVE: {
-            vec2 ndc = mouse_position_to_ndc(
-                event->data.mouse_move.coord,
-                {800, 600}
-            );
-            LOG_DEBUG(
-                "mouse position: { %f, %f }",
-                ndc.x, ndc.y
-            );
-        } break;
-        default: break;
-    }
-
-    return EVENT_NOT_CONSUMED;
-}
 
 b32 app_run(void*, f32) {
     return true;
@@ -74,30 +44,16 @@ int main( int, char** ) {
         return -1;
     }
 
-    // SM_LOCAL const usize event_code_count = 3;
-    // EventCode codes[event_code_count] = {
-    //     EVENT_CODE_INPUT_KEY,
-    //     EVENT_CODE_INPUT_MOUSE_BUTTON,
-    //     EVENT_CODE_INPUT_MOUSE_MOVE
-    // };
-
-    // event_subscribe_multiple_codes(
-    //     event_code_count,
-    //     codes,
-    //     on_input,
-    //     nullptr
-    // );
+    message_box(
+        "hello world",
+        "this is a test",
+        MBTYPE_OK,
+        MBICON_INFORMATION
+    );
 
     if( !application_run() ) {
         return -1;
     }
-
-    // event_unsubscribe_multiple_codes(
-    //     event_code_count,
-    //     codes,
-    //     on_input,
-    //     nullptr
-    // );
 
     if( !application_shutdown() ) {
         return -1;
