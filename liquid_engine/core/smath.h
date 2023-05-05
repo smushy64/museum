@@ -307,6 +307,12 @@ SM_ALWAYS_INLINE i8 round8( f32 x ) {
 }
 
 /// get the sign of a signed integer
+SM_ALWAYS_INLINE i8 sign( i8 x ) { return ( x > 0 ) - ( x < 0 ); }
+/// get the sign of a signed integer
+SM_ALWAYS_INLINE i16 sign( i16 x ) { return ( x > 0 ) - ( x < 0 ); }
+/// get the sign of a signed integer
+SM_ALWAYS_INLINE i32 sign( i32 x ) { return ( x > 0 ) - ( x < 0 ); }
+/// get the sign of a signed integer
 SM_ALWAYS_INLINE i64 sign( i64 x ) { return ( x > 0 ) - ( x < 0 ); }
 /// get the sign of a single-precision float
 SM_ALWAYS_INLINE f32 sign( f32 x ) {
@@ -319,6 +325,12 @@ SM_ALWAYS_INLINE f64 sign( f64 x ) {
     return ((bitpattern >> 63) & 1) == 1 ? -1.0 : 1.0;
 }
 
+/// get the absolute value of a signed integer
+SM_ALWAYS_INLINE i8 absolute( i8 x ) { return x * sign( x ); }
+/// get the absolute value of a signed integer
+SM_ALWAYS_INLINE i16 absolute( i16 x ) { return x * sign( x ); }
+/// get the absolute value of a signed integer
+SM_ALWAYS_INLINE i32 absolute( i32 x ) { return x * sign( x ); }
 /// get the absolute value of a signed integer
 SM_ALWAYS_INLINE i64 absolute( i64 x ) { return x * sign( x ); }
 /// get the absolute value of a single-precision float

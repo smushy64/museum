@@ -11,12 +11,18 @@
 #include <stdio.h>
 #include <pthread.h>
 
+#if defined( SM_COMPILER_MSVC )
+    #define VA_LIST va_list
+#else
+    #define VA_LIST __builtin_va_list
+#endif
+
 #if defined(SM_PLATFORM_WINDOWS)
     #include <windows.h>
     HANDLE CONSOLE_HANDLE;
 #endif
 
-static LogLevel GLOBAL_LOG_LEVEL = LOG_LEVEL_NONE;
+SM_GLOBAL LogLevel GLOBAL_LOG_LEVEL = LOG_LEVEL_NONE;
 
 #define MAX_LOG_LEVEL (\
     LOG_LEVEL_NONE    |\
@@ -28,10 +34,10 @@ static LogLevel GLOBAL_LOG_LEVEL = LOG_LEVEL_NONE;
     LOG_LEVEL_VERBOSE \
 )
 
-static usize BUFFER_SIZE        = KILOBYTES(1);
-static char* PRINT_BUFFER = {};
+SM_GLOBAL usize BUFFER_SIZE  = KILOBYTES(1);
+SM_GLOBAL char* PRINT_BUFFER = {};
 
-SM_API b32 log_init( LogLevel level ) {
+b32 log_init( LogLevel level ) {
     #if defined(LD_LOGGING)
         SM_ASSERT( level <= MAX_LOG_LEVEL );
         GLOBAL_LOG_LEVEL = level;
@@ -48,7 +54,9 @@ SM_API b32 log_init( LogLevel level ) {
 
         #if defined(SM_PLATFORM_WINDOWS)
             CONSOLE_HANDLE = GetStdHandle( STD_OUTPUT_HANDLE );
-            SM_ASSERT( CONSOLE_HANDLE );
+            if( !CONSOLE_HANDLE ) {
+                return false;
+            }
 
             DWORD dwMode = 0;
             GetConsoleMode(
@@ -63,10 +71,29 @@ SM_API b32 log_init( LogLevel level ) {
         #endif
     #endif
 
+    LOG_NOTE("Logging subsystem successfully initialized.");
+
     return true;
 }
+void log_shutdown() {
+#if defined(LD_LOGGING)
 
-static const char* LOG_COLOR_CODES[LOG_COLOR_COUNT] = {
+    internal::impl_mem_free(
+        PRINT_BUFFER
+    );
+
+    // TODO(alicia): custom printf!
+    printf( "[NOTE  ] Logging subsystem shutdown.\n" );
+#if defined(SM_PLATFORM_WINDOWS)
+    OutputDebugStringA(
+        "[NOTE  ] Logging subsystem shutdown.\n"
+    );
+#endif
+
+#endif
+}
+
+SM_GLOBAL const char* LOG_COLOR_CODES[LOG_COLOR_COUNT] = {
     "\033[1;30m",
     "\033[1;31m",
     "\033[1;32m",
@@ -94,9 +121,9 @@ inline b32 is_level_valid( LogLevel level ) {
 
 // this is for locking the logging function
 // so that multiple threads can't print over each other
-static pthread_mutex_t MUTEX = PTHREAD_MUTEX_INITIALIZER;
+SM_GLOBAL pthread_mutex_t MUTEX = PTHREAD_MUTEX_INITIALIZER;
 
-SM_API void log_formatted_locked(
+void log_formatted_locked(
     LogLevel    level,
     LogColor    color,
     LogFlags    flags,
@@ -132,7 +159,7 @@ SM_API void log_formatted_locked(
     }
 
 
-    va_list args;
+    VA_LIST args;
     va_start( args, format );
 
     int write_size = vsnprintf(

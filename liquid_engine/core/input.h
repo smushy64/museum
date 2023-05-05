@@ -278,6 +278,70 @@ inline const char* to_string( MouseCode mousecode ) {
     return strings[mousecode];
 }
 
+/// Pad Codes
+enum PadCode : u8 {
+    PAD_CODE_UNKNOWN = 0,
+
+    PAD_CODE_STICK_LEFT,
+    PAD_CODE_STICK_RIGHT,
+
+    PAD_CODE_STICK_LEFT_CLICK,
+    PAD_CODE_STICK_RIGHT_CLICK,
+
+    PAD_CODE_TRIGGER_LEFT,
+    PAD_CODE_TRIGGER_RIGHT,
+
+    PAD_CODE_BUMPER_LEFT,
+    PAD_CODE_BUMPER_RIGHT,
+
+    PAD_CODE_DPAD_LEFT,
+    PAD_CODE_DPAD_RIGHT,
+    PAD_CODE_DPAD_UP,
+    PAD_CODE_DPAD_DOWN,
+
+    PAD_CODE_FACE_LEFT,
+    PAD_CODE_FACE_RIGHT,
+    PAD_CODE_FACE_UP,
+    PAD_CODE_FACE_DOWN,
+
+    PAD_CODE_START,
+    PAD_CODE_SELECT,
+
+    PAD_CODE_COUNT
+};
+inline const char* to_string( PadCode padcode ) {
+    SM_LOCAL const char* strings[PAD_CODE_COUNT] = {
+        "Unknown",
+        "STICK Left",
+        "STICK Right",
+        "STICK Left Click",
+        "STICK Right Click",
+        "TRIGGER Left",
+        "TRIGGER Right",
+        "BUMPER Left",
+        "BUMPER Right",
+        "DPAD Left",
+        "DPAD Right",
+        "DPAD Up",
+        "DPAD Down",
+        "Face Left",
+        "Face Right",
+        "Face Up",
+        "Face Down",
+        "START",
+        "SELECT",
+    };
+    if( padcode >= PAD_CODE_COUNT ) {
+        return strings[0];
+    }
+    return strings[padcode];
+}
+
+#define GAMEPAD_MOTOR_LEFT  0
+#define GAMEPAD_MOTOR_RIGHT 1
+
+#define MAX_GAMEPAD_INDEX 4
+
 #if defined(SM_API_INTERNAL)
 
     b32 input_init();
@@ -294,6 +358,32 @@ inline const char* to_string( MouseCode mousecode ) {
     void input_set_mouse_position( ivec2 position );
     void input_set_mouse_wheel( i32 delta );
     void input_set_horizontal_mouse_wheel( i32 delta );
+
+    void input_set_pad_button(
+        u32 gamepad_index,
+        PadCode code,
+        b32 is_down
+    );
+    void input_set_pad_trigger_left(
+        u32 gamepad_index,
+        f32 value
+    );
+    void input_set_pad_trigger_right(
+        u32 gamepad_index,
+        f32 value
+    );
+    void input_set_pad_stick_left(
+        u32 gamepad_index,
+        vec2 value
+    );
+    void input_set_pad_stick_right(
+        u32 gamepad_index,
+        vec2 value
+    );
+    void input_set_pad_active(
+        u32 gamepad_index,
+        b32 is_active
+    );
 
     void input_swap();
 
@@ -313,6 +403,37 @@ SM_API i32 input_last_mouse_wheel();
 
 SM_API i32 input_horizontal_mouse_wheel();
 SM_API i32 input_last_horizontal_mouse_wheel();
+
+SM_API b32 input_is_pad_button_down(
+    u32 gamepad_index,
+    PadCode code
+);
+SM_API b32 input_was_pad_button_down(
+    u32 gamepad_index,
+    PadCode code
+);
+
+SM_API vec2 input_pad_stick_left( u32 gamepad_index );
+SM_API vec2 input_pad_last_stick_left( u32 gamepad_index );
+
+SM_API vec2 input_pad_stick_right( u32 gamepad_index );
+SM_API vec2 input_pad_last_stick_right( u32 gamepad_index );
+
+SM_API f32 input_pad_trigger_left( u32 gamepad_index );
+SM_API f32 input_pad_last_trigger_left( u32 gamepad_index );
+SM_API f32 input_pad_trigger_right( u32 gamepad_index );
+SM_API f32 input_pad_last_trigger_right( u32 gamepad_index );
+
+SM_API void input_set_pad_motor_state(
+    u32 gamepad_index,
+    u32 motor,
+    f32 value
+);
+SM_API b32 input_is_pad_active( u32 gamepad_index );
+SM_API f32 input_query_motor_state(
+    u32 gamepad_index,
+    u32 motor
+);
 
 inline vec2 mouse_position_to_ndc(
     ivec2 position,

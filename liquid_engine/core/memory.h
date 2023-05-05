@@ -20,9 +20,9 @@ enum MemoryType : u64 {
 };
 inline const char* to_string(MemoryType memtype) {
     SM_LOCAL const char* strings[MEMTYPE_COUNT] = {
-        "Unknown Memory                ",
-        "Dynamic List Memory           ",
-        "Platform Data Memory          ",
+        "Unknown Memory",
+        "Dynamic List Memory",
+        "Platform Data Memory",
         "Event Listener Registry Memory",
     };
     if( memtype >= MEMTYPE_COUNT ) {

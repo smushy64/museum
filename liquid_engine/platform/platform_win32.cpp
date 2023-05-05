@@ -6,6 +6,10 @@
 #include "defines.h"
 #if defined(SM_PLATFORM_WINDOWS)
 
+/* TODO(alicia):
+    Allocate platform data once as a block (struct ??)
+*/ 
+
 #include "platform.h"
 #include "core/logging.h"
 #include "core/string.h"
@@ -22,7 +26,15 @@
 #include <psapi.h>
 #include <xinput.h>
 
+// TODO(alicia): custom formatting and printing
 #include <stdio.h>
+
+struct Win32ThreadHandle {
+    HANDLE     handle;
+    ThreadProc proc;
+    void*      params;
+    DWORD      id;
+};
 
 struct Win32State {
     HINSTANCE hInstance;
@@ -33,19 +45,22 @@ struct Win32State {
     HMODULE   libGdi32;
 };
 
-struct Win32ThreadHandle {
-    HANDLE     handle;
-    ThreadProc proc;
-    void*      params;
-    DWORD      id;
-};
-
 struct Win32Surface {
     HWND window;
     HDC  hDc;
+    Win32State* state;
+};
+
+union Win32MotorState {
+    struct {
+        f32 motor_left;
+        f32 motor_right;
+    };
+    f32 motors[2];
 };
 
 SM_GLOBAL b32 IS_DPI_AWARE = false;
+SM_GLOBAL b32 IS_ACTIVE    = true;
 
 // LOGGING | BEGIN --------------------------------------------------------
 
@@ -497,7 +512,7 @@ SM_INTERNAL void* win_proc_address(
             module_name_buffer
         );
     } else {
-        WIN_LOG_ERROR(
+        WIN_LOG_WARN(
             "Failed to load function \"%s\" from module \"%ls\"!",
             proc_name,
             module_name_buffer
@@ -684,6 +699,14 @@ b32 platform_init(
         mem_free( state );
         return false;
     }
+    ::internal::XInputEnable_fn xinput_enable =
+    (::internal::XInputEnable_fn)win_proc_address(
+        state->libXinput,
+        "XInputEnable"
+    );
+    if( xinput_enable ) {
+        XInputEnable = xinput_enable;
+    }
 
     wglCreateContext =
     (::internal::wglCreateContext_fn)win_proc_address_required(
@@ -749,6 +772,7 @@ b32 platform_init(
         mem_free( state );
         return false;
     }
+
     SwapBuffers =
     (::internal::SwapBuffers_fn)win_proc_address_required(
         state->libGdi32,
@@ -769,6 +793,8 @@ b32 platform_init(
         WIN_LOG_NOTE( "Program is NOT DPI Aware." );
     }
 
+    WIN_LOG_NOTE("Platform services successfully initialized.");
+
     return true;
 }
 
@@ -781,6 +807,8 @@ void platform_shutdown( PlatformState* platform_state ) {
     win_library_free( state->libUser32 );
 
     mem_free( state );
+
+    WIN_LOG_NOTE("Platform services shutdown.");
 }
 
 // PLATFORM INIT | END ----------------------------------------------------
@@ -1349,11 +1377,13 @@ b32 surface_create(
     win_surface->window   = hWnd;
     win_surface->hDc      = dc;
     out_surface->position = { x, y };
+    
+    win_surface->state = state;
 
     SetWindowLongPtr(
         win_surface->window,
         GWLP_USERDATA,
-        (LONG_PTR)state
+        (LONG_PTR)out_surface
     );
 
     if( CHECK_FLAG( flags, SURFACE_CREATE_VISIBLE ) ) {
@@ -1424,12 +1454,12 @@ SM_INTERNAL LRESULT window_proc(
     WPARAM wParam, LPARAM lParam
 ) {
 
-    Win32State* state = (Win32State*)GetWindowLongPtr(
+    Surface* surface = (Surface*)GetWindowLongPtr(
         hWnd,
         GWLP_USERDATA
     );
 
-    if( !state ) {
+    if( !surface ) {
         return DefWindowProc(
             hWnd,
             Msg,
@@ -1437,19 +1467,37 @@ SM_INTERNAL LRESULT window_proc(
             lParam
         );
     }
+    [[maybe_unused]]
+    Win32Surface* win_surface = (Win32Surface*)surface->platform_data;
 
     Event event = {};
     switch( Msg ) {
-        case WM_QUIT:
         case WM_DESTROY: {
-            event.code = INTERNAL_EVENT_CODE_SURFACE_DESTROY;
+            event.code = EVENT_CODE_SURFACE_DESTROY;
+            event.data.surface_destroy.surface = surface;
             event_fire( event );
+        } break;
+
+        case WM_ACTIVATE: {
+            b32 is_active = wParam == WA_ACTIVE ||
+                wParam == WA_CLICKACTIVE;
+            XInputEnable( (BOOL)is_active );
+            event.code = EVENT_CODE_SURFACE_ACTIVE;
+            event.data.surface_active.is_active = is_active;
+            event.data.surface_active.surface   = surface;
+            event_fire( event );
+
+            IS_ACTIVE = is_active;
         } break;
 
         case WM_SYSKEYUP:
         case WM_SYSKEYDOWN:
         case WM_KEYDOWN:
         case WM_KEYUP: {
+
+            if( !IS_ACTIVE ) {
+                break;
+            }
 
             b32 previous_key_state = (lParam >> 30) == 1;
             if( previous_key_state ) {
@@ -1479,7 +1527,7 @@ SM_INTERNAL LRESULT window_proc(
             b32 is_down = !((lParam & TRANSITION_STATE_MASK) != 0);
             input_set_key( (KeyCode)keycode, is_down );
 
-            event.code = INTERNAL_EVENT_CODE_INPUT_KEY;
+            event.code = EVENT_CODE_INPUT_KEY;
             event.data.keyboard.code    = (KeyCode)keycode;
             event.data.keyboard.is_down = is_down;
             event_fire( event );
@@ -1487,7 +1535,10 @@ SM_INTERNAL LRESULT window_proc(
         } return TRUE;
         
         case WM_MOUSEMOVE: {
-            // TODO(alicia): fire event!
+
+            if( !IS_ACTIVE ) {
+                break;
+            }
 
             RECT client_rect = {};
             GetClientRect( hWnd, &client_rect );
@@ -1497,6 +1548,10 @@ SM_INTERNAL LRESULT window_proc(
             mouse_position.y = client_rect.bottom - GET_Y_LPARAM(lParam);
             input_set_mouse_position( mouse_position );
 
+            event.code = EVENT_CODE_INPUT_MOUSE_MOVE;
+            event.data.mouse_move.coord = mouse_position;
+            event_fire( event );
+
         } return TRUE;
 
         case WM_LBUTTONDOWN:
@@ -1505,6 +1560,11 @@ SM_INTERNAL LRESULT window_proc(
         case WM_RBUTTONUP:
         case WM_MBUTTONDOWN:
         case WM_MBUTTONUP: {
+
+            if( !IS_ACTIVE ) {
+                break;
+            }
+
             b32 is_down =
                 Msg == WM_LBUTTONDOWN ||
                 Msg == WM_MBUTTONDOWN ||
@@ -1530,20 +1590,28 @@ SM_INTERNAL LRESULT window_proc(
 
         case WM_XBUTTONDOWN:
         case WM_XBUTTONUP: {
-            UINT button = GET_XBUTTON_WPARAM(wParam);
-            b32 is_down = Msg == WM_XBUTTONDOWN;
-            MouseCode code;
-            if( button == XBUTTON1 ) {
-                code = MBC_BUTTON_EXTRA_1;
-            } else if( button == XBUTTON2 ) {
-                code = MBC_BUTTON_EXTRA_2;
-            } else {
+            if( !IS_ACTIVE ) {
                 break;
             }
+
+            UINT button = GET_XBUTTON_WPARAM(wParam);
+            b32 is_down = Msg == WM_XBUTTONDOWN;
+            MouseCode code = (MouseCode)(button + (MBC_BUTTON_EXTRA_1 - 1));
+
+            input_set_mouse_button( code, is_down );
+            event.code = EVENT_CODE_INPUT_MOUSE_BUTTON;
+            event.data.mouse_button.code    = code;
+            event.data.mouse_button.is_down = is_down;
+            event_fire( event );
+
         } return TRUE;
 
         case WM_MOUSEHWHEEL:
         case WM_MOUSEWHEEL: {
+
+            if( !IS_ACTIVE ) {
+                break;
+            }
 
             i64 delta = GET_WHEEL_DELTA_WPARAM(wParam);
             delta = delta == 0 ? 0 : absolute(delta);
@@ -1566,6 +1634,247 @@ SM_INTERNAL LRESULT window_proc(
 }
 
 // SURFACE | END ----------------------------------------------------------
+
+void platform_poll_gamepad() {
+    if( !IS_ACTIVE ) {
+        return;
+    }
+
+    XINPUT_STATE gamepad_state = {};
+    DWORD max_index = XUSER_MAX_COUNT > MAX_GAMEPAD_INDEX ?
+        MAX_GAMEPAD_INDEX :
+        XUSER_MAX_COUNT;
+
+    Event event = {};
+    for(
+        DWORD gamepad_index = 0;
+        gamepad_index < max_index;
+        ++gamepad_index
+    ) {
+
+        DWORD is_active = XInputGetState(
+            gamepad_index,
+            &gamepad_state
+        );
+        if( is_active != ERROR_SUCCESS ) {
+            // if gamepad activated this frame, fire an event
+            b32 was_active = input_is_pad_active( gamepad_index );
+            if( was_active != is_active && is_active ) {
+                event.code = EVENT_CODE_INPUT_GAMEPAD_ACTIVATE;
+                event.data.gamepad_activate.gamepad_index = gamepad_index;
+                event_fire( event );
+            }
+
+            input_set_pad_active( gamepad_index, is_active );
+            continue;
+        }
+
+        XINPUT_GAMEPAD gamepad = gamepad_state.Gamepad;
+
+        b32 dpad_left  = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_LEFT );
+        b32 dpad_right = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_RIGHT );
+        b32 dpad_up    = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_UP );
+        b32 dpad_down  = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_DOWN );
+
+        b32 face_left  = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_X );
+        b32 face_right = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_B );
+        b32 face_up    = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_Y );
+        b32 face_down  = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_A );
+
+        b32 start  = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_START );
+        b32 select = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_BACK );
+
+        b32 bumper_left  = CHECK_FLAG(
+            gamepad.wButtons,
+            XINPUT_GAMEPAD_LEFT_SHOULDER
+        );
+        b32 bumper_right = CHECK_FLAG(
+            gamepad.wButtons,
+            XINPUT_GAMEPAD_RIGHT_SHOULDER
+        );
+
+        b32 click_left  = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_LEFT_THUMB );
+        b32 click_right = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_RIGHT_THUMB );
+
+        #define HALF_TRIGGER_PRESS 127;
+
+        b32 trigger_left  = gamepad.bLeftTrigger  >= HALF_TRIGGER_PRESS;
+        b32 trigger_right = gamepad.bRightTrigger >= HALF_TRIGGER_PRESS;
+
+        input_set_pad_button(
+            gamepad_index,
+            PAD_CODE_DPAD_LEFT,
+            dpad_left
+        );
+        input_set_pad_button(
+            gamepad_index,
+            PAD_CODE_DPAD_RIGHT,
+            dpad_right
+        );
+        input_set_pad_button(
+            gamepad_index,
+            PAD_CODE_DPAD_UP,
+            dpad_up
+        );
+        input_set_pad_button(
+            gamepad_index,
+            PAD_CODE_DPAD_DOWN,
+            dpad_down
+        );
+
+        input_set_pad_button(
+            gamepad_index,
+            PAD_CODE_FACE_LEFT,
+            face_left
+        );
+        input_set_pad_button(
+            gamepad_index,
+            PAD_CODE_FACE_RIGHT,
+            face_right
+        );
+        input_set_pad_button(
+            gamepad_index,
+            PAD_CODE_FACE_UP,
+            face_up
+        );
+        input_set_pad_button(
+            gamepad_index,
+            PAD_CODE_FACE_DOWN,
+            face_down
+        );
+
+        input_set_pad_button(
+            gamepad_index,
+            PAD_CODE_START,
+            start
+        );
+        input_set_pad_button(
+            gamepad_index,
+            PAD_CODE_SELECT,
+            select
+        );
+
+        input_set_pad_button(
+            gamepad_index,
+            PAD_CODE_BUMPER_LEFT,
+            bumper_left
+        );
+        input_set_pad_button(
+            gamepad_index,
+            PAD_CODE_BUMPER_RIGHT,
+            bumper_right
+        );
+
+        input_set_pad_button(
+            gamepad_index,
+            PAD_CODE_TRIGGER_LEFT,
+            trigger_left
+        );
+        input_set_pad_button(
+            gamepad_index,
+            PAD_CODE_TRIGGER_RIGHT,
+            trigger_right
+        );
+
+        input_set_pad_button(
+            gamepad_index,
+            PAD_CODE_STICK_LEFT_CLICK,
+            click_left
+        );
+        input_set_pad_button(
+            gamepad_index,
+            PAD_CODE_STICK_RIGHT_CLICK,
+            click_right
+        );
+
+        f32 trigger_left_axis  = normalize_range( gamepad.bLeftTrigger );
+        f32 trigger_right_axis = normalize_range( gamepad.bRightTrigger );
+
+        input_set_pad_trigger_left(
+            gamepad_index,
+            trigger_left_axis
+        );
+        input_set_pad_trigger_right(
+            gamepad_index,
+            trigger_right_axis
+        );
+
+        // TODO(alicia): this may not be correct . . .
+
+        vec2 stick_left = v2(
+            normalize_range( gamepad.sThumbLX ),
+            normalize_range( gamepad.sThumbLY )
+        );
+        vec2 stick_right = v2(
+            normalize_range( gamepad.sThumbRX ),
+            normalize_range( gamepad.sThumbRY )
+        );
+        
+        b32 stick_left_moved = absolute( gamepad.sThumbLX ) >=
+            XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE;
+        b32 stick_right_moved = absolute( gamepad.sThumbRX ) >=
+            XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE;
+        input_set_pad_button(
+            gamepad_index,
+            PAD_CODE_STICK_LEFT,
+            stick_left_moved
+        );
+        input_set_pad_button(
+            gamepad_index,
+            PAD_CODE_STICK_RIGHT,
+            stick_right_moved
+        );
+        
+        if( stick_left_moved ) {
+            input_set_pad_stick_left(
+                gamepad_index,
+                stick_left
+            );
+            event = {};
+            event.code = EVENT_CODE_INPUT_GAMEPAD_STICK_LEFT;
+            event.data.gamepad_stick.gamepad_index = gamepad_index;
+            event.data.gamepad_stick.value         = stick_left;
+            event_fire( event );
+        }
+
+        if( stick_right_moved ) {
+            input_set_pad_stick_right(
+                gamepad_index,
+                stick_right
+            );
+            event = {};
+            event.code = EVENT_CODE_INPUT_GAMEPAD_STICK_RIGHT;
+            event.data.gamepad_stick.gamepad_index = gamepad_index;
+            event.data.gamepad_stick.value         = stick_right;
+            event_fire( event );
+        }
+    }
+}
+
+void platform_set_pad_motor_state(
+    u32 gamepad_index,
+    u32 motor,
+    f32 value
+) {
+    XINPUT_VIBRATION vibration = {};
+    if( motor == GAMEPAD_MOTOR_LEFT ) {
+        f32 right_motor = input_query_motor_state(
+            gamepad_index,
+            GAMEPAD_MOTOR_RIGHT
+        );
+        vibration.wLeftMotorSpeed  = (WORD)( value * (f32)U16::MAX );
+        vibration.wRightMotorSpeed = (WORD)( right_motor * (f32)U16::MAX );
+    } else {
+        f32 left_motor = input_query_motor_state(
+            gamepad_index,
+            GAMEPAD_MOTOR_LEFT
+        );
+        vibration.wLeftMotorSpeed  = (WORD)( left_motor * (f32)U16::MAX );
+        vibration.wRightMotorSpeed = (WORD)( value * (f32)U16::MAX );
+    }
+
+    XInputSetState( gamepad_index, &vibration );
+}
 
 void sleep( u32 ms ) {
     DWORD dwMilliseconds = ms;

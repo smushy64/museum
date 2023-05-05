@@ -66,8 +66,15 @@ typedef u32 LogLevel;
 
 typedef u32 LogFlags;
 
-/// initialize logging library
-SM_API b32 log_init( LogLevel level );
+#if defined(SM_API_INTERNAL)
+
+    /// initialize logging subsystem
+    b32 log_init( LogLevel level );
+    /// shutdown logging subsystem
+    void log_shutdown();
+
+#endif
+
 /// log a formatted message, uses a mutex
 /// to prevent crosstalk between threads.
 SM_API void log_formatted_locked(

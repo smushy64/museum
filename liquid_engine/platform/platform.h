@@ -15,11 +15,11 @@ struct PlatformState {
     void* platform_data;
 };
 
-SM_API b32 platform_init(
+b32 platform_init(
     PlatformInitFlags flags,
     PlatformState* out_state
 );
-SM_API void platform_shutdown(
+void platform_shutdown(
     PlatformState* state
 );
 
@@ -40,7 +40,7 @@ struct Surface {
     b32 is_visible;
 };
 
-SM_API b32 surface_create(
+b32 surface_create(
     const char* surface_name,
     ivec2 position,
     ivec2 dimensions,
@@ -49,13 +49,13 @@ SM_API b32 surface_create(
     Surface* opt_parent,
     Surface* out_surface
 );
-SM_API void surface_destroy(
+void surface_destroy(
     Surface* surface
 );
 
-SM_API b32 surface_pump_events( Surface* surface );
-SM_API void surface_swap_buffers( Surface* surface );
-SM_API void surface_set_name( Surface* surface, const char* name );
+b32 surface_pump_events( Surface* surface );
+void surface_swap_buffers( Surface* surface );
+void surface_set_name( Surface* surface, const char* name );
 
 /// Types of message boxes
 enum MessageBoxType : u32 {
@@ -145,7 +145,7 @@ SM_API MessageBoxResult message_box(
     )
 
 /// Put the current thread to sleep for the specified amount of milliseconds.
-SM_API void sleep( u32 ms );
+void sleep( u32 ms );
 
 typedef u16 ProcessorFeatures;
 
@@ -222,6 +222,15 @@ void* page_alloc( usize size );
 void page_free( void* memory );
 
 #endif
+
+/// Set given gamepad motor state.
+void platform_set_pad_motor_state(
+    u32 gamepad_index,
+    u32 motor,
+    f32 value
+);
+/// Poll Gamepad values.
+void platform_poll_gamepad();
 
 // TODO(alicia): stop exporting threading functions/types
 // when job system is implemented

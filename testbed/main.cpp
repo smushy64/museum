@@ -13,20 +13,33 @@
 #include <core/events.h>
 #include <stdio.h>
 
-b32 on_key_press( Event* event, void* ) {
-    LOG_DEBUG("%s | %s",
-        to_string(event->data.keyboard.code),
-        event->data.keyboard.is_down ? "Down" : "Up"
-    );
+EventConsumption on_input( Event* event, void* ) {
 
-    return EVENT_NOT_CONSUMED;
-}
-
-b32 on_mouse_press( Event* event, void* ) {
-    LOG_DEBUG("%s | %s",
-        to_string(event->data.mouse_button.code),
-        event->data.mouse_button.is_down ? "Down" : "Up"
-    );
+    switch( event->code ) {
+        case EVENT_CODE_INPUT_KEY: {
+            LOG_DEBUG("%s: %s",
+                to_string( event->data.keyboard.code ),
+                event->data.keyboard.is_down ? "Down" : "Up"
+            );
+        } break;
+        case EVENT_CODE_INPUT_MOUSE_BUTTON: {
+            LOG_DEBUG("%s: %s",
+                to_string( event->data.mouse_button.code ),
+                event->data.mouse_button.is_down ? "Down" : "Up"
+            );
+        } break;
+        case EVENT_CODE_INPUT_MOUSE_MOVE: {
+            vec2 ndc = mouse_position_to_ndc(
+                event->data.mouse_move.coord,
+                {800, 600}
+            );
+            LOG_DEBUG(
+                "mouse position: { %f, %f }",
+                ndc.x, ndc.y
+            );
+        } break;
+        default: break;
+    }
 
     return EVENT_NOT_CONSUMED;
 }
@@ -61,31 +74,30 @@ int main( int, char** ) {
         return -1;
     }
 
-    event_subscribe(
-        EVENT_CODE_INPUT_KEY,
-        on_key_press,
-        nullptr
-    );
-    event_subscribe(
-        EVENT_CODE_INPUT_MOUSE_BUTTON,
-        on_mouse_press,
-        nullptr
-    );
+    // SM_LOCAL const usize event_code_count = 3;
+    // EventCode codes[event_code_count] = {
+    //     EVENT_CODE_INPUT_KEY,
+    //     EVENT_CODE_INPUT_MOUSE_BUTTON,
+    //     EVENT_CODE_INPUT_MOUSE_MOVE
+    // };
+
+    // event_subscribe_multiple_codes(
+    //     event_code_count,
+    //     codes,
+    //     on_input,
+    //     nullptr
+    // );
 
     if( !application_run() ) {
         return -1;
     }
 
-    event_unsubscribe(
-        EVENT_CODE_INPUT_MOUSE_BUTTON,
-        on_mouse_press,
-        nullptr
-    );
-    event_unsubscribe(
-        EVENT_CODE_INPUT_KEY,
-        on_key_press,
-        nullptr
-    );
+    // event_unsubscribe_multiple_codes(
+    //     event_code_count,
+    //     codes,
+    //     on_input,
+    //     nullptr
+    // );
 
     if( !application_shutdown() ) {
         return -1;

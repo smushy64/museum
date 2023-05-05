@@ -77,7 +77,10 @@ void event_fire( Event event ) {
     for( usize i = 0; i < listener_count; ++i ) {
         ListenerContext* current = &registry->listeners[i];
         // check if event has been handled
-        if( current->listener( &event, current->params ) ) {
+        if(
+            current->listener( &event, current->params ) == 
+            EVENT_CONSUMED
+        ) {
             return;
         }
     }
@@ -122,7 +125,36 @@ b32 event_subscribe(
         }
     }
 
+    const char* event_name = engine_event_code_to_string( code );
+    if( event_name ) {
+        LOG_NOTE("Subscribed to %s!", event_name);
+    } else {
+        LOG_NOTE("Subscribed to user event!");
+    }
     list_push( registry->listeners, context );
+
+    return true;
+}
+
+b32 event_subscribe_multiple_codes(
+    usize         code_count,
+    EventCode*    codes,
+    EventListener listener,
+    void*         params
+) {
+    for(
+        usize code_index = 0;
+        code_index < code_count;
+        ++code_index
+    ) {
+        if( !event_subscribe(
+            codes[code_index],
+            listener,
+            params
+        ) ) {
+            return false;
+        }
+    }
 
     return true;
 }
@@ -169,6 +201,12 @@ b32 event_unsubscribe(
     }
 
     if( listener_found ) {
+        const char* event_name = engine_event_code_to_string( code );
+        if( event_name ) {
+            LOG_NOTE("Unsubscribed from %s!", event_name);
+        } else {
+            LOG_NOTE("Unsubscribed from user event!");
+        }
         list_remove(
             registry->listeners,
             listener_index,
@@ -185,4 +223,27 @@ b32 event_unsubscribe(
         return false;
     }
 
+}
+
+b32 event_unsubscribe_multiple_codes(
+    usize         code_count,
+    EventCode*    codes,
+    EventListener listener,
+    void*         listener_params
+) {
+    for(
+        usize code_index = 0;
+        code_index < code_count;
+        ++code_index
+    ) {
+        if( !event_unsubscribe(
+            codes[code_index],
+            listener,
+            listener_params
+        ) ) {
+            return false;
+        }
+    }
+
+    return true;
 }

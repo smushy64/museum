@@ -9,33 +9,67 @@
 #include "input.h"
 #include "smath.h"
 
-#define MIN_EVENT_BUFFER_SIZE 32
-#define MAX_INTERNAL_EVENT_CODE 256
+enum EventCode : u32 {
+    EVENT_CODE_UNKNOWN,
 
-#define MAX_EVENT_CODE 512
+    EVENT_CODE_SURFACE_DESTROY,
+    EVENT_CODE_SURFACE_ACTIVE,
+    EVENT_CODE_SURFACE_RESIZE,
+    EVENT_CODE_SURFACE_MOVE,
 
-#define EVENT_CODE_INPUT_KEY              0x2
-#define EVENT_CODE_INPUT_MOUSE_BUTTON     0x3
-#define EVENT_CODE_INPUT_INPUT_MOUSE_MOVE 0x4
+    EVENT_CODE_INPUT_KEY,
+    EVENT_CODE_INPUT_MOUSE_BUTTON,
+    EVENT_CODE_INPUT_MOUSE_MOVE,
+    EVENT_CODE_INPUT_MOUSE_WHEEL,
+    EVENT_CODE_INPUT_HORIZONTAL_MOUSE_WHEEL,
+    EVENT_CODE_INPUT_GAMEPAD_BUTTON,
+    EVENT_CODE_INPUT_GAMEPAD_STICK_LEFT,
+    EVENT_CODE_INPUT_GAMEPAD_STICK_RIGHT,
+    EVENT_CODE_INPUT_GAMEPAD_TRIGGER_LEFT,
+    EVENT_CODE_INPUT_GAMEPAD_TRIGGER_RIGHT,
+    EVENT_CODE_INPUT_GAMEPAD_ACTIVATE,
 
-#define EVENT_CONSUMED     true
-#define EVENT_NOT_CONSUMED false
+    EVENT_CODE_LAST_RESERVED,
+    MAX_ENGINE_EVENT_CODE = 0xFF,
 
-typedef u32 EventCode;
-#if defined( SM_API_INTERNAL )
+    MAX_EVENT_CODE = 0x200
+};
+inline const char* engine_event_code_to_string(
+    EventCode code
+) {
+    SM_LOCAL const char* strings[EVENT_CODE_LAST_RESERVED] = {
+        "Event Unknown",
 
-    enum InternalEventCode : u32 {
-        INTERNAL_EVENT_CODE_UNKNOWN            = 0x0,
-        INTERNAL_EVENT_CODE_SURFACE_DESTROY    = 0x1,
+        "Event Surface Destroy",
+        "Event Surface Active",
+        "Event Surface Resize",
+        "Event Surface Move",
 
-        INTERNAL_EVENT_CODE_INPUT_KEY          = 0x2,
-        INTERNAL_EVENT_CODE_INPUT_MOUSE_BUTTON = 0x3,
-        INTERNAL_EVENT_CODE_INPUT_MOUSE_MOVE   = 0x4,
-
+        "Event Input Key",
+        "Event Mouse Button",
+        "Event Mouse Move",
+        "Event Mouse Wheel",
+        "Event Mouse Horizontal Wheel",
+        "Event Gamepad Button",
+        "Event Gamepad Stick Left",
+        "Event Gamepad Stick Right",
+        "Event Gamepad Trigger Left",
+        "Event Gamepad Trigger Right",
+        "Event Gamepad Activate",
     };
+    if( code >= EVENT_CODE_LAST_RESERVED ) {
+        return nullptr;
+    }
 
-#endif // api internal
+    return strings[code];
+}
 
+enum EventConsumption : u32 {
+    EVENT_NOT_CONSUMED,
+    EVENT_CONSUMED
+};
+
+// TODO(alicia): surface active
 struct Event {
     EventCode code;
     union EventData {
@@ -60,6 +94,28 @@ struct Event {
         } raw;
 
         struct {
+            void* surface;
+        } surface_destroy;
+        struct {
+            void* surface;
+            b8    is_active;
+        } surface_active;
+        struct {
+            void* surface;
+            union {
+                struct { i32 width, height; };
+                ivec2 dimensions;
+            };
+        } surface_resize;
+        struct {
+            void* surface;
+            union {
+                struct { i32 x, y; };
+                ivec2 position;
+            };
+        } surface_move;
+
+        struct {
             KeyCode code;
             b32     is_down;
         } keyboard;
@@ -71,6 +127,22 @@ struct Event {
             struct { i32 x, y; };
             ivec2 coord;
         } mouse_move;
+        struct {
+            u32 gamepad_index;
+        } gamepad_activate;
+        struct {
+            PadCode code;
+            u8      gamepad_index;
+            b32     is_down;
+        } gamepad_button;
+        struct {
+            f32 value;
+            u8  gamepad_index;
+        } gamepad_trigger;
+        struct {
+            vec2 value;
+            u8   gamepad_index;
+        } gamepad_stick;
     } data;
 };
 
@@ -81,7 +153,10 @@ struct Event {
 
 #endif // api internal
 
-typedef b32 (*EventListener)( Event* event, void* params );
+typedef EventConsumption (*EventListener)(
+    Event* event,
+    void* params
+);
 
 SM_API void event_fire( Event event );
 
@@ -91,8 +166,22 @@ SM_API b32 event_subscribe(
     void*         listener_params
 );
 
+SM_API b32 event_subscribe_multiple_codes(
+    usize         code_count,
+    EventCode*    codes,
+    EventListener listener,
+    void*         params
+);
+
 SM_API b32 event_unsubscribe(
     EventCode     code,
+    EventListener listener,
+    void*         listener_params
+);
+
+SM_API b32 event_unsubscribe_multiple_codes(
+    usize         code_count,
+    EventCode*    codes,
     EventListener listener,
     void*         listener_params
 );
