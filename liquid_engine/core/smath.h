@@ -339,8 +339,38 @@ SM_ALWAYS_INLINE f32 absolute( f32 x ) { return x * sign( x ); }
 SM_ALWAYS_INLINE f64 absolute( f64 x ) { return x * sign( x ); }
 
 /// clamp a signed integer between min and max, inclusive-inclusive
+SM_ALWAYS_INLINE i8 clamp( i8 value, i8 min, i8 max ) {
+    const i8 t = value < min ? min : value;
+    return t > max ? max : t;
+}
+/// clamp a signed integer between min and max, inclusive-inclusive
+SM_ALWAYS_INLINE i16 clamp( i16 value, i16 min, i16 max ) {
+    const i16 t = value < min ? min : value;
+    return t > max ? max : t;
+}
+/// clamp a signed integer between min and max, inclusive-inclusive
+SM_ALWAYS_INLINE i32 clamp( i32 value, i32 min, i32 max ) {
+    const i32 t = value < min ? min : value;
+    return t > max ? max : t;
+}
+/// clamp a signed integer between min and max, inclusive-inclusive
 SM_ALWAYS_INLINE i64 clamp( i64 value, i64 min, i64 max ) {
     const i64 t = value < min ? min : value;
+    return t > max ? max : t;
+}
+/// clamp an unsigned integer between min and max, inclusive-inclusive
+SM_ALWAYS_INLINE u8 clamp( u8 value, u8 min, u8 max ) {
+    const u8 t = value < min ? min : value;
+    return t > max ? max : t;
+}
+/// clamp an unsigned integer between min and max, inclusive-inclusive
+SM_ALWAYS_INLINE u16 clamp( u16 value, u16 min, u16 max ) {
+    const u16 t = value < min ? min : value;
+    return t > max ? max : t;
+}
+/// clamp an unsigned integer between min and max, inclusive-inclusive
+SM_ALWAYS_INLINE u32 clamp( u32 value, u32 min, u32 max ) {
+    const u32 t = value < min ? min : value;
     return t > max ? max : t;
 }
 /// clamp an unsigned integer between min and max, inclusive-inclusive
@@ -364,7 +394,19 @@ SM_ALWAYS_INLINE f32 clamp01( f32 value ) { return clamp(value,0.0f,1.0f); }
 SM_ALWAYS_INLINE f64 clamp01( f64 value ) { return clamp(value,0.0,1.0); }
 
 /// get the smallest of two values
+SM_ALWAYS_INLINE i8 min( i8 a, i8 b ) { return a < b ? a : b; }
+/// get the smallest of two values
+SM_ALWAYS_INLINE i16 min( i16 a, i16 b ) { return a < b ? a : b; }
+/// get the smallest of two values
+SM_ALWAYS_INLINE i32 min( i32 a, i32 b ) { return a < b ? a : b; }
+/// get the smallest of two values
 SM_ALWAYS_INLINE i64 min( i64 a, i64 b ) { return a < b ? a : b; }
+/// get the smallest of two values
+SM_ALWAYS_INLINE u8 min( u8 a, u8 b ) { return a < b ? a : b; }
+/// get the smallest of two values
+SM_ALWAYS_INLINE u16 min( u16 a, u16 b ) { return a < b ? a : b; }
+/// get the smallest of two values
+SM_ALWAYS_INLINE u32 min( u32 a, u32 b ) { return a < b ? a : b; }
 /// get the smallest of two values
 SM_ALWAYS_INLINE u64 min( u64 a, u64 b ) { return a < b ? a : b; }
 /// get the smallest of two values
@@ -373,7 +415,19 @@ SM_ALWAYS_INLINE f32 min( f32 a, f32 b ) { return a < b ? a : b; }
 SM_ALWAYS_INLINE f64 min( f64 a, f64 b ) { return a < b ? a : b; }
 
 /// get the largest of two values
+SM_ALWAYS_INLINE i8 max( i8 a, i8 b ) { return a < b ? b : a; }
+/// get the largest of two values
+SM_ALWAYS_INLINE i16 max( i16 a, i16 b ) { return a < b ? b : a; }
+/// get the largest of two values
+SM_ALWAYS_INLINE i32 max( i32 a, i32 b ) { return a < b ? b : a; }
+/// get the largest of two values
 SM_ALWAYS_INLINE i64 max( i64 a, i64 b ) { return a < b ? b : a; }
+/// get the largest of two values
+SM_ALWAYS_INLINE u8 max( u8 a, u8 b ) { return a < b ? b : a; }
+/// get the largest of two values
+SM_ALWAYS_INLINE u16 max( u16 a, u16 b ) { return a < b ? b : a; }
+/// get the largest of two values
+SM_ALWAYS_INLINE u32 max( u32 a, u32 b ) { return a < b ? b : a; }
 /// get the largest of two values
 SM_ALWAYS_INLINE u64 max( u64 a, u64 b ) { return a < b ? b : a; }
 /// get the largest of two values
@@ -3419,7 +3473,7 @@ struct rand_xor {
     : seed( 34634623 ), current( seed ) {}
 
     explicit rand_xor( u32 seed )
-    : seed( max( seed, 1ULL ) ) {
+    : seed( max( seed, 1u ) ) {
         current = this->seed;
     }
 

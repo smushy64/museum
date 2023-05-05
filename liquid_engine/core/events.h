@@ -29,6 +29,8 @@ enum EventCode : u32 {
     EVENT_CODE_INPUT_GAMEPAD_TRIGGER_RIGHT,
     EVENT_CODE_INPUT_GAMEPAD_ACTIVATE,
 
+    EVENT_CODE_MOUSE_CURSOR_CHANGED,
+
     EVENT_CODE_LAST_RESERVED,
     MAX_ENGINE_EVENT_CODE = 0xFF,
 
@@ -56,6 +58,7 @@ inline const char* engine_event_code_to_string(
         "Event Gamepad Trigger Left",
         "Event Gamepad Trigger Right",
         "Event Gamepad Activate",
+        "Event Mouse Cursor Changed"
     };
     if( code >= EVENT_CODE_LAST_RESERVED ) {
         return nullptr;
@@ -69,7 +72,6 @@ enum EventConsumption : u32 {
     EVENT_CONSUMED
 };
 
-// TODO(alicia): surface active
 struct Event {
     EventCode code;
     union EventData {
@@ -127,6 +129,9 @@ struct Event {
             struct { i32 x, y; };
             ivec2 coord;
         } mouse_move;
+        struct {
+            i32 delta;
+        } mouse_wheel;
         struct {
             u32 gamepad_index;
         } gamepad_activate;

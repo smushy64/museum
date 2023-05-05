@@ -56,6 +56,17 @@ EventConsumption on_main_surface_active( Event* event, void* ) {
     }
 }
 
+EventConsumption on_main_surface_resize( Event* event, void* ) {
+    if(
+        event->data.surface_resize.surface ==
+        &CONTEXT.main_surface
+    ) {
+        // TODO(alicia): 
+        SM_UNUSED(event);
+    }
+    return EVENT_NOT_CONSUMED;
+}
+
 b32 application_startup( AppConfig* config ) {
 
 #if defined(LD_LOGGING)
@@ -125,6 +136,17 @@ b32 application_startup( AppConfig* config ) {
         );
         return false;
     }
+    if(!event_subscribe(
+        EVENT_CODE_SURFACE_RESIZE,
+        on_main_surface_resize,
+        nullptr
+    )) {
+        MESSAGE_BOX_FATAL(
+            "Subsystem Failure",
+            "Failed to initialize event subsystem."
+        );
+        return false;
+    }
     
     CONTEXT.sysinfo = query_system_info();
 
@@ -180,7 +202,7 @@ b32 application_startup( AppConfig* config ) {
     );
 #endif
 
-    LOG_NOTE("Memory: %6.3 GB",
+    LOG_NOTE("Memory: %6.3f GB",
         MB_TO_GB(
             KB_TO_MB(
                 BYTES_TO_KB(
@@ -242,6 +264,13 @@ b32 application_shutdown() {
     if(!event_unsubscribe(
         EVENT_CODE_SURFACE_ACTIVE,
         on_main_surface_active,
+        nullptr
+    )) {
+        success = false;
+    }
+    if(!event_unsubscribe(
+        EVENT_CODE_SURFACE_RESIZE,
+        on_main_surface_resize,
         nullptr
     )) {
         success = false;

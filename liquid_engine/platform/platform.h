@@ -57,6 +57,24 @@ b32 surface_pump_events( Surface* surface );
 void surface_swap_buffers( Surface* surface );
 void surface_set_name( Surface* surface, const char* name );
 
+enum MouseCursorStyle : u32 {
+    CURSOR_ARROW,
+    CURSOR_RESIZE_VERTICAL,
+    CURSOR_RESIZE_HORIZONTAL,
+    CURSOR_RESIZE_TOP_RIGHT_BOTTOM_LEFT,
+    CURSOR_RESIZE_TOP_LEFT_BOTTOM_RIGHT,
+    CURSOR_BEAM,
+    CURSOR_CLICK,
+    CURSOR_WAIT,
+    CURSOR_FORBIDDEN,
+
+    CURSOR_COUNT
+};
+
+void platform_cursor_set_style( MouseCursorStyle style );
+void platform_cursor_set_visible( b32 visible );
+void platform_cursor_set_locked( Surface* surface, b32 lock );
+
 /// Types of message boxes
 enum MessageBoxType : u32 {
     MBTYPE_OK,

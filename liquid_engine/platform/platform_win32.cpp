@@ -43,12 +43,14 @@ struct Win32State {
     HMODULE   libXinput;
     HMODULE   libGl;
     HMODULE   libGdi32;
+
+    MouseCursorStyle current_mouse_style;
 };
 
 struct Win32Surface {
     HWND window;
     HDC  hDc;
-    Win32State* state;
+    PlatformState* state;
 };
 
 union Win32MotorState {
@@ -593,6 +595,7 @@ b32 platform_init(
     }
     out_state->platform_data = win_state_buffer;
     Win32State* state = (Win32State*)out_state->platform_data;
+    state->current_mouse_style = CURSOR_ARROW;
 
     state->hInstance = GetModuleHandleA(0);
 
@@ -1238,6 +1241,12 @@ b32 surface_create(
     windowClass.cbSize      = sizeof(WNDCLASSEX);
     windowClass.lpfnWndProc = window_proc;
     windowClass.hInstance   = state->hInstance;
+    // TODO(alicia): 
+    windowClass.hIcon       = nullptr;
+    windowClass.hCursor     = LoadCursor(
+        state->hInstance,
+        IDC_ARROW
+    );
 
     SM_LOCAL const wchar_t* BASE_CLASS_NAME = L"LiquidEngineWindowClass";
     SM_LOCAL const usize BASE_CLASS_NAME_LEN = wcslen(BASE_CLASS_NAME);
@@ -1378,7 +1387,7 @@ b32 surface_create(
     win_surface->hDc      = dc;
     out_surface->position = { x, y };
     
-    win_surface->state = state;
+    win_surface->state = platform_state;
 
     SetWindowLongPtr(
         win_surface->window,
@@ -1489,6 +1498,53 @@ SM_INTERNAL LRESULT window_proc(
 
             IS_ACTIVE = is_active;
         } break;
+
+        case WM_WINDOWPOSCHANGED: {
+            SM_LOCAL RECT last_rect = {};
+            RECT rect = {};
+            if( GetClientRect( hWnd, &rect ) ) {
+                if(
+                    last_rect.right  == rect.right &&
+                    last_rect.bottom == rect.bottom
+                ) {
+                    last_rect = rect;
+                    break;
+                }
+
+                #define MIN_DIMENSIONS 1
+                ivec2 dimensions = {
+                    max( rect.right, MIN_DIMENSIONS ),
+                    max( rect.bottom, MIN_DIMENSIONS ),
+                };
+
+                surface->dimensions = dimensions;
+
+                event.code = EVENT_CODE_SURFACE_RESIZE;
+                event.data.surface_resize.surface    = surface;
+                event.data.surface_resize.dimensions = dimensions;
+                event_fire( event );
+
+                last_rect = rect;
+            }
+
+            SM_LOCAL ivec2 last_position = {};
+            WINDOWPOS* window_pos = (WINDOWPOS*)lParam;
+            ivec2 position = {
+                window_pos->x,
+                window_pos->y
+            };
+
+            if( position != last_position ) {
+                surface->position = position;
+
+                event.code = EVENT_CODE_SURFACE_MOVE;
+                event.data.surface_move.surface  = surface;
+                event.data.surface_move.position = position;
+                event_fire( event );
+            }
+            last_position = position;
+
+        } return FALSE;
 
         case WM_SYSKEYUP:
         case WM_SYSKEYDOWN:
@@ -1615,12 +1671,44 @@ SM_INTERNAL LRESULT window_proc(
 
             i64 delta = GET_WHEEL_DELTA_WPARAM(wParam);
             delta = delta == 0 ? 0 : absolute(delta);
+            event.data.mouse_wheel.delta = delta;
+
             if( Msg == WM_MOUSEWHEEL ) {
+                event.code = EVENT_CODE_INPUT_MOUSE_WHEEL;
                 input_set_mouse_wheel( delta );
             } else {
+                event.code = EVENT_CODE_INPUT_HORIZONTAL_MOUSE_WHEEL;
                 input_set_horizontal_mouse_wheel( delta );
             }
 
+            event_fire( event );
+
+        } return TRUE;
+
+        case WM_SETCURSOR: switch( LOWORD( lParam ) ) {
+            case HTRIGHT:
+            case HTLEFT: {
+                platform_cursor_set_style( CURSOR_RESIZE_HORIZONTAL );
+            } break;
+
+            case HTTOP:
+            case HTBOTTOM: {
+                platform_cursor_set_style( CURSOR_RESIZE_VERTICAL );
+            } break;
+
+            case HTBOTTOMLEFT:
+            case HTTOPRIGHT: {
+                platform_cursor_set_style( CURSOR_RESIZE_TOP_RIGHT_BOTTOM_LEFT );
+            } break;
+
+            case HTBOTTOMRIGHT:
+            case HTTOPLEFT: {
+                platform_cursor_set_style( CURSOR_RESIZE_TOP_LEFT_BOTTOM_RIGHT );
+            } break;
+
+            default: {
+                platform_cursor_set_style( CURSOR_ARROW );
+            } break;
         } return TRUE;
 
     }
@@ -1634,6 +1722,43 @@ SM_INTERNAL LRESULT window_proc(
 }
 
 // SURFACE | END ----------------------------------------------------------
+
+inline LPCTSTR cursor_style_to_win_style( MouseCursorStyle style ) {
+    SM_LOCAL const LPCTSTR styles[CURSOR_COUNT] = {
+        IDC_ARROW,
+        IDC_SIZENS,
+        IDC_SIZEWE,
+        IDC_SIZENESW,
+        IDC_SIZENWSE,
+        IDC_IBEAM,
+        IDC_HAND,
+        IDC_WAIT,
+        IDC_NO
+    };
+    if( style >= CURSOR_COUNT ) {
+        return IDC_ARROW;
+    }
+    return styles[style];
+}
+
+void platform_cursor_set_style( MouseCursorStyle style ) {
+    LPCTSTR win_style = cursor_style_to_win_style( style );
+    SetCursor(
+        LoadCursor(
+            nullptr,
+            win_style
+        )
+    );
+
+    Event event = {};
+    event.code = EVENT_CODE_MOUSE_CURSOR_CHANGED;
+    event.data.raw.uint32[0] = style;
+    event_fire( event );
+}
+
+void platform_cursor_set_visible( b32 visible ) {
+    
+}
 
 void platform_poll_gamepad() {
     if( !IS_ACTIVE ) {
