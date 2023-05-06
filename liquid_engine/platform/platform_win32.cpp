@@ -36,6 +36,14 @@ struct Win32ThreadHandle {
     DWORD      id;
 };
 
+struct Win32Cursor {
+    MouseCursorStyle style;
+    b32              is_visible;
+    Surface*         surface_locked;
+};
+
+SM_GLOBAL Win32Cursor CURSOR_STATE = {};
+
 struct Win32State {
     HINSTANCE hInstance;
 
@@ -43,12 +51,10 @@ struct Win32State {
     HMODULE   libXinput;
     HMODULE   libGl;
     HMODULE   libGdi32;
-
-    MouseCursorStyle current_mouse_style;
 };
 
 struct Win32Surface {
-    HWND window;
+    HWND hWnd;
     HDC  hDc;
     PlatformState* state;
 };
@@ -595,7 +601,6 @@ b32 platform_init(
     }
     out_state->platform_data = win_state_buffer;
     Win32State* state = (Win32State*)out_state->platform_data;
-    state->current_mouse_style = CURSOR_ARROW;
 
     state->hInstance = GetModuleHandleA(0);
 
@@ -1347,7 +1352,7 @@ b32 surface_create(
     HWND hWndParent = nullptr;
     if( opt_parent ) {
         Win32Surface* parent_surface = (Win32Surface*)opt_parent->platform_data;
-        hWndParent = parent_surface->window;
+        hWndParent = parent_surface->hWnd;
     }
     usize window_name_len = str_length(surface_name) + 1;
     wchar_t lpWindowName[window_name_len];
@@ -1383,14 +1388,14 @@ b32 surface_create(
         return false;
     }
 
-    win_surface->window   = hWnd;
+    win_surface->hWnd     = hWnd;
     win_surface->hDc      = dc;
     out_surface->position = { x, y };
     
     win_surface->state = platform_state;
 
     SetWindowLongPtr(
-        win_surface->window,
+        win_surface->hWnd,
         GWLP_USERDATA,
         (LONG_PTR)out_surface
     );
@@ -1407,7 +1412,7 @@ void surface_destroy( Surface* surface ) {
     Win32Surface* win_surface = 
         (Win32Surface*)surface->platform_data;
     
-    DestroyWindow( win_surface->window );
+    DestroyWindow( win_surface->hWnd );
 
     mem_free( surface->name );
     mem_free( surface->platform_data );
@@ -1418,7 +1423,7 @@ b32 surface_pump_events( Surface* surface ) {
     MSG message;
     while(PeekMessage(
         &message,
-        win_surface->window,
+        win_surface->hWnd,
         0, 0,
         PM_REMOVE
     )) {
@@ -1451,7 +1456,7 @@ void surface_set_name( Surface* surface, const char* new_name ) {
     );
 
     Win32Surface* win_surface = (Win32Surface*)surface->platform_data;
-    SetWindowTextA( win_surface->window, new_name );
+    SetWindowTextA( win_surface->hWnd, new_name );
 }
 
 #define TRANSITION_STATE_MASK (1 << 31)
@@ -1495,6 +1500,10 @@ SM_INTERNAL LRESULT window_proc(
             event.data.surface_active.is_active = is_active;
             event.data.surface_active.surface   = surface;
             event_fire( event );
+
+            if( !is_active ) {
+                platform_cursor_set_visible( true );
+            }
 
             IS_ACTIVE = is_active;
         } break;
@@ -1741,6 +1750,8 @@ inline LPCTSTR cursor_style_to_win_style( MouseCursorStyle style ) {
     return styles[style];
 }
 
+
+
 void platform_cursor_set_style( MouseCursorStyle style ) {
     LPCTSTR win_style = cursor_style_to_win_style( style );
     SetCursor(
@@ -1754,10 +1765,36 @@ void platform_cursor_set_style( MouseCursorStyle style ) {
     event.code = EVENT_CODE_MOUSE_CURSOR_CHANGED;
     event.data.raw.uint32[0] = style;
     event_fire( event );
+
+    CURSOR_STATE.style = style;
 }
 
 void platform_cursor_set_visible( b32 visible ) {
-    
+    ShowCursor( visible );
+
+    CURSOR_STATE.is_visible = visible;
+}
+
+void platform_cursor_set_locked( Surface* surface, b32 lock ) {
+    if( lock ) {
+        CURSOR_STATE.surface_locked = surface;
+        platform_cursor_center( surface );
+        platform_cursor_set_visible( false );
+    } else {
+        CURSOR_STATE.surface_locked = nullptr;
+        platform_cursor_set_visible( true );
+    }
+}
+
+void platform_cursor_center( Surface* surface ) {
+    POINT center = {};
+    center.x = surface->dimensions.x / 2;
+    center.y = surface->dimensions.y / 2;
+
+    Win32Surface* win_surface = (Win32Surface*)surface->platform_data;
+
+    ClientToScreen( win_surface->hWnd, &center );
+    SetCursorPos( center.x, center.y );
 }
 
 void platform_poll_gamepad() {

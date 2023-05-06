@@ -74,6 +74,7 @@ enum MouseCursorStyle : u32 {
 void platform_cursor_set_style( MouseCursorStyle style );
 void platform_cursor_set_visible( b32 visible );
 void platform_cursor_set_locked( Surface* surface, b32 lock );
+void platform_cursor_center( Surface* surface );
 
 /// Types of message boxes
 enum MessageBoxType : u32 {
