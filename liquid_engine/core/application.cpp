@@ -14,7 +14,7 @@
 
 struct AppContext {
     PlatformState platform;
-    Surface       main_surface;
+    Surface*      main_surface;
     SystemInfo    sysinfo;
 
     b32 is_active;
@@ -29,7 +29,7 @@ SM_GLOBAL AppContext CONTEXT = {};
 EventConsumption on_main_surface_destroy( Event* event, void* ) {
     if(
         event->data.surface_destroy.surface ==
-        &CONTEXT.main_surface
+        CONTEXT.main_surface
     ) {
         CONTEXT.is_running = false;
         return EVENT_CONSUMED;
@@ -41,7 +41,7 @@ EventConsumption on_main_surface_destroy( Event* event, void* ) {
 EventConsumption on_main_surface_active( Event* event, void* ) {
     if(
         event->data.surface_active.surface ==
-        &CONTEXT.main_surface
+        CONTEXT.main_surface
     ) {
         b32 is_active = event->data.surface_active.is_active;
         if( is_active ) {
@@ -59,7 +59,7 @@ EventConsumption on_main_surface_active( Event* event, void* ) {
 EventConsumption on_main_surface_resize( Event* event, void* ) {
     if(
         event->data.surface_resize.surface ==
-        &CONTEXT.main_surface
+        CONTEXT.main_surface
     ) {
         // TODO(alicia): 
         SM_UNUSED(event);
@@ -88,8 +88,13 @@ b32 application_startup( AppConfig* config ) {
         LIQUID_ENGINE_VERSION_MINOR
     );
 
+    LOG_NOTE("Graphics Backend: %s",
+        to_string(config->graphics_backend)
+    );
+
     if( !platform_init(
         config->platform_flags,
+        config->graphics_backend,
         &CONTEXT.platform
     ) ) {
         MESSAGE_BOX_FATAL(
@@ -212,15 +217,15 @@ b32 application_startup( AppConfig* config ) {
         )
     );
 
-    if(!surface_create(
+    CONTEXT.main_surface = surface_create(
         config->main_surface.name,
         config->main_surface.position,
         config->main_surface.dimensions,
         config->main_surface.flags,
         &CONTEXT.platform,
-        nullptr,
-        &CONTEXT.main_surface
-    )) {
+        nullptr
+    );
+    if(!CONTEXT.main_surface) {
         MESSAGE_BOX_FATAL(
             "Surface Failure",
             "Failed to create surface."
@@ -236,7 +241,7 @@ b32 application_run() {
     while( CONTEXT.is_running ) {
         input_swap();
         platform_poll_gamepad();
-        surface_pump_events( &CONTEXT.main_surface );
+        surface_pump_events( CONTEXT.main_surface );
 
         if( !CONTEXT.is_active ) {
             continue;
@@ -284,7 +289,10 @@ b32 application_shutdown() {
     }
 
     CONTEXT.is_running = false;
-    surface_destroy( &CONTEXT.main_surface );
+    surface_destroy(
+        &CONTEXT.platform,
+        CONTEXT.main_surface
+    );
     platform_shutdown( &CONTEXT.platform );
     log_shutdown();
     return success;

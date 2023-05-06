@@ -46,6 +46,16 @@ b32 event_init() {
     }
     SYSTEM.registry = (ListenerRegistry*)registry_buffer;
 
+    // NOTE(alicia): perhaps this is a bad idea?
+    // it's about half a kilobyte of memory so maybe not? im not sure
+    /// pre-allocate listener lists
+    for( usize i = 0; i < EVENT_CODE_LAST_RESERVED; ++i ) {
+        SYSTEM.registry[i].listeners = list_reserve(
+            ListenerContext,
+            MIN_LISTENERS
+        );
+    }
+
     LOG_NOTE("Event subsystem successfully initialized.");
     return true;
 }

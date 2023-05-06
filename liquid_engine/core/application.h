@@ -11,6 +11,25 @@
 
 typedef b32 (*AppRunFn)( void* params, f32 delta_time );
 
+enum GraphicsBackend : u32 {
+    BACKEND_VULKAN,
+    BACKEND_OPENGL,
+    BACKEND_DX11,
+    BACKEND_DX12,
+
+    BACKEND_COUNT
+};
+inline const char* to_string( GraphicsBackend backend ) {
+    SM_LOCAL const char* strings[BACKEND_COUNT] = {
+        "Vulkan 1.2",
+        "OpenGL 4.5",
+        "DirectX 11",
+        "DirectX 12"
+    };
+    SM_ASSERT( backend < BACKEND_COUNT );
+    return strings[backend];
+}
+
 struct AppConfig {
     struct SurfaceConfig {
         const char* name;
@@ -20,6 +39,7 @@ struct AppConfig {
     } main_surface;
 
     u32 log_level;
+    GraphicsBackend graphics_backend;
     PlatformInitFlags platform_flags;
 
     AppRunFn application_run;

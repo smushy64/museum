@@ -33,8 +33,9 @@ int main( int, char** ) {
     config.main_surface.dimensions = { 800, 600 };
     config.main_surface.flags      = SURFACE_CREATE_VISIBLE | SURFACE_CREATE_CENTERED;
 
-    config.log_level      = LOG_LEVEL_ALL_VERBOSE;
-    config.platform_flags = PLATFORM_DPI_AWARE;
+    config.log_level        = LOG_LEVEL_ALL_VERBOSE;
+    config.platform_flags   = PLATFORM_DPI_AWARE;
+    config.graphics_backend = BACKEND_VULKAN;
 
     config.application_run = app_run;
 

@@ -16,6 +16,7 @@
 #include "core/memory.h"
 #include "core/collections.h"
 #include "core/events.h"
+#include "core/application.h"
 
 #include <intrin.h>
 
@@ -44,6 +45,13 @@ struct Win32Cursor {
 
 SM_GLOBAL Win32Cursor CURSOR_STATE = {};
 
+struct Win32Surface {
+    Surface        surface;
+    HWND           hWnd;
+    HDC            hDc;
+    PlatformState* state;
+};
+
 struct Win32State {
     HINSTANCE hInstance;
 
@@ -51,13 +59,48 @@ struct Win32State {
     HMODULE   libXinput;
     HMODULE   libGl;
     HMODULE   libGdi32;
+
+    Win32Surface      surfaces[MAX_SURFACE_COUNT];
+    b32               surface_is_available[MAX_SURFACE_COUNT];
+    usize             thread_count;
+    Win32ThreadHandle threads[MAX_THREAD_COUNT];
 };
 
-struct Win32Surface {
-    HWND hWnd;
-    HDC  hDc;
-    PlatformState* state;
-};
+Win32ThreadHandle* get_next_handle( Win32State* state ) {
+    if( state->thread_count >= MAX_THREAD_COUNT ) {
+        return nullptr;
+    }
+    usize next_handle = state->thread_count++;
+    return &state->threads[next_handle];
+}
+
+Win32Surface* get_next_surface( Win32State* state ) {
+    for( usize i = 0; i < MAX_SURFACE_COUNT; ++i ) {
+        if( state->surface_is_available[i] ) {
+            state->surface_is_available[i] = false;
+            return &state->surfaces[i];
+        }
+    }
+    return nullptr;
+}
+
+void mark_surface_available( Win32State* state, Win32Surface* surface ) {
+    for( usize i = 0; i < MAX_SURFACE_COUNT; ++i ) {
+        if( &state->surfaces[i] == surface ) {
+            state->surface_is_available[i] = true;
+            mem_zero(
+                &state->surfaces[i],
+                sizeof( Win32Surface )
+            );
+            return;
+        }
+    }
+
+    LOG_ASSERT(
+        false,
+        "Attempted to mark a non-existent surface as being available!"
+    );
+}
 
 union Win32MotorState {
     struct {
@@ -586,6 +629,7 @@ SM_INTERNAL void* win_proc_address_required(
 
 b32 platform_init(
     PlatformInitFlags flags,
+    GraphicsBackend   backend,
     PlatformState* out_state
 ) {
     void* win_state_buffer = mem_alloc(
@@ -601,6 +645,10 @@ b32 platform_init(
     }
     out_state->platform_data = win_state_buffer;
     Win32State* state = (Win32State*)out_state->platform_data;
+
+    for( usize i = 0; i < MAX_SURFACE_COUNT; ++i ) {
+        state->surface_is_available[i] = true;
+    }
 
     state->hInstance = GetModuleHandleA(0);
 
@@ -636,27 +684,29 @@ b32 platform_init(
             }
         }
     }
-    if( !win_library_load(
-        L"OPENGL32.DLL",
-        &state->libGl
-    ) ) {
-        MESSAGE_BOX_FATAL(
-            "Failed to load library!",
-            "Failed to load opengl32.dll!"
-        );
-        mem_free( state );
-        return false;
-    }
-    if( !win_library_load(
-        L"GDI32.DLL",
-        &state->libGdi32
-    ) ) {
-        MESSAGE_BOX_FATAL(
-            "Failed to load library!",
-            "Failed to load gdi32.dll!"
-        );
-        mem_free( state );
-        return false;
+    if( backend == BACKEND_OPENGL ) {
+        if( !win_library_load(
+            L"OPENGL32.DLL",
+            &state->libGl
+        ) ) {
+            MESSAGE_BOX_FATAL(
+                "Failed to load library!",
+                "Failed to load opengl32.dll!"
+            );
+            mem_free( state );
+            return false;
+        }
+        if( !win_library_load(
+            L"GDI32.DLL",
+            &state->libGdi32
+        ) ) {
+            MESSAGE_BOX_FATAL(
+                "Failed to load library!",
+                "Failed to load gdi32.dll!"
+            );
+            mem_free( state );
+            return false;
+        }
     }
 
     SetProcessDpiAwarenessContext =
@@ -716,79 +766,82 @@ b32 platform_init(
         XInputEnable = xinput_enable;
     }
 
-    wglCreateContext =
-    (::internal::wglCreateContext_fn)win_proc_address_required(
-        state->libGl,
-        "wglCreateContext"
-    );
-    if( !wglCreateContext ) {
-        mem_free( state );
-        return false;
-    }
-    wglMakeCurrent =
-    (::internal::wglMakeCurrent_fn)win_proc_address_required(
-        state->libGl,
-        "wglMakeCurrent"
-    );
-    if( !wglMakeCurrent ) {
-        mem_free( state );
-        return false;
-    }
-    wglDeleteContext =
-    (::internal::wglDeleteContext_fn)win_proc_address_required(
-        state->libGl,
-        "wglDeleteContext"
-    );
-    if( !wglDeleteContext ) {
-        mem_free( state );
-        return false;
-    }
-    wglGetProcAddress =
-    (::internal::wglGetProcAddress_fn)win_proc_address_required(
-        state->libGl,
-        "wglGetProcAddress"
-    );
-    if( !wglGetProcAddress ) {
-        mem_free( state );
-        return false;
-    }
+    if( backend == BACKEND_OPENGL ) {
 
-    DescribePixelFormat =
-    (::internal::DescribePixelFormat_fn)win_proc_address_required(
-        state->libGdi32,
-        "DescribePixelFormat"
-    );
-    if( !DescribePixelFormat ) {
-        mem_free( state );
-        return false;
-    }
-    ChoosePixelFormat =
-    (::internal::ChoosePixelFormat_fn)win_proc_address_required(
-        state->libGdi32,
-        "ChoosePixelFormat"
-    );
-    if( !ChoosePixelFormat ) {
-        mem_free( state );
-        return false;
-    }
-    SetPixelFormat =
-    (::internal::SetPixelFormat_fn)win_proc_address_required(
-        state->libGdi32,
-        "SetPixelFormat"
-    );
-    if( !SetPixelFormat ) {
-        mem_free( state );
-        return false;
-    }
+        wglCreateContext =
+        (::internal::wglCreateContext_fn)win_proc_address_required(
+            state->libGl,
+            "wglCreateContext"
+        );
+        if( !wglCreateContext ) {
+            mem_free( state );
+            return false;
+        }
+        wglMakeCurrent =
+        (::internal::wglMakeCurrent_fn)win_proc_address_required(
+            state->libGl,
+            "wglMakeCurrent"
+        );
+        if( !wglMakeCurrent ) {
+            mem_free( state );
+            return false;
+        }
+        wglDeleteContext =
+        (::internal::wglDeleteContext_fn)win_proc_address_required(
+            state->libGl,
+            "wglDeleteContext"
+        );
+        if( !wglDeleteContext ) {
+            mem_free( state );
+            return false;
+        }
+        wglGetProcAddress =
+        (::internal::wglGetProcAddress_fn)win_proc_address_required(
+            state->libGl,
+            "wglGetProcAddress"
+        );
+        if( !wglGetProcAddress ) {
+            mem_free( state );
+            return false;
+        }
 
-    SwapBuffers =
-    (::internal::SwapBuffers_fn)win_proc_address_required(
-        state->libGdi32,
-        "SwapBuffers"
-    );
-    if( !SwapBuffers ) {
-        mem_free( state );
-        return false;
+        DescribePixelFormat =
+        (::internal::DescribePixelFormat_fn)win_proc_address_required(
+            state->libGdi32,
+            "DescribePixelFormat"
+        );
+        if( !DescribePixelFormat ) {
+            mem_free( state );
+            return false;
+        }
+        ChoosePixelFormat =
+        (::internal::ChoosePixelFormat_fn)win_proc_address_required(
+            state->libGdi32,
+            "ChoosePixelFormat"
+        );
+        if( !ChoosePixelFormat ) {
+            mem_free( state );
+            return false;
+        }
+        SetPixelFormat =
+        (::internal::SetPixelFormat_fn)win_proc_address_required(
+            state->libGdi32,
+            "SetPixelFormat"
+        );
+        if( !SetPixelFormat ) {
+            mem_free( state );
+            return false;
+        }
+
+        SwapBuffers =
+        (::internal::SwapBuffers_fn)win_proc_address_required(
+            state->libGdi32,
+            "SwapBuffers"
+        );
+        if( !SwapBuffers ) {
+            mem_free( state );
+            return false;
+        }
     }
 
     if( CHECK_FLAG( flags, PLATFORM_DPI_AWARE ) ) {
@@ -809,8 +862,12 @@ b32 platform_init(
 void platform_shutdown( PlatformState* platform_state ) {
     Win32State* state = (Win32State*)platform_state->platform_data;
 
-    win_library_free( state->libGdi32 );
-    win_library_free( state->libGl );
+    if( state->libGdi32 ) {
+        win_library_free( state->libGdi32 );
+    }
+    if( state->libGl ) {
+        win_library_free( state->libGl );
+    }
     win_library_free( state->libXinput );
     win_library_free( state->libUser32 );
 
@@ -938,15 +995,19 @@ SM_INTERNAL DWORD WINAPI win_thread_proc( void* params ) {
 #define THREAD_STACK_SIZE_SAME_AS_MAIN 0
 #define THREAD_RUN_ON_CREATE 0
 ThreadHandle thread_create(
+    PlatformState* state,
     ThreadProc thread_proc,
     void*      params,
     b32        run_on_creation
 ) {
-    void* handle_buffer = mem_alloc( sizeof(Win32ThreadHandle), MEMTYPE_PLATFORM_DATA );
-    if( !handle_buffer ) {
+
+    Win32State* win_state = (Win32State*)state->platform_data;
+
+    Win32ThreadHandle* thread_handle = get_next_handle( win_state );
+    if( !thread_handle ) {
+        LOG_ERROR("Out of thread handles!");
         return nullptr;
     }
-    Win32ThreadHandle* thread_handle = (Win32ThreadHandle*)handle_buffer;
     thread_handle->proc   = thread_proc;
     thread_handle->params = params;
 
@@ -973,10 +1034,10 @@ ThreadHandle thread_create(
     }
 
     if( run_on_creation ) {
-        thread_resume( handle_buffer );
+        thread_resume( thread_handle );
     }
 
-    return handle_buffer;
+    return thread_handle;
 }
 void thread_resume( ThreadHandle thread ) {
     Win32ThreadHandle* win32_thread = (Win32ThreadHandle*)thread;
@@ -1201,46 +1262,44 @@ SM_INTERNAL LRESULT window_proc(
     WPARAM wParam, LPARAM lParam
 );
 
-b32 surface_create(
+Surface* surface_create(
     const char* surface_name,
     ivec2 position,
     ivec2 dimensions,
     SurfaceCreateFlags flags,
     PlatformState* platform_state,
-    Surface* opt_parent,
-    Surface* out_surface
+    Surface* opt_parent
 ) {
     Win32State* state = (Win32State*)platform_state->platform_data;
 
-    usize surface_name_length = str_length( surface_name ) + 1;
-    out_surface->name = (char*)mem_alloc( surface_name_length, MEMTYPE_PLATFORM_DATA );
-    if( !out_surface->name ) {
+    Win32Surface* win_surface = get_next_surface( state );
+    if( !win_surface ) {
         MESSAGE_BOX_FATAL(
-            "Out of Memory",
-            "Could not allocate window name buffer!"
+            "Internal Error",
+            "Maximum surface count exceeded!"
         );
-        WIN_LOG_ERROR("Could not allocate window name buffer!");
-        return false;
+        WIN_LOG_ERROR("Maximum surface count exceeded!");
+        return nullptr;
     }
+
+    usize surface_name_length = str_length( surface_name ) + 1;
+    if( surface_name_length > MAX_SURFACE_NAME_LENGTH ) {
+        MESSAGE_BOX_FATAL(
+            "Exceeded surface name length!",
+            "Surface name is too long!"
+        );
+        WIN_LOG_ERROR(
+            "Surface name is too long! length: %llu",
+            surface_name_length
+        );
+        return nullptr;
+    }
+
     mem_copy(
-        out_surface->name,
+        win_surface->surface.name,
         surface_name,
         surface_name_length
     );
-    out_surface->name_length = surface_name_length;
-
-    void* win_surface_buffer = mem_alloc( sizeof(Win32Surface), MEMTYPE_PLATFORM_DATA );
-    if( !win_surface_buffer ) {
-        MESSAGE_BOX_FATAL(
-            "Out of Memory",
-            "Could not allocate window data!"
-        );
-        WIN_LOG_ERROR("Could not allocate window data!");
-        mem_free( out_surface->name );
-        return false;
-    }
-    out_surface->platform_data = win_surface_buffer;
-    Win32Surface* win_surface  = (Win32Surface*)out_surface->platform_data;
 
     WNDCLASSEX windowClass  = {};
     windowClass.cbSize      = sizeof(WNDCLASSEX);
@@ -1271,9 +1330,7 @@ b32 surface_create(
 
     if( !RegisterClassEx( &windowClass ) ) {
         win_log_error( true );
-        mem_free( win_surface );
-        mem_free( out_surface->name );
-        return false;
+        return nullptr;
     }
 
     DWORD dwStyle   = WS_OVERLAPPEDWINDOW;
@@ -1295,8 +1352,6 @@ b32 surface_create(
             96
         );
 
-        out_surface->dimensions = { width, height };
-
         window_rect.right  = width;
         window_rect.bottom = height;
 
@@ -1308,9 +1363,7 @@ b32 surface_create(
             dpi
         ) ) {
             win_log_error( true );
-            mem_free( win_surface );
-            mem_free( out_surface->name );
-            return false;
+            return nullptr;
         }
     } else {
         width  = dimensions.width;
@@ -1325,11 +1378,11 @@ b32 surface_create(
             dwExStyle
         ) ) {
             win_log_error( true );
-            mem_free( win_surface );
-            mem_free( out_surface->name );
-            return false;
+            return nullptr;
         }
     }
+
+    win_surface->surface.dimensions = { width, height };
 
     i32 x = 0, y = 0;
     if( CHECK_FLAG( flags, SURFACE_CREATE_CENTERED ) ) {
@@ -1351,15 +1404,15 @@ b32 surface_create(
 
     HWND hWndParent = nullptr;
     if( opt_parent ) {
-        Win32Surface* parent_surface = (Win32Surface*)opt_parent->platform_data;
+        Win32Surface* parent_surface = (Win32Surface*)opt_parent;
         hWndParent = parent_surface->hWnd;
     }
-    usize window_name_len = str_length(surface_name) + 1;
-    wchar_t lpWindowName[window_name_len];
+
+    wchar_t lpWindowName[surface_name_length];
     mbstowcs(
         lpWindowName,
         surface_name,
-        window_name_len
+        surface_name_length
     );
     HWND hWnd = CreateWindowEx(
         dwExStyle,
@@ -1376,50 +1429,47 @@ b32 surface_create(
     );
     if( !hWnd ) {
         win_log_error( true );
-        mem_free( win_surface );
-        mem_free( out_surface->name );
-        return false;
+        return nullptr;
     }
     HDC dc = GetDC( hWnd );
     if( !dc ) {
         win_log_error( true );
-        mem_free( win_surface );
-        mem_free( out_surface->name );
-        return false;
+        return nullptr;
     }
 
-    win_surface->hWnd     = hWnd;
-    win_surface->hDc      = dc;
-    out_surface->position = { x, y };
+    win_surface->hWnd             = hWnd;
+    win_surface->hDc              = dc;
+    win_surface->surface.position = { x, y };
     
     win_surface->state = platform_state;
 
     SetWindowLongPtr(
         win_surface->hWnd,
         GWLP_USERDATA,
-        (LONG_PTR)out_surface
+        (LONG_PTR)win_surface
     );
 
     if( CHECK_FLAG( flags, SURFACE_CREATE_VISIBLE ) ) {
-        out_surface->is_visible = true;
+        win_surface->surface.is_visible = true;
         ShowWindow( hWnd, SW_SHOW );
     }
 
-    return true;
+    return (Surface*)win_surface;
 }
 
-void surface_destroy( Surface* surface ) {
-    Win32Surface* win_surface = 
-        (Win32Surface*)surface->platform_data;
+void surface_destroy(
+    PlatformState* state,
+    Surface* surface
+) {
+    Win32State*   win_state   = (Win32State*)state->platform_data;
+    Win32Surface* win_surface = (Win32Surface*)surface;
     
     DestroyWindow( win_surface->hWnd );
-
-    mem_free( surface->name );
-    mem_free( surface->platform_data );
+    mark_surface_available( win_state, win_surface );
 }
 
 b32 surface_pump_events( Surface* surface ) {
-    Win32Surface* win_surface = (Win32Surface*)surface->platform_data;
+    Win32Surface* win_surface = (Win32Surface*)surface;
     MSG message;
     while(PeekMessage(
         &message,
@@ -1434,29 +1484,28 @@ b32 surface_pump_events( Surface* surface ) {
     return true;
 }
 void surface_swap_buffers( Surface* surface ) {
-    Win32Surface* win_surface = (Win32Surface*)surface->platform_data;
+    Win32Surface* win_surface = (Win32Surface*)surface;
     SwapBuffers( win_surface->hDc );
 }
 void surface_set_name( Surface* surface, const char* new_name ) {
-    usize new_name_length = str_length(new_name) + 1;
-    if( new_name_length > surface->name_length ) {
-        void* new_buffer = mem_realloc(
-            surface->name,
-            new_name_length
+    usize new_name_length = str_length( new_name ) + 1;
+    if( new_name_length > MAX_SURFACE_NAME_LENGTH ) {
+        LOG_WARN(
+            "Surface name \"%s\" is too long! "
+            "It will be truncated!"
         );
-        SM_ASSERT( new_buffer );
-        surface->name = (char*)new_buffer;
+        new_name_length = MAX_SURFACE_NAME_LENGTH;
     }
 
-    surface->name_length = new_name_length;
     mem_copy(
         surface->name,
         new_name,
-        surface->name_length
+        new_name_length
     );
-
-    Win32Surface* win_surface = (Win32Surface*)surface->platform_data;
-    SetWindowTextA( win_surface->hWnd, new_name );
+    surface->name[new_name_length - 1] = 0;
+    
+    Win32Surface* win_surface = (Win32Surface*)surface;
+    SetWindowTextA( win_surface->hWnd, surface->name );
 }
 
 #define TRANSITION_STATE_MASK (1 << 31)
@@ -1468,7 +1517,7 @@ SM_INTERNAL LRESULT window_proc(
     WPARAM wParam, LPARAM lParam
 ) {
 
-    Surface* surface = (Surface*)GetWindowLongPtr(
+    Win32Surface* surface = (Win32Surface*)GetWindowLongPtr(
         hWnd,
         GWLP_USERDATA
     );
@@ -1481,8 +1530,6 @@ SM_INTERNAL LRESULT window_proc(
             lParam
         );
     }
-    [[maybe_unused]]
-    Win32Surface* win_surface = (Win32Surface*)surface->platform_data;
 
     Event event = {};
     switch( Msg ) {
@@ -1526,7 +1573,7 @@ SM_INTERNAL LRESULT window_proc(
                     max( rect.bottom, MIN_DIMENSIONS ),
                 };
 
-                surface->dimensions = dimensions;
+                surface->surface.dimensions = dimensions;
 
                 event.code = EVENT_CODE_SURFACE_RESIZE;
                 event.data.surface_resize.surface    = surface;
@@ -1544,7 +1591,7 @@ SM_INTERNAL LRESULT window_proc(
             };
 
             if( position != last_position ) {
-                surface->position = position;
+                surface->surface.position = position;
 
                 event.code = EVENT_CODE_SURFACE_MOVE;
                 event.data.surface_move.surface  = surface;
@@ -1791,7 +1838,7 @@ void platform_cursor_center( Surface* surface ) {
     center.x = surface->dimensions.x / 2;
     center.y = surface->dimensions.y / 2;
 
-    Win32Surface* win_surface = (Win32Surface*)surface->platform_data;
+    Win32Surface* win_surface = (Win32Surface*)surface;
 
     ClientToScreen( win_surface->hWnd, &center );
     SetCursorPos( center.x, center.y );

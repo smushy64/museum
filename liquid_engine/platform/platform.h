@@ -15,15 +15,24 @@ struct PlatformState {
     void* platform_data;
 };
 
+enum GraphicsBackend : u32;
+
 b32 platform_init(
     PlatformInitFlags flags,
+    GraphicsBackend   backend,
     PlatformState* out_state
 );
 void platform_shutdown(
     PlatformState* state
 );
 
+#define MAX_SURFACE_COUNT 4
+#define MAX_THREAD_COUNT 32
+
+#define MAX_SURFACE_NAME_LENGTH 255
 struct Surface {
+    char name[MAX_SURFACE_NAME_LENGTH];
+
     union {
         ivec2 position;
         struct { i32 x; i32 y; };
@@ -32,24 +41,21 @@ struct Surface {
         ivec2 dimensions;
         struct { i32 width; i32 height; };
     };
-    char* name;
-    usize name_length;
-    void* platform_data;
 
     b32 is_focused;
     b32 is_visible;
 };
 
-b32 surface_create(
+Surface* surface_create(
     const char* surface_name,
     ivec2 position,
     ivec2 dimensions,
     SurfaceCreateFlags flags,
     PlatformState* platform_state,
-    Surface* opt_parent,
-    Surface* out_surface
+    Surface* opt_parent
 );
 void surface_destroy(
+    PlatformState* platform_state,
     Surface* surface
 );
 
@@ -268,9 +274,10 @@ typedef ThreadReturnValue (*ThreadProc)( void* params );
 
 /// Create a thread.
 SM_API ThreadHandle thread_create(
-    ThreadProc thread_proc,
-    void*      params,
-    b32        run_on_creation
+    PlatformState* state,
+    ThreadProc     thread_proc,
+    void*          params,
+    b32            run_on_creation
 );
 /// Resume a thread.
 SM_API void thread_resume( ThreadHandle thread );
