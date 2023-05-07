@@ -13,10 +13,6 @@ b32 renderer_backend_init(
     RendererBackend*      out_backend
 ) {
     out_backend->platform = state;
-    LOG_NOTE(
-        "Initializing %s renderer backend . . .",
-        to_string(type)
-    );
     switch( type ) {
         case BACKEND_VULKAN: {
             out_backend->init      = vk_init;

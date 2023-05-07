@@ -19,6 +19,10 @@ cpp_obj := $(cpp:%=$(engine_obj_path)/%.o)
 deps := $(subst .o,.d,$(c_obj)) $(subst .o,.d,$(cpp_obj))
 
 engine_cpp_flags := $(preprocessor_flags) -DSM_EXPORT
+engine_cpp_flags += -DVULKAN_VERSION_MAJOR=$(VULKAN_VERSION_MAJOR)
+engine_cpp_flags += -DVULKAN_VERSION_MINOR=$(VULKAN_VERSION_MINOR)
+engine_cpp_flags += -DGL_VERSION_MAJOR=$(GL_VERSION_MAJOR)
+engine_cpp_flags += -DGL_VERSION_MINOR=$(GL_VERSION_MINOR)
 
 vksdk = $(VULKAN_SDK)
 

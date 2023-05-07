@@ -12,6 +12,12 @@ export PROJECT_VERSION_MINOR := 1
 export PROJECT_VERSION := $(PROJECT_VERSION_MAJOR).$(PROJECT_VERSION_MINOR)
 export ENGINE_NAME     := LiquidEngine
 
+export VULKAN_VERSION_MAJOR := 1
+export VULKAN_VERSION_MINOR := 2
+
+export GL_VERSION_MAJOR := 4
+export GL_VERSION_MINOR := 5
+
 export project_version_underscore := $(subst .,_,$(PROJECT_VERSION))
 ifeq ($(OS), Windows_NT)
 	export dll_ext := .dll

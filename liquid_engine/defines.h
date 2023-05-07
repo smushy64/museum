@@ -54,6 +54,16 @@ typedef void* pvoid;
 
 #define CHECK_FLAG( bits, mask ) ( (bits & mask) == mask )
 
+#define TO_STRING( foo ) #foo
+#define VALUE_TO_STRING( foo ) TO_STRING( foo )
+
+#define LD_MAKE_VERSION( major, minor )\
+    ((u32)major << 16u) | ((u32)minor)
+#define LD_GETMAJOR( version )\
+    ((u32)version >> 16u)
+#define LD_GET_MINOR( version )\
+    ((u32)minor & 0x0000FFFF)
+
 /// compiler defines
 #if defined(__GNUC__) || defined(__GNUG__)
     #define SM_COMPILER_GCC

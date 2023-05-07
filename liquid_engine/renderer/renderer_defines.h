@@ -18,8 +18,14 @@ enum RendererBackendType : u32 {
 };
 inline const char* to_string( RendererBackendType backend ) {
     SM_LOCAL const char* strings[BACKEND_COUNT] = {
-        "Vulkan 1.2",
-        "OpenGL 4.5",
+        "Vulkan "
+            VALUE_TO_STRING(VULKAN_VERSION_MAJOR)
+            "."
+            VALUE_TO_STRING(VULKAN_VERSION_MINOR),
+        "OpenGL "
+            VALUE_TO_STRING(GL_VERSION_MAJOR)
+            "."
+            VALUE_TO_STRING(GL_VERSION_MINOR),
         "DirectX 11",
         "DirectX 12"
     };
