@@ -5,9 +5,13 @@
 */
 #include "application.h"
 #include "platform/platform.h"
+#include "renderer/frontend.h"
 #include "events.h"
 #include "logging.h"
 #include "input.h"
+#include "time.h"
+#include "memory.h"
+#include "string.h"
 
 // TODO(alicia): custom string formatting!
 #include <stdio.h>
@@ -19,6 +23,8 @@ struct AppContext {
 
     b32 is_active;
     b32 is_running;
+
+    Time time;
 
     AppRunFn application_run;
     void*    application_params;
@@ -67,7 +73,7 @@ EventConsumption on_main_surface_resize( Event* event, void* ) {
     return EVENT_NOT_CONSUMED;
 }
 
-b32 application_startup( AppConfig* config ) {
+b32 app_init( AppConfig* config ) {
 
 #if defined(LD_LOGGING)
     if( !log_init( config->log_level ) ) {
@@ -88,13 +94,9 @@ b32 application_startup( AppConfig* config ) {
         LIQUID_ENGINE_VERSION_MINOR
     );
 
-    LOG_NOTE("Graphics Backend: %s",
-        to_string(config->graphics_backend)
-    );
-
     if( !platform_init(
         config->platform_flags,
-        config->graphics_backend,
+        config->renderer_backend,
         &CONTEXT.platform
     ) ) {
         MESSAGE_BOX_FATAL(
@@ -115,6 +117,18 @@ b32 application_startup( AppConfig* config ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
             "Failed to initialize input subsystem."
+        );
+        return false;
+    }
+
+    if( !renderer_init(
+        config->main_surface.name,
+        config->renderer_backend,
+        &CONTEXT.platform
+    ) ) {
+        MESSAGE_BOX_FATAL(
+            "Subsystem Failure",
+            "Failed to initialize rendering subsystem."
         );
         return false;
     }
@@ -234,9 +248,35 @@ b32 application_startup( AppConfig* config ) {
     }
 
     CONTEXT.is_running = true;
+    CONTEXT.is_active  = true;
+
+#if defined(LD_LOGGING) && defined(LD_PROFILING)
+    for( u64 i = 0; i < MEMTYPE_COUNT; ++i ) {
+        MemoryType type = (MemoryType)i;
+        usize memory_usage = query_memory_usage( type );
+        char usage_buffer[32];
+        format_bytes(
+            memory_usage,
+            usage_buffer,
+            32
+        );
+        LOG_NOTE("%-30s %s", to_string(type), usage_buffer);
+    }
+    usize heap_usage = query_heap_usage();
+    usize page_usage = query_page_usage();
+    usize total_memory_usage = heap_usage + page_usage;
+    char usage_buffer[32];
+    format_bytes(
+        total_memory_usage,
+        usage_buffer,
+        32
+    );
+    LOG_NOTE("%-30s %s", "Total Memory Usage", usage_buffer);
+#endif
+
     return true;
 }
-b32 application_run() {
+b32 app_run() {
 
     while( CONTEXT.is_running ) {
         input_swap();
@@ -247,17 +287,31 @@ b32 application_run() {
             continue;
         }
 
+        time_update( &CONTEXT.time );
+
         if(!CONTEXT.application_run(
             CONTEXT.application_params,
-            0.0f
+            &CONTEXT.time
         )) {
+            return false;
+        }
+
+        RenderOrder draw_order = {};
+        draw_order.time = CONTEXT.time;
+
+        if( !renderer_draw_frame( &draw_order ) ) {
+            MESSAGE_BOX_FATAL(
+                "Renderer Failure",
+                "Unknown Error!\n"
+                "Please contact me at smushybusiness@gmail.com if you see this!"
+            );
             return false;
         }
     }
 
     return true;
 }
-b32 application_shutdown() {
+b32 app_shutdown() {
     b32 success = true;
     if(!event_unsubscribe(
         EVENT_CODE_SURFACE_DESTROY,
@@ -287,6 +341,8 @@ b32 application_shutdown() {
     if( !input_shutdown() ) {
         success = false;
     }
+
+    renderer_shutdown();
 
     CONTEXT.is_running = false;
     surface_destroy(

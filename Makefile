@@ -93,7 +93,7 @@ clean:
 
 # for debugging variables
 spit:
-	@echo $(PROJECT_VERSION_MINOR)
+	@echo $(subst \,/,$(VULKAN_SDK))
 
 help:
 	@echo Help for Project Museum Makefile

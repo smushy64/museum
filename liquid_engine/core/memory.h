@@ -15,6 +15,7 @@ enum MemoryType : u64 {
     MEMTYPE_DYNAMIC_LIST,
     MEMTYPE_PLATFORM_DATA,
     MEMTYPE_EVENT_LISTENER_REGISTRY,
+    MEMTYPE_RENDERER,
 
     MEMTYPE_COUNT
 };
@@ -24,6 +25,7 @@ inline const char* to_string(MemoryType memtype) {
         "Dynamic List Memory",
         "Platform Data Memory",
         "Event Listener Registry Memory",
+        "Renderer Memory"
     };
     if( memtype >= MEMTYPE_COUNT ) {
         return strings[0];

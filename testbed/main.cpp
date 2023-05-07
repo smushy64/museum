@@ -10,9 +10,10 @@
 #include <core/application.h>
 #include <core/input.h>
 #include <core/events.h>
+#include <core/time.h>
 #include <stdio.h>
 
-b32 app_run(void*, f32) {
+b32 app_run(void*, Time*) {
     return true;
 }
 
@@ -35,19 +36,19 @@ int main( int, char** ) {
 
     config.log_level        = LOG_LEVEL_ALL_VERBOSE;
     config.platform_flags   = PLATFORM_DPI_AWARE;
-    config.graphics_backend = BACKEND_VULKAN;
+    config.renderer_backend = BACKEND_VULKAN;
 
     config.application_run = app_run;
 
-    if( !application_startup( &config ) ) {
+    if( !app_init( &config ) ) {
         return -1;
     }
 
-    if( !application_run() ) {
+    if( !app_run() ) {
         return -1;
     }
 
-    if( !application_shutdown() ) {
+    if( !app_shutdown() ) {
         return -1;
     }
     return 0;

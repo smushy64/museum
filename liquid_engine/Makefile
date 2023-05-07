@@ -20,8 +20,10 @@ deps := $(subst .o,.d,$(c_obj)) $(subst .o,.d,$(cpp_obj))
 
 engine_cpp_flags := $(preprocessor_flags) -DSM_EXPORT
 
+vksdk = $(VULKAN_SDK)
+
 engine_debug_linker_flags := -Wl,--pdb=$(subst $(dll_ext),.pdb,$(target))
-engine_linker_flags       := $(linker_flags) $(if $(IS_DEBUG),$(engine_debug_linker_flags),)
+engine_linker_flags       := $(linker_flags) $(if $(IS_DEBUG),$(engine_debug_linker_flags),) -L$(subst \,/,$(VULKAN_SDK))/Bin -lvulkan-1
 
 all: print_info $(target)
 

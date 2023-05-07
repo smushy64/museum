@@ -11,23 +11,25 @@
 
 #include "flags.h"
 
+#define MAX_SURFACE_COUNT 4
+#define MAX_THREAD_COUNT 32
 struct PlatformState {
     void* platform_data;
 };
 
-enum GraphicsBackend : u32;
+enum RendererBackendType : u32;
 
 b32 platform_init(
     PlatformInitFlags flags,
-    GraphicsBackend   backend,
+    RendererBackendType   backend,
     PlatformState* out_state
 );
 void platform_shutdown(
     PlatformState* state
 );
 
-#define MAX_SURFACE_COUNT 4
-#define MAX_THREAD_COUNT 32
+u64 platform_absolute_time();
+f64 platform_seconds_elapsed();
 
 #define MAX_SURFACE_NAME_LENGTH 255
 struct Surface {

@@ -16,7 +16,7 @@
 #include "core/memory.h"
 #include "core/collections.h"
 #include "core/events.h"
-#include "core/application.h"
+#include "renderer/renderer_defines.h"
 
 #include <intrin.h>
 
@@ -64,7 +64,11 @@ struct Win32State {
     b32               surface_is_available[MAX_SURFACE_COUNT];
     usize             thread_count;
     Win32ThreadHandle threads[MAX_THREAD_COUNT];
+
 };
+
+SM_GLOBAL LARGE_INTEGER PERF_FREQUENCY;
+SM_GLOBAL LARGE_INTEGER INITIAL_COUNTER;
 
 Win32ThreadHandle* get_next_handle( Win32State* state ) {
     if( state->thread_count >= MAX_THREAD_COUNT ) {
@@ -629,7 +633,7 @@ SM_INTERNAL void* win_proc_address_required(
 
 b32 platform_init(
     PlatformInitFlags flags,
-    GraphicsBackend   backend,
+    RendererBackendType   backend,
     PlatformState* out_state
 ) {
     void* win_state_buffer = mem_alloc(
@@ -854,6 +858,9 @@ b32 platform_init(
         WIN_LOG_NOTE( "Program is NOT DPI Aware." );
     }
 
+    QueryPerformanceFrequency( &PERF_FREQUENCY );
+    QueryPerformanceCounter( &INITIAL_COUNTER );
+
     WIN_LOG_NOTE("Platform services successfully initialized.");
 
     return true;
@@ -874,6 +881,17 @@ void platform_shutdown( PlatformState* platform_state ) {
     mem_free( state );
 
     WIN_LOG_NOTE("Platform services shutdown.");
+}
+
+u64 platform_absolute_time() {
+    LARGE_INTEGER counter = {};
+    QueryPerformanceCounter( &counter );
+    return counter.QuadPart - INITIAL_COUNTER.QuadPart;
+}
+
+f64 platform_seconds_elapsed() {
+    u64 counter = platform_absolute_time();
+    return (f64)counter / (f64)(PERF_FREQUENCY.QuadPart);
 }
 
 // PLATFORM INIT | END ----------------------------------------------------
