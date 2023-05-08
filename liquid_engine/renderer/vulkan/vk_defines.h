@@ -123,6 +123,8 @@
     #define VK_LOG_ERROR_TRACE( format, ... )
 #endif
 
+#define VK_LAYER_KHR_VALIDATION_NAME "VK_LAYER_KHRONOS_validation"
+
 struct VkContext {
     VkInstance             instance;
     VkAllocationCallbacks* allocator;

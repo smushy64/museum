@@ -46,18 +46,19 @@ export INCLUDE_PATHS := -I../liquid_engine
 
 RELEASE_C_FLAGS := -O2
 DEBUG_C_FLAGS   := -O0 -g -gcodeview -Wall -Wextra -Wno-missing-braces
-C_FLAGS         := -march=native -MMD -MP
+C_FLAGS         := -march=native -MMD -MP -fno-rtti -fno-exceptions -Werror=vla
 
 RELEASE_CPP_FLAGS :=
 DEBUG_CPP_FLAGS   := -DDEBUG -DLD_LOGGING -DSM_ASSERTIONS -DLD_OUTPUT_DEBUG_STRING -DLD_PROFILING
 CPP_FLAGS         := -DSM_SIMD_WIDTH=4 -DUNICODE
-CPP_FLAGS += -DLIQUID_ENGINE_VERSION=\""$(ENGINE_NAME) $(PROJECT_VERSION)"\"
-CPP_FLAGS += -DLIQUID_ENGINE_VERSION_MAJOR=$(PROJECT_VERSION_MAJOR)
-CPP_FLAGS += -DLIQUID_ENGINE_VERSION_MINOR=$(PROJECT_VERSION_MINOR)
+CPP_FLAGS         += -DLIQUID_ENGINE_VERSION=\""$(ENGINE_NAME) $(PROJECT_VERSION)"\"
+CPP_FLAGS         += -DLIQUID_ENGINE_VERSION_MAJOR=$(PROJECT_VERSION_MAJOR)
+CPP_FLAGS         += -DLIQUID_ENGINE_VERSION_MINOR=$(PROJECT_VERSION_MINOR)
 
 RELEASE_LINKER_FLAGS :=
 DEBUG_LINKER_FLAGS   := -g -fuse-ld=lld -Wl,//debug
-LINKER_FLAGS         := -static-libstdc++ -static-libgcc -lmingw32
+# LINKER_FLAGS         := -static-libstdc++ -static-libgcc -lmingw32
+LINKER_FLAGS         := -nostdlib++ -static-libgcc -lmingw32
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 

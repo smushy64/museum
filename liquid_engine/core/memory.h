@@ -20,7 +20,7 @@ enum MemoryType : u64 {
     MEMTYPE_COUNT
 };
 inline const char* to_string(MemoryType memtype) {
-    SM_LOCAL const char* strings[MEMTYPE_COUNT] = {
+    local const char* strings[MEMTYPE_COUNT] = {
         "Unknown Memory",
         "Dynamic List Memory",
         "Platform Data Memory",
@@ -33,18 +33,18 @@ inline const char* to_string(MemoryType memtype) {
     return strings[memtype];
 }
 
-namespace internal {
+namespace impl {
 
 /// Allocate memory.
-SM_API void* impl_mem_alloc( usize size, MemoryType type );
+SM_API void* _mem_alloc( usize size, MemoryType type );
 /// Reallocate memory.
-SM_API void* impl_mem_realloc( void* memory, usize new_size );
+SM_API void* _mem_realloc( void* memory, usize new_size );
 /// Free memory.
-SM_API void impl_mem_free( void* memory );
+SM_API void _mem_free( void* memory );
 
 #if defined(LD_LOGGING)
 /// Allocate memory.
-SM_API void* impl_mem_alloc_trace(
+SM_API void* _mem_alloc_trace(
     usize size,
     MemoryType type,
     const char* function,
@@ -52,7 +52,7 @@ SM_API void* impl_mem_alloc_trace(
     int line
 );
 /// Reallocate memory.
-SM_API void* impl_mem_realloc_trace(
+SM_API void* _mem_realloc_trace(
     void* memory,
     usize new_size,
     const char* function,
@@ -60,7 +60,7 @@ SM_API void* impl_mem_realloc_trace(
     int line
 );
 /// Free memory.
-SM_API void impl_mem_free_trace(
+SM_API void _mem_free_trace(
     void* memory,
     const char* function,
     const char* file,
@@ -68,11 +68,11 @@ SM_API void impl_mem_free_trace(
 );
 #endif
 
-}; // namespace internal
+}; // namespace impl
 
 #if defined(LD_LOGGING)
     #define mem_alloc( size, type )\
-        ::internal::impl_mem_alloc_trace(\
+        ::impl::_mem_alloc_trace(\
             size,\
             type,\
             __FUNCTION__,\
@@ -80,7 +80,7 @@ SM_API void impl_mem_free_trace(
             __LINE__\
         )
     #define mem_realloc( memory, new_size )\
-        ::internal::impl_mem_realloc_trace(\
+        ::impl::_mem_realloc_trace(\
             memory,\
             new_size,\
             __FUNCTION__,\
@@ -88,7 +88,7 @@ SM_API void impl_mem_free_trace(
             __LINE__\
         )
     #define mem_free( memory )\
-        ::internal::impl_mem_free_trace(\
+        ::impl::_mem_free_trace(\
             memory,\
             __FUNCTION__,\
             __FILE__,\
@@ -96,11 +96,11 @@ SM_API void impl_mem_free_trace(
         )
 #else
     #define mem_alloc( size, type )\
-        ::internal::impl_mem_alloc( size, type )
+        ::impl::_mem_alloc( size, type )
     #define mem_realloc( memory, new_size )\
-        ::internal::impl_mem_realloc( memory, new_size )
+        ::impl::_mem_realloc( memory, new_size )
     #define mem_free( memory )\
-        ::internal::impl_mem_free( memory )
+        ::impl::_mem_free( memory )
 #endif
 
 /// Query the size of a memory block

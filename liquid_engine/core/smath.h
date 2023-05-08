@@ -21,7 +21,7 @@
     #pragma clang diagnostic ignored "-Wmissing-braces"
 #endif
 
-namespace internal {
+namespace impl {
 
 
 #if defined(SM_COMPILER_GCC) || defined(SM_COMPILER_CLANG)
@@ -188,7 +188,7 @@ namespace internal {
 
 #endif
 
-} // namespace smath::internal
+} // namespace impl
 
 /// truncate float to signed integer
 SM_ALWAYS_INLINE i64 trunc64( f32 x ) { return (i64)x; }
@@ -501,34 +501,34 @@ SM_ALWAYS_INLINE f64 normalize_range64( u64 x ) {
 }
 
 /// square root
-SM_ALWAYS_INLINE f64 sqrt( f64 x ) { return internal::_sqrt_(x); }
+SM_ALWAYS_INLINE f64 sqrt( f64 x ) { return impl::_sqrt_(x); }
 /// square root
-SM_ALWAYS_INLINE f32 sqrt( f32 x ) { return internal::_sqrtf_(x); }
+SM_ALWAYS_INLINE f32 sqrt( f32 x ) { return impl::_sqrtf_(x); }
 
 /// raise to the power, integer exponent
 SM_ALWAYS_INLINE f32 powi( f32 base, i32 exponent ) {
-    return internal::_powif_( base, exponent );
+    return impl::_powif_( base, exponent );
 }
 /// raise to the power, integer exponent
 SM_ALWAYS_INLINE f64 powi( f64 base, i32 exponent ) {
-    return internal::_powi_( base, exponent );
+    return impl::_powi_( base, exponent );
 }
 /// raise to the power, float exponent
 SM_ALWAYS_INLINE f32 pow( f32 base, f32 exponent ) {
-    return internal::_powf_( base, exponent );
+    return impl::_powf_( base, exponent );
 }
 /// raise to the power, float exponent
 SM_ALWAYS_INLINE f64 pow( f64 base, f64 exponent ) {
-    return internal::_pow_( base, exponent );
+    return impl::_pow_( base, exponent );
 }
 
 /// float modulus
 SM_ALWAYS_INLINE f32 mod( f32 lhs, f32 rhs ) {
-    return internal::_modf_( lhs, rhs );
+    return impl::_modf_( lhs, rhs );
 }
 /// float modulus
 SM_ALWAYS_INLINE f64 mod( f64 lhs, f64 rhs ) {
-    return internal::_mod_( lhs, rhs );
+    return impl::_mod_( lhs, rhs );
 }
 
 /// check if single-precision is not a number
@@ -624,11 +624,11 @@ SM_ALWAYS_INLINE f64 sin( f64 x ) {
 }
 /// arc-sine function
 SM_ALWAYS_INLINE f32 asin( f32 x ) {
-    return internal::_asinf_( x );
+    return impl::_asinf_( x );
 }
 /// arc-sine function
 SM_ALWAYS_INLINE f64 asin( f64 x ) {
-    return internal::_asin_( x );
+    return impl::_asin_( x );
 }
 
 /// arc-sine function, does not return NAN
@@ -650,11 +650,11 @@ SM_ALWAYS_INLINE f64 cos( f64 x ) {
 }
 /// arc-cosine function
 SM_ALWAYS_INLINE f32 acos( f32 x ) {
-    return internal::_acosf_( x );
+    return impl::_acosf_( x );
 }
 /// arc-cosine function
 SM_ALWAYS_INLINE f64 acos( f64 x ) {
-    return internal::_acos_( x );
+    return impl::_acos_( x );
 }
 
 /// tangent function
@@ -673,20 +673,20 @@ SM_ALWAYS_INLINE f64 tan( f64 x ) {
 }
 /// arc-tangent function
 SM_ALWAYS_INLINE f32 atan( f32 x ) {
-    return internal::_atanf_( x );
+    return impl::_atanf_( x );
 }
 /// arc-tangent function
 SM_ALWAYS_INLINE f64 atan( f64 x ) {
-    return internal::_atan_( x );
+    return impl::_atan_( x );
 }
 
 /// two argument arc-tangent function
 SM_ALWAYS_INLINE f32 atan2( f32 y, f32 x ) {
-    return internal::_atan2f_( y, x );
+    return impl::_atan2f_( y, x );
 }
 /// two argument arc-tangent function
 SM_ALWAYS_INLINE f64 atan2( f64 y, f64 x ) {
-    return internal::_atan2_( y, x );
+    return impl::_atan2_( y, x );
 }
 
 /// convert degrees to radians
@@ -717,11 +717,11 @@ SM_ALWAYS_INLINE f32 degrees_overflow( f32 deg ) {
 
 /// natural logarithm
 SM_ALWAYS_INLINE f32 log( f32 x ) {
-    return internal::_logf_( x );
+    return impl::_logf_( x );
 }
 /// natural logarithm
 SM_ALWAYS_INLINE f64 log( f64 x ) {
-    return internal::_log_( x );
+    return impl::_log_( x );
 }
 
 /// linear interpolation

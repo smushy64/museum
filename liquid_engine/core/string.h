@@ -10,6 +10,9 @@
 /// Calculate the length of a null-terminated string.
 /// Result does not include null-terminator.
 SM_API usize str_length( const char* string );
+/// Calculate the length of a null-terminated wide string.
+/// Result does not include null-terminator.
+SM_API usize wstr_length( const wchar_t* string );
 
 /// Concatenate strings.
 SM_API isize str_concat(
@@ -20,12 +23,12 @@ SM_API isize str_concat(
 );
 /// Concatenate strings where dst overlaps with a or b.
 /// Potentially a lot slower than str_concat so only use when necessary.
-SM_API isize str_overlap_concat(
-    const char* a,
-    const char* b,
-    usize dst_size,
-    char* dst
-);
+// SM_API isize str_overlap_concat(
+//     const char* a,
+//     const char* b,
+//     usize dst_size,
+//     char* dst
+// );
 
 /// Check if character is a whitespace character
 SM_ALWAYS_INLINE b32 is_whitespace( char character ) {

@@ -33,7 +33,7 @@ struct EventSystem {
     ListenerRegistry* registry = nullptr;
 };
 
-SM_GLOBAL EventSystem SYSTEM = {};
+global EventSystem SYSTEM = {};
 
 b32 event_init() {
     void* registry_buffer = mem_alloc(

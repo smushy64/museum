@@ -31,6 +31,9 @@ void platform_shutdown(
 u64 platform_absolute_time();
 f64 platform_seconds_elapsed();
 
+usize platform_get_vulkan_extension_count();
+void  platform_get_vulkan_extension_names( const char** names );
+
 #define MAX_SURFACE_NAME_LENGTH 255
 struct Surface {
     char name[MAX_SURFACE_NAME_LENGTH];

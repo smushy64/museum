@@ -22,7 +22,7 @@
     HANDLE CONSOLE_HANDLE;
 #endif
 
-SM_GLOBAL LogLevel GLOBAL_LOG_LEVEL = LOG_LEVEL_NONE;
+global LogLevel GLOBAL_LOG_LEVEL = LOG_LEVEL_NONE;
 
 #define MAX_LOG_LEVEL (\
     LOG_LEVEL_NONE    |\
@@ -34,15 +34,15 @@ SM_GLOBAL LogLevel GLOBAL_LOG_LEVEL = LOG_LEVEL_NONE;
     LOG_LEVEL_VERBOSE \
 )
 
-SM_GLOBAL usize BUFFER_SIZE  = KILOBYTES(1);
-SM_GLOBAL char* PRINT_BUFFER = {};
+global usize BUFFER_SIZE  = KILOBYTES(1);
+global char* PRINT_BUFFER = {};
 
 b32 log_init( LogLevel level ) {
     #if defined(LD_LOGGING)
         SM_ASSERT( level <= MAX_LOG_LEVEL );
         GLOBAL_LOG_LEVEL = level;
 
-        void* print_buffer = internal::impl_mem_alloc(
+        void* print_buffer = impl::_mem_alloc(
             BUFFER_SIZE,
             MEMTYPE_PLATFORM_DATA
         );
@@ -78,9 +78,7 @@ b32 log_init( LogLevel level ) {
 void log_shutdown() {
 #if defined(LD_LOGGING)
 
-    internal::impl_mem_free(
-        PRINT_BUFFER
-    );
+    impl::_mem_free( PRINT_BUFFER );
 
     // TODO(alicia): custom printf!
     printf( "[NOTE  ] Logging subsystem shutdown.\n" );
@@ -93,7 +91,7 @@ void log_shutdown() {
 #endif
 }
 
-SM_GLOBAL const char* LOG_COLOR_CODES[LOG_COLOR_COUNT] = {
+global const char* LOG_COLOR_CODES[LOG_COLOR_COUNT] = {
     "\033[1;30m",
     "\033[1;31m",
     "\033[1;32m",
@@ -121,7 +119,7 @@ inline b32 is_level_valid( LogLevel level ) {
 
 // this is for locking the logging function
 // so that multiple threads can't print over each other
-SM_GLOBAL pthread_mutex_t MUTEX = PTHREAD_MUTEX_INITIALIZER;
+global pthread_mutex_t MUTEX = PTHREAD_MUTEX_INITIALIZER;
 
 void log_formatted_locked(
     LogLevel    level,

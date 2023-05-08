@@ -43,7 +43,7 @@ struct Win32Cursor {
     Surface*         surface_locked;
 };
 
-SM_GLOBAL Win32Cursor CURSOR_STATE = {};
+global Win32Cursor CURSOR_STATE = {};
 
 struct Win32Surface {
     Surface        surface;
@@ -52,6 +52,7 @@ struct Win32Surface {
     PlatformState* state;
 };
 
+global usize SCRATCH_BUFFER_SIZE = 512;
 struct Win32State {
     HINSTANCE hInstance;
 
@@ -65,10 +66,12 @@ struct Win32State {
     usize             thread_count;
     Win32ThreadHandle threads[MAX_THREAD_COUNT];
 
+    wchar_t* wide_char_scratch_buffer;
+
 };
 
-SM_GLOBAL LARGE_INTEGER PERF_FREQUENCY;
-SM_GLOBAL LARGE_INTEGER INITIAL_COUNTER;
+global LARGE_INTEGER PERF_FREQUENCY;
+global LARGE_INTEGER INITIAL_COUNTER;
 
 Win32ThreadHandle* get_next_handle( Win32State* state ) {
     if( state->thread_count >= MAX_THREAD_COUNT ) {
@@ -114,8 +117,8 @@ union Win32MotorState {
     f32 motors[2];
 };
 
-SM_GLOBAL b32 IS_DPI_AWARE = false;
-SM_GLOBAL b32 IS_ACTIVE    = true;
+global b32 IS_DPI_AWARE = false;
+global b32 IS_ACTIVE    = true;
 
 // LOGGING | BEGIN --------------------------------------------------------
 
@@ -233,6 +236,8 @@ SM_GLOBAL b32 IS_ACTIVE    = true;
     #define WIN_LOG_ERROR_TRACE( format, ... )
 #endif
 
+#define ERROR_MESSAGE_BUFFER_SIZE 128
+global char ERROR_MESSAGE_BUFFER[ERROR_MESSAGE_BUFFER_SIZE];
 DWORD win_log_error( b32 present_message_box ) {
     DWORD error_code = GetLastError();
     if( error_code == ERROR_SUCCESS ) {
@@ -270,18 +275,16 @@ DWORD win_log_error( b32 present_message_box ) {
                 error_code
             );
 
-            usize new_message_buffer_size = message_buffer_size + 128;
-            char new_message_buffer[new_message_buffer_size];
             snprintf(
-                new_message_buffer,
-                new_message_buffer_size,
+                ERROR_MESSAGE_BUFFER,
+                ERROR_MESSAGE_BUFFER_SIZE,
                 "Please contact me at smushybusiness@gmail.com\n%ls",
                 message_buffer
             );
 
             MESSAGE_BOX_FATAL(
                 title_buffer,
-                new_message_buffer
+                ERROR_MESSAGE_BUFFER
             );
         }
     }
@@ -323,9 +326,9 @@ typedef struct tagPIXELFORMATDESCRIPTOR {
     DWORD dwDamageMask;
 } PIXELFORMATDESCRIPTOR, *PPIXELFORMATDESCRIPTOR, *LPPIXELFORMATDESCRIPTOR;
 
-namespace internal {
+namespace impl {
     [[maybe_unused]]
-    SM_INTERNAL b32 win_library_load(
+    internal b32 win_library_load(
         const wchar_t* module_name,
         HMODULE* out_module
     ) {
@@ -339,7 +342,7 @@ namespace internal {
         return true;
     }
     [[maybe_unused]]
-    SM_INTERNAL b32 win_library_load_trace(
+    internal b32 win_library_load_trace(
         const wchar_t* module_name,
         HMODULE* out_module,
         const char* function,
@@ -389,13 +392,13 @@ namespace internal {
     }
 
     [[maybe_unused]]
-    SM_INTERNAL void win_library_free(
+    internal void win_library_free(
         HMODULE module
     ) {
         FreeLibrary( module );
     }
     [[maybe_unused]]
-    SM_INTERNAL void win_library_free_trace(
+    internal void win_library_free_trace(
         HMODULE module,
         const char* function,
         const char* file,
@@ -429,70 +432,70 @@ namespace internal {
 
     typedef BOOL (*SetProcessDpiAwarenessContext_fn)( DPI_AWARENESS_CONTEXT );
     [[maybe_unused]]
-    SM_GLOBAL SetProcessDpiAwarenessContext_fn in_SetProcessDpiAwarenessContext = nullptr;
+    global SetProcessDpiAwarenessContext_fn in_SetProcessDpiAwarenessContext = nullptr;
 
     typedef UINT (*GetDpiForSystem_fn)();
     [[maybe_unused]]
-    SM_GLOBAL GetDpiForSystem_fn in_GetDpiForSystem = nullptr;
+    global GetDpiForSystem_fn in_GetDpiForSystem = nullptr;
 
     typedef BOOL (*AdjustWindowRectExForDpi_fn)( LPRECT, DWORD, BOOL, DWORD, UINT );
     [[maybe_unused]]
-    SM_GLOBAL AdjustWindowRectExForDpi_fn in_AdjustWindowRectExForDpi = nullptr;
+    global AdjustWindowRectExForDpi_fn in_AdjustWindowRectExForDpi = nullptr;
 
     typedef DWORD (*XInputGetState_fn)( DWORD, XINPUT_STATE* );
     [[maybe_unused]]
-    SM_GLOBAL XInputGetState_fn in_XInputGetState = nullptr;
+    global XInputGetState_fn in_XInputGetState = nullptr;
 
     typedef DWORD (*XInputSetState_fn)( DWORD, XINPUT_VIBRATION* );
     [[maybe_unused]]
-    SM_GLOBAL XInputSetState_fn in_XInputSetState = nullptr;
+    global XInputSetState_fn in_XInputSetState = nullptr;
 
     typedef HGLRC (*wglCreateContext_fn)(HDC);
     [[maybe_unused]]
-    SM_GLOBAL wglCreateContext_fn in_wglCreateContext = nullptr;
+    global wglCreateContext_fn in_wglCreateContext = nullptr;
 
     typedef BOOL (*wglMakeCurrent_fn)(HDC, HGLRC);
     [[maybe_unused]]
-    SM_GLOBAL wglMakeCurrent_fn in_wglMakeCurrent = nullptr;
+    global wglMakeCurrent_fn in_wglMakeCurrent = nullptr;
 
     typedef BOOL (*wglDeleteContext_fn)(HGLRC);
     [[maybe_unused]]
-    SM_GLOBAL wglDeleteContext_fn in_wglDeleteContext = nullptr;
+    global wglDeleteContext_fn in_wglDeleteContext = nullptr;
 
     typedef PROC (*wglGetProcAddress_fn)(LPCSTR);
     [[maybe_unused]]
-    SM_GLOBAL wglGetProcAddress_fn in_wglGetProcAddress = nullptr;
+    global wglGetProcAddress_fn in_wglGetProcAddress = nullptr;
 
     typedef HGLRC (*wglCreateContextAttribsARB_fn)(HDC, HGLRC, const int*);
     [[maybe_unused]]
-    SM_GLOBAL wglCreateContextAttribsARB_fn in_wglCreateContextAttribsARB = nullptr;
+    global wglCreateContextAttribsARB_fn in_wglCreateContextAttribsARB = nullptr;
 
     typedef int (*DescribePixelFormat_fn)(HDC, int, UINT, LPPIXELFORMATDESCRIPTOR);
     [[maybe_unused]]
-    SM_GLOBAL DescribePixelFormat_fn in_DescribePixelFormat = nullptr;
+    global DescribePixelFormat_fn in_DescribePixelFormat = nullptr;
 
     typedef int (*ChoosePixelFormat_fn)(HDC, const PIXELFORMATDESCRIPTOR*);
     [[maybe_unused]]
-    SM_GLOBAL ChoosePixelFormat_fn in_ChoosePixelFormat = nullptr;
+    global ChoosePixelFormat_fn in_ChoosePixelFormat = nullptr;
 
     typedef BOOL (*SetPixelFormat_fn)(HDC, int, const PIXELFORMATDESCRIPTOR*);
     [[maybe_unused]]
-    SM_GLOBAL SetPixelFormat_fn in_SetPixelFormat = nullptr;
+    global SetPixelFormat_fn in_SetPixelFormat = nullptr;
 
     typedef BOOL (*SwapBuffers_fn)(HDC);
     [[maybe_unused]]
-    SM_GLOBAL SwapBuffers_fn in_SwapBuffers = nullptr;
+    global SwapBuffers_fn in_SwapBuffers = nullptr;
 
     typedef void (*XInputEnable_fn)( BOOL );
-    SM_INTERNAL void XInputEnableStub( BOOL enable ) { SM_UNUSED( enable ); }
+    internal void XInputEnableStub( BOOL enable ) { SM_UNUSED( enable ); }
     [[maybe_unused]]
-    SM_GLOBAL XInputEnable_fn in_XInputEnable = XInputEnableStub;
+    global XInputEnable_fn in_XInputEnable = XInputEnableStub;
 
-} // namespace internal
+} // namespace impl
 
 #if defined(LD_LOGGING)
     #define win_library_load( module_name, out_module )\
-        internal::win_library_load_trace(\
+        ::impl::win_library_load_trace(\
             module_name,\
             out_module,\
             __FUNCTION__,\
@@ -500,7 +503,7 @@ namespace internal {
             __LINE__\
         )
     #define win_library_free( module )\
-        internal::win_library_free_trace(\
+        ::impl::win_library_free_trace(\
             module,\
             __FUNCTION__,\
             __FILE__,\
@@ -508,26 +511,26 @@ namespace internal {
         )
 #else
     #define win_library_load( module_name, out_module ) \
-        internal::win_library_load( module_name, out_module )
+        ::impl::win_library_load( module_name, out_module )
     #define win_library_free( module )\
-        internal::win_library_free( module )
+        ::impl::win_library_free( module )
 #endif
 
-#define SetProcessDpiAwarenessContext ::internal::in_SetProcessDpiAwarenessContext
-#define GetDpiForSystem               ::internal::in_GetDpiForSystem
-#define AdjustWindowRectExForDpi      ::internal::in_AdjustWindowRectExForDpi
-#define XInputGetState                ::internal::in_XInputGetState
-#define XInputSetState                ::internal::in_XInputSetState
-#define XInputEnable                  ::internal::in_XInputEnable
-#define wglCreateContext              ::internal::in_wglCreateContext
-#define wglMakeCurrent                ::internal::in_wglMakeCurrent
-#define wglDeleteContext              ::internal::in_wglDeleteContext
-#define wglGetProcAddress             ::internal::in_wglGetProcAddress
-#define wglCreateContextAttribsARB    ::internal::in_wglCreateContextAttribsARB
-#define DescribePixelFormat           ::internal::in_DescribePixelFormat
-#define ChoosePixelFormat             ::internal::in_ChoosePixelFormat
-#define SetPixelFormat                ::internal::in_SetPixelFormat
-#define SwapBuffers                   ::internal::in_SwapBuffers
+#define SetProcessDpiAwarenessContext ::impl::in_SetProcessDpiAwarenessContext
+#define GetDpiForSystem               ::impl::in_GetDpiForSystem
+#define AdjustWindowRectExForDpi      ::impl::in_AdjustWindowRectExForDpi
+#define XInputGetState                ::impl::in_XInputGetState
+#define XInputSetState                ::impl::in_XInputSetState
+#define XInputEnable                  ::impl::in_XInputEnable
+#define wglCreateContext              ::impl::in_wglCreateContext
+#define wglMakeCurrent                ::impl::in_wglMakeCurrent
+#define wglDeleteContext              ::impl::in_wglDeleteContext
+#define wglGetProcAddress             ::impl::in_wglGetProcAddress
+#define wglCreateContextAttribsARB    ::impl::in_wglCreateContextAttribsARB
+#define DescribePixelFormat           ::impl::in_DescribePixelFormat
+#define ChoosePixelFormat             ::impl::in_ChoosePixelFormat
+#define SetPixelFormat                ::impl::in_SetPixelFormat
+#define SwapBuffers                   ::impl::in_SwapBuffers
 
 #define WGL_CONTEXT_MAJOR_VERSION_ARB             0x2091
 #define WGL_CONTEXT_MINOR_VERSION_ARB             0x2092
@@ -542,7 +545,7 @@ namespace internal {
 #define ERROR_INVALID_PROFILE_ARB                 0x2096
 
 [[maybe_unused]]
-SM_INTERNAL void* win_proc_address(
+internal void* win_proc_address(
     HMODULE module,
     const char* proc_name
 ) {
@@ -578,7 +581,7 @@ SM_INTERNAL void* win_proc_address(
     return result;
 }
 [[maybe_unused]]
-SM_INTERNAL void* win_proc_address_required(
+internal void* win_proc_address_required(
     HMODULE module,
     const char* proc_name
 ) {
@@ -650,6 +653,19 @@ b32 platform_init(
     out_state->platform_data = win_state_buffer;
     Win32State* state = (Win32State*)out_state->platform_data;
 
+    void* wide_char_scratch_buffer = mem_alloc(
+        SCRATCH_BUFFER_SIZE,
+        MEMTYPE_PLATFORM_DATA
+    );
+    if( !wide_char_scratch_buffer ) {
+        MESSAGE_BOX_FATAL(
+            "Out of Memory",
+            "Could not allocate space for Win32 scratch buffer!"
+        );
+        return false;
+    }
+    state->wide_char_scratch_buffer = (wchar_t*)wide_char_scratch_buffer;
+
     for( usize i = 0; i < MAX_SURFACE_COUNT; ++i ) {
         state->surface_is_available[i] = true;
     }
@@ -714,7 +730,7 @@ b32 platform_init(
     }
 
     SetProcessDpiAwarenessContext =
-    (::internal::SetProcessDpiAwarenessContext_fn)win_proc_address_required(
+    (::impl::SetProcessDpiAwarenessContext_fn)win_proc_address_required(
         state->libUser32,
         "SetProcessDpiAwarenessContext"
     );
@@ -724,7 +740,7 @@ b32 platform_init(
     }
 
     GetDpiForSystem =
-    (::internal::GetDpiForSystem_fn)win_proc_address_required(
+    (::impl::GetDpiForSystem_fn)win_proc_address_required(
         state->libUser32,
         "GetDpiForSystem"
     );
@@ -734,7 +750,7 @@ b32 platform_init(
     }
 
     AdjustWindowRectExForDpi =
-    (::internal::AdjustWindowRectExForDpi_fn)win_proc_address_required(
+    (::impl::AdjustWindowRectExForDpi_fn)win_proc_address_required(
         state->libUser32,
         "AdjustWindowRectExForDpi"
     );
@@ -744,7 +760,7 @@ b32 platform_init(
     }
 
     XInputGetState =
-    (::internal::XInputGetState_fn)win_proc_address_required(
+    (::impl::XInputGetState_fn)win_proc_address_required(
         state->libXinput,
         "XInputGetState"
     );
@@ -753,7 +769,7 @@ b32 platform_init(
         return false;
     }
     XInputSetState =
-    (::internal::XInputSetState_fn)win_proc_address_required(
+    (::impl::XInputSetState_fn)win_proc_address_required(
         state->libXinput,
         "XInputSetState"
     );
@@ -761,8 +777,8 @@ b32 platform_init(
         mem_free( state );
         return false;
     }
-    ::internal::XInputEnable_fn xinput_enable =
-    (::internal::XInputEnable_fn)win_proc_address(
+    ::impl::XInputEnable_fn xinput_enable =
+    (::impl::XInputEnable_fn)win_proc_address(
         state->libXinput,
         "XInputEnable"
     );
@@ -773,7 +789,7 @@ b32 platform_init(
     if( backend == BACKEND_OPENGL ) {
 
         wglCreateContext =
-        (::internal::wglCreateContext_fn)win_proc_address_required(
+        (::impl::wglCreateContext_fn)win_proc_address_required(
             state->libGl,
             "wglCreateContext"
         );
@@ -782,7 +798,7 @@ b32 platform_init(
             return false;
         }
         wglMakeCurrent =
-        (::internal::wglMakeCurrent_fn)win_proc_address_required(
+        (::impl::wglMakeCurrent_fn)win_proc_address_required(
             state->libGl,
             "wglMakeCurrent"
         );
@@ -791,7 +807,7 @@ b32 platform_init(
             return false;
         }
         wglDeleteContext =
-        (::internal::wglDeleteContext_fn)win_proc_address_required(
+        (::impl::wglDeleteContext_fn)win_proc_address_required(
             state->libGl,
             "wglDeleteContext"
         );
@@ -800,7 +816,7 @@ b32 platform_init(
             return false;
         }
         wglGetProcAddress =
-        (::internal::wglGetProcAddress_fn)win_proc_address_required(
+        (::impl::wglGetProcAddress_fn)win_proc_address_required(
             state->libGl,
             "wglGetProcAddress"
         );
@@ -810,7 +826,7 @@ b32 platform_init(
         }
 
         DescribePixelFormat =
-        (::internal::DescribePixelFormat_fn)win_proc_address_required(
+        (::impl::DescribePixelFormat_fn)win_proc_address_required(
             state->libGdi32,
             "DescribePixelFormat"
         );
@@ -819,7 +835,7 @@ b32 platform_init(
             return false;
         }
         ChoosePixelFormat =
-        (::internal::ChoosePixelFormat_fn)win_proc_address_required(
+        (::impl::ChoosePixelFormat_fn)win_proc_address_required(
             state->libGdi32,
             "ChoosePixelFormat"
         );
@@ -828,7 +844,7 @@ b32 platform_init(
             return false;
         }
         SetPixelFormat =
-        (::internal::SetPixelFormat_fn)win_proc_address_required(
+        (::impl::SetPixelFormat_fn)win_proc_address_required(
             state->libGdi32,
             "SetPixelFormat"
         );
@@ -838,7 +854,7 @@ b32 platform_init(
         }
 
         SwapBuffers =
-        (::internal::SwapBuffers_fn)win_proc_address_required(
+        (::impl::SwapBuffers_fn)win_proc_address_required(
             state->libGdi32,
             "SwapBuffers"
         );
@@ -894,12 +910,21 @@ f64 platform_seconds_elapsed() {
     return (f64)counter / (f64)(PERF_FREQUENCY.QuadPart);
 }
 
+usize platform_get_vulkan_extension_count() {
+    // TODO(alicia): 
+    return 0;
+}
+void  platform_get_vulkan_extension_names( const char** names ) {
+    SM_UNUSED(names);
+    // TODO(alicia): 
+}
+
 // PLATFORM INIT | END ----------------------------------------------------
 
 // MEMORY | BEGIN ---------------------------------------------------------
 
-SM_GLOBAL usize HEAP_MEMORY_USAGE = 0;
-SM_GLOBAL usize PAGE_MEMORY_USAGE = 0;
+global usize HEAP_MEMORY_USAGE = 0;
+global usize PAGE_MEMORY_USAGE = 0;
 usize query_heap_usage() {
     return HEAP_MEMORY_USAGE;
 }
@@ -998,7 +1023,7 @@ void page_free( void* memory ) {
 
 // MULTI-THREADING | BEGIN ------------------------------------------------
 
-SM_INTERNAL DWORD WINAPI win_thread_proc( void* params ) {
+internal DWORD WINAPI win_thread_proc( void* params ) {
     Win32ThreadHandle* thread_handle = (Win32ThreadHandle*)params;
 
     DWORD return_value = thread_handle->proc(
@@ -1275,11 +1300,12 @@ MessageBoxResult message_box(
 
 // SURFACE | BEGIN --------------------------------------------------------
 
-SM_INTERNAL LRESULT window_proc(
+internal LRESULT window_proc(
     HWND hWnd, UINT Msg,
     WPARAM wParam, LPARAM lParam
 );
 
+global usize BASE_CLASS_NAME_LEN;
 Surface* surface_create(
     const char* surface_name,
     ivec2 position,
@@ -1330,21 +1356,20 @@ Surface* surface_create(
         IDC_ARROW
     );
 
-    SM_LOCAL const wchar_t* BASE_CLASS_NAME = L"LiquidEngineWindowClass";
-    SM_LOCAL const usize BASE_CLASS_NAME_LEN = wcslen(BASE_CLASS_NAME);
-    SM_LOCAL int SURFACE_COUNT = 0;
+    local const wchar_t* BASE_CLASS_NAME  = L"LiquidEngineWindowClass";
+    BASE_CLASS_NAME_LEN = wstr_length(BASE_CLASS_NAME);
+    local int SURFACE_COUNT = 0;
 
-    SM_LOCAL const usize CLASS_NAME_BUFFER_SIZE = BASE_CLASS_NAME_LEN + 8;
-    wchar_t class_name_buffer[CLASS_NAME_BUFFER_SIZE];
+    const usize CLASS_NAME_BUFFER_SIZE = BASE_CLASS_NAME_LEN + 8;
     snwprintf(
-        class_name_buffer,
+        state->wide_char_scratch_buffer,
         CLASS_NAME_BUFFER_SIZE,
         L"%ls%i",
         BASE_CLASS_NAME,
         SURFACE_COUNT
     );
 
-    windowClass.lpszClassName = class_name_buffer;
+    windowClass.lpszClassName = state->wide_char_scratch_buffer;
 
     if( !RegisterClassEx( &windowClass ) ) {
         win_log_error( true );
@@ -1426,7 +1451,7 @@ Surface* surface_create(
         hWndParent = parent_surface->hWnd;
     }
 
-    wchar_t lpWindowName[surface_name_length];
+    wchar_t* lpWindowName = state->wide_char_scratch_buffer + CLASS_NAME_BUFFER_SIZE + 1;
     mbstowcs(
         lpWindowName,
         surface_name,
@@ -1530,7 +1555,7 @@ void surface_set_name( Surface* surface, const char* new_name ) {
 #define EXTENDED_KEY_MASK     (1 << 24)
 #define SCANCODE_MASK         0x00FF0000
 
-SM_INTERNAL LRESULT window_proc(
+internal LRESULT window_proc(
     HWND hWnd, UINT Msg,
     WPARAM wParam, LPARAM lParam
 ) {
@@ -1574,7 +1599,7 @@ SM_INTERNAL LRESULT window_proc(
         } break;
 
         case WM_WINDOWPOSCHANGED: {
-            SM_LOCAL RECT last_rect = {};
+            local RECT last_rect = {};
             RECT rect = {};
             if( GetClientRect( hWnd, &rect ) ) {
                 if(
@@ -1601,7 +1626,7 @@ SM_INTERNAL LRESULT window_proc(
                 last_rect = rect;
             }
 
-            SM_LOCAL ivec2 last_position = {};
+            local ivec2 last_position = {};
             WINDOWPOS* window_pos = (WINDOWPOS*)lParam;
             ivec2 position = {
                 window_pos->x,
@@ -1798,7 +1823,7 @@ SM_INTERNAL LRESULT window_proc(
 // SURFACE | END ----------------------------------------------------------
 
 inline LPCTSTR cursor_style_to_win_style( MouseCursorStyle style ) {
-    SM_LOCAL const LPCTSTR styles[CURSOR_COUNT] = {
+    local const LPCTSTR styles[CURSOR_COUNT] = {
         IDC_ARROW,
         IDC_SIZENS,
         IDC_SIZEWE,

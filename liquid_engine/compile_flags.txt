@@ -17,3 +17,7 @@ clang++
 -DGL_VERSION_MINOR=5
 -DLD_PROFILING
 -I.
+-Werror=vla
+-Wall
+-Wextra
+-Wno-missing-braces

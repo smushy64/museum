@@ -39,7 +39,7 @@ enum EventCode : u32 {
 inline const char* engine_event_code_to_string(
     EventCode code
 ) {
-    SM_LOCAL const char* strings[EVENT_CODE_LAST_RESERVED] = {
+    local const char* strings[EVENT_CODE_LAST_RESERVED] = {
         "Event Unknown",
 
         "Event Surface Destroy",

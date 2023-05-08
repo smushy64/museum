@@ -13,3 +13,7 @@ clang++
 -DLD_PROFILING
 -I.
 -I../liquid_engine
+-Werror=vla
+-Wall
+-Wextra
+-Wno-missing-braces

@@ -265,7 +265,7 @@ enum MouseCode : u8 {
     MBC_COUNT
 };
 inline const char* to_string( MouseCode mousecode ) {
-    SM_LOCAL const char* strings[MBC_COUNT] = {
+    local const char* strings[MBC_COUNT] = {
         "Mouse Button Left",
         "Mouse Button Middle",
         "Mouse Button Right",
@@ -310,7 +310,7 @@ enum PadCode : u8 {
     PAD_CODE_COUNT
 };
 inline const char* to_string( PadCode padcode ) {
-    SM_LOCAL const char* strings[PAD_CODE_COUNT] = {
+    local const char* strings[PAD_CODE_COUNT] = {
         "Unknown",
         "STICK Left",
         "STICK Right",

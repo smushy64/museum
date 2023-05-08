@@ -48,9 +48,9 @@ typedef double f64;
 /// void* pointer alias, might come in handy at some point
 typedef void* pvoid;
 
-#define SM_INTERNAL static
-#define SM_LOCAL    static
-#define SM_GLOBAL   static
+#define internal static
+#define local    static
+#define global   static
 
 #define CHECK_FLAG( bits, mask ) ( (bits & mask) == mask )
 

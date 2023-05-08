@@ -55,7 +55,7 @@ struct InputState {
     GamepadState gamepads[MAX_GAMEPAD_INDEX];
 };
 
-SM_GLOBAL InputState INPUT_STATE = {};
+global InputState INPUT_STATE = {};
 
 b32 input_init() {
     LOG_NOTE("Input subsystem successfully initialized.");

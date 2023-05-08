@@ -9,7 +9,7 @@
 #include "core/memory.h"
 #include "platform/platform.h"
 
-SM_GLOBAL RendererBackend* BACKEND = nullptr;
+global RendererBackend* BACKEND = nullptr;
 
 b32 renderer_init(
     const char*           app_name,
@@ -43,7 +43,8 @@ void renderer_shutdown() {
     mem_free( BACKEND );
 }
 void renderer_on_resize( i32 width, i32 height ) {
-    
+    SM_UNUSED(width);
+    SM_UNUSED(height);
 }
 
 b32 renderer_begin_frame( f32 delta_time ) {

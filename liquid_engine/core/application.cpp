@@ -30,7 +30,7 @@ struct AppContext {
     void*    application_params;
 };
 
-SM_GLOBAL AppContext CONTEXT = {};
+global AppContext CONTEXT = {};
 
 EventConsumption on_main_surface_destroy( Event* event, void* ) {
     if(
@@ -175,7 +175,7 @@ b32 app_init( AppConfig* config ) {
 #if defined(SM_ARCH_X86)
     b32 sse = ARE_SSE_INSTRUCTIONS_AVAILABLE( CONTEXT.sysinfo.features );
     if( SM_SIMD_WIDTH == 4 && !sse ) {
-        SM_LOCAL usize ERROR_MESSAGE_SIZE = 0xFF;
+        local const usize ERROR_MESSAGE_SIZE = 0xFF;
         char error_message_buffer[ERROR_MESSAGE_SIZE];
         snprintf(
             error_message_buffer,

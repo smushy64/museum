@@ -7,7 +7,31 @@
 #include "vk_backend.h"
 #include "platform/platform.h"
 
-SM_GLOBAL VkContext CONTEXT = {};
+global VkContext CONTEXT = {};
+
+#if defined(LD_LOGGING)
+    #define REQUIRED_EXTENSIONS_COUNT 1
+#else
+    #define REQUIRED_EXTENSIONS_COUNT 0
+#endif
+
+#if defined(DEBUG)
+    #define REQUIRED_LAYER_COUNT     1
+#else
+    #define REQUIRED_LAYER_COUNT     0
+#endif
+
+global const char* REQUIRED_EXTENSIONS_NAMES[REQUIRED_EXTENSIONS_COUNT] = {
+#if defined(LD_LOGGING)
+    VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+#endif
+};
+
+global const char* REQUIRED_LAYER_NAMES[REQUIRED_LAYER_COUNT] = {
+#if defined(DEBUG)
+    VK_LAYER_KHR_VALIDATION_NAME,
+#endif
+};
 
 b32 vk_init(
     struct RendererBackend* backend,
@@ -41,8 +65,14 @@ b32 vk_init(
     );
 
     VkInstanceCreateInfo instance_info = {};
-    instance_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    instance_info.sType            = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     instance_info.pApplicationInfo = &app_info;
+
+    instance_info.enabledExtensionCount   = REQUIRED_EXTENSIONS_COUNT;
+    instance_info.ppEnabledExtensionNames = REQUIRED_EXTENSIONS_NAMES;
+
+    instance_info.enabledLayerCount   = REQUIRED_LAYER_COUNT;
+    instance_info.ppEnabledLayerNames = REQUIRED_LAYER_NAMES;
     
     VkResult instance_result = vkCreateInstance(
         &instance_info,
@@ -57,29 +87,38 @@ b32 vk_init(
         return false;
     }
 
+    SM_UNUSED(backend);
+    SM_UNUSED(platform);
     VK_LOG_NOTE( "Vulkan backend initialized successfully." );
     return true;
 }
 void vk_shutdown(
     struct RendererBackend* backend
 ) {
+    SM_UNUSED(backend);
     VK_LOG_NOTE( "Vulkan backend shutdown successfully." );
 }
 void vk_on_resize(
     struct RendererBackend* backend,
     i32 width, i32 height
 ) {
-
+    SM_UNUSED(backend);
+    SM_UNUSED(width);
+    SM_UNUSED(height);
 }
 b32 vk_begin_frame(
     struct RendererBackend* backend,
     f32 delta_time
 ) {
+    SM_UNUSED(backend);
+    SM_UNUSED(delta_time);
     return true;
 }
 b32 vk_end_frame(
     struct RendererBackend* backend,
     f32 delta_time
 ) {
+    SM_UNUSED(backend);
+    SM_UNUSED(delta_time);
     return true;
 }

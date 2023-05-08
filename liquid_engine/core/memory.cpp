@@ -16,7 +16,7 @@
 struct MemoryUsage {
     u64 usage[MEMTYPE_COUNT];
 };
-SM_GLOBAL MemoryUsage USAGE = {};
+global MemoryUsage USAGE = {};
 
 #define LOG_ALLOC( function, file, line, format, ... ) \
     log_formatted_locked(\
@@ -42,16 +42,16 @@ SM_GLOBAL MemoryUsage USAGE = {};
         ##__VA_ARGS__\
     )
 
-namespace internal {
+namespace impl {
 
-void* impl_mem_alloc_trace(
+void* _mem_alloc_trace(
     usize size,
     MemoryType type,
     const char* function,
     const char* file,
     int line
 ) {
-    void* result = impl_mem_alloc( size, type );
+    void* result = _mem_alloc( size, type );
     LOG_ALLOC(
         function,
         file,
@@ -63,7 +63,7 @@ void* impl_mem_alloc_trace(
     );
     return result;
 }
-void* impl_mem_realloc_trace(
+void* _mem_realloc_trace(
     void* memory,
     usize new_size,
     const char* function,
@@ -72,7 +72,7 @@ void* impl_mem_realloc_trace(
 ) {
     u64* header = ((u64*)memory) - MEMORY_FIELD_COUNT;
     MemoryType type = (MemoryType)header[MEMORY_FIELD_TYPE];
-    void* result = impl_mem_realloc( memory, new_size );
+    void* result = _mem_realloc( memory, new_size );
     LOG_ALLOC(
         function,
         file,
@@ -82,9 +82,9 @@ void* impl_mem_realloc_trace(
         new_size,
         (u64)result
     );
-    return impl_mem_realloc( memory, new_size );
+    return _mem_realloc( memory, new_size );
 }
-void impl_mem_free_trace(
+void _mem_free_trace(
     void* memory,
     const char* function,
     const char* file,
@@ -104,10 +104,10 @@ void impl_mem_free_trace(
         (u64)memory
     );
 
-    impl_mem_free( memory );
+    _mem_free( memory );
 }
 
-void* impl_mem_alloc( usize size, MemoryType type ) {
+void* _mem_alloc( usize size, MemoryType type ) {
     // TODO(alicia): allocate in different ways depending on memory type
     
     if( type == MEMTYPE_UNKNOWN ) {
@@ -127,7 +127,7 @@ void* impl_mem_alloc( usize size, MemoryType type ) {
 
     return block + MEMORY_FIELD_COUNT;
 }
-void* impl_mem_realloc( void* memory, usize new_size ) {
+void* _mem_realloc( void* memory, usize new_size ) {
     // TODO(alicia): allocate in different ways depending on memory type
 
     u64* header = ((u64*)memory) - MEMORY_FIELD_COUNT;
@@ -150,7 +150,7 @@ void* impl_mem_realloc( void* memory, usize new_size ) {
 
     return header + MEMORY_FIELD_COUNT;
 }
-void impl_mem_free( void* memory ) {
+void _mem_free( void* memory ) {
     u64* header = ((u64*)memory) - MEMORY_FIELD_COUNT;
 
     usize      size = header[MEMORY_FIELD_SIZE];
@@ -211,10 +211,32 @@ void mem_copy(
     }
 }
 
+#define INTERMEDIATE_BUFFER_SIZE 64
+global u8 INTERMEDIATE_BUFFER[INTERMEDIATE_BUFFER_SIZE] = {};
 void mem_overlap_copy( void* dst, const void* src, usize size ) {
-    u8 intermediate[size];
-    mem_copy( intermediate, src, size );
-    mem_copy( dst, intermediate, size );
+    if( size < INTERMEDIATE_BUFFER_SIZE ) {
+        mem_copy( INTERMEDIATE_BUFFER, src, size );
+        mem_copy( dst, INTERMEDIATE_BUFFER, size );
+    }
+    usize remainder  = size % INTERMEDIATE_BUFFER_SIZE;
+    usize iterations = size / INTERMEDIATE_BUFFER_SIZE;
+
+    u8* src_ptr = (u8*)src;
+    u8* dst_ptr = (u8*)dst;
+    for( usize i = 0; i < iterations; ++i ) {
+        mem_copy( INTERMEDIATE_BUFFER, src_ptr + (i * INTERMEDIATE_BUFFER_SIZE), INTERMEDIATE_BUFFER_SIZE );
+        mem_copy( dst_ptr + (i * INTERMEDIATE_BUFFER_SIZE), INTERMEDIATE_BUFFER, INTERMEDIATE_BUFFER_SIZE );
+    }
+
+    src_ptr = src_ptr + (iterations * INTERMEDIATE_BUFFER_SIZE);
+    dst_ptr = dst_ptr + (iterations * INTERMEDIATE_BUFFER_SIZE);
+    for( usize i = 0; i < remainder; ++i ) {
+        INTERMEDIATE_BUFFER[i] = src_ptr[i];
+    }
+    for( usize i = 0; i < remainder; ++i ) {
+        dst_ptr[i] = INTERMEDIATE_BUFFER[i];
+    }
+
 }
 
 void mem_set( u8 value, usize dst_size, void* dst ) {
@@ -225,28 +247,26 @@ void mem_set( u8 value, usize dst_size, void* dst ) {
 }
 
 void mem_zero( void* ptr, usize size ) {
-    if( size % sizeof(u64) == 0 ) {
-        u64* ptr_64   = (u64*)ptr;
-        usize size_64 = size / sizeof(u64);
-        for( usize i = 0; i < size_64; ++i ) {
-            ptr_64[i] = 0ULL;
+    if( size < 8 ) {
+        u8* end = (u8*)ptr + size;
+        while( end != ptr ) {
+            *end-- = 0;
         }
-    } else if( size % sizeof(u32) == 0 ) {
-        u32* ptr_32   = (u32*)ptr;
-        usize size_32 = size / sizeof(u32);
-        for( usize i = 0; i < size_32; ++i ) {
-            ptr_32[i] = 0;
-        }
-    } else if( size % sizeof(u16) == 0 ) {
-        u16* ptr_16   = (u16*)ptr;
-        usize size_16 = size / sizeof(u16);
-        for( usize i = 0; i < size_16; ++i ) {
-            ptr_16[i] = 0;
-        }
-    } else {
-        u8* ptr_8 = (u8*)ptr;
-        for( usize i = 0; i < size; ++i ) {
-            ptr_8[i] = 0;
-        }
+        return;
     }
+    
+    usize remainder = size % sizeof( u64 );
+    usize long_size = size - remainder;
+    usize long_iter = long_size / sizeof( u64 );
+    u64*  long_ptr  = (u64*)ptr;
+
+    while( long_iter-- > 0 ) {
+        *long_ptr = 0ULL;
+    }
+
+    u8* byte_ptr = (u8*)ptr + long_size;
+    while( remainder-- > 0 ) {
+        *byte_ptr = 0;
+    }
+
 }

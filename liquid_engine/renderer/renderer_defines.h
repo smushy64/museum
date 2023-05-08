@@ -17,7 +17,7 @@ enum RendererBackendType : u32 {
     BACKEND_COUNT
 };
 inline const char* to_string( RendererBackendType backend ) {
-    SM_LOCAL const char* strings[BACKEND_COUNT] = {
+    local const char* strings[BACKEND_COUNT] = {
         "Vulkan "
             VALUE_TO_STRING(VULKAN_VERSION_MAJOR)
             "."
