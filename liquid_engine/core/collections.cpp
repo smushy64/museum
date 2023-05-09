@@ -17,11 +17,121 @@
 #define BASE_TO_BUFFER_POINTER( base )\
     (((u64*)base) + LIST_NUM_FIELDS)
 
+#define LOG_ALLOC( function, file, line, format, ... ) \
+    log_formatted_locked(\
+        LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
+        LOG_COLOR_GREEN,\
+        LOG_FLAG_NEW_LINE,\
+        "[LIST ALLOC   | %s() | %s:%i] " format,\
+        function,\
+        file,\
+        line,\
+        ##__VA_ARGS__\
+    )
+
+#define LOG_REALLOC( function, file, line, format, ... ) \
+    log_formatted_locked(\
+        LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
+        LOG_COLOR_GREEN,\
+        LOG_FLAG_NEW_LINE,\
+        "[LIST REALLOC | %s() | %s:%i] " format,\
+        function,\
+        file,\
+        line,\
+        ##__VA_ARGS__\
+    )
+
+#define LOG_FREE( function, file, line, format, ... ) \
+    log_formatted_locked(\
+        LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
+        LOG_COLOR_CYAN,\
+        LOG_FLAG_NEW_LINE,\
+        "[LIST FREE    | %s() | %s:%i] " format,\
+        function,\
+        file,\
+        line,\
+        ##__VA_ARGS__\
+    )
+
 namespace impl {
+
+SM_API void* _list_create_trace(
+    usize capacity,
+    usize stride,
+    const char* function,
+    const char* file,
+    int line
+) {
+    void* result = _list_create( capacity, stride );
+
+    LOG_ALLOC(
+        function,
+        file,
+        line,
+        "Stride: %llu | Capacity: %llu | Size: %llu | Pointer: 0x%X",
+        stride,
+        capacity,
+        stride * capacity,
+        (u64)result
+    );
+
+    return result;
+}
+
+SM_API void* _list_realloc_trace(
+    void* list,
+    usize new_capacity,
+    const char* function,
+    const char* file,
+    int line
+) {
+    u64*  base         = BUFFER_TO_BASE_POINTER(list);
+    usize old_capacity = base[LIST_FIELD_CAPACITY];
+    usize stride       = base[LIST_FIELD_STRIDE];
+
+    void* result = _list_realloc( list, new_capacity );
+    LOG_REALLOC(
+        function,
+        file,
+        line,
+        "Old Capacity: %llu | New Capacity: %llu | "
+        "Old Size: %llu | New Size: %llu | "
+        "Pointer: 0x%X",
+        old_capacity,
+        new_capacity,
+        stride * old_capacity,
+        stride * new_capacity,
+        (u64)result
+    );
+    return result;
+}
+
+SM_API void _list_free_trace(
+    void* list,
+    const char* function,
+    const char* file,
+    int line
+) {
+    u64* base = BUFFER_TO_BASE_POINTER(list);
+    usize stride   = base[LIST_FIELD_STRIDE];
+    usize capacity = base[LIST_FIELD_CAPACITY];
+
+    LOG_FREE(
+        function,
+        file,
+        line,
+        "Capacity: %llu | Size: %llu | Pointer: 0x%X",
+        capacity,
+        stride * capacity,
+        list
+    );
+
+    _list_free( list );
+}
 
 SM_API void* _list_create( usize capacity, usize stride ) {
     usize total_size = (capacity * stride) + LIST_FIELDS_SIZE;
-    u64* base = (u64*)mem_alloc(
+    u64* base = (u64*)::impl::_mem_alloc(
         total_size,
         MEMTYPE_DYNAMIC_LIST
     );
@@ -40,7 +150,7 @@ SM_API void  _list_free( void* list ) {
         return;
     }
     u64* base = BUFFER_TO_BASE_POINTER(list);
-    mem_free( base );
+    ::impl::_mem_free( base );
 }
 
 SM_API void* _list_realloc( void* list, usize new_capacity ) {
@@ -48,7 +158,7 @@ SM_API void* _list_realloc( void* list, usize new_capacity ) {
 
     usize stride   = base[LIST_FIELD_STRIDE];
     usize new_size = (new_capacity * stride) + LIST_FIELDS_SIZE;
-    u64*  new_base = (u64*)mem_realloc( base, new_size );
+    u64*  new_base = (u64*)::impl::_mem_realloc( base, new_size );
 
     if( !new_base ) {
         LOG_ERROR("Failed to realloc list!");

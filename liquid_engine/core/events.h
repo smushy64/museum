@@ -7,7 +7,7 @@
 */
 #include "defines.h"
 #include "input.h"
-#include "smath.h"
+#include "core/math/types.h"
 
 enum EventCode : u32 {
     EVENT_CODE_UNKNOWN,

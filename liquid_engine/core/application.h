@@ -6,7 +6,7 @@
  * File Created: May 02, 2023
 */
 #include "defines.h"
-#include "smath.h"
+#include "math/types.h"
 #include "platform/flags.h"
 #include "renderer/renderer_defines.h"
 

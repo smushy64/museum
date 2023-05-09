@@ -40,9 +40,9 @@ typedef uint8_t  b8;
 /// 32-bit boolean
 typedef uint32_t b32;
 
-/// 32-bit IEEE-754 floating-point number
+/// single precision IEEE-754 floating-point number
 typedef float f32;
-/// 64-bit IEEE-754 floating-point number
+/// double precision IEEE-754 floating-point number
 typedef double f64;
 
 /// void* pointer alias, might come in handy at some point
@@ -63,6 +63,16 @@ typedef void* pvoid;
     ((u32)version >> 16u)
 #define LD_GET_MINOR( version )\
     ((u32)minor & 0x0000FFFF)
+
+#define STATIC_ARRAY_COUNT( array ) \
+    ( sizeof(array) / sizeof((array)[0]) )
+
+#define STATIC_ARRAY_SIZE( array ) \
+    (sizeof(array))
+
+#define KILOBYTES(num) ( num * 1024ULL )
+#define MEGABYTES(num) ( KILOBYTES( num ) * 1024ULL )
+#define GIGABYTES(num) ( MEGABYTES( num ) * 1024ULL )
 
 /// compiler defines
 #if defined(__GNUC__) || defined(__GNUG__)
@@ -142,10 +152,6 @@ typedef void* pvoid;
 #if defined(SM_EXPORT)
     #define SM_API_INTERNAL
 #endif
-
-#define KILOBYTES(num) ( num * 1024ULL )
-#define MEGABYTES(num) ( KILOBYTES( num ) * 1024ULL )
-#define GIGABYTES(num) ( MEGABYTES( num ) * 1024ULL )
 
 // assert that type sizes are correct
 SM_STATIC_ASSERT(sizeof(u8)  == 1, "Expected u8 to be 1 byte!");

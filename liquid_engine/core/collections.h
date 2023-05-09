@@ -38,42 +38,110 @@ SM_API void* _list_insert(
     void* pvalue
 );
 
+SM_API void* _list_create_trace(
+    usize capacity,
+    usize stride,
+    const char* function,
+    const char* file,
+    int line
+);
+
+SM_API void* _list_realloc_trace(
+    void* list,
+    usize new_capacity,
+    const char* function,
+    const char* file,
+    int line
+);
+
+SM_API void _list_free_trace(
+    void* list,
+    const char* function,
+    const char* file,
+    int line
+);
+
 } // namespace impl
 
 #define LIST_DEFAULT_CAPACITY 1
 
-#define list_create(type)\
-    (type*) ::impl::_list_create(\
-        LIST_DEFAULT_CAPACITY,\
-        sizeof(type)\
-    )
-#define list_realloc(list, new_capacity)\
-    ::impl::_list_realloc( list, new_capacity )
-#define list_free(list)\
-    ::impl::_list_free(list)
+#if defined(LD_LOGGING)
+    #define list_create(type)\
+        (type*) ::impl::_list_create_trace(\
+            LIST_DEFAULT_CAPACITY,\
+            sizeof(type),\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__\
+        )
 
-#define list_reserve(type, capacity)\
-    (type*) ::impl::_list_create(\
-        capacity,\
-        sizeof(type)\
-    )
+    #define list_realloc(list, new_capacity)\
+        ::impl::_list_realloc_trace(\
+            list,\
+            new_capacity,\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__\
+        )
+
+    #define list_free(list)\
+        ::impl::_list_free_trace(\
+            list,\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__\
+        )
+
+    #define list_reserve(type, capacity)\
+        (type*) ::impl::_list_create_trace(\
+            capacity,\
+            sizeof(type),\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__\
+        )
+
+#else
+
+    #define list_create(type)\
+        (type*) ::impl::_list_create(\
+            LIST_DEFAULT_CAPACITY,\
+            sizeof(type)\
+        )
+
+    #define list_realloc(list, new_capacity)\
+        ::impl::_list_realloc( list, new_capacity )
+
+    #define list_free(list)\
+        ::impl::_list_free(list)
+
+    #define list_reserve(type, capacity)\
+        (type*) ::impl::_list_create(\
+            capacity,\
+            sizeof(type)\
+        )
+
+
+
+#endif
 
 #define list_push(list, value) do {\
         __typeof(value) temp = value;\
-        list = (__typeof(value)*) ::impl::_list_push(list, &temp);\
+        list = (__typeof(value)*) ::impl::_list_push(\
+            list, &temp);\
     } while(0)
+
+#define list_insert(list, index, value) do {\
+    __typeof(value) temp = value;\
+    list = (__typeof(list)) ::impl::_list_insert(\
+        list,\
+        index,\
+        &temp\
+    );\
+} while(0)
 
 #define list_pop(list, pvalue)\
     ::impl::_list_pop( list, pvalue )
-
-#define list_insert(list, index, value) do {\
-        __typeof(value) temp = value;\
-        list = (__typeof(list)) ::impl::_list_insert(\
-            list,\
-            index,\
-            &temp\
-        );\
-    } while(0)
 
 #define list_remove(list, index, opt_dst)\
     ::impl::_list_remove( list, index, opt_dst )

@@ -16,6 +16,7 @@
 #include "core/memory.h"
 #include "core/collections.h"
 #include "core/events.h"
+#include "core/math.h"
 #include "renderer/renderer_defines.h"
 
 #include <intrin.h>

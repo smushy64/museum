@@ -6,7 +6,7 @@
  * File Created: April 27, 2023
 */
 #include "defines.h"
-#include "core/smath.h"
+#include "core/math/types.h"
 #include "core/input.h"
 
 #include "flags.h"

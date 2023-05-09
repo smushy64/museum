@@ -9,7 +9,7 @@
  *                  X: Right  Y: Top
 */
 #include "defines.h"
-#include "smath.h"
+#include "math/types.h"
 
 /// Key Codes
 enum KeyCode : u8 {

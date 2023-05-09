@@ -42,7 +42,6 @@ SM_API void* _mem_realloc( void* memory, usize new_size );
 /// Free memory.
 SM_API void _mem_free( void* memory );
 
-#if defined(LD_LOGGING)
 /// Allocate memory.
 SM_API void* _mem_alloc_trace(
     usize size,
@@ -66,7 +65,6 @@ SM_API void _mem_free_trace(
     const char* file,
     int line
 );
-#endif
 
 }; // namespace impl
 

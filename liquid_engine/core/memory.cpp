@@ -176,38 +176,34 @@ MemoryType mem_query_type( void* memory ) {
     return (MemoryType)header[MEMORY_FIELD_TYPE];
 }
 
-void mem_copy(
-    void* dst,
-    const void* src,
-    usize size
-) {
-    if( size % sizeof(u64) == 0 ) {
-        u64* src_64   = (u64*)src;
-        u64* dst_64   = (u64*)dst;
-        usize size_64 = size / sizeof(u64);
-        for( usize i = 0; i < size_64; ++i ) {
-            dst_64[i] = src_64[i];
-        }
-    } else if( size % sizeof(u32) == 0 ) {
-        u32* src_32   = (u32*)src;
-        u32* dst_32   = (u32*)dst;
-        usize size_32 = size / sizeof(u32);
-        for( usize i = 0; i < size_32; ++i ) {
-            dst_32[i] = src_32[i];
-        }
-    } else if( size % sizeof(u16) == 0 ) {
-        u16* src_16   = (u16*)src;
-        u16* dst_16   = (u16*)dst;
-        usize size_16 = size / sizeof(u16);
-        for( usize i = 0; i < size_16; ++i ) {
-            dst_16[i] = src_16[i];
-        }
-    } else {
-        u8* src_8   = (u8*)src;
-        u8* dst_8   = (u8*)dst;
-        for( usize i = 0; i < size; ++i ) {
-            dst_8[i] = src_8[i];
-        }
+inline void mem_copy_bytes( void* dst, const void* src, usize size ) {
+    u8* end_dst = (u8*)dst + size;
+    u8* end_src = (u8*)src + size;
+    while( end_dst != dst ) {
+        *end_dst-- = *end_src--;
+    }
+}
+
+void mem_copy( void* dst, const void* src, usize size ) {
+    if( size < sizeof(u64) ) {
+        mem_copy_bytes( dst, src, size );
+        return;
+    }
+    
+    u64* src64 = (u64*)src;
+    u64* dst64 = (u64*)dst;
+    usize count64 = size / sizeof(u64);
+    for( usize i = 0; i < count64; ++i ) {
+        dst64[i] = src64[i];
+    }
+
+    usize remainder = size % sizeof(u64);
+    if( remainder ) {
+        mem_copy_bytes(
+            (u8*)dst + (size - remainder - 1),
+            (u8*)src + (size - remainder - 1),
+            remainder
+        );
     }
 }
 
@@ -255,18 +251,19 @@ void mem_zero( void* ptr, usize size ) {
         return;
     }
     
-    usize remainder = size % sizeof( u64 );
-    usize long_size = size - remainder;
-    usize long_iter = long_size / sizeof( u64 );
-    u64*  long_ptr  = (u64*)ptr;
+    usize remainder  = size % sizeof(u64);
+    usize long_size  = size - remainder;
+    usize long_count = long_size / sizeof(u64);
+    u64*  long_end   = (u64*)ptr + long_count;
 
-    while( long_iter-- > 0 ) {
-        *long_ptr = 0ULL;
+    while( long_count-- > 0 ) {
+        *long_end-- = 0ULL;
     }
 
-    u8* byte_ptr = (u8*)ptr + long_size;
+    u8* byte_end = (u8*)ptr + remainder;
+
     while( remainder-- > 0 ) {
-        *byte_ptr = 0;
+        *byte_end-- = 0;
     }
 
 }

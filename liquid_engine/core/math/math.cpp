@@ -1,9 +1,10 @@
 /**
- * Description:  C++ math library for game development
+ * Description:  Math Implementation
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
- * File Created: March 16, 2023
+ * File Created: May 09, 2023
 */
-#include "smath.h"
+#include "types.h"
+#include "type_functions.h"
 
 #if defined(SM_ARCH_X86) && SM_SIMD_WIDTH != 1
     #include <immintrin.h>
@@ -270,103 +271,103 @@ mat4 operator*( const mat4& lhs, const mat4& rhs ) {
 
     u32 col = 0;
     u32 row = 0;
-    a = _mm_loadu_ps( &lhs.c[row * MAT4_COLUMN_COUNT] );
-    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4_COLUMN_COUNT) + row] ) );
-    c = _mm_loadu_ps( &result.c[ col * MAT4_COLUMN_COUNT ] );
-    _mm_storeu_ps( &result.c[col * MAT4_COLUMN_COUNT], _mm_add_ps( b, c ) );
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
 
     row = 1;
-    a = _mm_loadu_ps( &lhs.c[row * MAT4_COLUMN_COUNT] );
-    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4_COLUMN_COUNT) + row] ) );
-    c = _mm_loadu_ps( &result.c[ col * MAT4_COLUMN_COUNT ] );
-    _mm_storeu_ps( &result.c[col * MAT4_COLUMN_COUNT], _mm_add_ps( b, c ) );
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
 
     row = 2;
-    a = _mm_loadu_ps( &lhs.c[row * MAT4_COLUMN_COUNT] );
-    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4_COLUMN_COUNT) + row] ) );
-    c = _mm_loadu_ps( &result.c[ col * MAT4_COLUMN_COUNT ] );
-    _mm_storeu_ps( &result.c[col * MAT4_COLUMN_COUNT], _mm_add_ps( b, c ) );
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
 
     row = 3;
-    a = _mm_loadu_ps( &lhs.c[row * MAT4_COLUMN_COUNT] );
-    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4_COLUMN_COUNT) + row] ) );
-    c = _mm_loadu_ps( &result.c[ col * MAT4_COLUMN_COUNT ] );
-    _mm_storeu_ps( &result.c[col * MAT4_COLUMN_COUNT], _mm_add_ps( b, c ) );
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
 
     col = 1;
     row = 0;
-    a = _mm_loadu_ps( &lhs.c[row * MAT4_COLUMN_COUNT] );
-    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4_COLUMN_COUNT) + row] ) );
-    c = _mm_loadu_ps( &result.c[ col * MAT4_COLUMN_COUNT ] );
-    _mm_storeu_ps( &result.c[col * MAT4_COLUMN_COUNT], _mm_add_ps( b, c ) );
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
 
     row = 1;
-    a = _mm_loadu_ps( &lhs.c[row * MAT4_COLUMN_COUNT] );
-    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4_COLUMN_COUNT) + row] ) );
-    c = _mm_loadu_ps( &result.c[ col * MAT4_COLUMN_COUNT ] );
-    _mm_storeu_ps( &result.c[col * MAT4_COLUMN_COUNT], _mm_add_ps( b, c ) );
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
 
     row = 2;
-    a = _mm_loadu_ps( &lhs.c[row * MAT4_COLUMN_COUNT] );
-    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4_COLUMN_COUNT) + row] ) );
-    c = _mm_loadu_ps( &result.c[ col * MAT4_COLUMN_COUNT ] );
-    _mm_storeu_ps( &result.c[col * MAT4_COLUMN_COUNT], _mm_add_ps( b, c ) );
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
 
     row = 3;
-    a = _mm_loadu_ps( &lhs.c[row * MAT4_COLUMN_COUNT] );
-    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4_COLUMN_COUNT) + row] ) );
-    c = _mm_loadu_ps( &result.c[ col * MAT4_COLUMN_COUNT ] );
-    _mm_storeu_ps( &result.c[col * MAT4_COLUMN_COUNT], _mm_add_ps( b, c ) );
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
 
     col = 2;
     row = 0;
-    a = _mm_loadu_ps( &lhs.c[row * MAT4_COLUMN_COUNT] );
-    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4_COLUMN_COUNT) + row] ) );
-    c = _mm_loadu_ps( &result.c[ col * MAT4_COLUMN_COUNT ] );
-    _mm_storeu_ps( &result.c[col * MAT4_COLUMN_COUNT], _mm_add_ps( b, c ) );
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
 
     row = 1;
-    a = _mm_loadu_ps( &lhs.c[row * MAT4_COLUMN_COUNT] );
-    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4_COLUMN_COUNT) + row] ) );
-    c = _mm_loadu_ps( &result.c[ col * MAT4_COLUMN_COUNT ] );
-    _mm_storeu_ps( &result.c[col * MAT4_COLUMN_COUNT], _mm_add_ps( b, c ) );
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
 
     row = 2;
-    a = _mm_loadu_ps( &lhs.c[row * MAT4_COLUMN_COUNT] );
-    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4_COLUMN_COUNT) + row] ) );
-    c = _mm_loadu_ps( &result.c[ col * MAT4_COLUMN_COUNT ] );
-    _mm_storeu_ps( &result.c[col * MAT4_COLUMN_COUNT], _mm_add_ps( b, c ) );
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
 
     row = 3;
-    a = _mm_loadu_ps( &lhs.c[row * MAT4_COLUMN_COUNT] );
-    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4_COLUMN_COUNT) + row] ) );
-    c = _mm_loadu_ps( &result.c[ col * MAT4_COLUMN_COUNT ] );
-    _mm_storeu_ps( &result.c[col * MAT4_COLUMN_COUNT], _mm_add_ps( b, c ) );
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
 
     col = 3;
     row = 0;
-    a = _mm_loadu_ps( &lhs.c[row * MAT4_COLUMN_COUNT] );
-    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4_COLUMN_COUNT) + row] ) );
-    c = _mm_loadu_ps( &result.c[ col * MAT4_COLUMN_COUNT ] );
-    _mm_storeu_ps( &result.c[col * MAT4_COLUMN_COUNT], _mm_add_ps( b, c ) );
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
 
     row = 1;
-    a = _mm_loadu_ps( &lhs.c[row * MAT4_COLUMN_COUNT] );
-    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4_COLUMN_COUNT) + row] ) );
-    c = _mm_loadu_ps( &result.c[ col * MAT4_COLUMN_COUNT ] );
-    _mm_storeu_ps( &result.c[col * MAT4_COLUMN_COUNT], _mm_add_ps( b, c ) );
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
 
     row = 2;
-    a = _mm_loadu_ps( &lhs.c[row * MAT4_COLUMN_COUNT] );
-    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4_COLUMN_COUNT) + row] ) );
-    c = _mm_loadu_ps( &result.c[ col * MAT4_COLUMN_COUNT ] );
-    _mm_storeu_ps( &result.c[col * MAT4_COLUMN_COUNT], _mm_add_ps( b, c ) );
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
 
     row = 3;
-    a = _mm_loadu_ps( &lhs.c[row * MAT4_COLUMN_COUNT] );
-    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4_COLUMN_COUNT) + row] ) );
-    c = _mm_loadu_ps( &result.c[ col * MAT4_COLUMN_COUNT ] );
-    _mm_storeu_ps( &result.c[col * MAT4_COLUMN_COUNT], _mm_add_ps( b, c ) );
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
 
     return result;
 }
