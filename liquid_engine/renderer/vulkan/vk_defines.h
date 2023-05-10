@@ -15,7 +15,7 @@
             LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE,\
             LOG_COLOR_RESET,\
             LOG_FLAG_NEW_LINE,\
-            "[NOTE VK ] " format,\
+            "[VK NOTE ] " format,\
             ##__VA_ARGS__\
         )
     #define VK_LOG_INFO( format, ... ) \
@@ -23,7 +23,7 @@
             LOG_LEVEL_INFO,\
             LOG_COLOR_WHITE,\
             LOG_FLAG_NEW_LINE,\
-            "[INFO VK ] " format,\
+            "[VK INFO ] " format,\
             ##__VA_ARGS__\
         )
     #define VK_LOG_DEBUG( format, ... ) \
@@ -31,7 +31,7 @@
             LOG_LEVEL_DEBUG,\
             LOG_COLOR_BLUE,\
             LOG_FLAG_NEW_LINE,\
-            "[DEBUG VK] " format,\
+            "[VK DEBUG] " format,\
             ##__VA_ARGS__\
         )
     #define VK_LOG_WARN( format, ... ) \
@@ -39,7 +39,7 @@
             LOG_LEVEL_WARN,\
             LOG_COLOR_YELLOW,\
             LOG_FLAG_NEW_LINE,\
-            "[WARN VK ] " format,\
+            "[VK WARN ] " format,\
             ##__VA_ARGS__\
         )
     #define VK_LOG_ERROR( format, ... ) \
@@ -47,7 +47,7 @@
             LOG_LEVEL_ERROR,\
             LOG_COLOR_RED,\
             LOG_FLAG_NEW_LINE,\
-            "[ERROR VK] " format,\
+            "[VK ERROR] " format,\
             ##__VA_ARGS__\
         )
 
@@ -56,7 +56,7 @@
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,\
             LOG_COLOR_RESET,\
             LOG_FLAG_NEW_LINE,\
-            "[NOTE VK  | %s() | %s:%i] " format,\
+            "[VK NOTE  | %s() | %s:%i] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -68,7 +68,7 @@
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
             LOG_COLOR_WHITE,\
             LOG_FLAG_NEW_LINE,\
-            "[INFO VK  | %s() | %s:%i] " format,\
+            "[VK INFO  | %s() | %s:%i] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -80,7 +80,7 @@
             LOG_LEVEL_DEBUG | LOG_LEVEL_TRACE,\
             LOG_COLOR_BLUE,\
             LOG_FLAG_NEW_LINE,\
-            "[DEBUG VK | %s() | %s:%i] " format,\
+            "[VK DEBUG | %s() | %s:%i] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -92,7 +92,7 @@
             LOG_LEVEL_WARN | LOG_LEVEL_TRACE,\
             LOG_COLOR_YELLOW,\
             LOG_FLAG_NEW_LINE,\
-            "[WARN VK  | %s() | %s:%i] " format,\
+            "[VK WARN  | %s() | %s:%i] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -104,7 +104,7 @@
             LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
             LOG_COLOR_RED,\
             LOG_FLAG_NEW_LINE,\
-            "[ERROR VK | %s() | %s:%i] " format,\
+            "[VK ERROR | %s() | %s:%i] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -123,11 +123,30 @@
     #define VK_LOG_ERROR_TRACE( format, ... )
 #endif
 
-#define VK_LAYER_KHR_VALIDATION_NAME "VK_LAYER_KHRONOS_validation"
+#define VK_KHR_VALIDATION_LAYER_NAME "VK_LAYER_KHRONOS_validation"
 
-struct VkContext {
+#define VK_ASSERT(expr) do {\
+        VkResult result = expr;\
+        LOG_ASSERT( result == VK_SUCCESS, "Vulkan Fatal Error: 0x%X", result);\
+    } while(0)
+
+struct VulkanDevice {
+    VkPhysicalDevice physical_device;
+    VkDevice         logical_device;
+};
+
+struct VulkanContext {
+    VulkanDevice device;
+
+    VkSurfaceKHR surface;
     VkInstance             instance;
     VkAllocationCallbacks* allocator;
+
+#if defined(DEBUG)
+    VkDebugUtilsMessengerEXT debug_messenger;
+#endif
 };
+
+#define VK_MAX_EXTENSIONS 10
 
 #endif // header guard

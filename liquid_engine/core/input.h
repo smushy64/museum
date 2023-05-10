@@ -344,8 +344,8 @@ inline const char* to_string( PadCode padcode ) {
 
 #if defined(SM_API_INTERNAL)
 
-    b32 input_init();
-    b32 input_shutdown();
+    b32  input_init();
+    void input_shutdown();
 
     void input_set_key(
         KeyCode keycode,

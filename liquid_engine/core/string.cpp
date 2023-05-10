@@ -95,35 +95,15 @@ isize str_concat(
     );
 }
 
-// isize str_overlap_concat(
-//     const char* a,
-//     const char* b,
-//     usize dst_size,
-//     char* dst
-// ) {
-//     usize a_length = str_length(a);
-//     usize b_length = str_length(b);
-//     usize total_size = a_length + b_length + 1;
-//     char intermediate[total_size];
-//     str_concat_sized(
-//         a_length,
-//         a,
-//         b_length,
-//         b,
-//         total_size,
-//         intermediate
-//     );
+b32 str_cmp( const char* a, const char* b ) {
+    do {
+        if( *a != *b ) {
+            return false;
+        }
+    } while( *a++ && *b++ );
 
-//     isize copy_size = total_size > dst_size ? dst_size : total_size;
-//     mem_copy(
-//         dst,
-//         intermediate,
-//         copy_size
-//     );
-//     dst[dst_size - 1] = 0;
-
-//     return copy_size - (isize)dst_size;
-// }
+    return true;
+}
 
 void str_trim_trailing_whitespace(
     isize buffer_size,

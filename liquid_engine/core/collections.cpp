@@ -169,6 +169,71 @@ SM_API void* _list_realloc( void* list, usize new_capacity ) {
 
     return BASE_TO_BUFFER_POINTER(new_base);
 }
+
+SM_API void* _list_append(
+    void* list,
+    usize append_count,
+    const void* pvalue
+) {
+    u64*  base     = BUFFER_TO_BASE_POINTER(list);
+    usize count    = base[LIST_FIELD_COUNT];
+    usize capacity = base[LIST_FIELD_CAPACITY];
+    usize stride   = base[LIST_FIELD_STRIDE];
+
+    if( count + append_count > capacity ) {
+        list = _list_realloc(
+            list,
+            count + append_count
+        );
+        base = BUFFER_TO_BASE_POINTER(list);
+    }
+
+    usize append_size = stride * append_count;
+    mem_copy(
+        (u8*)list + (count * stride),
+        pvalue,
+        append_size
+    );
+
+    base[LIST_FIELD_COUNT] = count + append_count;
+    return list;
+}
+
+SM_API void* _list_append_trace(
+    void* list,
+    usize append_count,
+    const void* pvalue,
+    const char* function,
+    const char* file,
+    int line
+) {
+    u64*  base     = BUFFER_TO_BASE_POINTER(list);
+    usize count    = base[LIST_FIELD_COUNT];
+    usize capacity = base[LIST_FIELD_CAPACITY];
+    usize stride   = base[LIST_FIELD_STRIDE];
+
+    if( count + append_count > capacity ) {
+        list = _list_realloc_trace(
+            list,
+            count + append_count,
+            function,
+            file,
+            line
+        );
+        base = BUFFER_TO_BASE_POINTER(list);
+    }
+
+    usize append_size = stride * append_count;
+    mem_copy(
+        (u8*)list + (count * stride),
+        pvalue,
+        append_size
+    );
+
+    base[LIST_FIELD_COUNT] = count + append_count;
+    return list;
+}
+
 SM_API void* _list_push( void* list, const void* pvalue ) {
     u64*  base     = BUFFER_TO_BASE_POINTER(list);
     usize count    = base[LIST_FIELD_COUNT];
@@ -180,10 +245,8 @@ SM_API void* _list_push( void* list, const void* pvalue ) {
             list,
             capacity * LIST_REALLOC_FACTOR
         );
-        base     = BUFFER_TO_BASE_POINTER(list);
-        count    = base[LIST_FIELD_COUNT];
-        capacity = base[LIST_FIELD_CAPACITY];
-        stride   = base[LIST_FIELD_STRIDE];
+        base  = BUFFER_TO_BASE_POINTER(list);
+        count = base[LIST_FIELD_COUNT];
     }
     u8* bytes = (u8*)list;
 
@@ -195,6 +258,41 @@ SM_API void* _list_push( void* list, const void* pvalue ) {
 
     return list;
 }
+
+void* _list_push_trace(
+    void* list,
+    const void* pvalue,
+    const char* function,
+    const char* file,
+    int line
+) {
+    u64*  base     = BUFFER_TO_BASE_POINTER(list);
+    usize count    = base[LIST_FIELD_COUNT];
+    usize capacity = base[LIST_FIELD_CAPACITY];
+    usize stride   = base[LIST_FIELD_STRIDE];
+
+    if( count == capacity ) {
+        list = _list_realloc_trace(
+            list,
+            capacity * LIST_REALLOC_FACTOR,
+            function,
+            file,
+            line
+        );
+        base  = BUFFER_TO_BASE_POINTER(list);
+        count = base[LIST_FIELD_COUNT];
+    }
+    u8* bytes = (u8*)list;
+
+    usize index = stride * count;
+    
+    mem_copy( bytes + index, pvalue, stride );
+
+    base[LIST_FIELD_COUNT] += 1;
+
+    return list;
+}
+
 SM_API b32 _list_pop( void* list, void* dst ) {
     u64*  base   = BUFFER_TO_BASE_POINTER(list);
     usize count  = base[LIST_FIELD_COUNT];
@@ -283,6 +381,60 @@ SM_API void* _list_insert(
         list = _list_realloc(
             list,
             LIST_REALLOC_FACTOR * capacity
+        );
+        base = BUFFER_TO_BASE_POINTER(list);
+    }
+    
+    u8* buffer_bytes = (u8*)list;
+
+    if( index != count - 1 ) {
+        mem_overlap_copy(
+            buffer_bytes + ((index + 1) * stride),
+            buffer_bytes + (index * stride),
+            stride * ( count - index )
+        );
+    }
+
+    mem_copy(
+        buffer_bytes + (index * stride),
+        pvalue,
+        stride
+    );
+
+    base[LIST_FIELD_COUNT] += 1;
+
+    return list;
+}
+
+SM_API void* _list_insert_trace(
+    void* list,
+    usize index,
+    void* pvalue,
+    const char* function,
+    const char* file,
+    int line
+) {
+    u64*  base     = BUFFER_TO_BASE_POINTER(list);
+    usize capacity = base[LIST_FIELD_CAPACITY];
+    usize count    = base[LIST_FIELD_COUNT];
+    usize stride   = base[LIST_FIELD_STRIDE];
+
+    if( index >= count ) {
+        LOG_FATAL(
+            "Index outside the bounds of the list! index: %llu",
+            index
+        );
+        SM_PANIC();
+        return nullptr;
+    }
+    
+    if( count >= capacity ) {
+        list = _list_realloc_trace(
+            list,
+            LIST_REALLOC_FACTOR * capacity,
+            function,
+            file,
+            line
         );
         base = BUFFER_TO_BASE_POINTER(list);
     }

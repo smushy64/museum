@@ -14,24 +14,19 @@ SM_API usize str_length( const char* string );
 /// Result does not include null-terminator.
 SM_API usize wstr_length( const wchar_t* string );
 
-/// Concatenate strings.
+/// Concatenate null-terminated strings.
 SM_API isize str_concat(
     const char* a,
     const char* b,
     usize dst_size,
     char* dst
 );
-/// Concatenate strings where dst overlaps with a or b.
-/// Potentially a lot slower than str_concat so only use when necessary.
-// SM_API isize str_overlap_concat(
-//     const char* a,
-//     const char* b,
-//     usize dst_size,
-//     char* dst
-// );
+
+/// Check if null-terminated strings are equal.
+SM_API b32 str_cmp( const char* a, const char* b );
 
 /// Check if character is a whitespace character
-SM_ALWAYS_INLINE b32 is_whitespace( char character ) {
+inline b32 is_whitespace( char character ) {
     return
         character == ' ' ||
         character == '\t';

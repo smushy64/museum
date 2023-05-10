@@ -48,8 +48,6 @@ int main( int, char** ) {
         return -1;
     }
 
-    if( !app_shutdown() ) {
-        return -1;
-    }
+    app_shutdown();
     return 0;
 }

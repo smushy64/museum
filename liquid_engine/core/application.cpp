@@ -32,7 +32,12 @@ struct AppContext {
 
 global AppContext CONTEXT = {};
 
-EventConsumption on_main_surface_destroy( Event* event, void* ) {
+EventReturnCode on_app_exit( Event*, void* ) {
+    CONTEXT.is_running = false;
+    return EVENT_CONSUMED;
+}
+
+EventReturnCode on_main_surface_destroy( Event* event, void* ) {
     if(
         event->data.surface_destroy.surface ==
         CONTEXT.main_surface
@@ -44,7 +49,7 @@ EventConsumption on_main_surface_destroy( Event* event, void* ) {
     }
 }
 
-EventConsumption on_main_surface_active( Event* event, void* ) {
+EventReturnCode on_main_surface_active( Event* event, void* ) {
     if(
         event->data.surface_active.surface ==
         CONTEXT.main_surface
@@ -62,13 +67,27 @@ EventConsumption on_main_surface_active( Event* event, void* ) {
     }
 }
 
-EventConsumption on_main_surface_resize( Event* event, void* ) {
+EventReturnCode on_main_surface_resize( Event* event, void* ) {
     if(
         event->data.surface_resize.surface ==
         CONTEXT.main_surface
     ) {
         // TODO(alicia): 
         SM_UNUSED(event);
+    }
+    return EVENT_NOT_CONSUMED;
+}
+
+EventReturnCode on_f4( Event* event, void* ) {
+    if( event->data.keyboard.code == KEY_F4 ) {
+        if(
+            input_is_key_down( KEY_ALT_LEFT ) ||
+            input_is_key_down( KEY_ALT_RIGHT )
+        ) {
+            Event event = {};
+            event.code = EVENT_CODE_APP_EXIT;
+            event_fire( event );
+        }
     }
     return EVENT_NOT_CONSUMED;
 }
@@ -158,6 +177,28 @@ b32 app_init( AppConfig* config ) {
     if(!event_subscribe(
         EVENT_CODE_SURFACE_RESIZE,
         on_main_surface_resize,
+        nullptr
+    )) {
+        MESSAGE_BOX_FATAL(
+            "Subsystem Failure",
+            "Failed to initialize event subsystem."
+        );
+        return false;
+    }
+    if(!event_subscribe(
+        EVENT_CODE_INPUT_KEY,
+        on_f4,
+        nullptr
+    )) {
+        MESSAGE_BOX_FATAL(
+            "Subsystem Failure",
+            "Failed to initialize event subsystem."
+        );
+        return false;
+    }
+    if(!event_subscribe(
+        EVENT_CODE_APP_EXIT,
+        on_app_exit,
         nullptr
     )) {
         MESSAGE_BOX_FATAL(
@@ -260,7 +301,7 @@ b32 app_init( AppConfig* config ) {
             usage_buffer,
             32
         );
-        LOG_NOTE("%-30s %s", to_string(type), usage_buffer);
+        LOG_NOTE("    %-30s %s", to_string(type), usage_buffer);
     }
     usize heap_usage = query_heap_usage();
     usize page_usage = query_page_usage();
@@ -271,7 +312,7 @@ b32 app_init( AppConfig* config ) {
         usage_buffer,
         32
     );
-    LOG_NOTE("%-30s %s", "Total Memory Usage", usage_buffer);
+    LOG_NOTE("    %-30s %s", "Total Memory Usage", usage_buffer);
 #endif
 
     return true;
@@ -311,45 +352,42 @@ b32 app_run() {
 
     return true;
 }
-b32 app_shutdown() {
-    b32 success = true;
-    if(!event_unsubscribe(
+void app_shutdown() {
+    event_unsubscribe(
         EVENT_CODE_SURFACE_DESTROY,
         on_main_surface_destroy,
         nullptr
-    )) {
-        success = false;
-    }
-    if(!event_unsubscribe(
+    );
+    event_unsubscribe(
         EVENT_CODE_SURFACE_ACTIVE,
         on_main_surface_active,
         nullptr
-    )) {
-        success = false;
-    }
-    if(!event_unsubscribe(
+    );
+    event_unsubscribe(
         EVENT_CODE_SURFACE_RESIZE,
         on_main_surface_resize,
         nullptr
-    )) {
-        success = false;
-    }
-
-    if( !event_shutdown() ) {
-        success = false;
-    }
-    if( !input_shutdown() ) {
-        success = false;
-    }
-
-    renderer_shutdown();
+    );
+    event_unsubscribe(
+        EVENT_CODE_INPUT_KEY,
+        on_f4,
+        nullptr
+    );
+    event_unsubscribe(
+        EVENT_CODE_APP_EXIT,
+        on_app_exit,
+        nullptr
+    );
 
     CONTEXT.is_running = false;
     surface_destroy(
         &CONTEXT.platform,
         CONTEXT.main_surface
     );
+    renderer_shutdown();
+    event_shutdown();
+    input_shutdown();
+
     platform_shutdown( &CONTEXT.platform );
     log_shutdown();
-    return success;
 }

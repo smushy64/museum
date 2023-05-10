@@ -12,6 +12,8 @@
 enum EventCode : u32 {
     EVENT_CODE_UNKNOWN,
 
+    EVENT_CODE_APP_EXIT,
+
     EVENT_CODE_SURFACE_DESTROY,
     EVENT_CODE_SURFACE_ACTIVE,
     EVENT_CODE_SURFACE_RESIZE,
@@ -42,6 +44,8 @@ inline const char* engine_event_code_to_string(
     local const char* strings[EVENT_CODE_LAST_RESERVED] = {
         "Event Unknown",
 
+        "Event App Exit",
+
         "Event Surface Destroy",
         "Event Surface Active",
         "Event Surface Resize",
@@ -67,7 +71,7 @@ inline const char* engine_event_code_to_string(
     return strings[code];
 }
 
-enum EventConsumption : u32 {
+enum EventReturnCode : u32 {
     EVENT_NOT_CONSUMED,
     EVENT_CONSUMED
 };
@@ -153,12 +157,12 @@ struct Event {
 
 #if defined(SM_API_INTERNAL)
 
-    b32 event_init();
-    b32 event_shutdown();
+    b32  event_init();
+    void event_shutdown();
 
 #endif // api internal
 
-typedef EventConsumption (*EventListener)(
+typedef EventReturnCode (*EventListener)(
     Event* event,
     void* params
 );

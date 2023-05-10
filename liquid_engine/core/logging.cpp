@@ -81,10 +81,10 @@ void log_shutdown() {
     impl::_mem_free( PRINT_BUFFER );
 
     // TODO(alicia): custom printf!
-    printf( "[NOTE  ] Logging subsystem shutdown.\n" );
+    printf( "[NOTE  ] Logging subsystem successfully shutdown.\n" );
 #if defined(SM_PLATFORM_WINDOWS)
     OutputDebugStringA(
-        "[NOTE  ] Logging subsystem shutdown.\n"
+        "[NOTE  ] Logging subsystem successfully shutdown.\n"
     );
 #endif
 
@@ -192,4 +192,8 @@ void log_formatted_locked(
 
     pthread_mutex_unlock( &MUTEX );
 #endif
+}
+
+LogLevel query_log_level() {
+    return GLOBAL_LOG_LEVEL;
 }

@@ -7,6 +7,8 @@
 */
 #include "defines.h"
 
+// LIST | BEGIN -------------------------------------------
+
 namespace impl {
 
 global const u32 LIST_FIELD_CAPACITY = 0;
@@ -16,6 +18,12 @@ global const u32 LIST_FIELD_STRIDE   = 2;
 SM_API void* _list_create( usize capacity, usize stride );
 SM_API void* _list_realloc( void* list, usize new_capacity );
 SM_API void  _list_free( void* list );
+
+SM_API void* _list_append(
+    void* list,
+    usize append_count,
+    const void* pvalue
+);
 
 SM_API void* _list_push( void* list, const void* pvalue );
 SM_API b32   _list_pop( void* list, void* dst );
@@ -32,6 +40,7 @@ SM_API void* _list_remove(
     usize index,
     void* opt_dst
 );
+
 SM_API void* _list_insert(
     void* list,
     usize index,
@@ -49,6 +58,32 @@ SM_API void* _list_create_trace(
 SM_API void* _list_realloc_trace(
     void* list,
     usize new_capacity,
+    const char* function,
+    const char* file,
+    int line
+);
+
+SM_API void* _list_push_trace(
+    void* list,
+    const void* pvalue,
+    const char* function,
+    const char* file,
+    int line
+);
+
+SM_API void* _list_append_trace(
+    void* list,
+    usize append_count,
+    const void* pvalue,
+    const char* function,
+    const char* file,
+    int line
+);
+
+SM_API void* _list_insert_trace(
+    void* list,
+    usize index,
+    void* pvalue,
     const char* function,
     const char* file,
     int line
@@ -101,6 +136,40 @@ SM_API void _list_free_trace(
             __LINE__\
         )
 
+    #define list_push(list, value) do {\
+        __typeof(value) temp = value;\
+        list = (__typeof(list)) ::impl::_list_push_trace(\
+            list,\
+            &temp,\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__\
+        );\
+    } while(0)
+
+    #define list_append(list, append_count, pvalue) do {\
+        list = (__typeof(list)) ::impl::_list_append_trace(\
+            list,\
+            append_count,\
+            pvalue,\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__\
+        );\
+    } while(0)
+
+    #define list_insert(list, index, value) do {\
+        __typeof(value) temp = value;\
+        list = (__typeof(list)) ::impl::_list_insert_trace(\
+            list,\
+            index,\
+            &temp,\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__\
+        );\
+    } while(0)
+
 #else
 
     #define list_create(type)\
@@ -121,24 +190,31 @@ SM_API void _list_free_trace(
             sizeof(type)\
         )
 
-
-
-#endif
-
-#define list_push(list, value) do {\
+    #define list_push(list, value) do {\
         __typeof(value) temp = value;\
-        list = (__typeof(value)*) ::impl::_list_push(\
+        list = (__typeof(list)) ::impl::_list_push(\
             list, &temp);\
     } while(0)
 
-#define list_insert(list, index, value) do {\
-    __typeof(value) temp = value;\
-    list = (__typeof(list)) ::impl::_list_insert(\
-        list,\
-        index,\
-        &temp\
-    );\
-} while(0)
+    #define list_append(list, append_count, pvalue) do {\
+        list = (__typeof(list)) ::impl::_list_append(\
+            list,\
+            append_count,\
+            pvalue\
+        );\
+    } while(0)
+
+    #define list_insert(list, index, value) do {\
+        __typeof(value) temp = value;\
+        list = (__typeof(list)) ::impl::_list_insert(\
+            list,\
+            index,\
+            &temp\
+        );\
+    } while(0)
+#endif
+
+
 
 #define list_pop(list, pvalue)\
     ::impl::_list_pop( list, pvalue )
@@ -180,5 +256,7 @@ SM_API void _list_free_trace(
         ::impl::LIST_FIELD_COUNT,\
         value\
     )
+
+// LIST | END ---------------------------------------------
 
 #endif

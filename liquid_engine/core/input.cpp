@@ -61,9 +61,8 @@ b32 input_init() {
     LOG_NOTE("Input subsystem successfully initialized.");
     return true;
 }
-b32 input_shutdown() {
+void input_shutdown() {
     LOG_NOTE("Input subsystem successfully shutdown.");
-    return true;
 }
 
 void input_set_key(

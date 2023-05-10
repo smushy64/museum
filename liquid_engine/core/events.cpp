@@ -60,7 +60,7 @@ b32 event_init() {
     return true;
 }
 
-b32 event_shutdown() {
+void event_shutdown() {
     for( usize i = 0; i < MAX_EVENT_CODE; ++i ) {
         ListenerRegistry* registry = &SYSTEM.registry[i];
         if( registry->listeners ) {
@@ -69,7 +69,6 @@ b32 event_shutdown() {
     }
     mem_free( SYSTEM.registry );
     LOG_NOTE("Event subsystem successfully shut down.");
-    return true;
 }
 
 void event_fire( Event event ) {

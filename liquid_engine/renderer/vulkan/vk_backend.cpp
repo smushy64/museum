@@ -6,32 +6,32 @@
 #include "vk_defines.h"
 #include "vk_backend.h"
 #include "platform/platform.h"
+#include "core/collections.h"
+#include "core/string.h"
 
-global VkContext CONTEXT = {};
-
-#if defined(LD_LOGGING)
-    #define REQUIRED_EXTENSIONS_COUNT 1
-#else
-    #define REQUIRED_EXTENSIONS_COUNT 0
-#endif
-
+/// Extensions that are always required
+global const char* REQUIRED_EXTENSION_NAMES[] = {
+    VK_KHR_SURFACE_EXTENSION_NAME,
 #if defined(DEBUG)
-    #define REQUIRED_LAYER_COUNT     1
-#else
-    #define REQUIRED_LAYER_COUNT     0
-#endif
-
-global const char* REQUIRED_EXTENSIONS_NAMES[REQUIRED_EXTENSIONS_COUNT] = {
-#if defined(LD_LOGGING)
-    VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+    VK_EXT_DEBUG_UTILS_EXTENSION_NAME
 #endif
 };
 
-global const char* REQUIRED_LAYER_NAMES[REQUIRED_LAYER_COUNT] = {
 #if defined(DEBUG)
-    VK_LAYER_KHR_VALIDATION_NAME,
-#endif
+/// Validation layers
+global const char* REQUIRED_VALIDATION_LAYERS[] = {
+    VK_KHR_VALIDATION_LAYER_NAME
 };
+#endif
+
+global VulkanContext CONTEXT = {};
+
+internal VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT messageTypes,
+    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+    void* pUserData
+);
 
 b32 vk_init(
     struct RendererBackend* backend,
@@ -67,36 +67,171 @@ b32 vk_init(
     VkInstanceCreateInfo instance_info = {};
     instance_info.sType            = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     instance_info.pApplicationInfo = &app_info;
-
-    instance_info.enabledExtensionCount   = REQUIRED_EXTENSIONS_COUNT;
-    instance_info.ppEnabledExtensionNames = REQUIRED_EXTENSIONS_NAMES;
-
-    instance_info.enabledLayerCount   = REQUIRED_LAYER_COUNT;
-    instance_info.ppEnabledLayerNames = REQUIRED_LAYER_NAMES;
     
-    VkResult instance_result = vkCreateInstance(
+    #define MIN_EXTENSION_NAME_COUNT 5
+
+    usize extension_count = 0;
+    const char* extension_names[VK_MAX_EXTENSIONS] = {};
+    usize required_extensions_count =
+        STATIC_ARRAY_COUNT(REQUIRED_EXTENSION_NAMES);
+    LOG_ASSERT(
+        required_extensions_count < VK_MAX_EXTENSIONS,
+        "VK_MAX_EXTENSIONS is too low!"
+    );
+    for( usize i = 0; i < required_extensions_count; ++i ) {
+        extension_names[extension_count++] =
+            REQUIRED_EXTENSION_NAMES[i];
+    }
+
+    usize remaining_platform_extensions = platform_get_vulkan_extension_names(
+        VK_MAX_EXTENSIONS,
+        &extension_count,
+        extension_names
+    );
+    LOG_ASSERT(
+        remaining_platform_extensions == 0,
+        "VK_MAX_EXTENSIONS is too low! "
+        "Remaining platform required extension count: %llu",
+        remaining_platform_extensions
+    );
+
+#if defined(DEBUG)
+    VK_LOG_NOTE("Required extensions:");
+    for(
+        usize i = 0;
+        i < extension_count;
+        ++i
+    ) {
+        VK_LOG_NOTE("    %llu: %s", i, extension_names[i]);
+    }
+#endif
+
+    instance_info.enabledExtensionCount   = extension_count;
+    instance_info.ppEnabledExtensionNames = extension_names;
+
+    u32 required_layer_count = 0;
+    const char** required_layer_names = nullptr;
+
+#if defined(DEBUG)
+    VK_LOG_DEBUG("Enabling validation layers . . .");
+
+    required_layer_count = STATIC_ARRAY_COUNT(REQUIRED_VALIDATION_LAYERS);
+    required_layer_names = REQUIRED_VALIDATION_LAYERS;
+
+    u32 available_layer_count = 0;
+    VK_ASSERT(vkEnumerateInstanceLayerProperties(
+        &available_layer_count,
+        nullptr
+    ));
+    VkLayerProperties* available_layers = list_reserve(
+        VkLayerProperties,
+        available_layer_count
+    );
+    list_set_count(
+        available_layers,
+        available_layer_count
+    );
+    VK_ASSERT(vkEnumerateInstanceLayerProperties(
+        &available_layer_count,
+        available_layers
+    ));
+
+    VK_LOG_NOTE(
+        "%u Validation Layers available, searching for required layers . . .",
+        available_layer_count
+    );
+
+    for( u32 i = 0; i < required_layer_count; ++i ) {
+        b32 found = false;
+        for( u32 j = 0; j < available_layer_count; ++j ) {
+            if( str_cmp(
+                REQUIRED_VALIDATION_LAYERS[i],
+                available_layers[j].layerName
+            ) ) {
+                found = true;
+                break;
+            }
+        }
+
+        if( found ) {
+            VK_LOG_NOTE(
+                "    Required Validation Layer \"%s\" is available.",
+                REQUIRED_VALIDATION_LAYERS[i]
+            );
+        } else {
+            VK_LOG_ERROR(
+                "    Required Validation Layer \"%s\" is not available!",
+                REQUIRED_VALIDATION_LAYERS[i]
+            );
+            return false;
+        }
+    }
+
+    VK_LOG_NOTE("All required Validation Layers are available.");
+
+    list_free( available_layers );
+#endif
+
+    instance_info.enabledLayerCount   = required_layer_count;
+    instance_info.ppEnabledLayerNames = required_layer_names;
+    
+    VK_ASSERT(vkCreateInstance(
         &instance_info,
         CONTEXT.allocator,
         &CONTEXT.instance
-    );
-    if( instance_result != VK_SUCCESS ) {
-        VK_LOG_ERROR(
-            "Instance Creation Failed! 0x%X",
-            (u32)instance_result
-        );
-        return false;
+    ));
+
+#if defined(DEBUG)
+    VK_LOG_DEBUG("Initializing Vulkan Debugger . . .");
+
+    u32 vk_log_level = 0;
+    LogLevel current_log_level = query_log_level();
+    if( ARE_BITS_SET( current_log_level, LOG_LEVEL_VERBOSE ) ) {
+        vk_log_level |= VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
     }
+    if( ARE_BITS_SET( current_log_level, LOG_LEVEL_INFO ) ) {
+        vk_log_level |= VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
+    }
+    if( ARE_BITS_SET( current_log_level, LOG_LEVEL_WARN ) ) {
+        vk_log_level |= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+    }
+    if( ARE_BITS_SET( current_log_level, LOG_LEVEL_ERROR ) ) {
+        vk_log_level |= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    }
+
+    VkDebugUtilsMessengerCreateInfoEXT debug_create_info = {};
+    debug_create_info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+    debug_create_info.messageSeverity = vk_log_level;
+    debug_create_info.messageType =
+        VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT     |
+        VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
+    debug_create_info.pfnUserCallback = vk_debug_callback;
+
+    PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT =
+    (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
+        CONTEXT.instance,
+        "vkCreateDebugUtilsMessengerEXT"
+    );
+
+    LOG_ASSERT(
+        vkCreateDebugUtilsMessengerEXT,
+        "Failed to load debug utils messenger function!"
+    );
+    VK_ASSERT(vkCreateDebugUtilsMessengerEXT(
+        CONTEXT.instance,
+        &debug_create_info,
+        CONTEXT.allocator,
+        &CONTEXT.debug_messenger
+    ));
+
+    VK_LOG_DEBUG("Vulkan Debugger Initialized.");
+#endif
 
     SM_UNUSED(backend);
     SM_UNUSED(platform);
     VK_LOG_NOTE( "Vulkan backend initialized successfully." );
     return true;
-}
-void vk_shutdown(
-    struct RendererBackend* backend
-) {
-    SM_UNUSED(backend);
-    VK_LOG_NOTE( "Vulkan backend shutdown successfully." );
 }
 void vk_on_resize(
     struct RendererBackend* backend,
@@ -121,4 +256,58 @@ b32 vk_end_frame(
     SM_UNUSED(backend);
     SM_UNUSED(delta_time);
     return true;
+}
+
+void vk_shutdown(
+    struct RendererBackend* backend
+) {
+
+#if defined(DEBUG)
+    PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT =
+    (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
+        CONTEXT.instance,
+        "vkDestroyDebugUtilsMessengerEXT"
+    );
+    LOG_ASSERT(
+        vkDestroyDebugUtilsMessengerEXT,
+        "Failed to load debug utils destroy function!"
+    );
+    vkDestroyDebugUtilsMessengerEXT(
+        CONTEXT.instance,
+        CONTEXT.debug_messenger,
+        CONTEXT.allocator
+    );
+#endif
+
+    vkDestroyInstance(
+        CONTEXT.instance,
+        CONTEXT.allocator
+    );
+
+    SM_UNUSED(backend);
+    VK_LOG_NOTE( "Vulkan backend shutdown successfully." );
+}
+
+internal VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT ,// messageTypes,
+    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+    void* // pUserData
+) {
+    switch( messageSeverity ) {
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: {
+            VK_LOG_NOTE("%s", pCallbackData->pMessage);
+        } break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: {
+            VK_LOG_WARN("%s", pCallbackData->pMessage);
+        } break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: {
+            VK_LOG_ERROR("%s", pCallbackData->pMessage);
+        } break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: {
+            VK_LOG_INFO("%s", pCallbackData->pMessage);
+        } break;
+        default: break;
+    }
+    return VK_FALSE;
 }

@@ -6,10 +6,6 @@
 #include "defines.h"
 #if defined(SM_PLATFORM_WINDOWS)
 
-/* TODO(alicia):
-    Allocate platform data once as a block (struct ??)
-*/ 
-
 #include "platform.h"
 #include "core/logging.h"
 #include "core/string.h"
@@ -68,7 +64,6 @@ struct Win32State {
     Win32ThreadHandle threads[MAX_THREAD_COUNT];
 
     wchar_t* wide_char_scratch_buffer;
-
 };
 
 global LARGE_INTEGER PERF_FREQUENCY;
@@ -104,10 +99,8 @@ void mark_surface_available( Win32State* state, Win32Surface* surface ) {
         }
     }
 
-    LOG_ASSERT(
-        false,
-        "Attempted to mark a non-existent surface as being available!"
-    );
+    LOG_FATAL("Attempted to mark a non-existent surface as being available!");
+    SM_PANIC();
 }
 
 union Win32MotorState {
@@ -566,13 +559,13 @@ internal void* win_proc_address(
     );
     if( result ) {
         WIN_LOG_NOTE(
-            "Function \"%s\" loaded from module \"%ls\".",
+            "Function \"%s\" loaded from library \"%ls\".",
             proc_name,
             module_name_buffer
         );
     } else {
         WIN_LOG_WARN(
-            "Failed to load function \"%s\" from module \"%ls\"!",
+            "Failed to load function \"%s\" from library \"%ls\"!",
             proc_name,
             module_name_buffer
         );
@@ -602,7 +595,7 @@ internal void* win_proc_address_required(
             MODULE_NAME_BUFFER_SIZE
         );
         WIN_LOG_NOTE(
-            "Function \"%s\" loaded from module \"%ls\".",
+            "Function \"%s\" loaded from library \"%ls\".",
             proc_name,
             module_name_buffer
         );
@@ -865,7 +858,7 @@ b32 platform_init(
         }
     }
 
-    if( CHECK_FLAG( flags, PLATFORM_DPI_AWARE ) ) {
+    if( ARE_BITS_SET( flags, PLATFORM_DPI_AWARE ) ) {
         SetProcessDpiAwarenessContext(
             DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
         );
@@ -897,7 +890,7 @@ void platform_shutdown( PlatformState* platform_state ) {
 
     mem_free( state );
 
-    WIN_LOG_NOTE("Platform services shutdown.");
+    WIN_LOG_NOTE("Platform subsytem successfully shutdown.");
 }
 
 u64 platform_absolute_time() {
@@ -911,13 +904,26 @@ f64 platform_seconds_elapsed() {
     return (f64)counter / (f64)(PERF_FREQUENCY.QuadPart);
 }
 
-usize platform_get_vulkan_extension_count() {
-    // TODO(alicia): 
-    return 0;
-}
-void  platform_get_vulkan_extension_names( const char** names ) {
-    SM_UNUSED(names);
-    // TODO(alicia): 
+global const char* WIN32_VULKAN_EXTENSIONS[] = {
+    "VK_KHR_win32_surface"
+};
+
+usize platform_get_vulkan_extension_names(
+    usize max_names,
+    usize* name_count,
+    const char** names
+) {
+    usize win32_extension_count = STATIC_ARRAY_COUNT(WIN32_VULKAN_EXTENSIONS);
+    usize max_iter = win32_extension_count > max_names ?
+        max_names : win32_extension_count;
+
+    usize count = *name_count;
+    for( usize i = 0; i < max_iter; ++i ) {
+        names[count++] = WIN32_VULKAN_EXTENSIONS[i];
+        win32_extension_count--;
+    }
+    *name_count = count;
+    return win32_extension_count;
 }
 
 // PLATFORM INIT | END ----------------------------------------------------
@@ -1429,7 +1435,7 @@ Surface* surface_create(
     win_surface->surface.dimensions = { width, height };
 
     i32 x = 0, y = 0;
-    if( CHECK_FLAG( flags, SURFACE_CREATE_CENTERED ) ) {
+    if( ARE_BITS_SET( flags, SURFACE_CREATE_CENTERED ) ) {
         i32 screen_width  = GetSystemMetrics( SM_CXSCREEN );
         i32 screen_height = GetSystemMetrics( SM_CYSCREEN );
 
@@ -1493,7 +1499,7 @@ Surface* surface_create(
         (LONG_PTR)win_surface
     );
 
-    if( CHECK_FLAG( flags, SURFACE_CREATE_VISIBLE ) ) {
+    if( ARE_BITS_SET( flags, SURFACE_CREATE_VISIBLE ) ) {
         win_surface->surface.is_visible = true;
         ShowWindow( hWnd, SW_SHOW );
     }
@@ -1661,7 +1667,7 @@ internal LRESULT window_proc(
             }
             u8 keycode = wParam;
 
-            if( CHECK_FLAG( lParam, EXTENDED_KEY_MASK ) ) {
+            if( ARE_BITS_SET( lParam, EXTENDED_KEY_MASK ) ) {
                 if( keycode == KEY_CONTROL_LEFT ) {
                     keycode = KEY_CONTROL_RIGHT;
                 } else if( keycode == KEY_ALT_LEFT ) {
@@ -1924,30 +1930,30 @@ void platform_poll_gamepad() {
 
         XINPUT_GAMEPAD gamepad = gamepad_state.Gamepad;
 
-        b32 dpad_left  = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_LEFT );
-        b32 dpad_right = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_RIGHT );
-        b32 dpad_up    = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_UP );
-        b32 dpad_down  = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_DOWN );
+        b32 dpad_left  = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_LEFT );
+        b32 dpad_right = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_RIGHT );
+        b32 dpad_up    = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_UP );
+        b32 dpad_down  = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_DOWN );
 
-        b32 face_left  = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_X );
-        b32 face_right = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_B );
-        b32 face_up    = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_Y );
-        b32 face_down  = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_A );
+        b32 face_left  = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_X );
+        b32 face_right = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_B );
+        b32 face_up    = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_Y );
+        b32 face_down  = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_A );
 
-        b32 start  = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_START );
-        b32 select = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_BACK );
+        b32 start  = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_START );
+        b32 select = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_BACK );
 
-        b32 bumper_left  = CHECK_FLAG(
+        b32 bumper_left  = ARE_BITS_SET(
             gamepad.wButtons,
             XINPUT_GAMEPAD_LEFT_SHOULDER
         );
-        b32 bumper_right = CHECK_FLAG(
+        b32 bumper_right = ARE_BITS_SET(
             gamepad.wButtons,
             XINPUT_GAMEPAD_RIGHT_SHOULDER
         );
 
-        b32 click_left  = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_LEFT_THUMB );
-        b32 click_right = CHECK_FLAG( gamepad.wButtons, XINPUT_GAMEPAD_RIGHT_THUMB );
+        b32 click_left  = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_LEFT_THUMB );
+        b32 click_right = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_RIGHT_THUMB );
 
         #define HALF_TRIGGER_PRESS 127;
 

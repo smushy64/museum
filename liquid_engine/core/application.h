@@ -28,8 +28,8 @@ struct AppConfig {
     void*    application_params;
 };
 
-SM_API b32 app_init( AppConfig* config );
-SM_API b32 app_run();
-SM_API b32 app_shutdown();
+SM_API b32  app_init( AppConfig* config );
+SM_API b32  app_run();
+SM_API void app_shutdown();
 
 #endif

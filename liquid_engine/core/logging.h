@@ -75,6 +75,9 @@ typedef u32 LogFlags;
 
 #endif
 
+/// Get the current log level.
+SM_API LogLevel query_log_level();
+
 /// log a formatted message, uses a mutex
 /// to prevent crosstalk between threads.
 SM_API void log_formatted_locked(

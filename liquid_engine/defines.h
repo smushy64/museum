@@ -52,7 +52,8 @@ typedef void* pvoid;
 #define local    static
 #define global   static
 
-#define CHECK_FLAG( bits, mask ) ( (bits & mask) == mask )
+/// Check if bits are set in bitfield
+#define ARE_BITS_SET( bits, mask ) ( (bits & mask) == mask )
 
 #define TO_STRING( foo ) #foo
 #define VALUE_TO_STRING( foo ) TO_STRING( foo )
@@ -64,15 +65,39 @@ typedef void* pvoid;
 #define LD_GET_MINOR( version )\
     ((u32)minor & 0x0000FFFF)
 
+/// Calculate number of elements in a static array
 #define STATIC_ARRAY_COUNT( array ) \
     ( sizeof(array) / sizeof((array)[0]) )
 
+/// Calculate byte size of a static array
 #define STATIC_ARRAY_SIZE( array ) \
     (sizeof(array))
 
 #define KILOBYTES(num) ( num * 1024ULL )
 #define MEGABYTES(num) ( KILOBYTES( num ) * 1024ULL )
 #define GIGABYTES(num) ( MEGABYTES( num ) * 1024ULL )
+
+#define BYTES_TO_KB(bytes) ((f32)bytes / 1024.0f)
+#define KB_TO_MB(kb)       ((f32)kb / 1024.0f)
+#define MB_TO_GB(mb)       ((f32)mb / 1024.0f)
+
+#define KB_TO_BYTES(kb) ((f32)kb * 1024.0f)
+#define MB_TO_KB(mb)    ((f32)mb * 1024.0f)
+#define GB_TO_MB(gb)    ((f32)gb * 1024.0f)
+
+#define BYTES_TO_BEST_REPRESENTATION(bytes, result) do {\
+    if( bytes >= 1024 ) {\
+        result = BYTES_TO_KB(bytes);\
+        if( result >= 1024.0f ) {\
+            result = KB_TO_MB(result);\
+            if( result >= 1024.0f ) {\
+                result = MB_TO_GB(result);\
+            }\
+        }\
+    } else {\
+        result = (f32)bytes;\
+    }\
+} while(0)
 
 /// compiler defines
 #if defined(__GNUC__) || defined(__GNUG__)
@@ -165,8 +190,6 @@ SM_STATIC_ASSERT(sizeof(i64) == 8, "Expected i64 to be 8 bytes!");
 SM_STATIC_ASSERT(sizeof(f32) == 4, "Expected f32 to be 4 bytes!");
 SM_STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes!");
 
-SM_STATIC_ASSERT(sizeof(usize) == sizeof(u64), "Expected to be running on 64 bit architecture!");
-
 // platform defines
 #if defined(_WIN32) || defined(__WIN32__) || defined(_WIN64) || defined(__WIN64__)
     #define SM_PLATFORM_WINDOWS
@@ -247,151 +270,129 @@ SM_STATIC_ASSERT(sizeof(usize) == sizeof(u64), "Expected to be running on 64 bit
 /// 32-bit floating point constants
 namespace F32 {
     /// Largest finite f32 value
-    static const f32 MAX = 3.40282347E+38f;
+    global const f32 MAX = 3.40282347E+38f;
     /// Smallest finite f32 value
-    static const f32 MIN = -3.40282347E+38f;
+    global const f32 MIN = -3.40282347E+38f;
     /// Not a number
-    static const f32 NAN = ( 0.0f / 0.0f );
+    global const f32 NAN = ( 0.0f / 0.0f );
     /// Smallest positive f32 value
-    static const f32 MIN_POS = 1.17549435E-38f;
+    global const f32 MIN_POS = 1.17549435E-38f;
     /// Positive infinity
-    static const f32 POS_INFINITY = (1.0f / 0.0f);
+    global const f32 POS_INFINITY = (1.0f / 0.0f);
     /// Positive infinity
-    static const f32 NEG_INFINITY = (-(1.0f / 0.0f));
+    global const f32 NEG_INFINITY = (-(1.0f / 0.0f));
     /// Pi constant
-    static const f32 PI = 3.141592741f;
+    global const f32 PI = 3.141592741f;
     /// Tau constant
-    static const f32 TAU = PI * 2.0f;
+    global const f32 TAU = PI * 2.0f;
     /// Half Pi constant
-    static const f32 HALF_PI = PI / 2.0f;
+    global const f32 HALF_PI = PI / 2.0f;
     /// Epsilon constant
-    static const f32 EPSILON = 1.1920929E-7f;
+    global const f32 EPSILON = 1.1920929E-7f;
     /// Approximate number of significant digits in base-10
-    static const u32 SIGNIFICANT_DIGITS = 6;
+    global const u32 SIGNIFICANT_DIGITS = 6;
     /// Number of significant digits in base-2
-    static const u32 MANTISSA_DIGITS = 24;
+    global const u32 MANTISSA_DIGITS = 24;
     /// bitmask of single precision float exponent
-    static const u32 EXPONENT_MASK = ~(0xFFFFFFFF << 8) << 23;
+    global const u32 EXPONENT_MASK = ~(0xFFFFFFFF << 8) << 23;
     /// bitmask of single precision float mantissa
-    static const u32 MANTISSA_MASK = (1 << 23) - 1;
+    global const u32 MANTISSA_MASK = (1 << 23) - 1;
 };
 
 /// 64-bit floating point constants
 namespace F64 {
     /// Largest finite f64 value
-    static const f64 MAX = 1.7976931348623157E+308;
+    global const f64 MAX = 1.7976931348623157E+308;
     /// Smallest finite f64 value
-    static const f64 MIN = -1.7976931348623157E+308;
+    global const f64 MIN = -1.7976931348623157E+308;
     /// Not a number
-    static const f64 NAN = 0.0 / 0.0;
+    global const f64 NAN = 0.0 / 0.0;
     /// Smallest positive f32 value
-    static const f64 MIN_POS = 2.2250738585072014E-308;
+    global const f64 MIN_POS = 2.2250738585072014E-308;
     /// Positive infinity
-    static const f64 POS_INFINITY = (1.0 / 0.0);
+    global const f64 POS_INFINITY = (1.0 / 0.0);
     /// Positive infinity
-    static const f64 NEG_INFINITY = (-(1.0 / 0.0));
+    global const f64 NEG_INFINITY = (-(1.0 / 0.0));
     /// Pi constant
-    static const f64 PI = 3.14159265358979323846;
+    global const f64 PI = 3.14159265358979323846;
     /// Tau constant
-    static const f64 TAU = (PI * 2.0);
+    global const f64 TAU = (PI * 2.0);
     /// Half Pi constant
-    static const f64 HALF_PI = (PI / 2.0);
+    global const f64 HALF_PI = (PI / 2.0);
     /// Epsilon constant
-    static const f64 EPSILON = 2.2204460492503131E-16;
+    global const f64 EPSILON = 2.2204460492503131E-16;
     /// Approximate number of significant digits in base-10
-    static const u32 SIGNIFICANT_DIGITS = 15;
+    global const u32 SIGNIFICANT_DIGITS = 15;
     /// Number of significant digits in base-2
-    static const u32 MANTISSA_DIGITS = 54;
+    global const u32 MANTISSA_DIGITS = 54;
     /// bitmask of double precision float exponent
-    static const u64 EXPONENT_MASK = (0x7FFULL << 52);
+    global const u64 EXPONENT_MASK = (0x7FFULL << 52);
     /// bitmask of double precision float mantissa 
-    static const u64 MANTISSA_MASK = (1ULL << 52) - 1;
+    global const u64 MANTISSA_MASK = (1ULL << 52) - 1;
 };
 
 /// 8-bit unsigned integer constants
 namespace U8 {
     /// Largest u8 value
-    static const u8 MAX = 255;
+    global const u8 MAX = 255;
     /// Smallest u8 value
-    static const u8 MIN = 0;
+    global const u8 MIN = 0;
 };
 
 /// 16-bit unsigned integer constants
 namespace U16 {
     /// Largest u16 value
-    static const u16 MAX = 65535;
+    global const u16 MAX = 65535;
     /// Smallest u16 value
-    static const u16 MIN = 0;
+    global const u16 MIN = 0;
 };
 
 /// 32-bit unsigned integer constants
 namespace U32 {
     /// Largest u32 value
-    static const u32 MAX = 4294967295;
+    global const u32 MAX = 4294967295;
     /// Smallest u32 value
-    static const u32 MIN = 0;
+    global const u32 MIN = 0;
 };
 
 /// 64-bit unsigned integer constants
 namespace U64 {
     /// Largest u64 value
-    static const u64 MAX = 18446744073709551615ULL;
+    global const u64 MAX = 18446744073709551615ULL;
     /// Smallest u64 value
-    static const u64 MIN = 0;
+    global const u64 MIN = 0;
 };
 
 /// 8-bit integer constants
 namespace I8 {
     /// Largest i8 value
-    static const i8 MAX = 127;
+    global const i8 MAX = 127;
     /// Smallest i8 value
-    static const i8 MIN = -128;
+    global const i8 MIN = -128;
 };
 
 /// 16-bit integer constants
 namespace I16 {
     /// Largest i16 value
-    static const i16 MAX = 32767;
+    global const i16 MAX = 32767;
     /// Smallest i16 value
-    static const i16 MIN = -32768;
+    global const i16 MIN = -32768;
 };
 
 /// 32-bit integer constants
 namespace I32 {
     /// Largest i32 value
-    static const i32 MAX = 2147483647;
+    global const i32 MAX = 2147483647;
     /// Smallest i32 value
-    static const i32 MIN = -2147483648;
+    global const i32 MIN = -2147483648;
 };
 
 /// 64-bit integer constants
 namespace I64 {
     /// Largest i64 value
-    static const i64 MAX = 9223372036854775807;
+    global const i64 MAX = 9223372036854775807;
     /// Smallest i64 value
-    static const i64 MIN = -9223372036854775807 - 1;
+    global const i64 MIN = -9223372036854775807 - 1;
 };
-
-#define BYTES_TO_KB(bytes) ((f32)bytes / 1024.0f)
-#define KB_TO_MB(kb)       ((f32)kb / 1024.0f)
-#define MB_TO_GB(mb)       ((f32)mb / 1024.0f)
-
-#define KB_TO_BYTES(kb) ((f32)kb * 1024.0f)
-#define MB_TO_KB(mb)    ((f32)mb * 1024.0f)
-#define GB_TO_MB(gb)    ((f32)gb * 1024.0f)
-
-#define BYTES_TO_BEST_REPRESENTATION(bytes, result) do {\
-    if( bytes >= 1024 ) {\
-        result = BYTES_TO_KB(bytes);\
-        if( result >= 1024.0f ) {\
-            result = KB_TO_MB(result);\
-            if( result >= 1024.0f ) {\
-                result = MB_TO_GB(result);\
-            }\
-        }\
-    } else {\
-        result = (f32)bytes;\
-    }\
-} while(0)
 
 #endif
