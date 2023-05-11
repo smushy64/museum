@@ -73,6 +73,8 @@ typedef void* pvoid;
 #define STATIC_ARRAY_SIZE( array ) \
     (sizeof(array))
 
+#define MAX_SURFACE_COUNT 4
+
 #define KILOBYTES(num) ( num * 1024ULL )
 #define MEGABYTES(num) ( KILOBYTES( num ) * 1024ULL )
 #define GIGABYTES(num) ( MEGABYTES( num ) * 1024ULL )

@@ -125,6 +125,70 @@ b32 app_init( AppConfig* config ) {
         return false;
     }
 
+    CONTEXT.sysinfo = query_system_info();
+
+    LOG_NOTE("CPU: %s", CONTEXT.sysinfo.cpu_name_buffer);
+    LOG_NOTE("  Threads: %llu", CONTEXT.sysinfo.thread_count);
+
+#if defined(SM_ARCH_X86)
+    b32 sse = ARE_SSE_INSTRUCTIONS_AVAILABLE( CONTEXT.sysinfo.features );
+    if( SM_SIMD_WIDTH == 4 && !sse ) {
+        local const usize ERROR_MESSAGE_SIZE = 0xFF;
+        char error_message_buffer[ERROR_MESSAGE_SIZE];
+        snprintf(
+            error_message_buffer,
+            ERROR_MESSAGE_SIZE,
+            "Your CPU does not support SSE instructions!\n"
+            "Missing instructions: %s%s%s%s%s%s",
+            IS_SSE_AVAILABLE(CONTEXT.sysinfo.features)    ? "" : "SSE, ",
+            IS_SSE2_AVAILABLE(CONTEXT.sysinfo.features)   ? "" : "SSE2, ",
+            IS_SSE3_AVAILABLE(CONTEXT.sysinfo.features)   ? "" : "SSE3, ",
+            IS_SSSE3_AVAILABLE(CONTEXT.sysinfo.features)  ? "" : "SSSE3, ",
+            IS_SSE4_1_AVAILABLE(CONTEXT.sysinfo.features) ? "" : "SSE4.1, ",
+            IS_SSE4_2_AVAILABLE(CONTEXT.sysinfo.features) ? "" : "SSE4.2"
+        );
+        MESSAGE_BOX_FATAL(
+            "Missing instructions.",
+            error_message_buffer
+        );
+        return false;
+    }
+
+    b32 avx  = IS_AVX_AVAILABLE( CONTEXT.sysinfo.features );
+    b32 avx2 = IS_AVX2_AVAILABLE( CONTEXT.sysinfo.features );
+
+    if( SM_SIMD_WIDTH == 8 && !(avx && avx2) ) {
+        MESSAGE_BOX_FATAL(
+            "Missing instructions.",
+            "Your CPU does not support AVX/AVX2 instructions! "
+            "This program requires them!"
+        );
+        return false;
+    }
+
+    b32 avx512 = IS_AVX512_AVAILABLE(
+        CONTEXT.sysinfo.features
+    );
+
+    LOG_NOTE(
+        "  Features: %s%s%s%s",
+        sse    ? "SSE1-4 " : "",
+        avx    ? "AVX " : "",
+        avx2   ? "AVX2 " : "",
+        avx512 ? "AVX-512 " : ""
+    );
+
+    LOG_NOTE("Memory: %6.3f GB",
+        MB_TO_GB(
+            KB_TO_MB(
+                BYTES_TO_KB(
+                    CONTEXT.sysinfo.total_memory
+                )
+            )
+        )
+    );
+#endif
+
     if( !event_init() ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
@@ -136,18 +200,6 @@ b32 app_init( AppConfig* config ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
             "Failed to initialize input subsystem."
-        );
-        return false;
-    }
-
-    if( !renderer_init(
-        config->main_surface.name,
-        config->renderer_backend,
-        &CONTEXT.platform
-    ) ) {
-        MESSAGE_BOX_FATAL(
-            "Subsystem Failure",
-            "Failed to initialize rendering subsystem."
         );
         return false;
     }
@@ -207,70 +259,6 @@ b32 app_init( AppConfig* config ) {
         );
         return false;
     }
-    
-    CONTEXT.sysinfo = query_system_info();
-
-    LOG_NOTE("CPU: %s", CONTEXT.sysinfo.cpu_name_buffer);
-    LOG_NOTE("  Threads: %llu", CONTEXT.sysinfo.thread_count);
-
-#if defined(SM_ARCH_X86)
-    b32 sse = ARE_SSE_INSTRUCTIONS_AVAILABLE( CONTEXT.sysinfo.features );
-    if( SM_SIMD_WIDTH == 4 && !sse ) {
-        local const usize ERROR_MESSAGE_SIZE = 0xFF;
-        char error_message_buffer[ERROR_MESSAGE_SIZE];
-        snprintf(
-            error_message_buffer,
-            ERROR_MESSAGE_SIZE,
-            "Your CPU does not support SSE instructions!\n"
-            "Missing instructions: %s%s%s%s%s%s",
-            IS_SSE_AVAILABLE(CONTEXT.sysinfo.features)    ? "" : "SSE, ",
-            IS_SSE2_AVAILABLE(CONTEXT.sysinfo.features)   ? "" : "SSE2, ",
-            IS_SSE3_AVAILABLE(CONTEXT.sysinfo.features)   ? "" : "SSE3, ",
-            IS_SSSE3_AVAILABLE(CONTEXT.sysinfo.features)  ? "" : "SSSE3, ",
-            IS_SSE4_1_AVAILABLE(CONTEXT.sysinfo.features) ? "" : "SSE4.1, ",
-            IS_SSE4_2_AVAILABLE(CONTEXT.sysinfo.features) ? "" : "SSE4.2"
-        );
-        MESSAGE_BOX_FATAL(
-            "Missing instructions.",
-            error_message_buffer
-        );
-        return false;
-    }
-
-    b32 avx  = IS_AVX_AVAILABLE( CONTEXT.sysinfo.features );
-    b32 avx2 = IS_AVX2_AVAILABLE( CONTEXT.sysinfo.features );
-
-    if( SM_SIMD_WIDTH == 8 && !(avx && avx2) ) {
-        MESSAGE_BOX_FATAL(
-            "Missing instructions.",
-            "Your CPU does not support AVX/AVX2 instructions! "
-            "This program requires them!"
-        );
-        return false;
-    }
-
-    b32 avx512 = IS_AVX512_AVAILABLE(
-        CONTEXT.sysinfo.features
-    );
-
-    LOG_NOTE(
-        "  Features: %s%s%s%s",
-        sse    ? "SSE1-4 " : "",
-        avx    ? "AVX " : "",
-        avx2   ? "AVX2 " : "",
-        avx512 ? "AVX-512 " : ""
-    );
-#endif
-
-    LOG_NOTE("Memory: %6.3f GB",
-        MB_TO_GB(
-            KB_TO_MB(
-                BYTES_TO_KB(
-                    CONTEXT.sysinfo.total_memory
-                )
-            )
-        )
-    );
 
     CONTEXT.main_surface = surface_create(
         config->main_surface.name,
@@ -288,10 +276,23 @@ b32 app_init( AppConfig* config ) {
         return false;
     }
 
+    if( !renderer_init(
+        config->main_surface.name,
+        config->renderer_backend,
+        &CONTEXT.platform
+    ) ) {
+        MESSAGE_BOX_FATAL(
+            "Subsystem Failure",
+            "Failed to initialize rendering subsystem."
+        );
+        return false;
+    }
+
     CONTEXT.is_running = true;
     CONTEXT.is_active  = true;
 
 #if defined(LD_LOGGING) && defined(LD_PROFILING)
+    LOG_NOTE("Initial Memory Usage:");
     for( u64 i = 0; i < MEMTYPE_COUNT; ++i ) {
         MemoryType type = (MemoryType)i;
         usize memory_usage = query_memory_usage( type );

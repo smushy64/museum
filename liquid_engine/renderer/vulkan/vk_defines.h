@@ -127,10 +127,45 @@
 
 #define VK_ASSERT(expr) do {\
         VkResult result = expr;\
-        LOG_ASSERT( result == VK_SUCCESS, "Vulkan Fatal Error: 0x%X", result);\
+        LOG_ASSERT(\
+            result == VK_SUCCESS,\
+            "Vulkan Fatal Error: 0x%X",\
+            result\
+        );\
     } while(0)
 
+struct VulkanSwapchainSupportInfo {
+    VkSurfaceCapabilitiesKHR capabilities;
+    u32 format_count;
+    u32 present_mode_count;
+    VkSurfaceFormatKHR* formats;
+    VkPresentModeKHR*   present_modes;
+};
+
+#define VK_DEVICE_QUEUE_COUNT 4
 struct VulkanDevice {
+    VkPhysicalDeviceProperties       properties;
+    VkPhysicalDeviceMemoryProperties memory_properties;
+    VkPhysicalDeviceFeatures         features;
+    VulkanSwapchainSupportInfo swapchain_support;
+    union {
+        i32 queue_indices[VK_DEVICE_QUEUE_COUNT];
+        struct {
+            i32 graphics_index;
+            i32 present_index;
+            i32 transfer_index;
+            i32 compute_index;
+        };
+    };
+    union {
+        VkQueue queues[VK_DEVICE_QUEUE_COUNT];
+        struct {
+            VkQueue graphics_queue;
+            VkQueue present_queue;
+            VkQueue transfer_queue;
+            VkQueue compute_queue;
+        };
+    };
     VkPhysicalDevice physical_device;
     VkDevice         logical_device;
 };
@@ -138,7 +173,7 @@ struct VulkanDevice {
 struct VulkanContext {
     VulkanDevice device;
 
-    VkSurfaceKHR surface;
+    VkSurfaceKHR           surfaces[MAX_SURFACE_COUNT];
     VkInstance             instance;
     VkAllocationCallbacks* allocator;
 

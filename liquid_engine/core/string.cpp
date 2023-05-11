@@ -126,6 +126,32 @@ void str_trim_trailing_whitespace(
     }
 }
 
+void str_trim_trailing_newline(
+    isize buffer_size,
+    char* string_buffer
+) {
+    if( buffer_size < 2 ) {
+        return;
+    }
+    if( string_buffer[buffer_size - 2] == '\n' ) {
+        string_buffer[buffer_size - 2] = 0;
+    }
+}
+
+const char* str_first_non_whitespace_pointer(
+    usize buffer_size,
+    const char* str_buffer
+) {
+    const char* result = str_buffer;
+    for( usize i = 0; i < buffer_size; ++i ) {
+        if( !is_whitespace( str_buffer[i] ) ) {
+            result = &str_buffer[i];
+            break;
+        }
+    }
+    return result;
+}
+
 isize format_bytes(
     usize bytes,
     char* buffer,

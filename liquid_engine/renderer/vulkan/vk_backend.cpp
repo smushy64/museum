@@ -5,9 +5,11 @@
 */
 #include "vk_defines.h"
 #include "vk_backend.h"
+#include "vk_device.h"
 #include "platform/platform.h"
 #include "core/collections.h"
 #include "core/string.h"
+#include "core/memory.h"
 
 /// Extensions that are always required
 global const char* REQUIRED_EXTENSION_NAMES[] = {
@@ -228,8 +230,18 @@ b32 vk_init(
     VK_LOG_DEBUG("Vulkan Debugger Initialized.");
 #endif
 
+    if( !platform_create_vulkan_surfaces(
+        platform,
+        &CONTEXT
+    ) ) {
+        return false;
+    }
+
+    if( !vk_device_create( &CONTEXT ) ) {
+        return false;
+    }
+
     SM_UNUSED(backend);
-    SM_UNUSED(platform);
     VK_LOG_NOTE( "Vulkan backend initialized successfully." );
     return true;
 }
@@ -262,6 +274,18 @@ void vk_shutdown(
     struct RendererBackend* backend
 ) {
 
+    for( usize i = 0; i < MAX_SURFACE_COUNT; ++i ) {
+        if( CONTEXT.surfaces[i] ) {
+            vkDestroySurfaceKHR(
+                CONTEXT.instance,
+                CONTEXT.surfaces[i],
+                CONTEXT.allocator
+            );
+        }
+    }
+
+    vk_device_destroy( &CONTEXT );
+
 #if defined(DEBUG)
     PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT =
     (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
@@ -290,22 +314,33 @@ void vk_shutdown(
 
 internal VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
     VkDebugUtilsMessageSeverityFlagBitsEXT      messageSeverity,
-    VkDebugUtilsMessageTypeFlagsEXT ,// messageTypes,
+    VkDebugUtilsMessageTypeFlagsEXT ,//messageTypes,
     const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
     void* // pUserData
 ) {
+    usize message_length = str_length( pCallbackData->pMessage );
+    const char* message = str_first_non_whitespace_pointer(
+        message_length,
+        pCallbackData->pMessage
+    );
+    message_length = str_length( message );
+    str_trim_trailing_newline(
+        message_length,
+        (char*)message
+    );
+
     switch( messageSeverity ) {
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT: {
-            VK_LOG_NOTE("%s", pCallbackData->pMessage);
-        } break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: {
-            VK_LOG_WARN("%s", pCallbackData->pMessage);
-        } break;
-        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: {
-            VK_LOG_ERROR("%s", pCallbackData->pMessage);
+            VK_LOG_NOTE( "%s", message );
         } break;
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT: {
-            VK_LOG_INFO("%s", pCallbackData->pMessage);
+            VK_LOG_INFO("%s", message);
+        } break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT: {
+            VK_LOG_WARN("%s", message);
+        } break;
+        case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT: {
+            VK_LOG_ERROR("%s", message);
         } break;
         default: break;
     }

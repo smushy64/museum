@@ -10,6 +10,10 @@
 */
 #include "defines.h"
 
+#if defined(SM_COMPILER_MSVC)
+    #include <malloc.h>
+#endif
+
 enum MemoryType : u64 {
     MEMTYPE_UNKNOWN,
     MEMTYPE_DYNAMIC_LIST,
@@ -112,6 +116,18 @@ SM_API usize query_memory_usage( MemoryType memtype );
 SM_API usize query_heap_usage();
 /// Query total page memory usage.
 SM_API usize query_page_usage();
+
+#if defined(SM_COMPILER_MSVC)
+    /// Allocate memory on the stack.
+    /// Does not require a free call.
+    /// Not guaranteed to be zeroed out.
+    #define stack_alloc(size) _alloca(size)
+#else
+    /// Allocate memory on the stack.
+    /// Does not require a free call.
+    /// Not guaranteed to be zeroed out.
+    #define stack_alloc(size) __builtin_alloca(size)
+#endif
 
 /// Copy memory from source pointer to destination pointer.
 SM_API void mem_copy( void* dst, const void* src, usize size );

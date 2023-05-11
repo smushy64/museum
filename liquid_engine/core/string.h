@@ -35,7 +35,17 @@ inline b32 is_whitespace( char character ) {
 /// Trim trailing whitespace from character buffer.
 SM_API void str_trim_trailing_whitespace(
     isize buffer_size,
-    char* string_buffer
+    char* str_buffer
+);
+/// Trim trailing newline from character buffer.
+SM_API void str_trim_trailing_newline(
+    isize buffer_size,
+    char* str_buffer
+);
+/// Get a pointer to the first non-whitespace character in buffer.
+SM_API const char* str_first_non_whitespace_pointer(
+    usize buffer_size,
+    const char* str_buffer
 );
 
 /// format bytes.

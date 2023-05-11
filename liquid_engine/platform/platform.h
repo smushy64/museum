@@ -11,7 +11,6 @@
 
 #include "flags.h"
 
-#define MAX_SURFACE_COUNT 4
 #define MAX_THREAD_COUNT 32
 struct PlatformState {
     void* platform_data;
@@ -31,6 +30,10 @@ void platform_shutdown(
 u64 platform_absolute_time();
 f64 platform_seconds_elapsed();
 
+b32 platform_create_vulkan_surfaces(
+    struct PlatformState* state,
+    struct VulkanContext* context
+);
 usize platform_get_vulkan_extension_names(
     usize max_names,
     usize* name_count,
@@ -253,6 +256,11 @@ void heap_free( void* memory );
 void* page_alloc( usize size );
 /// Free page allocated memory.
 void page_free( void* memory );
+
+/// Allocate memory on the stack.
+/// Does not require a free call.
+/// Not guaranteed to be zeroed out.
+#define stack_alloc(size) __builtin_alloca(size)
 
 #endif
 

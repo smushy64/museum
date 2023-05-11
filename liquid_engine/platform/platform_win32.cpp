@@ -13,12 +13,16 @@
 #include "core/collections.h"
 #include "core/events.h"
 #include "core/math.h"
+
+#define VK_USE_PLATFORM_WIN32_KHR
+#define NOGDI
+#include <vulkan/vulkan.h>
 #include "renderer/renderer_defines.h"
+#include "renderer/vulkan/vk_defines.h"
 
 #include <intrin.h>
 
 #define WIN32_LEAN_AND_MEAN
-#define NOGDI
 #include <windows.h>
 #include <windowsx.h>
 #include <psapi.h>
@@ -924,6 +928,58 @@ usize platform_get_vulkan_extension_names(
     }
     *name_count = count;
     return win32_extension_count;
+}
+
+b32 win_create_vulkan_surface(
+    usize surface_index,
+    Win32State* state,
+    VulkanContext* context
+) {
+    Win32Surface* surface = &state->surfaces[surface_index];
+    VkWin32SurfaceCreateInfoKHR create_info = {};
+    create_info.sType     = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+    create_info.hinstance = state->hInstance;
+    create_info.hwnd      = surface->hWnd;
+    // create_info.flags     = ;
+
+    VkSurfaceKHR vk_surface = {};
+
+    VkResult result = vkCreateWin32SurfaceKHR(
+        context->instance,
+        &create_info,
+        context->allocator,
+        &vk_surface
+    );
+
+    if( result != VK_SUCCESS ) {
+        VK_LOG_ERROR("Failed to create Vulkan surface!");
+        return false;
+    }
+    
+    context->surfaces[surface_index] = vk_surface;
+
+    return true;
+}
+
+b32 platform_create_vulkan_surfaces(
+    PlatformState* state,
+    VulkanContext* context
+) {
+    Win32State* win_state = (Win32State*)state->platform_data;
+
+    for( usize i = 0; i < MAX_SURFACE_COUNT; ++i ) {
+        if( !context->surfaces[i] && !win_state->surface_is_available[i] ) {
+            if( !win_create_vulkan_surface(
+                i,
+                win_state,
+                context
+            ) ) {
+                return false;
+            }
+        }
+    }
+
+    return true;
 }
 
 // PLATFORM INIT | END ----------------------------------------------------
