@@ -17,4 +17,6 @@ void vk_device_query_swapchain_support(
     VulkanSwapchainSupportInfo* out_swapchain_info
 );
 
+b32 vk_device_detect_depth_format( VulkanDevice* device );
+
 #endif // header guard

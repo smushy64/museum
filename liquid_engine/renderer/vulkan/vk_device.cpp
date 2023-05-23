@@ -118,8 +118,7 @@ internal b32 select_physical_device( VulkanContext* context ) {
         VulkanDeviceQueueFamilyInfo queue_info = {};
         if( does_device_meet_requirements(
             physical_devices[i],
-            // TODO(alicia): temp!
-            context->surfaces[0],
+            context->surface.surface,
             &properties,
             &features,
             &requirements,
@@ -376,39 +375,35 @@ void vk_device_query_swapchain_support(
         &out_swapchain_info->format_count,
         nullptr
     ));
-    if( !out_swapchain_info->format_count ) {
-        if( !out_swapchain_info->formats ) {
-            out_swapchain_info->formats = (VkSurfaceFormatKHR*)mem_alloc(
-                out_swapchain_info->format_count *
-                    sizeof(VkSurfaceFormatKHR),
-                MEMTYPE_RENDERER
-            );
-        }
-        VK_ASSERT(vkGetPhysicalDeviceSurfaceFormatsKHR(
-            device, surface,
-            &out_swapchain_info->format_count,
-            out_swapchain_info->formats
-        ));
+    if( !out_swapchain_info->formats ) {
+        out_swapchain_info->formats = (VkSurfaceFormatKHR*)mem_alloc(
+            out_swapchain_info->format_count *
+                sizeof(VkSurfaceFormatKHR),
+            MEMTYPE_RENDERER
+        );
     }
+    VK_ASSERT(vkGetPhysicalDeviceSurfaceFormatsKHR(
+        device, surface,
+        &out_swapchain_info->format_count,
+        out_swapchain_info->formats
+    ));
     VK_ASSERT(vkGetPhysicalDeviceSurfacePresentModesKHR(
         device, surface,
         &out_swapchain_info->present_mode_count,
         nullptr
     ));
-    if( !out_swapchain_info->present_mode_count ) {
-        if( !out_swapchain_info->present_modes ) {
-            out_swapchain_info->present_modes = (VkPresentModeKHR*)mem_alloc(
-                out_swapchain_info->present_mode_count *
-                    sizeof(VkPresentModeKHR),
-                MEMTYPE_RENDERER
-            );
-        }
-        VK_ASSERT(vkGetPhysicalDeviceSurfacePresentModesKHR(
-            device, surface,
-            &out_swapchain_info->present_mode_count,
-            out_swapchain_info->present_modes
-        ));
+    if( !out_swapchain_info->present_modes ) {
+        out_swapchain_info->present_modes = (VkPresentModeKHR*)mem_alloc(
+            out_swapchain_info->present_mode_count *
+                sizeof(VkPresentModeKHR),
+            MEMTYPE_RENDERER
+        );
     }
+    VK_ASSERT(vkGetPhysicalDeviceSurfacePresentModesKHR(
+        device, surface,
+        &out_swapchain_info->present_mode_count,
+        out_swapchain_info->present_modes
+    ));
 }
 
 b32 vk_device_create( VulkanContext* context ) {
@@ -508,4 +503,37 @@ void vk_device_destroy( VulkanContext* context ) {
         mem_free( context->device.swapchain_support.present_modes );
     }
     context->device = {};
+}
+
+b32 vk_device_detect_depth_format(
+    VulkanDevice* device
+) {
+    local const u32 VALID_FORMAT_COUNT = 3;
+    local const VkFormat VALID_FORMATS[VALID_FORMAT_COUNT] = {
+        VK_FORMAT_D32_SFLOAT,
+        VK_FORMAT_D32_SFLOAT_S8_UINT,
+        VK_FORMAT_D24_UNORM_S8_UINT
+    };
+
+    u32 bitmask = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+    for( u32 i = 0; i < VALID_FORMAT_COUNT; ++i ) {
+        VkFormatProperties properties = {};
+        vkGetPhysicalDeviceFormatProperties(
+            device->physical_device,
+            VALID_FORMATS[i],
+            &properties
+        );
+
+        if(
+            ARE_BITS_SET(properties.linearTilingFeatures, bitmask) ||
+            ARE_BITS_SET(properties.optimalTilingFeatures, bitmask)
+        ) {
+            device->depth_buffer_format = VALID_FORMATS[i];
+            return true;
+        }
+    }
+
+    device->depth_buffer_format = VK_FORMAT_UNDEFINED;
+    return false;
 }

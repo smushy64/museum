@@ -111,7 +111,7 @@ SM_API void _list_free_trace(
         )
 
     #define list_realloc(list, new_capacity)\
-        ::impl::_list_realloc_trace(\
+        (__typeof(list)) ::impl::_list_realloc_trace(\
             list,\
             new_capacity,\
             __FUNCTION__,\

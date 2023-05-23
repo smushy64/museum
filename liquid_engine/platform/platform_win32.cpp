@@ -62,8 +62,8 @@ struct Win32State {
     HMODULE   libGl;
     HMODULE   libGdi32;
 
-    Win32Surface      surfaces[MAX_SURFACE_COUNT];
-    b32               surface_is_available[MAX_SURFACE_COUNT];
+    Win32Surface      surface;
+
     usize             thread_count;
     Win32ThreadHandle threads[MAX_THREAD_COUNT];
 
@@ -81,33 +81,7 @@ Win32ThreadHandle* get_next_handle( Win32State* state ) {
     return &state->threads[next_handle];
 }
 
-Win32Surface* get_next_surface( Win32State* state ) {
-    for( usize i = 0; i < MAX_SURFACE_COUNT; ++i ) {
-        if( state->surface_is_available[i] ) {
-            state->surface_is_available[i] = false;
-            return &state->surfaces[i];
-        }
-    }
-    return nullptr;
-}
-
-void mark_surface_available( Win32State* state, Win32Surface* surface ) {
-    for( usize i = 0; i < MAX_SURFACE_COUNT; ++i ) {
-        if( &state->surfaces[i] == surface ) {
-            state->surface_is_available[i] = true;
-            mem_zero(
-                &state->surfaces[i],
-                sizeof( Win32Surface )
-            );
-            return;
-        }
-    }
-
-    LOG_FATAL("Attempted to mark a non-existent surface as being available!");
-    SM_PANIC();
-}
-
-union Win32MotorState {
+union Win32GamepadMotorState {
     struct {
         f32 motor_left;
         f32 motor_right;
@@ -664,10 +638,6 @@ b32 platform_init(
     }
     state->wide_char_scratch_buffer = (wchar_t*)wide_char_scratch_buffer;
 
-    for( usize i = 0; i < MAX_SURFACE_COUNT; ++i ) {
-        state->surface_is_available[i] = true;
-    }
-
     state->hInstance = GetModuleHandleA(0);
 
     if( !win_library_load(
@@ -930,17 +900,16 @@ usize platform_get_vulkan_extension_names(
     return win32_extension_count;
 }
 
-b32 win_create_vulkan_surface(
-    usize surface_index,
-    Win32State* state,
+b32 platform_create_vulkan_surface(
+    PlatformState* state,
     VulkanContext* context
 ) {
-    Win32Surface* surface = &state->surfaces[surface_index];
+    Win32State* win_state = (Win32State*)state->platform_data;
+    Win32Surface* surface = &win_state->surface;
     VkWin32SurfaceCreateInfoKHR create_info = {};
     create_info.sType     = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-    create_info.hinstance = state->hInstance;
+    create_info.hinstance = win_state->hInstance;
     create_info.hwnd      = surface->hWnd;
-    // create_info.flags     = ;
 
     VkSurfaceKHR vk_surface = {};
 
@@ -956,28 +925,9 @@ b32 win_create_vulkan_surface(
         return false;
     }
     
-    context->surfaces[surface_index] = vk_surface;
-
-    return true;
-}
-
-b32 platform_create_vulkan_surfaces(
-    PlatformState* state,
-    VulkanContext* context
-) {
-    Win32State* win_state = (Win32State*)state->platform_data;
-
-    for( usize i = 0; i < MAX_SURFACE_COUNT; ++i ) {
-        if( !context->surfaces[i] && !win_state->surface_is_available[i] ) {
-            if( !win_create_vulkan_surface(
-                i,
-                win_state,
-                context
-            ) ) {
-                return false;
-            }
-        }
-    }
+    context->surface.surface = vk_surface;
+    context->surface.width   = surface->surface.width;
+    context->surface.height  = surface->surface.height;
 
     return true;
 }
@@ -1379,15 +1329,7 @@ Surface* surface_create(
 ) {
     Win32State* state = (Win32State*)platform_state->platform_data;
 
-    Win32Surface* win_surface = get_next_surface( state );
-    if( !win_surface ) {
-        MESSAGE_BOX_FATAL(
-            "Internal Error",
-            "Maximum surface count exceeded!"
-        );
-        WIN_LOG_ERROR("Maximum surface count exceeded!");
-        return nullptr;
-    }
+    Win32Surface* win_surface = &state->surface;
 
     usize surface_name_length = str_length( surface_name ) + 1;
     if( surface_name_length > MAX_SURFACE_NAME_LENGTH ) {
@@ -1564,14 +1506,12 @@ Surface* surface_create(
 }
 
 void surface_destroy(
-    PlatformState* state,
+    PlatformState*,
     Surface* surface
 ) {
-    Win32State*   win_state   = (Win32State*)state->platform_data;
     Win32Surface* win_surface = (Win32Surface*)surface;
     
     DestroyWindow( win_surface->hWnd );
-    mark_surface_available( win_state, win_surface );
 }
 
 b32 surface_pump_events( Surface* surface ) {

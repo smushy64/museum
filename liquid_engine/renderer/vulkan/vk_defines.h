@@ -134,6 +134,24 @@
         );\
     } while(0)
 
+struct VulkanImage {
+    VkImage        image;
+    VkDeviceMemory memory;
+    VkImageView    view;
+    u32 width; u32 height;
+};
+
+struct VulkanSwapchain {
+    VulkanImage        depth_attachment;
+    VkSurfaceFormatKHR image_format;
+    u32                max_frames_in_flight;
+    VkSwapchainKHR     swapchain;
+
+    // lists
+    VkImage*     images;
+    VkImageView* image_views;
+};
+
 struct VulkanSwapchainSupportInfo {
     VkSurfaceCapabilitiesKHR capabilities;
     u32 format_count;
@@ -168,19 +186,37 @@ struct VulkanDevice {
     };
     VkPhysicalDevice physical_device;
     VkDevice         logical_device;
+
+    VkFormat depth_buffer_format;
+};
+
+struct VulkanSurface {
+    VkSurfaceKHR surface;
+    u32 width, height;
 };
 
 struct VulkanContext {
     VulkanDevice device;
 
-    VkSurfaceKHR           surfaces[MAX_SURFACE_COUNT];
+    VulkanSwapchain        swapchain;
+    VulkanSurface          surface;
     VkInstance             instance;
     VkAllocationCallbacks* allocator;
 
 #if defined(DEBUG)
     VkDebugUtilsMessengerEXT debug_messenger;
 #endif
+
+    u32 image_index;
+    u32 current_frame;
+    b32 recreate_swapchain;
 };
+
+i32 find_memory_index(
+    VulkanContext* context,
+    u32 type_filter,
+    u32 property_flags
+);
 
 #define VK_MAX_EXTENSIONS 10
 

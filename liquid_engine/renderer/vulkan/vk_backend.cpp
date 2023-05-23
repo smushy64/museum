@@ -6,6 +6,7 @@
 #include "vk_defines.h"
 #include "vk_backend.h"
 #include "vk_device.h"
+#include "vk_swapchain.h"
 #include "platform/platform.h"
 #include "core/collections.h"
 #include "core/string.h"
@@ -230,7 +231,7 @@ b32 vk_init(
     VK_LOG_DEBUG("Vulkan Debugger Initialized.");
 #endif
 
-    if( !platform_create_vulkan_surfaces(
+    if( !platform_create_vulkan_surface(
         platform,
         &CONTEXT
     ) ) {
@@ -240,6 +241,13 @@ b32 vk_init(
     if( !vk_device_create( &CONTEXT ) ) {
         return false;
     }
+
+    vk_swapchain_create(
+        &CONTEXT,
+        CONTEXT.surface.width,
+        CONTEXT.surface.height,
+        &CONTEXT.swapchain
+    );
 
     SM_UNUSED(backend);
     VK_LOG_NOTE( "Vulkan backend initialized successfully." );
@@ -274,15 +282,16 @@ void vk_shutdown(
     struct RendererBackend* backend
 ) {
 
-    for( usize i = 0; i < MAX_SURFACE_COUNT; ++i ) {
-        if( CONTEXT.surfaces[i] ) {
-            vkDestroySurfaceKHR(
-                CONTEXT.instance,
-                CONTEXT.surfaces[i],
-                CONTEXT.allocator
-            );
-        }
-    }
+    vk_swapchain_destroy(
+        &CONTEXT,
+        &CONTEXT.swapchain
+    );
+
+    vkDestroySurfaceKHR(
+        CONTEXT.instance,
+        CONTEXT.surface.surface,
+        CONTEXT.allocator
+    );
 
     vk_device_destroy( &CONTEXT );
 
@@ -345,4 +354,29 @@ internal VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
         default: break;
     }
     return VK_FALSE;
+}
+
+i32 find_memory_index(
+    VulkanContext* context,
+    u32 type_filter,
+    u32 property_flags
+) {
+    VkPhysicalDeviceMemoryProperties properties = {};
+    vkGetPhysicalDeviceMemoryProperties(
+        context->device.physical_device,
+        &properties
+    );
+
+    for( u32 i = 0; i < properties.memoryTypeCount; ++i ) {
+        if(
+            (type_filter & (1 << i)) &&
+            ARE_BITS_SET(properties.memoryTypes[i].propertyFlags, property_flags)
+        ) {
+            return i;
+        }
+    }
+
+    VK_LOG_WARN( "Unable to find suitable memory type!" );
+
+    return -1;
 }

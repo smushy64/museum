@@ -30,7 +30,7 @@ void platform_shutdown(
 u64 platform_absolute_time();
 f64 platform_seconds_elapsed();
 
-b32 platform_create_vulkan_surfaces(
+b32 platform_create_vulkan_surface(
     struct PlatformState* state,
     struct VulkanContext* context
 );
