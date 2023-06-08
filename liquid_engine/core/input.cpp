@@ -58,11 +58,11 @@ struct InputState {
 global InputState INPUT_STATE = {};
 
 b32 input_init() {
-    LOG_NOTE("Input subsystem successfully initialized.");
+    LOG_INFO("Input subsystem successfully initialized.");
     return true;
 }
 void input_shutdown() {
-    LOG_NOTE("Input subsystem successfully shutdown.");
+    LOG_INFO("Input subsystem successfully shutdown.");
 }
 
 void input_set_key(

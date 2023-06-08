@@ -84,7 +84,7 @@ run: all
 test: all
 	@echo Make: running Test Bed $(PROJECT_VERSION) . . .
 	@echo
-	@./$(BUILD_PATH)/$(testbed_name)
+	@./$(BUILD_PATH)/$(testbed_name) --gl
 
 debug: all $(if windows,debug_win32,)
 

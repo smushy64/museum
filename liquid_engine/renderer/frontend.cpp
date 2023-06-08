@@ -32,7 +32,7 @@ b32 renderer_init(
         return false;
     }
 
-    if( !BACKEND->init( BACKEND, app_name, state ) ) {
+    if( !BACKEND->init( BACKEND, app_name ) ) {
         return false;
     }
 
@@ -65,4 +65,21 @@ b32 renderer_draw_frame( RenderOrder* order ) {
         }
     }
     return true;
+}
+
+const char* to_string( RendererBackendType backend ) {
+    local const char* strings[BACKEND_COUNT] = {
+        "Vulkan "
+            VALUE_TO_STRING(VULKAN_VERSION_MAJOR)
+            "."
+            VALUE_TO_STRING(VULKAN_VERSION_MINOR),
+        "OpenGL "
+            VALUE_TO_STRING(GL_VERSION_MAJOR)
+            "."
+            VALUE_TO_STRING(GL_VERSION_MINOR),
+        "DirectX 11",
+        "DirectX 12"
+    };
+    SM_ASSERT( backend < BACKEND_COUNT );
+    return strings[backend];
 }

@@ -56,7 +56,7 @@ b32 event_init() {
         );
     }
 
-    LOG_NOTE("Event subsystem successfully initialized.");
+    LOG_INFO("Event subsystem successfully initialized.");
     return true;
 }
 
@@ -68,7 +68,7 @@ void event_shutdown() {
         }
     }
     mem_free( SYSTEM.registry );
-    LOG_NOTE("Event subsystem successfully shut down.");
+    LOG_INFO("Event subsystem successfully shut down.");
 }
 
 void event_fire( Event event ) {
@@ -141,29 +141,6 @@ b32 event_subscribe(
         LOG_NOTE("Subscribed to user event!");
     }
     list_push( registry->listeners, context );
-
-    return true;
-}
-
-b32 event_subscribe_multiple_codes(
-    usize         code_count,
-    EventCode*    codes,
-    EventListener listener,
-    void*         params
-) {
-    for(
-        usize code_index = 0;
-        code_index < code_count;
-        ++code_index
-    ) {
-        if( !event_subscribe(
-            codes[code_index],
-            listener,
-            params
-        ) ) {
-            return false;
-        }
-    }
 
     return true;
 }

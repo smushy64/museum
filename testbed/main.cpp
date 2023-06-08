@@ -17,7 +17,18 @@ b32 app_run(void*, Time*) {
     return true;
 }
 
-int main( int, char** ) {
+int main( int argc, char** argv ) {
+
+    RendererBackendType backend_type = BACKEND_OPENGL;
+
+    for( int i = 1; i < argc; ++i ) {
+        if( str_cmp( "--gl", argv[i] ) ) {
+            backend_type = BACKEND_OPENGL;
+        } else if( str_cmp( "--vk", argv[i] ) ) {
+            backend_type = BACKEND_VULKAN;
+        }
+    }
+
 
     AppConfig config = {};
     #define NAME_BUFFER_SIZE 255
@@ -32,17 +43,19 @@ int main( int, char** ) {
 
     config.main_surface.name       = name_buffer;
     config.main_surface.dimensions = { 800, 600 };
-    config.main_surface.flags      = SURFACE_CREATE_VISIBLE | SURFACE_CREATE_CENTERED;
+    config.main_surface.flags      = SURFACE_CREATE_VISIBLE |
+        SURFACE_CREATE_CENTERED;
 
     config.log_level        = LOG_LEVEL_ALL_VERBOSE;
     config.platform_flags   = PLATFORM_DPI_AWARE;
-    config.renderer_backend = BACKEND_VULKAN;
+    config.renderer_backend = backend_type;
 
     config.application_run = app_run;
 
     if( !app_init( &config ) ) {
         return -1;
     }
+    LOG_INFO("Using renderer backend \"%s\" . . .", to_string( backend_type ));
 
     if( !app_run() ) {
         return -1;

@@ -71,7 +71,7 @@ b32 log_init( LogLevel level ) {
         #endif
     #endif
 
-    LOG_NOTE("Logging subsystem successfully initialized.");
+    LOG_INFO("Logging subsystem successfully initialized.");
 
     return true;
 }
@@ -81,10 +81,10 @@ void log_shutdown() {
     impl::_mem_free( PRINT_BUFFER );
 
     // TODO(alicia): custom printf!
-    printf( "[NOTE  ] Logging subsystem successfully shutdown.\n" );
+    printf( "[NOTE  ] Logging subsystem shutdown.\n" );
 #if defined(SM_PLATFORM_WINDOWS)
     OutputDebugStringA(
-        "[NOTE  ] Logging subsystem successfully shutdown.\n"
+        "[NOTE  ] Logging subsystem shutdown.\n"
     );
 #endif
 

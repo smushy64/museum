@@ -175,13 +175,6 @@ SM_API b32 event_subscribe(
     void*         listener_params
 );
 
-SM_API b32 event_subscribe_multiple_codes(
-    usize         code_count,
-    EventCode*    codes,
-    EventListener listener,
-    void*         params
-);
-
 SM_API b32 event_unsubscribe(
     EventCode     code,
     EventListener listener,

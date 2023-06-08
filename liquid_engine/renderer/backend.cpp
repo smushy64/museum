@@ -6,6 +6,7 @@
 #include "backend.h"
 #include "core/logging.h"
 #include "vulkan/vk_backend.h"
+#include "opengl/gl_backend.h"
 
 b32 renderer_backend_init(
     RendererBackendType   type,
@@ -21,6 +22,14 @@ b32 renderer_backend_init(
             out_backend->end       = vk_end_frame;
             out_backend->on_resize = vk_on_resize;
         } return true;
+        case BACKEND_OPENGL: {
+            out_backend->init      = gl_init;
+            out_backend->shutdown  = gl_shutdown;
+            out_backend->begin     = gl_begin_frame;
+            out_backend->end       = gl_end_frame;
+            out_backend->on_resize = gl_on_resize;
+        } return true;
+        
         default: DEBUG_UNIMPLEMENTED();
     }
 }

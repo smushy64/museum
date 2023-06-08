@@ -108,7 +108,7 @@ b32 app_init( AppConfig* config ) {
     CONTEXT.application_run    = config->application_run;
     CONTEXT.application_params = config->application_params;
 
-    LOG_NOTE("Liquid Engine Version: %i.%i",
+    LOG_INFO("Liquid Engine Version: %i.%i",
         LIQUID_ENGINE_VERSION_MAJOR,
         LIQUID_ENGINE_VERSION_MINOR
     );
@@ -260,8 +260,19 @@ b32 app_init( AppConfig* config ) {
         return false;
     }
 
-    CONTEXT.main_surface = surface_create(
+    #define MAX_SURFACE_NAME 255
+
+    char surface_name_buffer[MAX_SURFACE_NAME];
+    snprintf(
+        surface_name_buffer,
+        MAX_SURFACE_NAME,
+        "%s | %s",
         config->main_surface.name,
+        to_string( config->renderer_backend )
+    );
+
+    CONTEXT.main_surface = surface_create(
+        surface_name_buffer,
         config->main_surface.position,
         config->main_surface.dimensions,
         config->main_surface.flags,

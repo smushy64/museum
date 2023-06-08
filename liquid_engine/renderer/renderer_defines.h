@@ -16,27 +16,11 @@ enum RendererBackendType : u32 {
 
     BACKEND_COUNT
 };
-inline const char* to_string( RendererBackendType backend ) {
-    local const char* strings[BACKEND_COUNT] = {
-        "Vulkan "
-            VALUE_TO_STRING(VULKAN_VERSION_MAJOR)
-            "."
-            VALUE_TO_STRING(VULKAN_VERSION_MINOR),
-        "OpenGL "
-            VALUE_TO_STRING(GL_VERSION_MAJOR)
-            "."
-            VALUE_TO_STRING(GL_VERSION_MINOR),
-        "DirectX 11",
-        "DirectX 12"
-    };
-    SM_ASSERT( backend < BACKEND_COUNT );
-    return strings[backend];
-}
+const char* to_string( RendererBackendType backend );
 
 typedef b32 (*RendererBackendInitializeFn)(
     struct RendererBackend* backend,
-    const char* app_name,
-    struct PlatformState* platform
+    const char* app_name
 );
 
 typedef void (*RendererBackendShutdownFn)(

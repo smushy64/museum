@@ -38,8 +38,7 @@ internal VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_callback(
 
 b32 vk_init(
     struct RendererBackend* backend,
-    const char* app_name,
-    struct PlatformState* platform
+    const char* app_name
 ) {
 
     // TODO(alicia): 
@@ -232,7 +231,7 @@ b32 vk_init(
 #endif
 
     if( !platform_create_vulkan_surface(
-        platform,
+        backend->platform,
         &CONTEXT
     ) ) {
         return false;
@@ -250,7 +249,7 @@ b32 vk_init(
     );
 
     SM_UNUSED(backend);
-    VK_LOG_NOTE( "Vulkan backend initialized successfully." );
+    VK_LOG_INFO( "Vulkan backend initialized successfully." );
     return true;
 }
 void vk_on_resize(
