@@ -135,18 +135,10 @@
     #define GL_LOG_FATAL( format, ... )
 #endif
 
-typedef void (*SwapBuffersFN)( struct PlatformState* platform );
-
 typedef void* GLContext;
 
 struct OpenGLContext {
-    SwapBuffersFN swap_buffers;
-    GLContext     context;
+    GLContext context;
 };
-
-b32 platform_gl_init(
-    PlatformState* state,
-    OpenGLContext* context
-);
 
 #endif // header guard

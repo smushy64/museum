@@ -31,7 +31,7 @@ enum EventCode : u32 {
     EVENT_CODE_INPUT_GAMEPAD_TRIGGER_RIGHT,
     EVENT_CODE_INPUT_GAMEPAD_ACTIVATE,
 
-    EVENT_CODE_MOUSE_CURSOR_CHANGED,
+    EVENT_CODE_MOUSE_CURSOR_STYLE_CHANGED,
 
     EVENT_CODE_LAST_RESERVED,
     MAX_ENGINE_EVENT_CODE = 0xFF,
@@ -100,21 +100,15 @@ struct Event {
         } raw;
 
         struct {
-            void* surface;
-        } surface_destroy;
-        struct {
-            void* surface;
-            b8    is_active;
+            b8 is_active;
         } surface_active;
         struct {
-            void* surface;
             union {
                 struct { i32 width, height; };
                 ivec2 dimensions;
             };
         } surface_resize;
         struct {
-            void* surface;
             union {
                 struct { i32 x, y; };
                 ivec2 position;

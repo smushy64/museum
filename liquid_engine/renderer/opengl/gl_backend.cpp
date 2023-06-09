@@ -5,6 +5,7 @@
 */
 #include "gl_backend.h"
 #include "gl_defines.h"
+#include "platform/platform.h"
 #include <glad/glad.h>
 
 #define GL_DEFAULT_CLEAR_COLOR 1.0f, 0.0f, 1.0f, 1.0f
@@ -25,16 +26,12 @@ b32 gl_init(
     struct RendererBackend* backend,
     const char* app_name
 ) {
-    platform_gl_init(
+    if(!platform_gl_init(
         backend->platform,
-        &CONTEXT    
-    );
-
-    if( !CONTEXT.context ) {
-        GL_LOG_FATAL( "OpenGL Context is null!" );
+        &CONTEXT
+    )) {
         return false;
     }
-
 
     glClearColor( GL_DEFAULT_CLEAR_COLOR );
 
@@ -94,7 +91,7 @@ b32 gl_end_frame(
     struct RendererBackend* backend,
     f32 delta_time
 ) {
-    CONTEXT.swap_buffers( backend->platform );
+    platform_gl_swap_buffers( backend->platform );
     SM_UNUSED(delta_time);
     return true;
 }

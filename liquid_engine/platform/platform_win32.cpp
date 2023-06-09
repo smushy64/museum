@@ -3,7 +3,8 @@
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: April 27, 2023
 */
-#include "defines.h"
+#include "platform_win32.h"
+
 #if defined(SM_PLATFORM_WINDOWS)
 
 #include "platform.h"
@@ -15,7 +16,6 @@
 #include "core/math.h"
 
 #define VK_USE_PLATFORM_WIN32_KHR
-#define NOGDI
 #include <vulkan/vulkan.h>
 #include "renderer/renderer_defines.h"
 #include "renderer/vulkan/vk_defines.h"
@@ -25,1567 +25,63 @@
 
 #include <intrin.h>
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <windowsx.h>
-#include <psapi.h>
-#include <xinput.h>
-
 // TODO(alicia): custom formatting and printing
 #include <stdio.h>
 
-struct Win32ThreadHandle {
-    HANDLE     handle;
-    ThreadProc proc;
-    void*      params;
-    DWORD      id;
-};
-
-struct Win32Cursor {
-    MouseCursorStyle style;
-    b32              is_visible;
-    Surface*         surface_locked;
-};
-
-global Win32Cursor CURSOR_STATE = {};
-
-struct Win32Surface {
-    Surface        surface;
-    HWND           hWnd;
-    HDC            hDc;
-    PlatformState* state;
-};
-
-global usize SCRATCH_BUFFER_SIZE = 512;
-struct Win32State {
-    HINSTANCE hInstance;
-
-    HMODULE   libUser32;
-    HMODULE   libXinput;
-    HMODULE   libGl;
-    HMODULE   libGdi32;
-
-    Win32Surface      surface;
-
-    usize             thread_count;
-    Win32ThreadHandle threads[MAX_THREAD_COUNT];
-
-    wchar_t* wide_char_scratch_buffer;
-};
-
-global LARGE_INTEGER PERF_FREQUENCY;
-global LARGE_INTEGER INITIAL_COUNTER;
-
-Win32ThreadHandle* get_next_handle( Win32State* state ) {
-    if( state->thread_count >= MAX_THREAD_COUNT ) {
-        return nullptr;
-    }
-    usize next_handle = state->thread_count++;
-    return &state->threads[next_handle];
-}
-
-union Win32GamepadMotorState {
-    struct {
-        f32 motor_left;
-        f32 motor_right;
-    };
-    f32 motors[2];
-};
-
+global char* ERROR_MESSAGE_BUFFER = nullptr;
 global b32 IS_DPI_AWARE = false;
-global b32 IS_ACTIVE    = true;
-
-// LOGGING | BEGIN --------------------------------------------------------
-
-#if defined(LD_LOGGING)
-    #define WIN32_LOG_NOTE( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE,\
-            LOG_COLOR_RESET,\
-            LOG_FLAG_NEW_LINE,\
-            "[NOTE WIN32  ] " format,\
-            ##__VA_ARGS__\
-        )
-    #define WIN32_LOG_INFO( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_INFO,\
-            LOG_COLOR_WHITE,\
-            LOG_FLAG_NEW_LINE,\
-            "[INFO WIN32  ] " format,\
-            ##__VA_ARGS__\
-        )
-    #define WIN32_LOG_DEBUG( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_DEBUG,\
-            LOG_COLOR_BLUE,\
-            LOG_FLAG_NEW_LINE,\
-            "[DEBUG WIN32 ] " format,\
-            ##__VA_ARGS__\
-        )
-    #define WIN32_LOG_WARN( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_WARN,\
-            LOG_COLOR_YELLOW,\
-            LOG_FLAG_NEW_LINE,\
-            "[WARN WIN32  ] " format,\
-            ##__VA_ARGS__\
-        )
-    #define WIN32_LOG_ERROR( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_ERROR,\
-            LOG_COLOR_RED,\
-            LOG_FLAG_NEW_LINE,\
-            "[ERROR WIN32 ] " format,\
-            ##__VA_ARGS__\
-        )
-
-    #define WIN32_LOG_NOTE_TRACE( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,\
-            LOG_COLOR_RESET,\
-            LOG_FLAG_NEW_LINE,\
-            "[NOTE WIN32  | %s() | %s:%i] " format,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__,\
-            ##__VA_ARGS__\
-        )
-
-    #define WIN32_LOG_INFO_TRACE( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
-            LOG_COLOR_WHITE,\
-            LOG_FLAG_NEW_LINE,\
-            "[INFO WIN32  | %s() | %s:%i] " format,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__,\
-            ##__VA_ARGS__\
-        )
-
-    #define WIN32_LOG_DEBUG_TRACE( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_DEBUG | LOG_LEVEL_TRACE,\
-            LOG_COLOR_BLUE,\
-            LOG_FLAG_NEW_LINE,\
-            "[DEBUG WIN32 | %s() | %s:%i] " format,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__,\
-            ##__VA_ARGS__\
-        )
-        
-    #define WIN32_LOG_WARN_TRACE( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_WARN | LOG_LEVEL_TRACE,\
-            LOG_COLOR_YELLOW,\
-            LOG_FLAG_NEW_LINE,\
-            "[WARN WIN32  | %s() | %s:%i] " format,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__,\
-            ##__VA_ARGS__\
-        )
-
-    #define WIN32_LOG_ERROR_TRACE( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
-            LOG_COLOR_RED,\
-            LOG_FLAG_NEW_LINE,\
-            "[ERROR WIN32 | %s() | %s:%i] " format,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__,\
-            ##__VA_ARGS__\
-        )
-#else
-    #define WIN32_LOG_NOTE( format, ... )
-    #define WIN32_LOG_INFO( format, ... )
-    #define WIN32_LOG_DEBUG( format, ... )
-    #define WIN32_LOG_WARN( format, ... )
-    #define WIN32_LOG_ERROR( format, ... )
-    #define WIN32_LOG_NOTE_TRACE( format, ... )
-    #define WIN32_LOG_INFO_TRACE( format, ... )
-    #define WIN32_LOG_DEBUG_TRACE( format, ... )
-    #define WIN32_LOG_WARN_TRACE( format, ... )
-    #define WIN32_LOG_ERROR_TRACE( format, ... )
-#endif
-
-#define ERROR_MESSAGE_BUFFER_SIZE 128
-global char ERROR_MESSAGE_BUFFER[ERROR_MESSAGE_BUFFER_SIZE];
-DWORD win32_log_error( b32 present_message_box ) {
-    DWORD error_code = GetLastError();
-    if( error_code == ERROR_SUCCESS ) {
-        return error_code;
-    }
-
-    wchar_t* message_buffer = nullptr;
-    DWORD message_buffer_size = FormatMessage(
-        FORMAT_MESSAGE_FROM_SYSTEM |
-        FORMAT_MESSAGE_IGNORE_INSERTS |
-        FORMAT_MESSAGE_ALLOCATE_BUFFER |
-        FORMAT_MESSAGE_MAX_WIDTH_MASK,
-        nullptr,
-        error_code,
-        0,
-        (LPWSTR)&message_buffer,
-        0,
-        nullptr
-    );
-
-    if( message_buffer_size > 0 ) {
-        WIN32_LOG_ERROR(
-            "%u: %ls",
-            error_code,
-            message_buffer
-        );
-
-        if( present_message_box ) {
-            static const usize TITLE_BUFFER_SIZE = 128;
-            char title_buffer[TITLE_BUFFER_SIZE];
-            snprintf(
-                title_buffer,
-                TITLE_BUFFER_SIZE,
-                "Windows Error 0x%X",
-                error_code
-            );
-
-            snprintf(
-                ERROR_MESSAGE_BUFFER,
-                ERROR_MESSAGE_BUFFER_SIZE,
-                "Please contact me at smushybusiness@gmail.com\n%ls",
-                message_buffer
-            );
-
-            MESSAGE_BOX_FATAL(
-                title_buffer,
-                ERROR_MESSAGE_BUFFER
-            );
-        }
-    }
-
-    return error_code;
-}
-
-// LOGGING | END ----------------------------------------------------------
-
-// PLATFORM INIT | BEGIN --------------------------------------------------
-
-/// from https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-pixelformatdescriptor
-typedef struct tagPIXELFORMATDESCRIPTOR {
-    WORD  nSize;
-    WORD  nVersion;
-    DWORD dwFlags;
-    BYTE  iPixelType;
-    BYTE  cColorBits;
-    BYTE  cRedBits;
-    BYTE  cRedShift;
-    BYTE  cGreenBits;
-    BYTE  cGreenShift;
-    BYTE  cBlueBits;
-    BYTE  cBlueShift;
-    BYTE  cAlphaBits;
-    BYTE  cAlphaShift;
-    BYTE  cAccumBits;
-    BYTE  cAccumRedBits;
-    BYTE  cAccumGreenBits;
-    BYTE  cAccumBlueBits;
-    BYTE  cAccumAlphaBits;
-    BYTE  cDepthBits;
-    BYTE  cStencilBits;
-    BYTE  cAuxBuffers;
-    BYTE  iLayerType;
-    BYTE  bReserved;
-    DWORD dwLayerMask;
-    DWORD dwVisibleMask;
-    DWORD dwDamageMask;
-} PIXELFORMATDESCRIPTOR, *PPIXELFORMATDESCRIPTOR, *LPPIXELFORMATDESCRIPTOR;
-
-/// The buffer can draw to a window or device surface.
-#define PFD_DRAW_TO_WINDOW 0x00000004
-/// The buffer can draw to a memory bitmap.
-#define PFD_DRAW_TO_BITMAP 0x00000008
-/// The buffer supports GDI drawing.
-/// This flag and PFD_DOUBLEBUFFER are mutually exclusive
-/// in the current generic implementation.
-#define PFD_SUPPORT_GDI 0x00000010
-/// The buffer supports OpenGL drawing.
-#define PFD_SUPPORT_OPENGL 0x00000020
-/// The pixel format is supported by a device driver
-/// that accelerates the generic implementation.
-/// If this flag is clear and the PFD_GENERIC_FORMAT flag is set,
-/// the pixel format is supported by the generic implementation only.
-#define PFD_GENERIC_ACCELERATED 0x00001000
-/// The pixel format is supported by the GDI software implementation,
-/// which is also known as the generic implementation.
-/// If this bit is clear, the pixel format is supported by
-/// a device driver or hardware.
-#define PFD_GENERIC_FORMAT 0x00000040
-/// The buffer uses RGBA pixels on a palette-managed device.
-/// A logical palette is required to achieve the best results
-/// for this pixel type. Colors in the palette should be specified
-/// according to the values of the cRedBits, cRedShift, cGreenBits,
-/// cGreenShift, cBluebits, and cBlueShift members.
-/// The palette should be created and realized in the device context
-/// before calling wglMakeCurrent.
-#define PFD_NEED_PALETTE 0x00000080
-/// Defined in the pixel format descriptors of hardware
-/// that supports one hardware palette in 256-color mode only.
-/// For such systems to use hardware acceleration,
-/// the hardware palette must be in a fixed order (for example, 3-3-2)
-/// when in RGBA mode or must match the logical palette when in
-/// color-index mode. When this flag is set, you must call
-/// SetSystemPaletteUse in your program to force a one-to-one mapping
-/// of the logical palette and the system palette. If your OpenGL
-/// hardware supports multiple hardware palettes and the device
-/// driver can allocate spare hardware palettes for OpenGL,
-/// this flag is typically clear.
-/// This flag is not set in the generic pixel formats.
-#define PFD_NEED_SYSTEM_PALETTE 0x00000100
-
-/// The buffer is double-buffered. This flag and
-/// PFD_SUPPORT_GDI are mutually exclusive in the current generic implementation.
-#define PFD_DOUBLEBUFFER 0x00000001
-/// The buffer is stereoscopic.
-/// This flag is not supported in the current generic implementation.
-#define PFD_STEREO 0x00000002
-/// Indicates whether a device can swap individual layer
-/// planes with pixel formats that include double-buffered
-/// overlay or underlay planes. Otherwise all layer planes are
-/// swapped together as a group. When this flag is set,
-/// wglSwapLayerBuffers is supported.
-#define PFD_SWAP_LAYER_BUFFERS 0x00000800
-/// The requested pixel format can either have or not have a depth buffer.
-/// To select a pixel format without a depth buffer,
-/// you must specify this flag. The requested pixel format
-/// can be with or without a depth buffer. Otherwise, only pixel formats
-/// with a depth buffer are considered.
-#define PFD_DEPTH_DONTCARE 0x20000000
-/// The requested pixel format can be either single- or double-buffered.
-#define PFD_DOUBLEBUFFER_DONTCARE 0x40000000
-/// The requested pixel format can be either monoscopic or stereoscopic.
-#define PFD_STEREO_DONTCARE 0x80000000
-/// Specifies the content of the back buffer in the
-/// double-buffered main color plane following a buffer swap.
-/// Swapping the color buffers causes the content of the back buffer
-/// to be copied to the front buffer. The content of the back buffer
-/// is not affected by the swap. PFD_SWAP_COPY is a hint only
-/// and might not be provided by a driver.
-#define PFD_SWAP_COPY 0x00000400
-/// Specifies the content of the back buffer in the double-buffered
-/// main color plane following a buffer swap. Swapping the color buffers
-/// causes the exchange of the back buffer's content with the
-/// front buffer's content. Following the swap, the back buffer's
-/// content contains the front buffer's content before the swap.
-/// PFD_SWAP_EXCHANGE is a hint only and might not be provided by a driver.
-#define PFD_SWAP_EXCHANGE 0x00000200
-/// RGBA pixels. Each pixel has four components
-/// in this order: red, green, blue, and alpha.
-#define PFD_TYPE_RGBA 0
-/// Color-index pixels. Each pixel uses a color-index value.
-#define PFD_TYPE_COLORINDEX 1
-
-#define PFD_MAIN_PLANE     0
-#define PFD_OVERLAY_PLANE  1
-#define PFD_UNDERLAY_PLANE (-1)
-
-namespace impl {
-    [[maybe_unused]]
-    internal b32 win32_library_load(
-        const wchar_t* module_name,
-        HMODULE* out_module
-    ) {
-        HMODULE module = LoadLibrary(
-            module_name
-        );
-        if( !module ) {
-            return false;
-        }
-        *out_module = module;
-        return true;
-    }
-    [[maybe_unused]]
-    internal b32 win32_library_load_trace(
-        const wchar_t* module_name,
-        HMODULE* out_module,
-        const char* function,
-        const char* file,
-        i32 line
-    ) {
-        HMODULE module = LoadLibrary(
-            module_name
-        );
-        if( !module ) {
-            log_formatted_locked(
-                LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,
-                LOG_COLOR_RED, 0,
-                "[ERROR WIN32  | %s | %s:%i] ",
-                function,
-                file,
-                line
-            );
-            log_formatted_locked(
-                LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,
-                LOG_COLOR_RED,
-                LOG_FLAG_NEW_LINE,
-                "Failed to load library \"%ls\"!",
-                module_name
-            );
-            return false;
-        }
-
-        *out_module = module;
-        log_formatted_locked(
-            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
-            LOG_COLOR_RESET, 0,
-            "[NOTE WIN32  | %s | %s:%i] ",
-            function,
-            file,
-            line
-        );
-        log_formatted_locked(
-            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
-            LOG_COLOR_RESET,
-            LOG_FLAG_NEW_LINE,
-            "Library \"%ls\" has been loaded successfully.",
-            module_name
-        );
-
-        return true;
-    }
-
-    [[maybe_unused]]
-    internal void win32_library_free(
-        HMODULE module
-    ) {
-        FreeLibrary( module );
-    }
-    [[maybe_unused]]
-    internal void win32_library_free_trace(
-        HMODULE module,
-        const char* function,
-        const char* file,
-        i32 line
-    ) {
-        static const u32 NAME_BUFFER_SIZE = 128;
-        wchar_t name_buffer[NAME_BUFFER_SIZE];
-        GetModuleBaseName(
-            GetCurrentProcess(),
-            module,
-            name_buffer,
-            NAME_BUFFER_SIZE
-        );
-        log_formatted_locked(
-            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
-            LOG_COLOR_RESET, 0,
-            "[NOTE WIN32  | %s | %s:%i] ",
-            function,
-            file,
-            line
-        );
-        log_formatted_locked(
-            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
-            LOG_COLOR_RESET,
-            LOG_FLAG_NEW_LINE,
-            "Library \"%ls\" has been freed.",
-            name_buffer
-        );
-        FreeLibrary( module );
-    }
-
-    typedef BOOL (*SetProcessDpiAwarenessContext_fn)( DPI_AWARENESS_CONTEXT );
-    [[maybe_unused]]
-    global SetProcessDpiAwarenessContext_fn in_SetProcessDpiAwarenessContext = nullptr;
-
-    typedef UINT (*GetDpiForSystem_fn)();
-    [[maybe_unused]]
-    global GetDpiForSystem_fn in_GetDpiForSystem = nullptr;
-
-    typedef BOOL (*AdjustWindowRectExForDpi_fn)( LPRECT, DWORD, BOOL, DWORD, UINT );
-    [[maybe_unused]]
-    global AdjustWindowRectExForDpi_fn in_AdjustWindowRectExForDpi = nullptr;
-
-    typedef DWORD (*XInputGetState_fn)( DWORD, XINPUT_STATE* );
-    [[maybe_unused]]
-    global XInputGetState_fn in_XInputGetState = nullptr;
-
-    typedef DWORD (*XInputSetState_fn)( DWORD, XINPUT_VIBRATION* );
-    [[maybe_unused]]
-    global XInputSetState_fn in_XInputSetState = nullptr;
-
-    typedef HGLRC (*wglCreateContext_fn)(HDC);
-    [[maybe_unused]]
-    global wglCreateContext_fn in_wglCreateContext = nullptr;
-
-    typedef BOOL (*wglMakeCurrent_fn)(HDC, HGLRC);
-    [[maybe_unused]]
-    global wglMakeCurrent_fn in_wglMakeCurrent = nullptr;
-
-    typedef BOOL (*wglDeleteContext_fn)(HGLRC);
-    [[maybe_unused]]
-    global wglDeleteContext_fn in_wglDeleteContext = nullptr;
-
-    typedef PROC (*wglGetProcAddress_fn)(LPCSTR);
-    [[maybe_unused]]
-    global wglGetProcAddress_fn in_wglGetProcAddress = nullptr;
-
-    typedef HGLRC (*wglCreateContextAttribsARB_fn)(HDC, HGLRC, const int*);
-    [[maybe_unused]]
-    global wglCreateContextAttribsARB_fn in_wglCreateContextAttribsARB = nullptr;
-
-    typedef int (*DescribePixelFormat_fn)(HDC, int, UINT, LPPIXELFORMATDESCRIPTOR);
-    [[maybe_unused]]
-    global DescribePixelFormat_fn in_DescribePixelFormat = nullptr;
-
-    typedef int (*ChoosePixelFormat_fn)(HDC, const PIXELFORMATDESCRIPTOR*);
-    [[maybe_unused]]
-    global ChoosePixelFormat_fn in_ChoosePixelFormat = nullptr;
-
-    typedef BOOL (*SetPixelFormat_fn)(HDC, int, const PIXELFORMATDESCRIPTOR*);
-    [[maybe_unused]]
-    global SetPixelFormat_fn in_SetPixelFormat = nullptr;
-
-    typedef BOOL (*SwapBuffers_fn)(HDC);
-    [[maybe_unused]]
-    global SwapBuffers_fn in_SwapBuffers = nullptr;
-
-    typedef void (*XInputEnable_fn)( BOOL );
-    internal void XInputEnableStub( BOOL enable ) { SM_UNUSED( enable ); }
-    [[maybe_unused]]
-    global XInputEnable_fn in_XInputEnable = XInputEnableStub;
-
-} // namespace impl
-
-#if defined(LD_LOGGING)
-    #define win32_library_load( module_name, out_module )\
-        ::impl::win32_library_load_trace(\
-            module_name,\
-            out_module,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__\
-        )
-    #define win32_library_free( module )\
-        ::impl::win32_library_free_trace(\
-            module,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__\
-        )
-#else
-    #define win32_library_load( module_name, out_module ) \
-        ::impl::win32_library_load( module_name, out_module )
-    #define win32_library_free( module )\
-        ::impl::win32_library_free( module )
-#endif
-
-#define SetProcessDpiAwarenessContext ::impl::in_SetProcessDpiAwarenessContext
-#define GetDpiForSystem               ::impl::in_GetDpiForSystem
-#define AdjustWindowRectExForDpi      ::impl::in_AdjustWindowRectExForDpi
-#define XInputGetState                ::impl::in_XInputGetState
-#define XInputSetState                ::impl::in_XInputSetState
-#define XInputEnable                  ::impl::in_XInputEnable
-#define wglCreateContext              ::impl::in_wglCreateContext
-#define wglMakeCurrent                ::impl::in_wglMakeCurrent
-#define wglDeleteContext              ::impl::in_wglDeleteContext
-#define wglGetProcAddress             ::impl::in_wglGetProcAddress
-#define wglCreateContextAttribsARB    ::impl::in_wglCreateContextAttribsARB
-#define DescribePixelFormat           ::impl::in_DescribePixelFormat
-#define ChoosePixelFormat             ::impl::in_ChoosePixelFormat
-#define SetPixelFormat                ::impl::in_SetPixelFormat
-#define SwapBuffers                   ::impl::in_SwapBuffers
-
-#define WGL_CONTEXT_MAJOR_VERSION_ARB             0x2091
-#define WGL_CONTEXT_MINOR_VERSION_ARB             0x2092
-#define WGL_CONTEXT_LAYER_PLANE_ARB               0x2093
-#define WGL_CONTEXT_FLAGS_ARB                     0x2094
-#define WGL_CONTEXT_PROFILE_MASK_ARB              0x9126
-#define WGL_CONTEXT_DEBUG_BIT_ARB                 0x0001
-#define WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB    0x0002
-#define WGL_CONTEXT_CORE_PROFILE_BIT_ARB          0x00000001
-#define WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
-#define ERROR_INVALID_VERSION_ARB                 0x2095
-#define ERROR_INVALID_PROFILE_ARB                 0x2096
-
-[[maybe_unused]]
-internal void* win32_proc_address(
-    HMODULE module,
-    const char* proc_name
-) {
-    void* result = (void*)GetProcAddress(
-        module,
-        proc_name
-    );
-
-#if defined(LD_LOGGING)
-    static const usize MODULE_NAME_BUFFER_SIZE = 128;
-    wchar_t module_name_buffer[MODULE_NAME_BUFFER_SIZE];
-    GetModuleBaseName(
-        GetCurrentProcess(),
-        module,
-        module_name_buffer,
-        MODULE_NAME_BUFFER_SIZE
-    );
-    if( result ) {
-        WIN32_LOG_NOTE(
-            "Function \"%s\" loaded from library \"%ls\".",
-            proc_name,
-            module_name_buffer
-        );
-    } else {
-        WIN32_LOG_WARN(
-            "Failed to load function \"%s\" from library \"%ls\"!",
-            proc_name,
-            module_name_buffer
-        );
-    }
-#endif
-
-    return result;
-}
-[[maybe_unused]]
-internal void* win32_proc_address_required(
-    HMODULE module,
-    const char* proc_name
-) {
-    void* result = (void*)GetProcAddress(
-        module,
-        proc_name
-    );
-
-    if( result ) {
-#if defined(LD_LOGGING)
-        static const usize MODULE_NAME_BUFFER_SIZE = 128;
-        wchar_t module_name_buffer[MODULE_NAME_BUFFER_SIZE];
-        GetModuleBaseName(
-            GetCurrentProcess(),
-            module,
-            module_name_buffer,
-            MODULE_NAME_BUFFER_SIZE
-        );
-        WIN32_LOG_NOTE(
-            "Function \"%s\" loaded from library \"%ls\".",
-            proc_name,
-            module_name_buffer
-        );
-#endif
-    } else {
-        static const usize MODULE_NAME_BUFFER_SIZE = 128;
-        wchar_t module_name_buffer[MODULE_NAME_BUFFER_SIZE];
-        GetModuleBaseName(
-            GetCurrentProcess(),
-            module,
-            module_name_buffer,
-            MODULE_NAME_BUFFER_SIZE
-        );
-        static const usize MESSAGE_BUFFER_SIZE = 512;
-        char message_buffer[MESSAGE_BUFFER_SIZE];
-        snprintf(
-            message_buffer,
-            MESSAGE_BUFFER_SIZE,
-            "Failed to load function \"%s\" from module \"%ls\"!",
-            proc_name,
-            module_name_buffer
-        );
-        WIN32_LOG_ERROR("%s", message_buffer);
-        MESSAGE_BOX_FATAL(
-            "Failed to load function.",
-            message_buffer
-        );
-    }
-
-    return result;
-}
 
 b32 platform_init(
-    PlatformInitFlags flags,
-    RendererBackendType   backend,
-    PlatformState* out_state
+    const char* opt_surface_name,
+    ivec2 surface_dimensions,
+    PlatformFlags flags,
+    Platform* out_platform
 ) {
-    void* win32_state_buffer = mem_alloc(
-        sizeof(Win32State),
+
+    IS_DPI_AWARE = ARE_BITS_SET( flags, PLATFORM_DPI_AWARE );
+
+    Win32Platform* win32_platform = (Win32Platform*)mem_alloc(
+        sizeof(Win32Platform),
         MEMTYPE_PLATFORM_DATA
     );
-    if( !win32_state_buffer ) {
+    if( !win32_platform ) {
         MESSAGE_BOX_FATAL(
-            "Out of Memory",
-            "Could not allocate space for Win32 State!"
+            "Fatal Windows Error",
+            "Out of memory.\n"
+            LD_CONTACT_MESSAGE
         );
         return false;
     }
-    out_state->platform_data = win32_state_buffer;
-    Win32State* state = (Win32State*)out_state->platform_data;
 
-    void* wide_char_scratch_buffer = mem_alloc(
-        SCRATCH_BUFFER_SIZE,
-        MEMTYPE_PLATFORM_DATA
-    );
-    if( !wide_char_scratch_buffer ) {
-        MESSAGE_BOX_FATAL(
-            "Out of Memory",
-            "Could not allocate space for Win32 scratch buffer!"
-        );
+    // load libraries
+    if( !win32_load_user32( &win32_platform->lib_user32 ) ) {
+        mem_free( win32_platform );
         return false;
     }
-    state->wide_char_scratch_buffer = (wchar_t*)wide_char_scratch_buffer;
-
-    state->hInstance = GetModuleHandleA(0);
-
-    if( !win32_library_load(
-        L"USER32.DLL",
-        &state->libUser32
-    ) ) {
-        MESSAGE_BOX_FATAL(
-            "Failed to load library!",
-            "Failed to load user32.dll!"
-        );
-        mem_free( state );
-        return false;
-    }
-    if( !win32_library_load(
-        L"XINPUT1_4.DLL",
-        &state->libXinput
-    ) ) {
-        if( !win32_library_load(
-            L"XINPUT9_1_0.DLL",
-            &state->libXinput
-        ) ) {
-            if( !win32_library_load(
-                L"XINPUT1_3.DLL",
-                &state->libXinput
-            ) ) {
-                MESSAGE_BOX_FATAL(
-                    "Failed to load library!",
-                    "Failed to load any version of XInput!"
-                );
-                mem_free( state );
-                return false;
-            }
-        }
-    }
-    if( backend == BACKEND_OPENGL ) {
-        if( !win32_library_load(
-            L"OPENGL32.DLL",
-            &state->libGl
-        ) ) {
-            MESSAGE_BOX_FATAL(
-                "Failed to load library!",
-                "Failed to load opengl32.dll!"
-            );
-            mem_free( state );
-            return false;
-        }
-        if( !win32_library_load(
-            L"GDI32.DLL",
-            &state->libGdi32
-        ) ) {
-            MESSAGE_BOX_FATAL(
-                "Failed to load library!",
-                "Failed to load gdi32.dll!"
-            );
-            mem_free( state );
-            return false;
-        }
-    }
-
-    SetProcessDpiAwarenessContext =
-    (::impl::SetProcessDpiAwarenessContext_fn)win32_proc_address_required(
-        state->libUser32,
-        "SetProcessDpiAwarenessContext"
-    );
-    if( !SetProcessDpiAwarenessContext ) {
-        mem_free( state );
+    if( !win32_load_xinput( &win32_platform->lib_xinput ) ) {
+        mem_free( win32_platform );
         return false;
     }
 
-    GetDpiForSystem =
-    (::impl::GetDpiForSystem_fn)win32_proc_address_required(
-        state->libUser32,
-        "GetDpiForSystem"
-    );
-    if( !GetDpiForSystem ) {
-        mem_free( state );
-        return false;
-    }
-
-    AdjustWindowRectExForDpi =
-    (::impl::AdjustWindowRectExForDpi_fn)win32_proc_address_required(
-        state->libUser32,
-        "AdjustWindowRectExForDpi"
-    );
-    if( !AdjustWindowRectExForDpi ) {
-        mem_free( state );
-        return false;
-    }
-
-    XInputGetState =
-    (::impl::XInputGetState_fn)win32_proc_address_required(
-        state->libXinput,
-        "XInputGetState"
-    );
-    if( !XInputGetState ) {
-        mem_free( state );
-        return false;
-    }
-    XInputSetState =
-    (::impl::XInputSetState_fn)win32_proc_address_required(
-        state->libXinput,
-        "XInputSetState"
-    );
-    if( !XInputSetState ) {
-        mem_free( state );
-        return false;
-    }
-    ::impl::XInputEnable_fn xinput_enable =
-    (::impl::XInputEnable_fn)win32_proc_address(
-        state->libXinput,
-        "XInputEnable"
-    );
-    if( xinput_enable ) {
-        XInputEnable = xinput_enable;
-    }
-
-    if( backend == BACKEND_OPENGL ) {
-
-        wglCreateContext =
-        (::impl::wglCreateContext_fn)win32_proc_address_required(
-            state->libGl,
-            "wglCreateContext"
-        );
-        if( !wglCreateContext ) {
-            mem_free( state );
-            return false;
-        }
-        wglMakeCurrent =
-        (::impl::wglMakeCurrent_fn)win32_proc_address_required(
-            state->libGl,
-            "wglMakeCurrent"
-        );
-        if( !wglMakeCurrent ) {
-            mem_free( state );
-            return false;
-        }
-        wglDeleteContext =
-        (::impl::wglDeleteContext_fn)win32_proc_address_required(
-            state->libGl,
-            "wglDeleteContext"
-        );
-        if( !wglDeleteContext ) {
-            mem_free( state );
-            return false;
-        }
-        wglGetProcAddress =
-        (::impl::wglGetProcAddress_fn)win32_proc_address_required(
-            state->libGl,
-            "wglGetProcAddress"
-        );
-        if( !wglGetProcAddress ) {
-            mem_free( state );
-            return false;
-        }
-
-        DescribePixelFormat =
-        (::impl::DescribePixelFormat_fn)win32_proc_address_required(
-            state->libGdi32,
-            "DescribePixelFormat"
-        );
-        if( !DescribePixelFormat ) {
-            mem_free( state );
-            return false;
-        }
-        ChoosePixelFormat =
-        (::impl::ChoosePixelFormat_fn)win32_proc_address_required(
-            state->libGdi32,
-            "ChoosePixelFormat"
-        );
-        if( !ChoosePixelFormat ) {
-            mem_free( state );
-            return false;
-        }
-        SetPixelFormat =
-        (::impl::SetPixelFormat_fn)win32_proc_address_required(
-            state->libGdi32,
-            "SetPixelFormat"
-        );
-        if( !SetPixelFormat ) {
-            mem_free( state );
-            return false;
-        }
-
-        SwapBuffers =
-        (::impl::SwapBuffers_fn)win32_proc_address_required(
-            state->libGdi32,
-            "SwapBuffers"
-        );
-        if( !SwapBuffers ) {
-            mem_free( state );
-            return false;
-        }
-    }
-
-    if( ARE_BITS_SET( flags, PLATFORM_DPI_AWARE ) ) {
-        SetProcessDpiAwarenessContext(
-            DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
-        );
-        IS_DPI_AWARE = true;
-        WIN32_LOG_NOTE( "Program is DPI Aware." );
-    } else {
-        WIN32_LOG_NOTE( "Program is NOT DPI Aware." );
-    }
-
-    QueryPerformanceFrequency( &PERF_FREQUENCY );
-    QueryPerformanceCounter( &INITIAL_COUNTER );
-
-    WIN32_LOG_INFO("Platform services successfully initialized.");
-
-    return true;
-}
-
-void platform_shutdown( PlatformState* platform_state ) {
-    Win32State* state = (Win32State*)platform_state->platform_data;
-
-    if( state->libGdi32 ) {
-        win32_library_free( state->libGdi32 );
-    }
-    if( state->libGl ) {
-        win32_library_free( state->libGl );
-    }
-    win32_library_free( state->libXinput );
-    win32_library_free( state->libUser32 );
-
-    mem_free( state );
-
-    WIN32_LOG_INFO("Platform subsytem successfully shutdown.");
-}
-
-u64 platform_absolute_time() {
-    LARGE_INTEGER counter = {};
-    QueryPerformanceCounter( &counter );
-    return counter.QuadPart - INITIAL_COUNTER.QuadPart;
-}
-
-f64 platform_seconds_elapsed() {
-    u64 counter = platform_absolute_time();
-    return (f64)counter / (f64)(PERF_FREQUENCY.QuadPart);
-}
-
-global const char* WIN32_VULKAN_EXTENSIONS[] = {
-    "VK_KHR_win32_surface"
-};
-
-usize platform_get_vulkan_extension_names(
-    usize max_names,
-    usize* name_count,
-    const char** names
-) {
-    usize win32_extension_count = STATIC_ARRAY_COUNT(WIN32_VULKAN_EXTENSIONS);
-    usize max_iter = win32_extension_count > max_names ?
-        max_names : win32_extension_count;
-
-    usize count = *name_count;
-    for( usize i = 0; i < max_iter; ++i ) {
-        names[count++] = WIN32_VULKAN_EXTENSIONS[i];
-        win32_extension_count--;
-    }
-    *name_count = count;
-    return win32_extension_count;
-}
-
-b32 platform_create_vulkan_surface(
-    PlatformState* state,
-    VulkanContext* context
-) {
-    Win32State* win32_state = (Win32State*)state->platform_data;
-    Win32Surface* surface = &win32_state->surface;
-    VkWin32SurfaceCreateInfoKHR create_info = {};
-    create_info.sType     = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-    create_info.hinstance = win32_state->hInstance;
-    create_info.hwnd      = surface->hWnd;
-
-    VkSurfaceKHR vk_surface = {};
-
-    VkResult result = vkCreateWin32SurfaceKHR(
-        context->instance,
-        &create_info,
-        context->allocator,
-        &vk_surface
-    );
-
-    if( result != VK_SUCCESS ) {
-        VK_LOG_ERROR("Failed to create Vulkan surface!");
-        return false;
-    }
-    
-    context->surface.surface = vk_surface;
-    context->surface.width   = surface->surface.width;
-    context->surface.height  = surface->surface.height;
-
-    return true;
-}
-
-void win32_swap_buffers( PlatformState* state ) {
-    Win32State* win32_state = (Win32State*)state->platform_data;
-    SwapBuffers( win32_state->surface.hDc );
-}
-
-HGLRC win32_create_gl_context( PlatformState* state ) {
-
-    Win32State* win32_state = (Win32State*)state->platform_data;
-    HDC hdc = win32_state->surface.hDc;
-
-    PIXELFORMATDESCRIPTOR desired_pixel_format = {};
-    u16 pixel_format_size = sizeof( PIXELFORMATDESCRIPTOR );
-    desired_pixel_format.nSize      = pixel_format_size;
-    desired_pixel_format.iPixelType = PFD_TYPE_RGBA;
-    desired_pixel_format.nVersion   = 1;
-    desired_pixel_format.dwFlags    = PFD_SUPPORT_OPENGL |
-        PFD_DRAW_TO_WINDOW | PFD_DOUBLEBUFFER;
-    desired_pixel_format.cColorBits = 32;
-    desired_pixel_format.cAlphaBits = 8;
-    desired_pixel_format.iLayerType = PFD_MAIN_PLANE;
-
-    i32 pixelFormatIndex = ChoosePixelFormat( hdc, &desired_pixel_format );
-    PIXELFORMATDESCRIPTOR suggested_pixel_format = {};
-    DescribePixelFormat(
-        hdc, pixelFormatIndex,
-        pixel_format_size, &suggested_pixel_format
-    );
-
-    if( SetPixelFormat(
-        hdc,
-        pixelFormatIndex,
-        &suggested_pixel_format) == FALSE
-    ) {
-        WIN32_LOG_ERROR("Failed to set pixel format!");
-        return nullptr;
-    }
-
-    HGLRC temp = wglCreateContext( hdc );
-    if(!temp) {
-        win32_log_error( false );
-        return nullptr;
-    }
-
-    if( wglMakeCurrent( hdc, temp ) == FALSE ) {
-        WIN32_LOG_ERROR("Failed to make temp OpenGL context current!");
-        return nullptr;
-    }
-
-    wglCreateContextAttribsARB = (impl::wglCreateContextAttribsARB_fn)
-        wglGetProcAddress("wglCreateContextAttribsARB");
-
-    if(!wglCreateContextAttribsARB) {
-        WIN32_LOG_ERROR("Failed to load function \"wglCreateContextAttribsARB\"!");
-        return nullptr;
-    }
-
-    // TODO(alicia): use #defines to set opengl version
-    i32 attribs[] = {
-        WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
-        WGL_CONTEXT_MAJOR_VERSION_ARB, GL_VERSION_MAJOR,
-        WGL_CONTEXT_MINOR_VERSION_ARB, GL_VERSION_MINOR,
-        WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,
-        0
-    };
-
-    HGLRC result = wglCreateContextAttribsARB( hdc, nullptr, attribs );
-    wglDeleteContext( temp );
-    if(!result) {
-        WIN32_LOG_ERROR("wglCreateContextAttribsARB failed to create OpenGL context!");
-        return nullptr;
-    }
-    wglMakeCurrent( hdc, result );
-
-    return result;
-}
-
-void* win32_gl_load_proc( const char* function_name ) {
-    void* function = (void*)wglGetProcAddress( function_name );
-    if( !function ) {
-        HMODULE lib_gl = GetModuleHandle( L"OPENGL32.DLL" );
-        LOG_ASSERT( lib_gl, "OpenGL module was not loaded!" );
-        function = (void*)GetProcAddress( lib_gl, function_name );
-
-#if defined(LD_LOGGING)
-        if( !function ) {
-            WIN32_LOG_WARN(
-                "Failed to load GL function \"%s\"!",
-                function_name
-            );
-        }
-#endif
-    }
-
-    return function;
-}
-
-b32 platform_gl_init(
-    PlatformState* state,
-    OpenGLContext* context
-) {
-    context->swap_buffers = win32_swap_buffers;
-
-    HGLRC gl_context = win32_create_gl_context( state );
-    if( !gl_context ) {
-        return false;
-    }
-
-    context->context = (void*)gl_context;
-
-    if( !gladLoadGLLoader( win32_gl_load_proc ) ) {
-        return false;
-    }
-
-    return true;
-}
-
-// PLATFORM INIT | END ----------------------------------------------------
-
-// MEMORY | BEGIN ---------------------------------------------------------
-
-global usize HEAP_MEMORY_USAGE = 0;
-global usize PAGE_MEMORY_USAGE = 0;
-usize query_heap_usage() {
-    return HEAP_MEMORY_USAGE;
-}
-usize query_page_usage() {
-    return PAGE_MEMORY_USAGE;
-}
-
-void* heap_alloc( usize size ) {
-    void* pointer = (void*)HeapAlloc(
-        GetProcessHeap(),
-        HEAP_ZERO_MEMORY,
-        size
-    );
-#if defined(LD_PROFILING)
-    if( pointer ) {
-        HEAP_MEMORY_USAGE += size;
-    }
-#endif
-    return pointer;
-}
-void* heap_realloc( void* memory, usize new_size ) {
-
-#if defined(LD_PROFILING)
-    SIZE_T previous_size = HeapSize(
-        GetProcessHeap(),
-        0,
-        memory
-    );
-#endif
-
-    void* pointer = (void*)HeapReAlloc(
-        GetProcessHeap(),
-        HEAP_ZERO_MEMORY,
-        memory,
-        new_size
-    );
-
-#if defined(LD_PROFILING)
-    if( pointer && previous_size != (SIZE_T)-1 ) {
-        usize diff = new_size - previous_size;
-        HEAP_MEMORY_USAGE += diff;
-    }
-#endif
-
-    return pointer;
-}
-void heap_free( void* memory ) {
-
-#if defined(LD_PROFILING)
-    SIZE_T mem_size = HeapSize(
-        GetProcessHeap(),
-        0,
-        memory
-    );
-    if( mem_size != (SIZE_T)-1 ) {
-        HEAP_MEMORY_USAGE -= mem_size;
-    }
-
-#endif
-
-    HeapFree( GetProcessHeap(), 0, memory );
-}
-
-void* page_alloc( usize size ) {
-    void* pointer = (void*)VirtualAlloc(
-        nullptr,
-        size,
-        MEM_RESERVE | MEM_COMMIT,
-        PAGE_READWRITE
-    );
-
-#if defined(LD_PROFILING)
-    PAGE_MEMORY_USAGE += size;
-#endif
-    return pointer;
-}
-void page_free( void* memory ) {
-#if defined(LD_PROFILING)
-    MEMORY_BASIC_INFORMATION info;
-    if(VirtualQuery(
-        memory,
-        &info,
-        sizeof(MEMORY_BASIC_INFORMATION)
-    )) {
-        PAGE_MEMORY_USAGE -= info.RegionSize;
-    }
-#endif
-    VirtualFree(
-        memory,
-        0,
-        MEM_RELEASE | MEM_DECOMMIT
-    );
-}
-
-// MEMORY | END   ---------------------------------------------------------
-
-// MULTI-THREADING | BEGIN ------------------------------------------------
-
-internal DWORD WINAPI win32_thread_proc( void* params ) {
-    Win32ThreadHandle* thread_handle = (Win32ThreadHandle*)params;
-
-    DWORD return_value = thread_handle->proc(
-        thread_handle->params
-    );
-
-    mem_free( params );
-
-    return return_value;
-}
-
-#define THREAD_STACK_SIZE_SAME_AS_MAIN 0
-#define THREAD_RUN_ON_CREATE 0
-ThreadHandle thread_create(
-    PlatformState* state,
-    ThreadProc thread_proc,
-    void*      params,
-    b32        run_on_creation
-) {
-
-    Win32State* win32_state = (Win32State*)state->platform_data;
-
-    Win32ThreadHandle* thread_handle = get_next_handle( win32_state );
-    if( !thread_handle ) {
-        LOG_ERROR("Out of thread handles!");
-        return nullptr;
-    }
-    thread_handle->proc   = thread_proc;
-    thread_handle->params = params;
-
-    // we don't care about this
-    LPSECURITY_ATTRIBUTES lpThreadAttributes = nullptr;
-
-    SIZE_T dwStackSize     = THREAD_STACK_SIZE_SAME_AS_MAIN;
-    DWORD  dwCreationFlags = CREATE_SUSPENDED;
-
-    mem_fence();
-
-    thread_handle->handle = CreateThread(
-        lpThreadAttributes,
-        dwStackSize,
-        win32_thread_proc,
-        thread_handle,
-        dwCreationFlags,
-        &thread_handle->id
-    );
-
-    if( !thread_handle->handle ) {
-        win32_log_error( true );
-        return nullptr;
-    }
-
-    if( run_on_creation ) {
-        thread_resume( thread_handle );
-    }
-
-    return thread_handle;
-}
-void thread_resume( ThreadHandle thread ) {
-    Win32ThreadHandle* win32_thread = (Win32ThreadHandle*)thread;
-    ResumeThread( win32_thread->handle );
-}
-
-Semaphore semaphore_create(
-    u32 initial_count,
-    u32 maximum_count
-) {
-    // we don't care about these
-    LPSECURITY_ATTRIBUTES security_attributes = nullptr;
-    LPCWSTR name = nullptr;
-    DWORD flags = 0;
-
-    DWORD desired_access = SEMAPHORE_ALL_ACCESS;
-
-    HANDLE semaphore_handle = CreateSemaphoreExW(
-        security_attributes,
-        initial_count,
-        maximum_count,
-        name,
-        flags,
-        desired_access
-    );
-
-    return (Semaphore*)semaphore_handle;
-}
-void semaphore_increment(
-    Semaphore semaphore,
-    u32       increment,
-    u32*      opt_out_previous_count
-) {
-    HANDLE win32_handle = (HANDLE)semaphore;
-    ReleaseSemaphore(
-        win32_handle,
-        increment,
-        (LONG*)opt_out_previous_count
-    );
-}
-void semaphore_wait_for(
-    Semaphore semaphore,
-    u32       timeout_ms
-) {
-    HANDLE win32_handle = (HANDLE)semaphore;
-    WaitForSingleObjectEx(
-        win32_handle,
-        timeout_ms,
-        FALSE
-    );
-}
-void semaphore_wait_for_multiple(
-    usize      count,
-    Semaphore* semaphores,
-    b32        wait_for_all,
-    u32        timeout_ms
-) {
-    const HANDLE* win32_handles = (const HANDLE*)semaphores;
-    WaitForMultipleObjects(
-        count,
-        win32_handles,
-        wait_for_all ? TRUE : FALSE,
-        timeout_ms
-    );
-}
-void semaphore_destroy( Semaphore semaphore ) {
-    HANDLE win32_handle = (HANDLE)semaphore;
-    CloseHandle( win32_handle );
-}
-
-u32 interlocked_increment( volatile u32* addend ) {
-    return InterlockedIncrement( addend );
-}
-u32 interlocked_decrement( volatile u32* addend ) {
-    return InterlockedDecrement( addend );
-}
-u32 interlocked_exchange( volatile u32* target, u32 value ) {
-    return InterlockedExchange( target, value );
-}
-void* interlocked_compare_exchange_pointer(
-    void* volatile* dst,
-    void* exchange,
-    void* comperand
-) {
-    return InterlockedCompareExchangePointer(
-        dst,
-        exchange,
-        comperand
-    );
-}
-u32 interlocked_compare_exchange(
-    u32 volatile* dst,
-    u32 exchange,
-    u32 comperand
-) {
-    return InterlockedCompareExchange(
-        dst,
-        exchange,
-        comperand
-    );
-}
-
-void mem_fence() {
-    _ReadWriteBarrier();
-#if defined(SM_ARCH_X86)
-    _mm_mfence();
-#elif
-    #error "mem_fence: Platform is not supported!"
-#endif
-}
-void read_fence() {
-    _ReadBarrier();
-#if defined(SM_ARCH_X86)
-    _mm_lfence();
-#elif
-    #error "read_fence: Platform is not supported!"
-#endif
-}
-void write_fence() {
-    _WriteBarrier();
-#if defined(SM_ARCH_X86)
-    _mm_sfence();
-#elif
-    #error "write_fence: Platform is not supported!"
-#endif
-}
-
-// MULTI-THREADING | END   ------------------------------------------------
-
-// MESSAGE BOX | BEGIN ----------------------------------------------------
-
-MessageBoxResult message_box(
-    const char* window_title,
-    const char* message,
-    MessageBoxType type,
-    MessageBoxIcon icon
-) {
-    HWND   hWnd      = nullptr;
-    LPCSTR lpText    = message;
-    LPCSTR lpCaption = window_title;
-
-    b32  valid_type = true;
-    UINT uType = 0;
-    switch( type ) {
-        case MBTYPE_OK:
-            uType |= MB_OK;
-            break;
-        case MBTYPE_OKCANCEL:
-            uType |= MB_OKCANCEL;
-            break;
-        case MBTYPE_RETRYCANCEL:
-            uType |= MB_RETRYCANCEL;
-            break;
-        case MBTYPE_YESNO:
-            uType |= MB_YESNO;
-            break;
-        case MBTYPE_YESNOCANCEL:
-            uType |= MB_YESNOCANCEL;
-            break;
-        default:
-            valid_type = false;
-            break;
-    }
-
-    if( !valid_type ) {
-        WIN32_LOG_ERROR("Message Box requires a valid type.");
-        return MBRESULT_UNKNOWN_ERROR;
-    }
-
-    switch( icon ) {
-        case MBICON_INFORMATION:
-            uType |= MB_ICONASTERISK;
-            break;
-        case MBICON_WARNING:
-            uType |= MB_ICONWARNING;
-            break;
-        case MBICON_ERROR:
-            uType |= MB_ICONERROR;
-            break;
-        default: break;
-    }
-
-    int mb_result = MessageBoxA(
-        hWnd,
-        lpText,
-        lpCaption,
-        uType
-    );
-
-    MessageBoxResult result;
-    switch( mb_result ) {
-        case IDOK:
-            result = MBRESULT_OK;
-            break;
-        case IDYES:
-            result = MBRESULT_YES;
-            break;
-        case IDNO:
-            result = MBRESULT_NO;
-            break;
-        case IDRETRY:
-            result = MBRESULT_RETRY;
-            break;
-        case IDCANCEL:
-            result = MBRESULT_CANCEL;
-            break;
-        default:
-            WIN32_LOG_ERROR("Message Box returned an unknown result.");
-            result = MBRESULT_UNKNOWN_ERROR;
-            break;
-    }
-
-    return result;
-}
-
-// MESSAGE BOX | END   ----------------------------------------------------
-
-// SURFACE | BEGIN --------------------------------------------------------
-
-internal LRESULT window_proc(
-    HWND hWnd, UINT Msg,
-    WPARAM wParam, LPARAM lParam
-);
-
-global usize BASE_CLASS_NAME_LEN;
-Surface* surface_create(
-    const char* surface_name,
-    ivec2 position,
-    ivec2 dimensions,
-    SurfaceCreateFlags flags,
-    PlatformState* platform_state,
-    Surface* opt_parent
-) {
-    Win32State* state = (Win32State*)platform_state->platform_data;
-
-    Win32Surface* win32_surface = &state->surface;
-
-    usize surface_name_length = str_length( surface_name ) + 1;
-    if( surface_name_length > MAX_SURFACE_NAME_LENGTH ) {
-        MESSAGE_BOX_FATAL(
-            "Exceeded surface name length!",
-            "Surface name is too long!"
-        );
-        WIN32_LOG_ERROR(
-            "Surface name is too long! length: %llu",
-            surface_name_length
-        );
-        return nullptr;
-    }
-
-    mem_copy(
-        win32_surface->surface.name,
-        surface_name,
-        surface_name_length
-    );
-
-    WNDCLASSEX windowClass  = {};
-    windowClass.cbSize      = sizeof(WNDCLASSEX);
-    windowClass.lpfnWndProc = window_proc;
-    windowClass.hInstance   = state->hInstance;
-    // TODO(alicia): 
-    windowClass.hIcon       = nullptr;
-    windowClass.hCursor     = LoadCursor(
-        state->hInstance,
+    ERROR_MESSAGE_BUFFER = win32_platform->error_message_buffer;
+    win32_platform->instance = GetModuleHandleA( nullptr );
+
+    // create window
+    WNDCLASSEX windowClass    = {};
+    windowClass.cbSize        = sizeof(WNDCLASSEX);
+    windowClass.lpfnWndProc   = win32_winproc;
+    windowClass.hInstance     = win32_platform->instance;
+    windowClass.lpszClassName = L"LiquidEngineWindowClass";
+    windowClass.hCursor       = LoadCursor(
+        win32_platform->instance,
         IDC_ARROW
     );
-
-    local const wchar_t* BASE_CLASS_NAME  = L"LiquidEngineWindowClass";
-    BASE_CLASS_NAME_LEN = wstr_length(BASE_CLASS_NAME);
-    local int SURFACE_COUNT = 0;
-
-    const usize CLASS_NAME_BUFFER_SIZE = BASE_CLASS_NAME_LEN + 8;
-    snwprintf(
-        state->wide_char_scratch_buffer,
-        CLASS_NAME_BUFFER_SIZE,
-        L"%ls%i",
-        BASE_CLASS_NAME,
-        SURFACE_COUNT
-    );
-
-    windowClass.lpszClassName = state->wide_char_scratch_buffer;
+    // TODO(alicia): window icon!
+    windowClass.hIcon = nullptr;
 
     if( !RegisterClassEx( &windowClass ) ) {
         win32_log_error( true );
-        return nullptr;
+        return false;
     }
 
     DWORD dwStyle   = WS_OVERLAPPEDWINDOW;
@@ -1594,22 +90,22 @@ Surface* surface_create(
     i32 width = 0, height = 0;
     RECT window_rect = {};
     if( IS_DPI_AWARE ) {
+        SetProcessDpiAwarenessContext(
+            DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
+        );
         UINT dpi = GetDpiForSystem();
 
         width = MulDiv(
-            dimensions.width,
-            dpi,
-            96
+            surface_dimensions.width,
+            dpi, 96
         );
         height = MulDiv(
-            dimensions.height,
-            dpi,
-            96
+            surface_dimensions.height,
+            dpi, 96
         );
 
         window_rect.right  = width;
         window_rect.bottom = height;
-
         if( !AdjustWindowRectExForDpi(
             &window_rect,
             dwStyle,
@@ -1618,14 +114,14 @@ Surface* surface_create(
             dpi
         ) ) {
             win32_log_error( true );
-            return nullptr;
+            return false;
         }
     } else {
-        width  = dimensions.width;
-        height = dimensions.height;
+        width  = surface_dimensions.width;
+        height = surface_dimensions.height;
 
-        window_rect.right  = dimensions.width;
-        window_rect.bottom = dimensions.height;
+        window_rect.right  = surface_dimensions.width;
+        window_rect.bottom = surface_dimensions.height;
         if( !AdjustWindowRectEx(
             &window_rect,
             dwStyle,
@@ -1633,18 +129,15 @@ Surface* surface_create(
             dwExStyle
         ) ) {
             win32_log_error( true );
-            return nullptr;
+            return false;
         }
     }
 
-    win32_surface->surface.dimensions = { width, height };
-
-    i32 x = 0, y = 0;
-    if( ARE_BITS_SET( flags, SURFACE_CREATE_CENTERED ) ) {
+    i32 x = 0, y = 0; {
         i32 screen_width  = GetSystemMetrics( SM_CXSCREEN );
         i32 screen_height = GetSystemMetrics( SM_CYSCREEN );
 
-        i32 x_center = screen_width  / 2;
+        i32 x_center = screen_width / 2;
         i32 y_center = screen_height / 2;
 
         i32 half_width  = width / 2;
@@ -1652,388 +145,180 @@ Surface* surface_create(
 
         x = x_center - half_width;
         y = y_center - half_height;
-    } else {
-        x = position.x;
-        y = position.y;
     }
 
-    HWND hWndParent = nullptr;
-    if( opt_parent ) {
-        Win32Surface* parent_surface = (Win32Surface*)opt_parent;
-        hWndParent = parent_surface->hWnd;
+    const char* surface_name  = DEFAULT_SURFACE_NAME;
+    usize surface_name_length = DEFAULT_SURFACE_NAME_LENGTH;
+    if( opt_surface_name ) {
+        surface_name        = opt_surface_name;
+        surface_name_length = str_length( opt_surface_name );
+        surface_name_length = min(
+            MAX_WINDOW_TITLE_BUFFER_SIZE,
+            surface_name_length
+        );
     }
 
-    wchar_t* lpWindowName = state->wide_char_scratch_buffer +
-        CLASS_NAME_BUFFER_SIZE + 1;
     mbstowcs(
-        lpWindowName,
+        win32_platform->window_title_buffer,
         surface_name,
         surface_name_length
     );
+    
     HWND hWnd = CreateWindowEx(
         dwExStyle,
         windowClass.lpszClassName,
-        lpWindowName,
+        win32_platform->window_title_buffer,
         dwStyle,
         x, y,
         window_rect.right - window_rect.left,
         window_rect.bottom - window_rect.top,
-        hWndParent,
         nullptr,
-        state->hInstance,
+        nullptr,
+        win32_platform->instance,
         nullptr
     );
     if( !hWnd ) {
         win32_log_error( true );
-        return nullptr;
+        mem_free( win32_platform );
+        return false;
     }
     HDC dc = GetDC( hWnd );
     if( !dc ) {
         win32_log_error( true );
-        return nullptr;
+        mem_free( win32_platform );
+        return false;
     }
 
-    win32_surface->hWnd             = hWnd;
-    win32_surface->hDc              = dc;
-    win32_surface->surface.position = { x, y };
-    
-    win32_surface->state = platform_state;
+    win32_platform->window.handle         = hWnd;
+    win32_platform->window.device_context = dc;
 
-    SetWindowLongPtr(
-        win32_surface->hWnd,
-        GWLP_USERDATA,
-        (LONG_PTR)win32_surface
+    ShowWindow(
+        win32_platform->window.handle,
+        SW_SHOW
     );
 
-    if( ARE_BITS_SET( flags, SURFACE_CREATE_VISIBLE ) ) {
-        win32_surface->surface.is_visible = true;
-        ShowWindow( hWnd, SW_SHOW );
+    QueryPerformanceFrequency(
+        &win32_platform->performance_frequency
+    );
+    QueryPerformanceCounter(
+        &win32_platform->performance_counter
+    );
+
+    win32_platform->cursor.style      = CURSOR_ARROW;
+    win32_platform->cursor.is_visible = true;
+
+    out_platform->surface.dimensions = { width, height };
+    out_platform->surface.platform   = (void*)&win32_platform->window;
+    out_platform->platform  = (void*)win32_platform;
+    out_platform->is_active = true;
+
+    SetWindowLongPtr(
+        win32_platform->window.handle,
+        GWLP_USERDATA,
+        (LONG_PTR)out_platform
+    );
+
+    WIN32_LOG_INFO( "Platform subsystem successfully initialized." );
+    return true;
+}
+void platform_shutdown( Platform* platform ) {
+    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+
+    // checking to see if OpenGL was loaded
+    if( win32_platform->gl_context ) {
+        wglMakeCurrent(
+            win32_platform->window.device_context,
+            nullptr
+        );
+        wglDeleteContext(
+            (HGLRC)win32_platform->gl_context->context
+        );
     }
 
-    return (Surface*)win32_surface;
-}
+    for( u32 i = 0; i < MAX_MODULE_COUNT; ++i ) {
+        HMODULE module = win32_platform->modules[i];
+        if( !module ) {
+            continue;
+        }
 
-void surface_destroy(
-    PlatformState*,
-    Surface* surface
-) {
-    Win32Surface* win32_surface = (Win32Surface*)surface;
-    
-    DestroyWindow( win32_surface->hWnd );
-}
+        win32_library_free( module );
+    }
 
-b32 surface_pump_events( Surface* surface ) {
-    Win32Surface* win32_surface = (Win32Surface*)surface;
-    MSG message;
-    while(PeekMessage(
+    ERROR_MESSAGE_BUFFER = nullptr;
+    DestroyWindow( win32_platform->window.handle );
+
+    mem_free( platform->platform );
+}
+u64 platform_read_absolute_time( Platform* platform ) {
+    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+
+    LARGE_INTEGER counter = {};
+    QueryPerformanceCounter( &counter );
+    return counter.QuadPart - win32_platform->performance_counter.QuadPart;
+}
+f64 platform_read_seconds_elapsed( Platform* platform ) {
+    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+    u64 counter = platform_read_absolute_time( platform );
+    return (f64)counter /
+        (f64)(win32_platform->performance_frequency.QuadPart);
+}
+b32 platform_pump_events( Platform* platform ) {
+    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+    MSG message = {};
+    while( PeekMessage(
         &message,
-        win32_surface->hWnd,
+        win32_platform->window.handle,
         0, 0,
         PM_REMOVE
-    )) {
+    ) ) {
         TranslateMessage( &message );
         DispatchMessage( &message );
     }
 
     return true;
 }
-void surface_swap_buffers( Surface* surface ) {
-    Win32Surface* win32_surface = (Win32Surface*)surface;
-    SwapBuffers( win32_surface->hDc );
-}
-void surface_set_name( Surface* surface, const char* new_name ) {
-    usize new_name_length = str_length( new_name ) + 1;
-    if( new_name_length > MAX_SURFACE_NAME_LENGTH ) {
-        LOG_WARN(
-            "Surface name \"%s\" is too long! "
-            "It will be truncated!"
-        );
-        new_name_length = MAX_SURFACE_NAME_LENGTH;
-    }
-
-    mem_copy(
-        surface->name,
-        new_name,
-        new_name_length
-    );
-    surface->name[new_name_length - 1] = 0;
-    
-    Win32Surface* win32_surface = (Win32Surface*)surface;
-    SetWindowTextA( win32_surface->hWnd, surface->name );
-}
-
-#define TRANSITION_STATE_MASK (1 << 31)
-#define EXTENDED_KEY_MASK     (1 << 24)
-#define SCANCODE_MASK         0x00FF0000
-
-internal LRESULT window_proc(
-    HWND hWnd, UINT Msg,
-    WPARAM wParam, LPARAM lParam
+void platform_surface_set_name(
+    Platform* platform,
+    usize name_length,
+    const char* name
 ) {
-
-    Win32Surface* surface = (Win32Surface*)GetWindowLongPtr(
-        hWnd,
-        GWLP_USERDATA
+    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+    usize max_length = min(
+        MAX_WINDOW_TITLE_BUFFER_SIZE,
+        name_length
     );
-
-    if( !surface ) {
-        return DefWindowProc(
-            hWnd,
-            Msg,
-            wParam,
-            lParam
-        );
-    }
-
-    Event event = {};
-    switch( Msg ) {
-        case WM_DESTROY: {
-            event.code = EVENT_CODE_SURFACE_DESTROY;
-            event.data.surface_destroy.surface = surface;
-            event_fire( event );
-        } break;
-
-        case WM_ACTIVATE: {
-            b32 is_active = wParam == WA_ACTIVE ||
-                wParam == WA_CLICKACTIVE;
-            XInputEnable( (BOOL)is_active );
-            event.code = EVENT_CODE_SURFACE_ACTIVE;
-            event.data.surface_active.is_active = is_active;
-            event.data.surface_active.surface   = surface;
-            event_fire( event );
-
-            if( !is_active ) {
-                platform_cursor_set_visible( true );
-            }
-
-            IS_ACTIVE = is_active;
-        } break;
-
-        case WM_WINDOWPOSCHANGED: {
-            local RECT last_rect = {};
-            RECT rect = {};
-            if( GetClientRect( hWnd, &rect ) ) {
-                if(
-                    last_rect.right  == rect.right &&
-                    last_rect.bottom == rect.bottom
-                ) {
-                    last_rect = rect;
-                    break;
-                }
-
-                #define MIN_DIMENSIONS 1
-                ivec2 dimensions = {
-                    max( rect.right, MIN_DIMENSIONS ),
-                    max( rect.bottom, MIN_DIMENSIONS ),
-                };
-
-                surface->surface.dimensions = dimensions;
-
-                event.code = EVENT_CODE_SURFACE_RESIZE;
-                event.data.surface_resize.surface    = surface;
-                event.data.surface_resize.dimensions = dimensions;
-                event_fire( event );
-
-                last_rect = rect;
-            }
-
-            local ivec2 last_position = {};
-            WINDOWPOS* window_pos = (WINDOWPOS*)lParam;
-            ivec2 position = {
-                window_pos->x,
-                window_pos->y
-            };
-
-            if( position != last_position ) {
-                surface->surface.position = position;
-
-                event.code = EVENT_CODE_SURFACE_MOVE;
-                event.data.surface_move.surface  = surface;
-                event.data.surface_move.position = position;
-                event_fire( event );
-            }
-            last_position = position;
-
-        } return FALSE;
-
-        case WM_SYSKEYUP:
-        case WM_SYSKEYDOWN:
-        case WM_KEYDOWN:
-        case WM_KEYUP: {
-
-            if( !IS_ACTIVE ) {
-                break;
-            }
-
-            b32 previous_key_state = (lParam >> 30) == 1;
-            if( previous_key_state ) {
-                break;
-            }
-            u8 keycode = wParam;
-
-            if( ARE_BITS_SET( lParam, EXTENDED_KEY_MASK ) ) {
-                if( keycode == KEY_CONTROL_LEFT ) {
-                    keycode = KEY_CONTROL_RIGHT;
-                } else if( keycode == KEY_ALT_LEFT ) {
-                    keycode = KEY_ALT_RIGHT;
-                }
-            }
-
-            if( keycode == KEY_SHIFT_LEFT ) {
-                LPARAM scancode = (lParam & SCANCODE_MASK) >> 16;
-                WPARAM new_vkcode = MapVirtualKey(
-                    scancode,
-                    MAPVK_VSC_TO_VK_EX
-                );
-                if( new_vkcode == VK_RSHIFT ) {
-                    keycode = KEY_SHIFT_RIGHT;
-                }
-            }
-
-            b32 is_down = !((lParam & TRANSITION_STATE_MASK) != 0);
-            input_set_key( (KeyCode)keycode, is_down );
-
-            event.code = EVENT_CODE_INPUT_KEY;
-            event.data.keyboard.code    = (KeyCode)keycode;
-            event.data.keyboard.is_down = is_down;
-            event_fire( event );
-
-        } return TRUE;
-        
-        case WM_MOUSEMOVE: {
-
-            if( !IS_ACTIVE ) {
-                break;
-            }
-
-            RECT client_rect = {};
-            GetClientRect( hWnd, &client_rect );
-
-            ivec2 mouse_position = {};
-            mouse_position.x = GET_X_LPARAM(lParam);
-            mouse_position.y = client_rect.bottom - GET_Y_LPARAM(lParam);
-            input_set_mouse_position( mouse_position );
-
-            event.code = EVENT_CODE_INPUT_MOUSE_MOVE;
-            event.data.mouse_move.coord = mouse_position;
-            event_fire( event );
-
-        } return TRUE;
-
-        case WM_LBUTTONDOWN:
-        case WM_LBUTTONUP:
-        case WM_RBUTTONDOWN:
-        case WM_RBUTTONUP:
-        case WM_MBUTTONDOWN:
-        case WM_MBUTTONUP: {
-
-            if( !IS_ACTIVE ) {
-                break;
-            }
-
-            b32 is_down =
-                Msg == WM_LBUTTONDOWN ||
-                Msg == WM_MBUTTONDOWN ||
-                Msg == WM_RBUTTONDOWN;
-            MouseCode code;
-            if( Msg == WM_LBUTTONDOWN || Msg == WM_LBUTTONUP ) {
-                code = MBC_BUTTON_LEFT;
-            } else if( Msg == WM_RBUTTONDOWN || Msg == WM_RBUTTONUP ) {
-                code = MBC_BUTTON_RIGHT;
-            } else if( Msg == WM_MBUTTONDOWN || Msg == WM_MBUTTONUP ) {
-                code = MBC_BUTTON_MIDDLE;
-            } else {
-                break;
-            }
-
-            input_set_mouse_button( code, is_down );
-            event.code = EVENT_CODE_INPUT_MOUSE_BUTTON;
-            event.data.mouse_button.code    = code;
-            event.data.mouse_button.is_down = is_down;
-            event_fire( event );
-
-        } return TRUE;
-
-        case WM_XBUTTONDOWN:
-        case WM_XBUTTONUP: {
-            if( !IS_ACTIVE ) {
-                break;
-            }
-
-            UINT button = GET_XBUTTON_WPARAM(wParam);
-            b32 is_down = Msg == WM_XBUTTONDOWN;
-            MouseCode code = (MouseCode)(button + (MBC_BUTTON_EXTRA_1 - 1));
-
-            input_set_mouse_button( code, is_down );
-            event.code = EVENT_CODE_INPUT_MOUSE_BUTTON;
-            event.data.mouse_button.code    = code;
-            event.data.mouse_button.is_down = is_down;
-            event_fire( event );
-
-        } return TRUE;
-
-        case WM_MOUSEHWHEEL:
-        case WM_MOUSEWHEEL: {
-
-            if( !IS_ACTIVE ) {
-                break;
-            }
-
-            i64 delta = GET_WHEEL_DELTA_WPARAM(wParam);
-            delta = delta == 0 ? 0 : absolute(delta);
-            event.data.mouse_wheel.delta = delta;
-
-            if( Msg == WM_MOUSEWHEEL ) {
-                event.code = EVENT_CODE_INPUT_MOUSE_WHEEL;
-                input_set_mouse_wheel( delta );
-            } else {
-                event.code = EVENT_CODE_INPUT_HORIZONTAL_MOUSE_WHEEL;
-                input_set_horizontal_mouse_wheel( delta );
-            }
-
-            event_fire( event );
-
-        } return TRUE;
-
-        case WM_SETCURSOR: switch( LOWORD( lParam ) ) {
-            case HTRIGHT:
-            case HTLEFT: {
-                platform_cursor_set_style( CURSOR_RESIZE_HORIZONTAL );
-            } break;
-
-            case HTTOP:
-            case HTBOTTOM: {
-                platform_cursor_set_style( CURSOR_RESIZE_VERTICAL );
-            } break;
-
-            case HTBOTTOMLEFT:
-            case HTTOPRIGHT: {
-                platform_cursor_set_style( CURSOR_RESIZE_TOP_RIGHT_BOTTOM_LEFT );
-            } break;
-
-            case HTBOTTOMRIGHT:
-            case HTTOPLEFT: {
-                platform_cursor_set_style( CURSOR_RESIZE_TOP_LEFT_BOTTOM_RIGHT );
-            } break;
-
-            default: {
-                platform_cursor_set_style( CURSOR_ARROW );
-            } break;
-        } return TRUE;
-
-    }
-
-    return DefWindowProc(
-        hWnd,
-        Msg,
-        wParam,
-        lParam
+    mbstowcs(
+        win32_platform->window_title_buffer,
+        name,
+        max_length
+    );
+    SetWindowText(
+        win32_platform->window.handle,
+        win32_platform->window_title_buffer
     );
 }
+i32 platform_surface_read_name(
+    Platform* platform,
+    char* buffer, usize max_buffer_size
+) {
+    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+    usize text_length = GetWindowTextLengthA(
+        win32_platform->window.handle
+    );
+    b32 window_text_longer_than_buffer = text_length > max_buffer_size;
 
-// SURFACE | END ----------------------------------------------------------
+    GetWindowTextA(
+        win32_platform->window.handle,
+        buffer,
+        window_text_longer_than_buffer ?
+            max_buffer_size : text_length
+    );
 
-inline LPCTSTR cursor_style_to_win32_style( MouseCursorStyle style ) {
+    return window_text_longer_than_buffer ? text_length : 0;
+}
+inline internal LPCTSTR cursor_style_to_win32_style(
+    CursorStyle style
+) {
     local const LPCTSTR styles[CURSOR_COUNT] = {
         IDC_ARROW,
         IDC_SIZENS,
@@ -2050,63 +335,82 @@ inline LPCTSTR cursor_style_to_win32_style( MouseCursorStyle style ) {
     }
     return styles[style];
 }
+void platform_cursor_set_style(
+    Platform* platform, CursorStyle cursor_style
+) {
+    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+    win32_platform->cursor.style = cursor_style;
 
-
-
-void platform_cursor_set_style( MouseCursorStyle style ) {
-    LPCTSTR win32_style = cursor_style_to_win32_style( style );
+    LPCTSTR win32_style = cursor_style_to_win32_style( cursor_style );
     SetCursor(
-        LoadCursor(
-            nullptr,
-            win32_style
-        )
+        LoadCursor( nullptr, win32_style )
     );
 
     Event event = {};
-    event.code = EVENT_CODE_MOUSE_CURSOR_CHANGED;
-    event.data.raw.uint32[0] = style;
+    event.code = EVENT_CODE_MOUSE_CURSOR_STYLE_CHANGED;
+    event.data.raw.uint32[0] = cursor_style;
     event_fire( event );
-
-    CURSOR_STATE.style = style;
 }
-
-void platform_cursor_set_visible( b32 visible ) {
+void platform_cursor_set_visible( Platform* platform, b32 visible ) {
+    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
     ShowCursor( visible );
-
-    CURSOR_STATE.is_visible = visible;
+    win32_platform->cursor.is_visible = visible;
 }
-
-void platform_cursor_set_locked( Surface* surface, b32 lock ) {
-    if( lock ) {
-        CURSOR_STATE.surface_locked = surface;
-        platform_cursor_center( surface );
-        platform_cursor_set_visible( false );
+void platform_cursor_set_locked( Platform* platform, b32 locked ) {
+    if( locked ) {
+        platform_cursor_center( platform );
+        platform_cursor_set_visible( platform, false );
     } else {
-        CURSOR_STATE.surface_locked = nullptr;
-        platform_cursor_set_visible( true );
+        platform_cursor_set_visible( platform, true );
     }
 }
-
-void platform_cursor_center( Surface* surface ) {
+void platform_cursor_center( Platform* platform ) {
+    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
     POINT center = {};
-    center.x = surface->dimensions.x / 2;
-    center.y = surface->dimensions.y / 2;
+    center.x = platform->surface.width  / 2;
+    center.y = platform->surface.height / 2;
 
-    Win32Surface* win32_surface = (Win32Surface*)surface;
-
-    ClientToScreen( win32_surface->hWnd, &center );
+    ClientToScreen(
+        win32_platform->window.handle,
+        &center
+    );
     SetCursorPos( center.x, center.y );
 }
+void platform_sleep( Platform*, u32 ms ) {
+    DWORD dwMilliseconds = ms;
+    Sleep( dwMilliseconds );
+}
+void platform_set_pad_motor_state(
+    Platform*,
+    u32 gamepad_index, u32 motor, f32 value
+) {
+    XINPUT_VIBRATION vibration = {};
+    if( motor == GAMEPAD_MOTOR_LEFT ) {
+        f32 right_motor = input_query_motor_state(
+            gamepad_index,
+            GAMEPAD_MOTOR_RIGHT
+        );
+        vibration.wLeftMotorSpeed  = (WORD)( value * (f32)U16::MAX );
+        vibration.wRightMotorSpeed = (WORD)( right_motor * (f32)U16::MAX );
+    } else {
+        f32 left_motor = input_query_motor_state(
+            gamepad_index,
+            GAMEPAD_MOTOR_LEFT
+        );
+        vibration.wLeftMotorSpeed  = (WORD)( left_motor * (f32)U16::MAX );
+        vibration.wRightMotorSpeed = (WORD)( value * (f32)U16::MAX );
+    }
 
-void platform_poll_gamepad() {
-    if( !IS_ACTIVE ) {
+    XInputSetState( gamepad_index, &vibration );
+}
+void platform_poll_gamepad( Platform* platform ) {
+    if( !platform->is_active ) {
         return;
     }
 
     XINPUT_STATE gamepad_state = {};
     DWORD max_index = XUSER_MAX_COUNT > MAX_GAMEPAD_INDEX ?
-        MAX_GAMEPAD_INDEX :
-        XUSER_MAX_COUNT;
+        MAX_GAMEPAD_INDEX : XUSER_MAX_COUNT;
 
     Event event = {};
     for(
@@ -2119,16 +423,16 @@ void platform_poll_gamepad() {
             gamepad_index,
             &gamepad_state
         );
-        if( is_active != ERROR_SUCCESS ) {
-            // if gamepad activated this frame, fire an event
-            b32 was_active = input_is_pad_active( gamepad_index );
-            if( was_active != is_active && is_active ) {
-                event.code = EVENT_CODE_INPUT_GAMEPAD_ACTIVATE;
-                event.data.gamepad_activate.gamepad_index = gamepad_index;
-                event_fire( event );
-            }
+        // if gamepad activated this frame, fire an event
+        b32 was_active = input_is_pad_active( gamepad_index );
+        if( was_active != is_active && is_active ) {
+            event.code = EVENT_CODE_INPUT_GAMEPAD_ACTIVATE;
+            event.data.gamepad_activate.gamepad_index = gamepad_index;
+            event_fire( event );
+        }
+        input_set_pad_active( gamepad_index, is_active );
 
-            input_set_pad_active( gamepad_index, is_active );
+        if( is_active != ERROR_SUCCESS ) {
             continue;
         }
 
@@ -2313,37 +617,191 @@ void platform_poll_gamepad() {
         }
     }
 }
-
-void platform_set_pad_motor_state(
-    u32 gamepad_index,
-    u32 motor,
-    f32 value
+b32 platform_vk_create_surface(
+    Platform* platform,
+    struct VulkanContext* context
 ) {
-    XINPUT_VIBRATION vibration = {};
-    if( motor == GAMEPAD_MOTOR_LEFT ) {
-        f32 right_motor = input_query_motor_state(
-            gamepad_index,
-            GAMEPAD_MOTOR_RIGHT
-        );
-        vibration.wLeftMotorSpeed  = (WORD)( value * (f32)U16::MAX );
-        vibration.wRightMotorSpeed = (WORD)( right_motor * (f32)U16::MAX );
-    } else {
-        f32 left_motor = input_query_motor_state(
-            gamepad_index,
-            GAMEPAD_MOTOR_LEFT
-        );
-        vibration.wLeftMotorSpeed  = (WORD)( left_motor * (f32)U16::MAX );
-        vibration.wRightMotorSpeed = (WORD)( value * (f32)U16::MAX );
+    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+    
+    VkWin32SurfaceCreateInfoKHR create_info = {};
+    create_info.sType     = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+    create_info.hinstance = win32_platform->instance;
+    create_info.hwnd      = win32_platform->window.handle;
+
+    VkSurfaceKHR vk_surface = {};
+
+    VkResult result = vkCreateWin32SurfaceKHR(
+        context->instance,
+        &create_info,
+        context->allocator,
+        &vk_surface
+    );
+
+    if( result != VK_SUCCESS ) {
+        WIN32_LOG_ERROR("Failed to create Vulkan surface!");
+        return false;
+    }
+    
+    context->surface.surface = vk_surface;
+    context->surface.width   = platform->surface.width;
+    context->surface.height  = platform->surface.height;
+
+    return true;
+
+}
+usize platform_vk_read_ext_names(
+    Platform*,
+    usize max_names,
+    usize* name_count,
+    const char** names
+) {
+    usize win32_ext_count = STATIC_ARRAY_COUNT( WIN32_VULKAN_EXTENSIONS );
+    usize max_count = win32_ext_count > max_names ?
+        max_names : win32_ext_count;
+    
+    usize count = *name_count;
+    for( usize i = 0; i < max_count; ++i ) {
+        names[count++] = WIN32_VULKAN_EXTENSIONS[i];
+        win32_ext_count--;
     }
 
-    XInputSetState( gamepad_index, &vibration );
+    *name_count = count;
+    return win32_ext_count;
 }
-
-void sleep( u32 ms ) {
-    DWORD dwMilliseconds = ms;
-    Sleep( dwMilliseconds );
+void platform_gl_swap_buffers( Platform* platform ) {
+    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+    SwapBuffers( win32_platform->window.device_context );
 }
+internal HGLRC win32_gl_create_context( Platform* platform ) {
+    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
 
+    PIXELFORMATDESCRIPTOR desired_pixel_format = {};
+    u16 pixel_format_size = sizeof( PIXELFORMATDESCRIPTOR );
+    desired_pixel_format.nSize      = pixel_format_size;
+    desired_pixel_format.iPixelType = PFD_TYPE_RGBA;
+    desired_pixel_format.nVersion   = 1;
+    desired_pixel_format.dwFlags    = PFD_SUPPORT_OPENGL |
+        PFD_DRAW_TO_WINDOW | PFD_DOUBLEBUFFER;
+    desired_pixel_format.cColorBits = 32;
+    desired_pixel_format.cAlphaBits = 8;
+    desired_pixel_format.iLayerType = PFD_MAIN_PLANE;
+
+    i32 pixelFormatIndex = ChoosePixelFormat(
+        win32_platform->window.device_context,
+        &desired_pixel_format
+    );
+    PIXELFORMATDESCRIPTOR suggested_pixel_format = {};
+    DescribePixelFormat(
+        win32_platform->window.device_context, pixelFormatIndex,
+        pixel_format_size, &suggested_pixel_format
+    );
+
+    if( SetPixelFormat(
+        win32_platform->window.device_context,
+        pixelFormatIndex,
+        &suggested_pixel_format
+    ) == FALSE ) {
+        win32_log_error( true );
+        return nullptr;
+    }
+
+    HGLRC temp = wglCreateContext( win32_platform->window.device_context );
+    if(!temp) {
+        win32_log_error( false );
+        return nullptr;
+    }
+
+    if( wglMakeCurrent(
+        win32_platform->window.device_context,
+        temp ) == FALSE
+    ) {
+        WIN32_LOG_ERROR("Failed to make temp OpenGL context current!");
+        return nullptr;
+    }
+
+    wglCreateContextAttribsARB = (impl::wglCreateContextAttribsARB_fn)
+        wglGetProcAddress("wglCreateContextAttribsARB");
+
+    if(!wglCreateContextAttribsARB) {
+        WIN32_LOG_ERROR(
+            "Failed to load function "
+            "\"wglCreateContextAttribsARB\"!"
+        );
+        return nullptr;
+    }
+
+    i32 attribs[] = {
+        WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+        WGL_CONTEXT_MAJOR_VERSION_ARB, GL_VERSION_MAJOR,
+        WGL_CONTEXT_MINOR_VERSION_ARB, GL_VERSION_MINOR,
+        WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,
+        0
+    };
+
+    HGLRC result = wglCreateContextAttribsARB(
+        win32_platform->window.device_context, nullptr, attribs
+    );
+    wglDeleteContext( temp );
+    if(!result) {
+        WIN32_LOG_ERROR(
+            "wglCreateContextAttribsARB "
+            "failed to create OpenGL context!"
+        );
+        return nullptr;
+    }
+    wglMakeCurrent( win32_platform->window.device_context, result );
+
+    return result;
+}
+void* win32_gl_load_proc( const char* function_name ) {
+    void* function = (void*)wglGetProcAddress( function_name );
+    if( !function ) {
+        HMODULE lib_gl = GetModuleHandle( L"OPENGL32.DLL" );
+        LOG_ASSERT( lib_gl, "OpenGL module was not loaded!" );
+        function = (void*)GetProcAddress(
+            lib_gl,
+            function_name
+        );
+
+#if defined(LD_LOGGING)
+        if( !function ) {
+            WIN32_LOG_WARN(
+                "Failed to load GL function \"%s\"!",
+                function_name
+            );
+        }
+#endif
+    }
+
+    return function;
+}
+b32 platform_gl_init(
+    Platform* platform,
+    OpenGLContext* context
+) {
+    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+
+    if( !win32_load_opengl_gdi32(
+        &win32_platform->lib_gl,
+        &win32_platform->lib_gdi32
+    ) ) {
+        return false;
+    }
+
+    HGLRC gl_context = win32_gl_create_context( platform );
+    if( !gl_context ) {
+        return false;
+    }
+
+    context->context = (void*)gl_context;
+
+    if( !gladLoadGLLoader( win32_gl_load_proc ) ) {
+        return false;
+    }
+
+    win32_platform->gl_context = context;
+    return true;
+}
 SystemInfo query_system_info() {
     SystemInfo result = {};
 
@@ -2439,5 +897,1091 @@ SystemInfo query_system_info() {
 
     return result;
 }
+
+LRESULT win32_winproc(
+    HWND hWnd, UINT Msg,
+    WPARAM wParam, LPARAM lParam
+) {
+    #define TRANSITION_STATE_MASK (1 << 31)
+    #define EXTENDED_KEY_MASK     (1 << 24)
+    #define SCANCODE_MASK         0x00FF0000
+
+    Platform* platform = (Platform*)GetWindowLongPtr(
+        hWnd,
+        GWLP_USERDATA
+    );
+
+    if( !platform ) {
+        return DefWindowProc(
+            hWnd,
+            Msg,
+            wParam,
+            lParam
+        );
+    }
+
+    [[maybe_unused]]
+    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+
+    Event event = {};
+    switch( Msg ) {
+        case WM_DESTROY: {
+            event.code = EVENT_CODE_SURFACE_DESTROY;
+            event_fire( event );
+        } break;
+
+        case WM_ACTIVATE: {
+            b32 is_active = wParam == WA_ACTIVE ||
+                wParam == WA_CLICKACTIVE;
+
+            XInputEnable( (BOOL)is_active );
+            event.code = EVENT_CODE_SURFACE_ACTIVE;
+            event.data.surface_active.is_active = is_active;
+            event_fire( event );
+
+            if( !is_active ) {
+                platform_cursor_set_visible( platform, true );
+            }
+            platform->is_active = is_active;
+        } break;
+
+        case WM_WINDOWPOSCHANGED: {
+            local RECT last_rect = {};
+            RECT rect = {};
+            if( GetClientRect( hWnd, &rect ) ) {
+                if(
+                    last_rect.right  == rect.right &&
+                    last_rect.bottom == rect.bottom
+                ) {
+                    last_rect = rect;
+                    break;
+                }
+
+                #define MIN_DIMENSIONS 1
+                ivec2 dimensions = {
+                    max( rect.right, MIN_DIMENSIONS ),
+                    max( rect.bottom, MIN_DIMENSIONS ),
+                };
+
+                platform->surface.dimensions = dimensions;
+
+                event.code = EVENT_CODE_SURFACE_RESIZE;
+                event.data.surface_resize.dimensions = dimensions;
+                event_fire( event );
+
+                last_rect = rect;
+            }
+        } return FALSE;
+
+        case WM_SYSKEYUP:
+        case WM_SYSKEYDOWN:
+        case WM_KEYDOWN:
+        case WM_KEYUP: {
+
+            if( !platform->is_active ) {
+                break;
+            }
+
+            b32 previous_key_state = (lParam >> 30) == 1;
+            if( previous_key_state ) {
+                break;
+            }
+            u8 keycode = wParam;
+
+            if( ARE_BITS_SET( lParam, EXTENDED_KEY_MASK ) ) {
+                if( keycode == KEY_CONTROL_LEFT ) {
+                    keycode = KEY_CONTROL_RIGHT;
+                } else if( keycode == KEY_ALT_LEFT ) {
+                    keycode = KEY_ALT_RIGHT;
+                }
+            }
+
+            if( keycode == KEY_SHIFT_LEFT ) {
+                LPARAM scancode = (lParam & SCANCODE_MASK) >> 16;
+                WPARAM new_vkcode = MapVirtualKey(
+                    scancode,
+                    MAPVK_VSC_TO_VK_EX
+                );
+                if( new_vkcode == VK_RSHIFT ) {
+                    keycode = KEY_SHIFT_RIGHT;
+                }
+            }
+
+            b32 is_down = !((lParam & TRANSITION_STATE_MASK) != 0);
+            input_set_key( (KeyCode)keycode, is_down );
+
+            event.code = EVENT_CODE_INPUT_KEY;
+            event.data.keyboard.code    = (KeyCode)keycode;
+            event.data.keyboard.is_down = is_down;
+            event_fire( event );
+
+        } return TRUE;
+        
+        case WM_MOUSEMOVE: {
+
+            if( !platform->is_active ) {
+                break;
+            }
+
+            RECT client_rect = {};
+            GetClientRect( hWnd, &client_rect );
+
+            ivec2 mouse_position = {};
+            mouse_position.x = GET_X_LPARAM(lParam);
+            mouse_position.y = client_rect.bottom - GET_Y_LPARAM(lParam);
+            input_set_mouse_position( mouse_position );
+
+            event.code = EVENT_CODE_INPUT_MOUSE_MOVE;
+            event.data.mouse_move.coord = mouse_position;
+            event_fire( event );
+
+        } return TRUE;
+
+        case WM_LBUTTONDOWN:
+        case WM_LBUTTONUP:
+        case WM_RBUTTONDOWN:
+        case WM_RBUTTONUP:
+        case WM_MBUTTONDOWN:
+        case WM_MBUTTONUP: {
+
+            if( !platform->is_active ) {
+                break;
+            }
+
+            b32 is_down =
+                Msg == WM_LBUTTONDOWN ||
+                Msg == WM_MBUTTONDOWN ||
+                Msg == WM_RBUTTONDOWN;
+            MouseCode code;
+            if( Msg == WM_LBUTTONDOWN || Msg == WM_LBUTTONUP ) {
+                code = MBC_BUTTON_LEFT;
+            } else if( Msg == WM_RBUTTONDOWN || Msg == WM_RBUTTONUP ) {
+                code = MBC_BUTTON_RIGHT;
+            } else if( Msg == WM_MBUTTONDOWN || Msg == WM_MBUTTONUP ) {
+                code = MBC_BUTTON_MIDDLE;
+            } else {
+                break;
+            }
+
+            input_set_mouse_button( code, is_down );
+            event.code = EVENT_CODE_INPUT_MOUSE_BUTTON;
+            event.data.mouse_button.code    = code;
+            event.data.mouse_button.is_down = is_down;
+            event_fire( event );
+
+        } return TRUE;
+
+        case WM_XBUTTONDOWN:
+        case WM_XBUTTONUP: {
+
+            if( !platform->is_active ) {
+                break;
+            }
+
+            UINT button = GET_XBUTTON_WPARAM(wParam);
+            b32 is_down = Msg == WM_XBUTTONDOWN;
+            MouseCode code = (MouseCode)(button + (MBC_BUTTON_EXTRA_1 - 1));
+
+            input_set_mouse_button( code, is_down );
+            event.code = EVENT_CODE_INPUT_MOUSE_BUTTON;
+            event.data.mouse_button.code    = code;
+            event.data.mouse_button.is_down = is_down;
+            event_fire( event );
+
+        } return TRUE;
+
+        case WM_MOUSEHWHEEL:
+        case WM_MOUSEWHEEL: {
+
+            if( !platform->is_active ) {
+                break;
+            }
+
+            i64 delta = GET_WHEEL_DELTA_WPARAM(wParam);
+            delta = delta == 0 ? 0 : absolute(delta);
+            event.data.mouse_wheel.delta = delta;
+
+            if( Msg == WM_MOUSEWHEEL ) {
+                event.code = EVENT_CODE_INPUT_MOUSE_WHEEL;
+                input_set_mouse_wheel( delta );
+            } else {
+                event.code = EVENT_CODE_INPUT_HORIZONTAL_MOUSE_WHEEL;
+                input_set_horizontal_mouse_wheel( delta );
+            }
+
+            event_fire( event );
+
+        } return TRUE;
+
+        case WM_SETCURSOR: switch( LOWORD( lParam ) ) {
+            case HTRIGHT:
+            case HTLEFT: {
+                platform_cursor_set_style(
+                    platform,
+                    CURSOR_RESIZE_HORIZONTAL
+                );
+            } break;
+
+            case HTTOP:
+            case HTBOTTOM: {
+                platform_cursor_set_style(
+                    platform,
+                    CURSOR_RESIZE_VERTICAL
+                );
+            } break;
+
+            case HTBOTTOMLEFT:
+            case HTTOPRIGHT: {
+                platform_cursor_set_style(
+                    platform,
+                    CURSOR_RESIZE_TOP_RIGHT_BOTTOM_LEFT
+                );
+            } break;
+
+            case HTBOTTOMRIGHT:
+            case HTTOPLEFT: {
+                platform_cursor_set_style(
+                    platform,
+                    CURSOR_RESIZE_TOP_LEFT_BOTTOM_RIGHT
+                );
+            } break;
+
+            default: {
+                platform_cursor_set_style(
+                    platform,
+                    CURSOR_ARROW
+                );
+            } break;
+        } return TRUE;
+
+    }
+
+    return DefWindowProc(
+        hWnd,
+        Msg,
+        wParam,
+        lParam
+    );
+    return false;
+}
+
+MessageBoxResult message_box(
+    const char* window_title,
+    const char* message,
+    MessageBoxType type,
+    MessageBoxIcon icon
+) {
+    HWND   hWnd      = nullptr;
+    LPCSTR lpText    = message;
+    LPCSTR lpCaption = window_title;
+
+    b32  valid_type = true;
+    UINT uType = 0;
+    switch( type ) {
+        case MBTYPE_OK:
+            uType |= MB_OK;
+            break;
+        case MBTYPE_OKCANCEL:
+            uType |= MB_OKCANCEL;
+            break;
+        case MBTYPE_RETRYCANCEL:
+            uType |= MB_RETRYCANCEL;
+            break;
+        case MBTYPE_YESNO:
+            uType |= MB_YESNO;
+            break;
+        case MBTYPE_YESNOCANCEL:
+            uType |= MB_YESNOCANCEL;
+            break;
+        default:
+            valid_type = false;
+            break;
+    }
+
+    if( !valid_type ) {
+        WIN32_LOG_ERROR("Message Box requires a valid type.");
+        return MBRESULT_UNKNOWN_ERROR;
+    }
+
+    switch( icon ) {
+        case MBICON_INFORMATION:
+            uType |= MB_ICONASTERISK;
+            break;
+        case MBICON_WARNING:
+            uType |= MB_ICONWARNING;
+            break;
+        case MBICON_ERROR:
+            uType |= MB_ICONERROR;
+            break;
+        default: break;
+    }
+
+    int mb_result = MessageBoxA(
+        hWnd,
+        lpText,
+        lpCaption,
+        uType
+    );
+
+    MessageBoxResult result;
+    switch( mb_result ) {
+        case IDOK:
+            result = MBRESULT_OK;
+            break;
+        case IDYES:
+            result = MBRESULT_YES;
+            break;
+        case IDNO:
+            result = MBRESULT_NO;
+            break;
+        case IDRETRY:
+            result = MBRESULT_RETRY;
+            break;
+        case IDCANCEL:
+            result = MBRESULT_CANCEL;
+            break;
+        default:
+            WIN32_LOG_ERROR("Message Box returned an unknown result.");
+            result = MBRESULT_UNKNOWN_ERROR;
+            break;
+    }
+
+    return result;
+}
+
+b32 win32_load_user32( HMODULE* out_module ) {
+    HMODULE lib_user32 = nullptr;
+
+    if( !win32_library_load(
+        L"USER32.DLL",
+        &lib_user32
+    ) ) {
+        MESSAGE_BOX_FATAL(
+            "Failed to load library!",
+            "Failed to load user32.dll!"
+        );
+        return false;
+    }
+
+    SetProcessDpiAwarenessContext =
+    (::impl::SetProcessDpiAwarenessContext_fn)win32_proc_address_required(
+        lib_user32,
+        "SetProcessDpiAwarenessContext"
+    );
+    if( !SetProcessDpiAwarenessContext ) {
+        return false;
+    }
+
+    GetDpiForSystem =
+    (::impl::GetDpiForSystem_fn)win32_proc_address_required(
+        lib_user32,
+        "GetDpiForSystem"
+    );
+    if( !GetDpiForSystem ) {
+        return false;
+    }
+
+    AdjustWindowRectExForDpi =
+    (::impl::AdjustWindowRectExForDpi_fn)win32_proc_address_required(
+        lib_user32,
+        "AdjustWindowRectExForDpi"
+    );
+    if( !AdjustWindowRectExForDpi ) {
+        return false;
+    }
+
+    *out_module = lib_user32;
+    return true;
+}
+b32 win32_load_xinput( HMODULE* out_module ) {
+    HMODULE lib_xinput = nullptr;
+
+    if( !win32_library_load(
+        L"XINPUT1_4.DLL",
+        &lib_xinput
+    ) ) {
+        if( !win32_library_load(
+            L"XINPUT9_1_0.DLL",
+            &lib_xinput
+        ) ) {
+            if( !win32_library_load(
+                L"XINPUT1_3.DLL",
+                &lib_xinput
+            ) ) {
+                MESSAGE_BOX_FATAL(
+                    "Failed to load library!",
+                    "Failed to load any version of XInput!"
+                );
+                return false;
+            }
+        }
+    }
+
+    XInputGetState =
+    (::impl::XInputGetState_fn)win32_proc_address_required(
+        lib_xinput,
+        "XInputGetState"
+    );
+    if( !XInputGetState ) {
+        return false;
+    }
+    XInputSetState =
+    (::impl::XInputSetState_fn)win32_proc_address_required(
+        lib_xinput,
+        "XInputSetState"
+    );
+    if( !XInputSetState ) {
+        return false;
+    }
+    ::impl::XInputEnable_fn xinput_enable =
+    (::impl::XInputEnable_fn)win32_proc_address(
+        lib_xinput,
+        "XInputEnable"
+    );
+    if( xinput_enable ) {
+        XInputEnable = xinput_enable;
+    }
+
+    *out_module = lib_xinput;
+    return true;
+}
+b32 win32_load_opengl_gdi32( HMODULE* out_gl, HMODULE* out_gdi32 ) {
+    HMODULE lib_gl    = nullptr;
+    HMODULE lib_gdi32 = nullptr;
+
+    if( !win32_library_load(
+        L"OPENGL32.DLL",
+        &lib_gl
+    ) ) {
+        MESSAGE_BOX_FATAL(
+            "Failed to load library!",
+            "Failed to load opengl32.dll!"
+        );
+        return false;
+    }
+    if( !win32_library_load(
+        L"GDI32.DLL",
+        &lib_gdi32
+    ) ) {
+        MESSAGE_BOX_FATAL(
+            "Failed to load library!",
+            "Failed to load gdi32.dll!"
+        );
+        return false;
+    }
+
+    wglCreateContext =
+    (::impl::wglCreateContext_fn)win32_proc_address_required(
+        lib_gl,
+        "wglCreateContext"
+    );
+    if( !wglCreateContext ) {
+        return false;
+    }
+    wglMakeCurrent =
+    (::impl::wglMakeCurrent_fn)win32_proc_address_required(
+        lib_gl,
+        "wglMakeCurrent"
+    );
+    if( !wglMakeCurrent ) {
+        return false;
+    }
+    wglDeleteContext =
+    (::impl::wglDeleteContext_fn)win32_proc_address_required(
+        lib_gl,
+        "wglDeleteContext"
+    );
+    if( !wglDeleteContext ) {
+        return false;
+    }
+    wglGetProcAddress =
+    (::impl::wglGetProcAddress_fn)win32_proc_address_required(
+        lib_gl,
+        "wglGetProcAddress"
+    );
+    if( !wglGetProcAddress ) {
+        return false;
+    }
+
+    DescribePixelFormat =
+    (::impl::DescribePixelFormat_fn)win32_proc_address_required(
+        lib_gdi32,
+        "DescribePixelFormat"
+    );
+    if( !DescribePixelFormat ) {
+        return false;
+    }
+    ChoosePixelFormat =
+    (::impl::ChoosePixelFormat_fn)win32_proc_address_required(
+        lib_gdi32,
+        "ChoosePixelFormat"
+    );
+    if( !ChoosePixelFormat ) {
+        return false;
+    }
+    SetPixelFormat =
+    (::impl::SetPixelFormat_fn)win32_proc_address_required(
+        lib_gdi32,
+        "SetPixelFormat"
+    );
+    if( !SetPixelFormat ) {
+        return false;
+    }
+
+    SwapBuffers =
+    (::impl::SwapBuffers_fn)win32_proc_address_required(
+        lib_gdi32,
+        "SwapBuffers"
+    );
+    if( !SwapBuffers ) {
+        return false;
+    }
+
+    *out_gl    = lib_gl;
+    *out_gdi32 = lib_gdi32;
+    return true;
+}
+
+namespace impl {
+    internal b32 _win32_library_load(
+        const wchar_t* module_name,
+        HMODULE* out_module
+    ) {
+        HMODULE module = LoadLibrary(
+            module_name
+        );
+        if( !module ) {
+            return false;
+        }
+        *out_module = module;
+        return true;
+    }
+
+    internal b32 _win32_library_load_trace(
+        const wchar_t* module_name,
+        HMODULE* out_module,
+        const char* function,
+        const char* file,
+        i32 line
+    ) {
+        HMODULE module = LoadLibrary(
+            module_name
+        );
+        if( !module ) {
+            log_formatted_locked(
+                LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,
+                LOG_COLOR_RED, 0,
+                "[ERROR WIN32  | %s | %s:%i] ",
+                function,
+                file,
+                line
+            );
+            log_formatted_locked(
+                LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,
+                LOG_COLOR_RED,
+                LOG_FLAG_NEW_LINE,
+                "Failed to load library \"%ls\"!",
+                module_name
+            );
+            return false;
+        }
+
+        *out_module = module;
+        log_formatted_locked(
+            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
+            LOG_COLOR_RESET, 0,
+            "[NOTE WIN32  | %s | %s:%i] ",
+            function,
+            file,
+            line
+        );
+        log_formatted_locked(
+            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
+            LOG_COLOR_RESET,
+            LOG_FLAG_NEW_LINE,
+            "Library \"%ls\" has been loaded successfully.",
+            module_name
+        );
+
+        return true;
+    }
+
+    internal void _win32_library_free( HMODULE module ) {
+        FreeLibrary( module );
+    }
+
+    internal void _win32_library_free_trace(
+        HMODULE module,
+        const char* function,
+        const char* file,
+        i32 line
+    ) {
+        static const u32 NAME_BUFFER_SIZE = 128;
+        wchar_t name_buffer[NAME_BUFFER_SIZE];
+        GetModuleBaseName(
+            GetCurrentProcess(),
+            module,
+            name_buffer,
+            NAME_BUFFER_SIZE
+        );
+        log_formatted_locked(
+            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
+            LOG_COLOR_RESET, 0,
+            "[NOTE WIN32  | %s | %s:%i] ",
+            function,
+            file,
+            line
+        );
+        log_formatted_locked(
+            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
+            LOG_COLOR_RESET,
+            LOG_FLAG_NEW_LINE,
+            "Library \"%ls\" has been freed.",
+            name_buffer
+        );
+        FreeLibrary( module );
+    }
+
+} // namespace impl
+
+internal void* win32_proc_address(
+    HMODULE module,
+    const char* proc_name
+) {
+    void* result = (void*)GetProcAddress(
+        module,
+        proc_name
+    );
+
+#if defined(LD_LOGGING)
+    static const usize MODULE_NAME_BUFFER_SIZE = 128;
+    wchar_t module_name_buffer[MODULE_NAME_BUFFER_SIZE];
+    GetModuleBaseName(
+        GetCurrentProcess(),
+        module,
+        module_name_buffer,
+        MODULE_NAME_BUFFER_SIZE
+    );
+    if( result ) {
+        WIN32_LOG_NOTE(
+            "Function \"%s\" loaded from library \"%ls\".",
+            proc_name,
+            module_name_buffer
+        );
+    } else {
+        WIN32_LOG_WARN(
+            "Failed to load function \"%s\" from library \"%ls\"!",
+            proc_name,
+            module_name_buffer
+        );
+    }
+#endif
+
+    return result;
+}
+
+internal void* win32_proc_address_required(
+    HMODULE module,
+    const char* proc_name
+) {
+    void* result = (void*)GetProcAddress(
+        module,
+        proc_name
+    );
+
+    if( result ) {
+#if defined(LD_LOGGING)
+        static const usize MODULE_NAME_BUFFER_SIZE = 128;
+        wchar_t module_name_buffer[MODULE_NAME_BUFFER_SIZE];
+        GetModuleBaseName(
+            GetCurrentProcess(),
+            module,
+            module_name_buffer,
+            MODULE_NAME_BUFFER_SIZE
+        );
+        WIN32_LOG_NOTE(
+            "Function \"%s\" loaded from library \"%ls\".",
+            proc_name,
+            module_name_buffer
+        );
+#endif
+    } else {
+        static const usize MODULE_NAME_BUFFER_SIZE = 128;
+        wchar_t module_name_buffer[MODULE_NAME_BUFFER_SIZE];
+        GetModuleBaseName(
+            GetCurrentProcess(),
+            module,
+            module_name_buffer,
+            MODULE_NAME_BUFFER_SIZE
+        );
+        static const usize MESSAGE_BUFFER_SIZE = 512;
+        char message_buffer[MESSAGE_BUFFER_SIZE];
+        snprintf(
+            message_buffer,
+            MESSAGE_BUFFER_SIZE,
+            "Failed to load function \"%s\" from module \"%ls\"!",
+            proc_name,
+            module_name_buffer
+        );
+        WIN32_LOG_ERROR("%s", message_buffer);
+        MESSAGE_BOX_FATAL(
+            "Failed to load function.",
+            message_buffer
+        );
+    }
+
+    return result;
+}
+
+DWORD win32_log_error( b32 present_message_box ) {
+    DWORD error_code = GetLastError();
+    if( error_code == ERROR_SUCCESS ) {
+        return error_code;
+    }
+
+    wchar_t* message_buffer = nullptr;
+    DWORD message_buffer_size = FormatMessage(
+        FORMAT_MESSAGE_FROM_SYSTEM |
+        FORMAT_MESSAGE_IGNORE_INSERTS |
+        FORMAT_MESSAGE_ALLOCATE_BUFFER |
+        FORMAT_MESSAGE_MAX_WIDTH_MASK,
+        nullptr,
+        error_code,
+        0,
+        (LPWSTR)&message_buffer,
+        0,
+        nullptr
+    );
+
+    if( message_buffer ) {
+        if( message_buffer_size > 0 ) {
+            WIN32_LOG_ERROR(
+                "%u: %ls",
+                error_code,
+                message_buffer
+            );
+
+            if( present_message_box ) {
+                if( ERROR_MESSAGE_BUFFER ) {
+                    snprintf(
+                        ERROR_MESSAGE_BUFFER,
+                        ERROR_MESSAGE_BUFFER_SIZE,
+                        "Encountered a fatal Windows error!\n"
+                        LD_CONTACT_MESSAGE "\n"
+                        "%ls",
+                        message_buffer
+                    );
+
+                    MESSAGE_BOX_FATAL(
+                        "Fatal Windows Error",
+                        ERROR_MESSAGE_BUFFER
+                    );
+                } else {
+                    WIN32_LOG_WARN(
+                        "Attempted to present error message box while "
+                        "message buffer is null!"
+                    );
+                }
+            }
+        }
+
+        LocalFree( message_buffer );
+    }
+
+    return error_code;
+}
+
+global usize HEAP_MEMORY_USAGE = 0;
+global usize PAGE_MEMORY_USAGE = 0;
+usize query_heap_usage() {
+    return HEAP_MEMORY_USAGE;
+}
+usize query_page_usage() {
+    return PAGE_MEMORY_USAGE;
+}
+
+void* heap_alloc( usize size ) {
+    void* pointer = (void*)HeapAlloc(
+        GetProcessHeap(),
+        HEAP_ZERO_MEMORY,
+        size
+    );
+#if defined(LD_PROFILING)
+    if( pointer ) {
+        HEAP_MEMORY_USAGE += size;
+    }
+#endif
+    return pointer;
+}
+void* heap_realloc( void* memory, usize new_size ) {
+
+#if defined(LD_PROFILING)
+    SIZE_T previous_size = HeapSize(
+        GetProcessHeap(),
+        0,
+        memory
+    );
+#endif
+
+    void* pointer = (void*)HeapReAlloc(
+        GetProcessHeap(),
+        HEAP_ZERO_MEMORY,
+        memory,
+        new_size
+    );
+
+#if defined(LD_PROFILING)
+    if( pointer && previous_size != (SIZE_T)-1 ) {
+        usize diff = new_size - previous_size;
+        HEAP_MEMORY_USAGE += diff;
+    }
+#endif
+
+    return pointer;
+}
+void heap_free( void* memory ) {
+
+#if defined(LD_PROFILING)
+    SIZE_T mem_size = HeapSize(
+        GetProcessHeap(),
+        0,
+        memory
+    );
+    if( mem_size != (SIZE_T)-1 ) {
+        HEAP_MEMORY_USAGE -= mem_size;
+    }
+
+#endif
+
+    HeapFree( GetProcessHeap(), 0, memory );
+}
+
+void* page_alloc( usize size ) {
+    void* pointer = (void*)VirtualAlloc(
+        nullptr,
+        size,
+        MEM_RESERVE | MEM_COMMIT,
+        PAGE_READWRITE
+    );
+
+#if defined(LD_PROFILING)
+    PAGE_MEMORY_USAGE += size;
+#endif
+    return pointer;
+}
+void page_free( void* memory ) {
+#if defined(LD_PROFILING)
+    MEMORY_BASIC_INFORMATION info;
+    if(VirtualQuery(
+        memory,
+        &info,
+        sizeof(MEMORY_BASIC_INFORMATION)
+    )) {
+        PAGE_MEMORY_USAGE -= info.RegionSize;
+    }
+#endif
+    VirtualFree(
+        memory,
+        0,
+        MEM_RELEASE | MEM_DECOMMIT
+    );
+}
+
+// struct Win32ThreadHandle {
+//     HANDLE     handle;
+//     ThreadProc proc;
+//     void*      params;
+//     DWORD      id;
+// };
+
+
+// // MULTI-THREADING | BEGIN ------------------------------------------------
+
+// internal DWORD WINAPI win32_thread_proc( void* params ) {
+//     Win32ThreadHandle* thread_handle = (Win32ThreadHandle*)params;
+
+//     DWORD return_value = thread_handle->proc(
+//         thread_handle->params
+//     );
+
+//     mem_free( params );
+
+//     return return_value;
+// }
+
+// #define THREAD_STACK_SIZE_SAME_AS_MAIN 0
+// #define THREAD_RUN_ON_CREATE 0
+// ThreadHandle thread_create(
+//     OldPlatformState* state,
+//     ThreadProc thread_proc,
+//     void*      params,
+//     b32        run_on_creation
+// ) {
+
+//     Win32State* win32_state = (Win32State*)state->platform_data;
+
+//     Win32ThreadHandle* thread_handle = get_next_handle( win32_state );
+//     if( !thread_handle ) {
+//         LOG_ERROR("Out of thread handles!");
+//         return nullptr;
+//     }
+//     thread_handle->proc   = thread_proc;
+//     thread_handle->params = params;
+
+//     // we don't care about this
+//     LPSECURITY_ATTRIBUTES lpThreadAttributes = nullptr;
+
+//     SIZE_T dwStackSize     = THREAD_STACK_SIZE_SAME_AS_MAIN;
+//     DWORD  dwCreationFlags = CREATE_SUSPENDED;
+
+//     mem_fence();
+
+//     thread_handle->handle = CreateThread(
+//         lpThreadAttributes,
+//         dwStackSize,
+//         win32_thread_proc,
+//         thread_handle,
+//         dwCreationFlags,
+//         &thread_handle->id
+//     );
+
+//     if( !thread_handle->handle ) {
+//         win32_log_error( true );
+//         return nullptr;
+//     }
+
+//     if( run_on_creation ) {
+//         thread_resume( thread_handle );
+//     }
+
+//     return thread_handle;
+// }
+// void thread_resume( ThreadHandle thread ) {
+//     Win32ThreadHandle* win32_thread = (Win32ThreadHandle*)thread;
+//     ResumeThread( win32_thread->handle );
+// }
+
+// Semaphore semaphore_create(
+//     u32 initial_count,
+//     u32 maximum_count
+// ) {
+//     // we don't care about these
+//     LPSECURITY_ATTRIBUTES security_attributes = nullptr;
+//     LPCWSTR name = nullptr;
+//     DWORD flags = 0;
+
+//     DWORD desired_access = SEMAPHORE_ALL_ACCESS;
+
+//     HANDLE semaphore_handle = CreateSemaphoreExW(
+//         security_attributes,
+//         initial_count,
+//         maximum_count,
+//         name,
+//         flags,
+//         desired_access
+//     );
+
+//     return (Semaphore*)semaphore_handle;
+// }
+// void semaphore_increment(
+//     Semaphore semaphore,
+//     u32       increment,
+//     u32*      opt_out_previous_count
+// ) {
+//     HANDLE win32_handle = (HANDLE)semaphore;
+//     ReleaseSemaphore(
+//         win32_handle,
+//         increment,
+//         (LONG*)opt_out_previous_count
+//     );
+// }
+// void semaphore_wait_for(
+//     Semaphore semaphore,
+//     u32       timeout_ms
+// ) {
+//     HANDLE win32_handle = (HANDLE)semaphore;
+//     WaitForSingleObjectEx(
+//         win32_handle,
+//         timeout_ms,
+//         FALSE
+//     );
+// }
+// void semaphore_wait_for_multiple(
+//     usize      count,
+//     Semaphore* semaphores,
+//     b32        wait_for_all,
+//     u32        timeout_ms
+// ) {
+//     const HANDLE* win32_handles = (const HANDLE*)semaphores;
+//     WaitForMultipleObjects(
+//         count,
+//         win32_handles,
+//         wait_for_all ? TRUE : FALSE,
+//         timeout_ms
+//     );
+// }
+// void semaphore_destroy( Semaphore semaphore ) {
+//     HANDLE win32_handle = (HANDLE)semaphore;
+//     CloseHandle( win32_handle );
+// }
+
+// u32 interlocked_increment( volatile u32* addend ) {
+//     return InterlockedIncrement( addend );
+// }
+// u32 interlocked_decrement( volatile u32* addend ) {
+//     return InterlockedDecrement( addend );
+// }
+// u32 interlocked_exchange( volatile u32* target, u32 value ) {
+//     return InterlockedExchange( target, value );
+// }
+// void* interlocked_compare_exchange_pointer(
+//     void* volatile* dst,
+//     void* exchange,
+//     void* comperand
+// ) {
+//     return InterlockedCompareExchangePointer(
+//         dst,
+//         exchange,
+//         comperand
+//     );
+// }
+// u32 interlocked_compare_exchange(
+//     u32 volatile* dst,
+//     u32 exchange,
+//     u32 comperand
+// ) {
+//     return InterlockedCompareExchange(
+//         dst,
+//         exchange,
+//         comperand
+//     );
+// }
+
+// void mem_fence() {
+//     _ReadWriteBarrier();
+// #if defined(SM_ARCH_X86)
+//     _mm_mfence();
+// #elif
+//     #error "mem_fence: Platform is not supported!"
+// #endif
+// }
+// void read_fence() {
+//     _ReadBarrier();
+// #if defined(SM_ARCH_X86)
+//     _mm_lfence();
+// #elif
+//     #error "read_fence: Platform is not supported!"
+// #endif
+// }
+// void write_fence() {
+//     _WriteBarrier();
+// #if defined(SM_ARCH_X86)
+//     _mm_sfence();
+// #elif
+//     #error "write_fence: Platform is not supported!"
+// #endif
+// }
+
+// // MULTI-THREADING | END   ------------------------------------------------
 
 #endif // SM_PLATFORM_WINDOWS

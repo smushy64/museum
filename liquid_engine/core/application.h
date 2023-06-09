@@ -10,7 +10,7 @@
 #include "platform/flags.h"
 #include "renderer/renderer_defines.h"
 
-typedef b32 (*AppRunFn)( void* params, struct Time* time );
+typedef b32 (*AppRunFn)( void* params, f32 delta_time );
 
 struct AppConfig {
     struct SurfaceConfig {

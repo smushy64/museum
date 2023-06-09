@@ -9,9 +9,9 @@
 #include "renderer_defines.h"
 
 b32 renderer_backend_init(
-    RendererBackendType   type,
-    struct PlatformState* state,
-    RendererBackend*      out_backend
+    RendererBackendType type,
+    struct Platform*    platform,
+    RendererBackend*    out_backend
 );
 void renderer_backend_shutdown(
     RendererBackend* backend

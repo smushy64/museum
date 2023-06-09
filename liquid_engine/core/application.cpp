@@ -17,14 +17,15 @@
 #include <stdio.h>
 
 struct AppContext {
-    PlatformState platform;
-    Surface*      main_surface;
-    SystemInfo    sysinfo;
-
-    b32 is_active;
+    Platform   platform;
+    SystemInfo sysinfo;
     b32 is_running;
 
-    Time time;
+    struct {
+        f32 delta_time;
+        f32 elapsed_time;
+        u64 frame_count;
+    } time;
 
     AppRunFn application_run;
     void*    application_params;
@@ -37,44 +38,24 @@ EventReturnCode on_app_exit( Event*, void* ) {
     return EVENT_CONSUMED;
 }
 
-EventReturnCode on_main_surface_destroy( Event* event, void* ) {
-    if(
-        event->data.surface_destroy.surface ==
-        CONTEXT.main_surface
-    ) {
-        CONTEXT.is_running = false;
-        return EVENT_CONSUMED;
-    } else {
-        return EVENT_NOT_CONSUMED;
-    }
+EventReturnCode on_main_surface_destroy( Event*, void* ) {
+    CONTEXT.is_running = false;
+    return EVENT_CONSUMED;
 }
 
 EventReturnCode on_main_surface_active( Event* event, void* ) {
-    if(
-        event->data.surface_active.surface ==
-        CONTEXT.main_surface
-    ) {
-        b32 is_active = event->data.surface_active.is_active;
-        if( is_active ) {
-            LOG_NOTE("Main surface activated.");
-        } else {
-            LOG_NOTE("Main surface deactivated.");
-        }
-        CONTEXT.is_active = is_active;
-        return EVENT_CONSUMED;
+    b32 is_active = event->data.surface_active.is_active;
+    if( is_active ) {
+        LOG_NOTE("Surface activated.");
     } else {
-        return EVENT_NOT_CONSUMED;
+        LOG_NOTE("Surface deactivated.");
     }
+    return EVENT_CONSUMED;
 }
 
 EventReturnCode on_main_surface_resize( Event* event, void* ) {
-    if(
-        event->data.surface_resize.surface ==
-        CONTEXT.main_surface
-    ) {
-        // TODO(alicia): 
-        SM_UNUSED(event);
-    }
+    // TODO(alicia): 
+    SM_UNUSED(event);
     return EVENT_NOT_CONSUMED;
 }
 
@@ -113,9 +94,21 @@ b32 app_init( AppConfig* config ) {
         LIQUID_ENGINE_VERSION_MINOR
     );
 
+    #define MAX_SURFACE_NAME 255
+
+    char surface_name_buffer[MAX_SURFACE_NAME];
+    snprintf(
+        surface_name_buffer,
+        MAX_SURFACE_NAME,
+        "%s | %s",
+        config->main_surface.name,
+        to_string( config->renderer_backend )
+    );
+
     if( !platform_init(
-        config->platform_flags,
-        config->renderer_backend,
+        surface_name_buffer,
+        config->main_surface.dimensions,
+        0,
         &CONTEXT.platform
     ) ) {
         MESSAGE_BOX_FATAL(
@@ -196,7 +189,7 @@ b32 app_init( AppConfig* config ) {
         );
         return false;
     }
-    if( !input_init() ) {
+    if( !input_init( &CONTEXT.platform ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
             "Failed to initialize input subsystem."
@@ -260,33 +253,6 @@ b32 app_init( AppConfig* config ) {
         return false;
     }
 
-    #define MAX_SURFACE_NAME 255
-
-    char surface_name_buffer[MAX_SURFACE_NAME];
-    snprintf(
-        surface_name_buffer,
-        MAX_SURFACE_NAME,
-        "%s | %s",
-        config->main_surface.name,
-        to_string( config->renderer_backend )
-    );
-
-    CONTEXT.main_surface = surface_create(
-        surface_name_buffer,
-        config->main_surface.position,
-        config->main_surface.dimensions,
-        config->main_surface.flags,
-        &CONTEXT.platform,
-        nullptr
-    );
-    if(!CONTEXT.main_surface) {
-        MESSAGE_BOX_FATAL(
-            "Surface Failure",
-            "Failed to create surface."
-        );
-        return false;
-    }
-
     if( !renderer_init(
         config->main_surface.name,
         config->renderer_backend,
@@ -300,7 +266,6 @@ b32 app_init( AppConfig* config ) {
     }
 
     CONTEXT.is_running = true;
-    CONTEXT.is_active  = true;
 
 #if defined(LD_LOGGING) && defined(LD_PROFILING)
     LOG_NOTE("Initial Memory Usage:");
@@ -333,24 +298,28 @@ b32 app_run() {
 
     while( CONTEXT.is_running ) {
         input_swap();
-        platform_poll_gamepad();
-        surface_pump_events( CONTEXT.main_surface );
+        platform_poll_gamepad( &CONTEXT.platform );
+        platform_pump_events( &CONTEXT.platform );
 
-        if( !CONTEXT.is_active ) {
+        if( !CONTEXT.platform.is_active ) {
             continue;
         }
 
-        time_update( &CONTEXT.time );
+        f64 seconds_elapsed = platform_read_seconds_elapsed(
+            &CONTEXT.platform
+        );
+        CONTEXT.time.delta_time   = seconds_elapsed - CONTEXT.time.elapsed_time;
+        CONTEXT.time.elapsed_time = seconds_elapsed;
 
         if(!CONTEXT.application_run(
             CONTEXT.application_params,
-            &CONTEXT.time
+            CONTEXT.time.delta_time
         )) {
             return false;
         }
 
         RenderOrder draw_order = {};
-        draw_order.time = CONTEXT.time;
+        draw_order.delta_time = CONTEXT.time.delta_time;
 
         if( !renderer_draw_frame( &draw_order ) ) {
             MESSAGE_BOX_FATAL(
@@ -360,6 +329,8 @@ b32 app_run() {
             );
             return false;
         }
+
+        CONTEXT.time.frame_count++;
     }
 
     return true;
@@ -392,10 +363,6 @@ void app_shutdown() {
     );
 
     CONTEXT.is_running = false;
-    surface_destroy(
-        &CONTEXT.platform,
-        CONTEXT.main_surface
-    );
     renderer_shutdown();
     event_shutdown();
     input_shutdown();

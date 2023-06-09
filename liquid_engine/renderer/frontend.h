@@ -9,9 +9,9 @@
 #include "renderer_defines.h"
 
 b32 renderer_init(
-    const char*           app_name,
-    RendererBackendType   backend_type,
-    struct PlatformState* state
+    const char*         app_name,
+    RendererBackendType backend_type,
+    struct Platform*    platform
 );
 void renderer_shutdown();
 void renderer_on_resize( i32 width, i32 height );

@@ -52,6 +52,9 @@ typedef void* pvoid;
 #define local    static
 #define global   static
 
+#define LD_CONTACT_MESSAGE \
+    "Please contact me at smushybusiness@gmail.com if you see this."
+
 /// Check if bits are set in bitfield
 #define ARE_BITS_SET( bits, mask ) ( (bits & mask) == mask )
 

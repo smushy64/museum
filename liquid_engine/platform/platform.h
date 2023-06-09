@@ -8,73 +8,23 @@
 #include "defines.h"
 #include "core/math/types.h"
 #include "core/input.h"
-
 #include "flags.h"
 
-#define MAX_THREAD_COUNT 32
-struct PlatformState {
-    void* platform_data;
-};
+inline const char* DEFAULT_SURFACE_NAME = "Surface";
+#define DEFAULT_SURFACE_NAME_LENGTH 7
 
-enum RendererBackendType : u32;
-
-b32 platform_init(
-    PlatformInitFlags flags,
-    RendererBackendType   backend,
-    PlatformState* out_state
-);
-void platform_shutdown(
-    PlatformState* state
-);
-
-u64 platform_absolute_time();
-f64 platform_seconds_elapsed();
-
-b32 platform_create_vulkan_surface(
-    struct PlatformState* state,
-    struct VulkanContext* context
-);
-usize platform_get_vulkan_extension_names(
-    usize max_names,
-    usize* name_count,
-    const char** names
-);
-
-#define MAX_SURFACE_NAME_LENGTH 255
+#define DEFAULT_SURFACE_WIDTH  800
+#define DEFAULT_SURFACE_HEIGHT 600
+/// Platform independent drawing surface
 struct Surface {
-    char name[MAX_SURFACE_NAME_LENGTH];
-
-    union {
-        ivec2 position;
-        struct { i32 x; i32 y; };
-    };
     union {
         ivec2 dimensions;
-        struct { i32 width; i32 height; };
+        struct { i32 width, height; };
     };
-
-    b32 is_focused;
-    b32 is_visible;
+    void* platform;
 };
-
-Surface* surface_create(
-    const char* surface_name,
-    ivec2 position,
-    ivec2 dimensions,
-    SurfaceCreateFlags flags,
-    PlatformState* platform_state,
-    Surface* opt_parent
-);
-void surface_destroy(
-    PlatformState* platform_state,
-    Surface* surface
-);
-
-b32 surface_pump_events( Surface* surface );
-void surface_swap_buffers( Surface* surface );
-void surface_set_name( Surface* surface, const char* name );
-
-enum MouseCursorStyle : u32 {
+/// Supported cursor styles
+enum CursorStyle : u32 {
     CURSOR_ARROW,
     CURSOR_RESIZE_VERTICAL,
     CURSOR_RESIZE_HORIZONTAL,
@@ -87,11 +37,107 @@ enum MouseCursorStyle : u32 {
 
     CURSOR_COUNT
 };
+inline const char* to_string( CursorStyle cursor_style ) {
+    const char* strings[CURSOR_COUNT] = {
+        "Arrow",
+        "Resize Vertical",
+        "Resize Horizontal",
+        "Resize Top Right Bottom Left",
+        "Resize Top Left Bottom Right",
+        "Beam",
+        "Click",
+        "Wait",
+        "Forbidden",
+    };
+    if( cursor_style >= CURSOR_COUNT ) {
+        return "Unknown";
+    }
+    return strings[cursor_style];
+}
+/// Platform state
+struct Platform {
+    Surface surface;
+    void*   platform;
 
-void platform_cursor_set_style( MouseCursorStyle style );
-void platform_cursor_set_visible( b32 visible );
-void platform_cursor_set_locked( Surface* surface, b32 lock );
-void platform_cursor_center( Surface* surface );
+    b32 is_active;
+};
+
+typedef u32 PlatformFlags;
+#define PLATFORM_DPI_AWARE   ( 1 << 0 )
+
+/// Initialize platform state. Returns true if successful.
+b32 platform_init(
+    const char* opt_surface_name,
+    ivec2 surface_dimensions,
+    PlatformFlags flags,
+    Platform* out_platform
+);
+/// Shutdown platform subsystem.
+void platform_shutdown( Platform* platform );
+/// Read absolute time since program start.
+u64 platform_read_absolute_time( Platform* platform );
+/// Read seconds elapsed since program start.
+f64 platform_read_seconds_elapsed( Platform* platform );
+/// Pump platform events.
+b32 platform_pump_events( Platform* platform );
+/// Set platform surface name.
+/// Does nothing on platforms that don't use windows.
+void platform_surface_set_name(
+    Platform* platform,
+    usize name_length,
+    const char* name
+);
+/// Read platform surface name.
+/// Returns:
+///          >Zero: required buffer size. writes up to buffer size.
+///          Zero:  success.
+i32 platform_surface_read_name(
+    Platform* platform,
+    char* buffer, usize max_buffer_size
+);
+/// Set cursor style.
+/// Does nothing on platforms that don't use a cursor.
+void platform_cursor_set_style(
+    Platform* platform, CursorStyle cursor_style
+);
+/// Set cursor visibility.
+/// Does nothing on platforms that don't use a cursor.
+void platform_cursor_set_visible( Platform* platform, b32 visible );
+/// Lock cursor to surface.
+/// Does nothing on platforms that don't use a cursor.
+void platform_cursor_set_locked( Platform* platform, b32 locked );
+/// Set cursor position to surface center.
+/// Does nothing on platforms that don't use a cursor.
+void platform_cursor_center( Platform* platform );
+/// Put the current thread to sleep
+/// for the specified amount of milliseconds.
+void platform_sleep( Platform* platform, u32 ms );
+/// Set given gamepad motor state.
+void platform_set_pad_motor_state(
+    Platform* platform,
+    u32 gamepad_index, u32 motor, f32 value
+);
+/// Poll gamepad.
+void platform_poll_gamepad( Platform* platform );
+/// Create a vulkan surface. Returns true if successful.
+b32 platform_vk_create_surface(
+    Platform* platform,
+    struct VulkanContext* context
+);
+/// Get required vulkan extension names.
+usize platform_vk_read_ext_names(
+    Platform* platform,
+    usize max_names,
+    usize* name_count,
+    const char** names
+);
+/// Swap buffers. OpenGL only.
+void platform_gl_swap_buffers( Platform* platform );
+/// Initialize OpenGL.
+b32 platform_gl_init(
+    Platform* platform,
+    struct OpenGLContext* glcontext
+);
 
 /// Types of message boxes
 enum MessageBoxType : u32 {
@@ -180,9 +226,6 @@ SM_API MessageBoxResult message_box(
         MBICON_ERROR\
     )
 
-/// Put the current thread to sleep for the specified amount of milliseconds.
-void sleep( u32 ms );
-
 typedef u16 ProcessorFeatures;
 
 #define SSE_MASK    (1 << 0)
@@ -262,97 +305,6 @@ void page_free( void* memory );
 /// Not guaranteed to be zeroed out.
 #define stack_alloc(size) __builtin_alloca(size)
 
-#endif
-
-/// Set given gamepad motor state.
-void platform_set_pad_motor_state(
-    u32 gamepad_index,
-    u32 motor,
-    f32 value
-);
-/// Poll Gamepad values.
-void platform_poll_gamepad();
-
-// TODO(alicia): stop exporting threading functions/types
-// when job system is implemented
-
-/// Opaque thread handle.
-typedef void* ThreadHandle;
-
-#if defined(SM_PLATFORM_WINDOWS)
-    typedef unsigned long ThreadReturnValue;
-#else
-    typedef int ThreadReThreadReturnValue;
-#endif
-
-/// Thread procedure prototype
-typedef ThreadReturnValue (*ThreadProc)( void* params );
-
-/// Create a thread.
-SM_API ThreadHandle thread_create(
-    PlatformState* state,
-    ThreadProc     thread_proc,
-    void*          params,
-    b32            run_on_creation
-);
-/// Resume a thread.
-SM_API void thread_resume( ThreadHandle thread );
-
-/// read-write fence
-SM_API void mem_fence();
-/// read fence
-SM_API void read_fence();
-/// write fence
-SM_API void write_fence();
-
-/// Opaque semaphore handle
-typedef void* Semaphore;
-
-/// Create a semaphore.
-SM_API Semaphore semaphore_create(
-    u32 initial_count,
-    u32 maximum_count
-);
-/// Increment a semaphore.
-/// Optional: get the semaphore count before incrementing
-SM_API void semaphore_increment(
-    Semaphore semaphore,
-    u32       increment,
-    u32*      opt_out_previous_count
-);
-
-/// Infinite semaphore timeout
-#define TIMEOUT_INFINITE U32::MAX
-
-/// Wait for semaphore to be incremented.
-/// Decrements semaphore when it is signaled.
-SM_API void semaphore_wait_for(
-    Semaphore semaphore,
-    u32       timeout_ms
-);
-/// Wait for multiple semaphores.
-/// Set wait for all if waiting for all semaphores.
-SM_API void semaphore_wait_for_multiple(
-    usize      count,
-    Semaphore* semaphores,
-    b32        wait_for_all,
-    u32        timeout_ms
-);
-/// Destroy a semaphore handle.
-SM_API void semaphore_destroy( Semaphore semaphore );
-
-SM_API u32 interlocked_increment( volatile u32* addend );
-SM_API u32 interlocked_decrement( volatile u32* addend );
-SM_API u32 interlocked_exchange( volatile u32* target, u32 value );
-SM_API void* interlocked_compare_exchange_pointer(
-    void* volatile* dst,
-    void* exchange,
-    void* comperand
-);
-SM_API u32 interlocked_compare_exchange(
-    u32 volatile* dst,
-    u32 exchange,
-    u32 comperand
-);
+#endif // internal
 
 #endif

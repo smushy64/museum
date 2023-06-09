@@ -12,9 +12,9 @@
 global RendererBackend* BACKEND = nullptr;
 
 b32 renderer_init(
-    const char*           app_name,
-    RendererBackendType   backend_type,
-    struct PlatformState* state
+    const char*         app_name,
+    RendererBackendType backend_type,
+    Platform*           platform
 ) {
     BACKEND = (RendererBackend*)mem_alloc(
         sizeof(RendererBackend),
@@ -26,7 +26,7 @@ b32 renderer_init(
     }
     if( !renderer_backend_init(
         backend_type,
-        state,
+        platform,
         BACKEND
     ) ) {
         return false;
@@ -58,8 +58,8 @@ b32 renderer_end_frame( f32 delta_time ) {
 }
 
 b32 renderer_draw_frame( RenderOrder* order ) {
-    if( renderer_begin_frame( order->time.delta_time ) ) {
-        if( !renderer_end_frame( order->time.delta_time ) ) {
+    if( renderer_begin_frame( order->delta_time ) ) {
+        if( !renderer_end_frame( order->delta_time ) ) {
             LOG_FATAL( "Renderer end frame failed!" );
             return false;
         }

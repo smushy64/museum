@@ -10,10 +10,9 @@
 #include <core/application.h>
 #include <core/input.h>
 #include <core/events.h>
-#include <core/time.h>
 #include <stdio.h>
 
-b32 app_run(void*, Time*) {
+b32 app_run(void*, f32) {
     return true;
 }
 
@@ -55,7 +54,10 @@ int main( int argc, char** argv ) {
     if( !app_init( &config ) ) {
         return -1;
     }
-    LOG_INFO("Using renderer backend \"%s\" . . .", to_string( backend_type ));
+    LOG_INFO(
+        "Using renderer backend \"%s\" . . .",
+        to_string( backend_type )
+    );
 
     if( !app_run() ) {
         return -1;

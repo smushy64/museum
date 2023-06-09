@@ -53,11 +53,14 @@ struct InputState {
     i32 horizontal_mouse_wheel;
 
     GamepadState gamepads[MAX_GAMEPAD_INDEX];
+
+    Platform* platform;
 };
 
 global InputState INPUT_STATE = {};
 
-b32 input_init() {
+b32 input_init( Platform* platform ) {
+    INPUT_STATE.platform = platform;
     LOG_INFO("Input subsystem successfully initialized.");
     return true;
 }
@@ -326,6 +329,7 @@ void input_set_pad_motor_state(
     f32 value
 ) {
     platform_set_pad_motor_state(
+        INPUT_STATE.platform,
         gamepad_index,
         motor,
         value

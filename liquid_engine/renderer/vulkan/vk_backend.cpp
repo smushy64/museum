@@ -85,7 +85,8 @@ b32 vk_init(
             REQUIRED_EXTENSION_NAMES[i];
     }
 
-    usize remaining_platform_extensions = platform_get_vulkan_extension_names(
+    usize remaining_platform_extensions = platform_vk_read_ext_names(
+        backend->platform,
         VK_MAX_EXTENSIONS,
         &extension_count,
         extension_names
@@ -230,7 +231,7 @@ b32 vk_init(
     VK_LOG_DEBUG("Vulkan Debugger Initialized.");
 #endif
 
-    if( !platform_create_vulkan_surface(
+    if( !platform_vk_create_surface(
         backend->platform,
         &CONTEXT
     ) ) {

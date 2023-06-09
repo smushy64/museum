@@ -161,7 +161,7 @@ void _mem_free( void* memory ) {
     heap_free( header );
 }
 
-}
+} // namespace impl
 
 usize query_memory_usage( MemoryType memtype ) {
     return USAGE.usage[memtype];

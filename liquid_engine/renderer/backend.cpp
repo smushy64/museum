@@ -9,11 +9,11 @@
 #include "opengl/gl_backend.h"
 
 b32 renderer_backend_init(
-    RendererBackendType   type,
-    struct PlatformState* state,
-    RendererBackend*      out_backend
+    RendererBackendType type,
+    struct Platform*    platform,
+    RendererBackend*    out_backend
 ) {
-    out_backend->platform = state;
+    out_backend->platform = platform;
     switch( type ) {
         case BACKEND_VULKAN: {
             out_backend->init      = vk_init;

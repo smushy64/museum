@@ -6,7 +6,6 @@
  * File Created: May 06, 2023
 */
 #include "defines.h"
-#include "core/time.h"
 
 enum RendererBackendType : u32 {
     BACKEND_VULKAN,
@@ -43,7 +42,7 @@ typedef b32 (*RendererBackendEndFrameFn)(
 );
 
 struct RendererBackend {
-    struct PlatformState*       platform;
+    struct Platform* platform;
 
     RendererBackendInitializeFn init;
     RendererBackendShutdownFn   shutdown;
@@ -55,7 +54,7 @@ struct RendererBackend {
 };
 
 struct RenderOrder {
-    Time time;
+    f32 delta_time;
 };
 
 #endif
