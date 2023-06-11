@@ -1,17 +1,13 @@
 #if !defined(PLATFORM_FLAGS_HPP)
 #define PLATFORM_FLAGS_HPP
 /**
- * Description:  Flags for creating a surface
+ * Description:  Flags for initializing the platform layer
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: May 02, 2023
 */
 #include "defines.h"
 
-typedef u32 SurfaceCreateFlags;
-#define SURFACE_CREATE_VISIBLE  ( 1 << 1 )
-#define SURFACE_CREATE_CENTERED ( 1 << 2 )
-
-typedef u32 PlatformInitFlags;
+typedef u32 PlatformFlags;
 #define PLATFORM_DPI_AWARE ( 1 << 0 )
 
 #endif

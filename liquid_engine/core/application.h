@@ -8,21 +8,19 @@
 #include "defines.h"
 #include "math/types.h"
 #include "platform/flags.h"
-#include "renderer/renderer_defines.h"
+#include "renderer/renderer.h"
 
 typedef b32 (*AppRunFn)( void* params, f32 delta_time );
 
 struct AppConfig {
     struct SurfaceConfig {
         const char* name;
-        ivec2 position;
         ivec2 dimensions;
-        SurfaceCreateFlags flags;
-    } main_surface;
+    } surface;
 
     u32 log_level;
-    RendererBackendType   renderer_backend;
-    PlatformInitFlags platform_flags;
+    RendererBackend renderer_backend;
+    PlatformFlags   platform_flags;
 
     AppRunFn application_run;
     void*    application_params;

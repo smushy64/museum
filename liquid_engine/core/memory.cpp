@@ -123,7 +123,7 @@ void* _mem_alloc( usize size, MemoryType type ) {
     block[MEMORY_FIELD_SIZE] = size;
     block[MEMORY_FIELD_TYPE] = type;
 
-    USAGE.usage[type] += size;
+    USAGE.usage[type] += total_size;
 
     return block + MEMORY_FIELD_COUNT;
 }
@@ -131,7 +131,7 @@ void* _mem_realloc( void* memory, usize new_size ) {
     // TODO(alicia): allocate in different ways depending on memory type
 
     u64* header = ((u64*)memory) - MEMORY_FIELD_COUNT;
-    usize old_size   = header[MEMORY_FIELD_SIZE];
+    usize old_size   = header[MEMORY_FIELD_SIZE] + MEMORY_HEADER_SIZE;
     MemoryType type  = (MemoryType)header[MEMORY_FIELD_TYPE];
 
     usize total_size = new_size + MEMORY_HEADER_SIZE;
@@ -143,8 +143,8 @@ void* _mem_realloc( void* memory, usize new_size ) {
     header = (u64*)new_buffer;
     header[MEMORY_FIELD_SIZE] = new_size;
 
-    if( new_size > old_size ) {
-        usize diff  = new_size - old_size;
+    if( total_size > old_size ) {
+        usize diff  = total_size - old_size;
         USAGE.usage[type] += diff;
     }
 
@@ -156,7 +156,7 @@ void _mem_free( void* memory ) {
     usize      size = header[MEMORY_FIELD_SIZE];
     MemoryType type = (MemoryType)header[MEMORY_FIELD_TYPE];
 
-    USAGE.usage[type] -= size;
+    USAGE.usage[type] -= size + MEMORY_HEADER_SIZE;
 
     heap_free( header );
 }
@@ -165,6 +165,13 @@ void _mem_free( void* memory ) {
 
 usize query_memory_usage( MemoryType memtype ) {
     return USAGE.usage[memtype];
+}
+usize query_total_memory_usage() {\
+    usize result = 0;
+    for( u64 i = 0; i < MEMTYPE_COUNT; ++i ) {
+        result += query_memory_usage( (MemoryType)i );
+    }
+    return result;
 }
 
 usize mem_query_size( void* memory ) {
@@ -207,7 +214,7 @@ void mem_copy( void* dst, const void* src, usize size ) {
     }
 }
 
-#define INTERMEDIATE_BUFFER_SIZE 64
+#define INTERMEDIATE_BUFFER_SIZE 128
 global u8 INTERMEDIATE_BUFFER[INTERMEDIATE_BUFFER_SIZE] = {};
 void mem_overlap_copy( void* dst, const void* src, usize size ) {
     if( size < INTERMEDIATE_BUFFER_SIZE ) {
@@ -220,8 +227,16 @@ void mem_overlap_copy( void* dst, const void* src, usize size ) {
     u8* src_ptr = (u8*)src;
     u8* dst_ptr = (u8*)dst;
     for( usize i = 0; i < iterations; ++i ) {
-        mem_copy( INTERMEDIATE_BUFFER, src_ptr + (i * INTERMEDIATE_BUFFER_SIZE), INTERMEDIATE_BUFFER_SIZE );
-        mem_copy( dst_ptr + (i * INTERMEDIATE_BUFFER_SIZE), INTERMEDIATE_BUFFER, INTERMEDIATE_BUFFER_SIZE );
+        mem_copy(
+            INTERMEDIATE_BUFFER,
+            src_ptr + (i * INTERMEDIATE_BUFFER_SIZE),
+            INTERMEDIATE_BUFFER_SIZE
+        );
+        mem_copy(
+            dst_ptr + (i * INTERMEDIATE_BUFFER_SIZE),
+            INTERMEDIATE_BUFFER,
+            INTERMEDIATE_BUFFER_SIZE
+        );
     }
 
     src_ptr = src_ptr + (iterations * INTERMEDIATE_BUFFER_SIZE);

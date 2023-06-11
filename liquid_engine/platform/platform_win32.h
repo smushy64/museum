@@ -29,14 +29,13 @@ struct Win32Window {
     HDC  device_context;
 };
 
-#define MAX_WINDOW_TITLE_BUFFER_SIZE 512ULL
-#define ERROR_MESSAGE_BUFFER_SIZE 512
+#define MAX_WINDOW_TITLE_BUFFER_SIZE 256ULL
+#define ERROR_MESSAGE_BUFFER_SIZE 512ULL
 #define MAX_MODULE_COUNT 4
 struct Win32Platform {
     Win32Window window;
     Win32Cursor cursor;
     HINSTANCE instance;
-    struct OpenGLContext* gl_context;
     union {
         struct {
             HMODULE lib_user32;
@@ -57,7 +56,7 @@ global const char* WIN32_VULKAN_EXTENSIONS[] = {
 };
 b32 win32_load_user32( HMODULE* out_module );
 b32 win32_load_xinput( HMODULE* out_module );
-b32 win32_load_opengl_gdi32( HMODULE* out_gl, HMODULE* out_gdi32 );
+b32 win32_load_opengl( Win32Platform* platform );
 LRESULT win32_winproc( HWND, UINT, WPARAM, LPARAM );
 
 #if defined(LD_LOGGING)
@@ -188,6 +187,7 @@ LRESULT win32_winproc( HWND, UINT, WPARAM, LPARAM );
 
 DWORD win32_log_error( b32 present_message_box );
 
+#define BLACK_BRUSH 4
 /// from https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-pixelformatdescriptor
 typedef struct tagPIXELFORMATDESCRIPTOR {
     WORD  nSize;
@@ -333,66 +333,70 @@ namespace impl {
         i32 line
     );
 
-    typedef BOOL (*SetProcessDpiAwarenessContext_fn)( DPI_AWARENESS_CONTEXT );
+    typedef BOOL (*SetProcessDpiAwarenessContextFN)( DPI_AWARENESS_CONTEXT );
     [[maybe_unused]]
-    global SetProcessDpiAwarenessContext_fn in_SetProcessDpiAwarenessContext = nullptr;
+    global SetProcessDpiAwarenessContextFN in_SetProcessDpiAwarenessContext = nullptr;
 
-    typedef UINT (*GetDpiForSystem_fn)();
+    typedef UINT (*GetDpiForSystemFN)();
     [[maybe_unused]]
-    global GetDpiForSystem_fn in_GetDpiForSystem = nullptr;
+    global GetDpiForSystemFN in_GetDpiForSystem = nullptr;
 
-    typedef BOOL (*AdjustWindowRectExForDpi_fn)( LPRECT, DWORD, BOOL, DWORD, UINT );
+    typedef BOOL (*AdjustWindowRectExForDpiFN)( LPRECT, DWORD, BOOL, DWORD, UINT );
     [[maybe_unused]]
-    global AdjustWindowRectExForDpi_fn in_AdjustWindowRectExForDpi = nullptr;
+    global AdjustWindowRectExForDpiFN in_AdjustWindowRectExForDpi = nullptr;
 
-    typedef DWORD (*XInputGetState_fn)( DWORD, XINPUT_STATE* );
+    typedef DWORD (*XInputGetStateFN)( DWORD, XINPUT_STATE* );
     [[maybe_unused]]
-    global XInputGetState_fn in_XInputGetState = nullptr;
+    global XInputGetStateFN in_XInputGetState = nullptr;
 
-    typedef DWORD (*XInputSetState_fn)( DWORD, XINPUT_VIBRATION* );
+    typedef DWORD (*XInputSetStateFN)( DWORD, XINPUT_VIBRATION* );
     [[maybe_unused]]
-    global XInputSetState_fn in_XInputSetState = nullptr;
+    global XInputSetStateFN in_XInputSetState = nullptr;
 
-    typedef HGLRC (*wglCreateContext_fn)(HDC);
+    typedef HGDIOBJ (*GetStockObjectFN)( int );
     [[maybe_unused]]
-    global wglCreateContext_fn in_wglCreateContext = nullptr;
+    global GetStockObjectFN in_GetStockObject = nullptr;
 
-    typedef BOOL (*wglMakeCurrent_fn)(HDC, HGLRC);
+    typedef HGLRC (*wglCreateContextFN)(HDC);
     [[maybe_unused]]
-    global wglMakeCurrent_fn in_wglMakeCurrent = nullptr;
+    global wglCreateContextFN in_wglCreateContext = nullptr;
 
-    typedef BOOL (*wglDeleteContext_fn)(HGLRC);
+    typedef BOOL (*wglMakeCurrentFN)(HDC, HGLRC);
     [[maybe_unused]]
-    global wglDeleteContext_fn in_wglDeleteContext = nullptr;
+    global wglMakeCurrentFN in_wglMakeCurrent = nullptr;
 
-    typedef PROC (*wglGetProcAddress_fn)(LPCSTR);
+    typedef BOOL (*wglDeleteContextFN)(HGLRC);
     [[maybe_unused]]
-    global wglGetProcAddress_fn in_wglGetProcAddress = nullptr;
+    global wglDeleteContextFN in_wglDeleteContext = nullptr;
 
-    typedef HGLRC (*wglCreateContextAttribsARB_fn)(HDC, HGLRC, const int*);
+    typedef PROC (*wglGetProcAddressFN)(LPCSTR);
     [[maybe_unused]]
-    global wglCreateContextAttribsARB_fn in_wglCreateContextAttribsARB = nullptr;
+    global wglGetProcAddressFN in_wglGetProcAddress = nullptr;
 
-    typedef int (*DescribePixelFormat_fn)(HDC, int, UINT, LPPIXELFORMATDESCRIPTOR);
+    typedef HGLRC (*wglCreateContextAttribsARBFN)(HDC, HGLRC, const int*);
     [[maybe_unused]]
-    global DescribePixelFormat_fn in_DescribePixelFormat = nullptr;
+    global wglCreateContextAttribsARBFN in_wglCreateContextAttribsARB = nullptr;
 
-    typedef int (*ChoosePixelFormat_fn)(HDC, const PIXELFORMATDESCRIPTOR*);
+    typedef int (*DescribePixelFormatFN)(HDC, int, UINT, LPPIXELFORMATDESCRIPTOR);
     [[maybe_unused]]
-    global ChoosePixelFormat_fn in_ChoosePixelFormat = nullptr;
+    global DescribePixelFormatFN in_DescribePixelFormat = nullptr;
 
-    typedef BOOL (*SetPixelFormat_fn)(HDC, int, const PIXELFORMATDESCRIPTOR*);
+    typedef int (*ChoosePixelFormatFN)(HDC, const PIXELFORMATDESCRIPTOR*);
     [[maybe_unused]]
-    global SetPixelFormat_fn in_SetPixelFormat = nullptr;
+    global ChoosePixelFormatFN in_ChoosePixelFormat = nullptr;
 
-    typedef BOOL (*SwapBuffers_fn)(HDC);
+    typedef BOOL (*SetPixelFormatFN)(HDC, int, const PIXELFORMATDESCRIPTOR*);
     [[maybe_unused]]
-    global SwapBuffers_fn in_SwapBuffers = nullptr;
+    global SetPixelFormatFN in_SetPixelFormat = nullptr;
 
-    typedef void (*XInputEnable_fn)( BOOL );
+    typedef BOOL (*SwapBuffersFN)(HDC);
+    [[maybe_unused]]
+    global SwapBuffersFN in_SwapBuffers = nullptr;
+
+    typedef void (*XInputEnableFN)( BOOL );
     internal void XInputEnableStub( BOOL enable ) { SM_UNUSED( enable ); }
     [[maybe_unused]]
-    global XInputEnable_fn in_XInputEnable = XInputEnableStub;
+    global XInputEnableFN in_XInputEnable = XInputEnableStub;
 
 } // namespace impl
 
@@ -434,6 +438,7 @@ namespace impl {
 #define ChoosePixelFormat             ::impl::in_ChoosePixelFormat
 #define SetPixelFormat                ::impl::in_SetPixelFormat
 #define SwapBuffers                   ::impl::in_SwapBuffers
+#define GetStockObject                ::impl::in_GetStockObject
 
 #define WGL_CONTEXT_MAJOR_VERSION_ARB             0x2091
 #define WGL_CONTEXT_MINOR_VERSION_ARB             0x2092

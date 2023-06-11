@@ -20,6 +20,7 @@ enum MemoryType : u64 {
     MEMTYPE_PLATFORM_DATA,
     MEMTYPE_EVENT_LISTENER_REGISTRY,
     MEMTYPE_RENDERER,
+    MEMTYPE_LOGGING,
 
     MEMTYPE_COUNT
 };
@@ -29,7 +30,8 @@ inline const char* to_string(MemoryType memtype) {
         "Dynamic List Memory",
         "Platform Data Memory",
         "Event Listener Registry Memory",
-        "Renderer Memory"
+        "Renderer Memory",
+        "Logging Buffer Memory"
     };
     if( memtype >= MEMTYPE_COUNT ) {
         return strings[0];
@@ -112,10 +114,8 @@ SM_API MemoryType mem_query_type( void* memory );
 
 /// Query memory usage for each memory type.
 SM_API usize query_memory_usage( MemoryType memtype );
-/// Query total heap memory usage.
-SM_API usize query_heap_usage();
-/// Query total page memory usage.
-SM_API usize query_page_usage();
+/// Query total memory usage in bytes.
+SM_API usize query_total_memory_usage();
 
 #if defined(SM_COMPILER_MSVC)
     /// Allocate memory on the stack.

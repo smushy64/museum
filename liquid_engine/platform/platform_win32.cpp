@@ -15,13 +15,14 @@
 #include "core/events.h"
 #include "core/math.h"
 
-#define VK_USE_PLATFORM_WIN32_KHR
-#include <vulkan/vulkan.h>
-#include "renderer/renderer_defines.h"
-#include "renderer/vulkan/vk_defines.h"
+#include "renderer/renderer.h"
+
+// #define VK_USE_PLATFORM_WIN32_KHR
+// #include <vulkan/vulkan.h>
+// #include "renderer/vulkan/vk_backend.h"
 
 #include <glad/glad.h>
-#include "renderer/opengl/gl_defines.h"
+#include "renderer/opengl/gl_backend.h"
 
 #include <intrin.h>
 
@@ -62,6 +63,23 @@ b32 platform_init(
         mem_free( win32_platform );
         return false;
     }
+    if( !win32_library_load(
+        L"GDI32.DLL",
+        &win32_platform->lib_gdi32
+    ) ) {
+        MESSAGE_BOX_FATAL(
+            "Failed to load library!",
+            "Failed to load gdi32.dll!"
+        );
+        return false;
+    }
+    GetStockObject = (::impl::GetStockObjectFN)win32_proc_address_required(
+        win32_platform->lib_gdi32,
+        "GetStockObject"
+    );
+    if( !GetStockObject ) {
+        return false;
+    }
 
     ERROR_MESSAGE_BUFFER = win32_platform->error_message_buffer;
     win32_platform->instance = GetModuleHandleA( nullptr );
@@ -72,6 +90,7 @@ b32 platform_init(
     windowClass.lpfnWndProc   = win32_winproc;
     windowClass.hInstance     = win32_platform->instance;
     windowClass.lpszClassName = L"LiquidEngineWindowClass";
+    windowClass.hbrBackground = (HBRUSH)GetStockBrush(BLACK_BRUSH);
     windowClass.hCursor       = LoadCursor(
         win32_platform->instance,
         IDC_ARROW
@@ -191,6 +210,8 @@ b32 platform_init(
 
     win32_platform->window.handle         = hWnd;
     win32_platform->window.device_context = dc;
+    win32_platform->cursor.style      = CURSOR_ARROW;
+    win32_platform->cursor.is_visible = true;
 
     ShowWindow(
         win32_platform->window.handle,
@@ -203,9 +224,6 @@ b32 platform_init(
     QueryPerformanceCounter(
         &win32_platform->performance_counter
     );
-
-    win32_platform->cursor.style      = CURSOR_ARROW;
-    win32_platform->cursor.is_visible = true;
 
     out_platform->surface.dimensions = { width, height };
     out_platform->surface.platform   = (void*)&win32_platform->window;
@@ -223,17 +241,6 @@ b32 platform_init(
 }
 void platform_shutdown( Platform* platform ) {
     Win32Platform* win32_platform = (Win32Platform*)platform->platform;
-
-    // checking to see if OpenGL was loaded
-    if( win32_platform->gl_context ) {
-        wglMakeCurrent(
-            win32_platform->window.device_context,
-            nullptr
-        );
-        wglDeleteContext(
-            (HGLRC)win32_platform->gl_context->context
-        );
-    }
 
     for( u32 i = 0; i < MAX_MODULE_COUNT; ++i ) {
         HMODULE module = win32_platform->modules[i];
@@ -617,60 +624,63 @@ void platform_poll_gamepad( Platform* platform ) {
         }
     }
 }
-b32 platform_vk_create_surface(
-    Platform* platform,
-    struct VulkanContext* context
-) {
-    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+// struct VkSurfaceKHR_T* platform_vk_create_surface(
+//     Platform* platform,
+//     struct VulkanRendererContext* ctx
+// ) {
+//     Win32Platform* win32_platform = (Win32Platform*)platform->platform;
     
-    VkWin32SurfaceCreateInfoKHR create_info = {};
-    create_info.sType     = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-    create_info.hinstance = win32_platform->instance;
-    create_info.hwnd      = win32_platform->window.handle;
+//     VkWin32SurfaceCreateInfoKHR create_info = {};
+//     create_info.sType     = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+//     create_info.hinstance = win32_platform->instance;
+//     create_info.hwnd      = win32_platform->window.handle;
 
-    VkSurfaceKHR vk_surface = {};
+//     VkSurfaceKHR vk_surface = {};
 
-    VkResult result = vkCreateWin32SurfaceKHR(
-        context->instance,
-        &create_info,
-        context->allocator,
-        &vk_surface
-    );
+//     VkResult result = vkCreateWin32SurfaceKHR(
+//         ctx->instance,
+//         &create_info,
+//         ctx->allocator,
+//         &vk_surface
+//     );
 
-    if( result != VK_SUCCESS ) {
-        WIN32_LOG_ERROR("Failed to create Vulkan surface!");
-        return false;
-    }
+//     if( result != VK_SUCCESS ) {
+//         return nullptr;
+//     }
+
+//     return vk_surface;
+
+// }
+// usize platform_vk_read_ext_names(
+//     Platform*,
+//     usize max_names,
+//     usize* name_count,
+//     const char** names
+// ) {
+//     usize win32_ext_count = STATIC_ARRAY_COUNT( WIN32_VULKAN_EXTENSIONS );
+//     usize max_count = win32_ext_count > max_names ?
+//         max_names : win32_ext_count;
     
-    context->surface.surface = vk_surface;
-    context->surface.width   = platform->surface.width;
-    context->surface.height  = platform->surface.height;
+//     usize count = *name_count;
+//     for( usize i = 0; i < max_count; ++i ) {
+//         names[count++] = WIN32_VULKAN_EXTENSIONS[i];
+//         win32_ext_count--;
+//     }
 
-    return true;
+//     *name_count = count;
+//     return win32_ext_count;
+// }
 
-}
-usize platform_vk_read_ext_names(
-    Platform*,
-    usize max_names,
-    usize* name_count,
-    const char** names
-) {
-    usize win32_ext_count = STATIC_ARRAY_COUNT( WIN32_VULKAN_EXTENSIONS );
-    usize max_count = win32_ext_count > max_names ?
-        max_names : win32_ext_count;
-    
-    usize count = *name_count;
-    for( usize i = 0; i < max_count; ++i ) {
-        names[count++] = WIN32_VULKAN_EXTENSIONS[i];
-        win32_ext_count--;
-    }
 
-    *name_count = count;
-    return win32_ext_count;
-}
 void platform_gl_swap_buffers( Platform* platform ) {
     Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+#if defined(DEBUG)
+    if( !SwapBuffers( win32_platform->window.device_context ) ) {
+        win32_log_error( true );
+    }
+#else
     SwapBuffers( win32_platform->window.device_context );
+#endif
 }
 internal HGLRC win32_gl_create_context( Platform* platform ) {
     Win32Platform* win32_platform = (Win32Platform*)platform->platform;
@@ -719,7 +729,7 @@ internal HGLRC win32_gl_create_context( Platform* platform ) {
         return nullptr;
     }
 
-    wglCreateContextAttribsARB = (impl::wglCreateContextAttribsARB_fn)
+    wglCreateContextAttribsARB = (impl::wglCreateContextAttribsARBFN)
         wglGetProcAddress("wglCreateContextAttribsARB");
 
     if(!wglCreateContextAttribsARB) {
@@ -775,32 +785,32 @@ void* win32_gl_load_proc( const char* function_name ) {
 
     return function;
 }
-b32 platform_gl_init(
-    Platform* platform,
-    OpenGLContext* context
-) {
+void* platform_gl_init( Platform* platform ) {
     Win32Platform* win32_platform = (Win32Platform*)platform->platform;
 
-    if( !win32_load_opengl_gdi32(
-        &win32_platform->lib_gl,
-        &win32_platform->lib_gdi32
-    ) ) {
-        return false;
+    if( !win32_load_opengl( win32_platform ) ) {
+        return nullptr;
     }
 
     HGLRC gl_context = win32_gl_create_context( platform );
     if( !gl_context ) {
-        return false;
+        return nullptr;
     }
-
-    context->context = (void*)gl_context;
 
     if( !gladLoadGLLoader( win32_gl_load_proc ) ) {
-        return false;
+        GL_LOG_FATAL( "Failed to load OpenGL functions!" );
+        return nullptr;
     }
 
-    win32_platform->gl_context = context;
-    return true;
+    return (void*)gl_context;
+}
+void platform_gl_shutdown( Platform* platform, void* glrc ) {
+    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+    wglMakeCurrent(
+        win32_platform->window.device_context,
+        nullptr
+    );
+    wglDeleteContext( (HGLRC)glrc );
 }
 SystemInfo query_system_info() {
     SystemInfo result = {};
@@ -964,7 +974,6 @@ LRESULT win32_winproc(
                 };
 
                 platform->surface.dimensions = dimensions;
-
                 event.code = EVENT_CODE_SURFACE_RESIZE;
                 event.data.surface_resize.dimensions = dimensions;
                 event_fire( event );
@@ -1264,7 +1273,7 @@ b32 win32_load_user32( HMODULE* out_module ) {
     }
 
     SetProcessDpiAwarenessContext =
-    (::impl::SetProcessDpiAwarenessContext_fn)win32_proc_address_required(
+    (::impl::SetProcessDpiAwarenessContextFN)win32_proc_address_required(
         lib_user32,
         "SetProcessDpiAwarenessContext"
     );
@@ -1273,7 +1282,7 @@ b32 win32_load_user32( HMODULE* out_module ) {
     }
 
     GetDpiForSystem =
-    (::impl::GetDpiForSystem_fn)win32_proc_address_required(
+    (::impl::GetDpiForSystemFN)win32_proc_address_required(
         lib_user32,
         "GetDpiForSystem"
     );
@@ -1282,7 +1291,7 @@ b32 win32_load_user32( HMODULE* out_module ) {
     }
 
     AdjustWindowRectExForDpi =
-    (::impl::AdjustWindowRectExForDpi_fn)win32_proc_address_required(
+    (::impl::AdjustWindowRectExForDpiFN)win32_proc_address_required(
         lib_user32,
         "AdjustWindowRectExForDpi"
     );
@@ -1318,7 +1327,7 @@ b32 win32_load_xinput( HMODULE* out_module ) {
     }
 
     XInputGetState =
-    (::impl::XInputGetState_fn)win32_proc_address_required(
+    (::impl::XInputGetStateFN)win32_proc_address_required(
         lib_xinput,
         "XInputGetState"
     );
@@ -1326,15 +1335,15 @@ b32 win32_load_xinput( HMODULE* out_module ) {
         return false;
     }
     XInputSetState =
-    (::impl::XInputSetState_fn)win32_proc_address_required(
+    (::impl::XInputSetStateFN)win32_proc_address_required(
         lib_xinput,
         "XInputSetState"
     );
     if( !XInputSetState ) {
         return false;
     }
-    ::impl::XInputEnable_fn xinput_enable =
-    (::impl::XInputEnable_fn)win32_proc_address(
+    ::impl::XInputEnableFN xinput_enable =
+    (::impl::XInputEnableFN)win32_proc_address(
         lib_xinput,
         "XInputEnable"
     );
@@ -1345,9 +1354,8 @@ b32 win32_load_xinput( HMODULE* out_module ) {
     *out_module = lib_xinput;
     return true;
 }
-b32 win32_load_opengl_gdi32( HMODULE* out_gl, HMODULE* out_gdi32 ) {
-    HMODULE lib_gl    = nullptr;
-    HMODULE lib_gdi32 = nullptr;
+b32 win32_load_opengl( Win32Platform* platform ) {
+    HMODULE lib_gl = nullptr;
 
     if( !win32_library_load(
         L"OPENGL32.DLL",
@@ -1359,19 +1367,9 @@ b32 win32_load_opengl_gdi32( HMODULE* out_gl, HMODULE* out_gdi32 ) {
         );
         return false;
     }
-    if( !win32_library_load(
-        L"GDI32.DLL",
-        &lib_gdi32
-    ) ) {
-        MESSAGE_BOX_FATAL(
-            "Failed to load library!",
-            "Failed to load gdi32.dll!"
-        );
-        return false;
-    }
 
     wglCreateContext =
-    (::impl::wglCreateContext_fn)win32_proc_address_required(
+    (::impl::wglCreateContextFN)win32_proc_address_required(
         lib_gl,
         "wglCreateContext"
     );
@@ -1379,7 +1377,7 @@ b32 win32_load_opengl_gdi32( HMODULE* out_gl, HMODULE* out_gdi32 ) {
         return false;
     }
     wglMakeCurrent =
-    (::impl::wglMakeCurrent_fn)win32_proc_address_required(
+    (::impl::wglMakeCurrentFN)win32_proc_address_required(
         lib_gl,
         "wglMakeCurrent"
     );
@@ -1387,7 +1385,7 @@ b32 win32_load_opengl_gdi32( HMODULE* out_gl, HMODULE* out_gdi32 ) {
         return false;
     }
     wglDeleteContext =
-    (::impl::wglDeleteContext_fn)win32_proc_address_required(
+    (::impl::wglDeleteContextFN)win32_proc_address_required(
         lib_gl,
         "wglDeleteContext"
     );
@@ -1395,7 +1393,7 @@ b32 win32_load_opengl_gdi32( HMODULE* out_gl, HMODULE* out_gdi32 ) {
         return false;
     }
     wglGetProcAddress =
-    (::impl::wglGetProcAddress_fn)win32_proc_address_required(
+    (::impl::wglGetProcAddressFN)win32_proc_address_required(
         lib_gl,
         "wglGetProcAddress"
     );
@@ -1404,24 +1402,24 @@ b32 win32_load_opengl_gdi32( HMODULE* out_gl, HMODULE* out_gdi32 ) {
     }
 
     DescribePixelFormat =
-    (::impl::DescribePixelFormat_fn)win32_proc_address_required(
-        lib_gdi32,
+    (::impl::DescribePixelFormatFN)win32_proc_address_required(
+        platform->lib_gdi32,
         "DescribePixelFormat"
     );
     if( !DescribePixelFormat ) {
         return false;
     }
     ChoosePixelFormat =
-    (::impl::ChoosePixelFormat_fn)win32_proc_address_required(
-        lib_gdi32,
+    (::impl::ChoosePixelFormatFN)win32_proc_address_required(
+        platform->lib_gdi32,
         "ChoosePixelFormat"
     );
     if( !ChoosePixelFormat ) {
         return false;
     }
     SetPixelFormat =
-    (::impl::SetPixelFormat_fn)win32_proc_address_required(
-        lib_gdi32,
+    (::impl::SetPixelFormatFN)win32_proc_address_required(
+        platform->lib_gdi32,
         "SetPixelFormat"
     );
     if( !SetPixelFormat ) {
@@ -1429,16 +1427,15 @@ b32 win32_load_opengl_gdi32( HMODULE* out_gl, HMODULE* out_gdi32 ) {
     }
 
     SwapBuffers =
-    (::impl::SwapBuffers_fn)win32_proc_address_required(
-        lib_gdi32,
+    (::impl::SwapBuffersFN)win32_proc_address_required(
+        platform->lib_gdi32,
         "SwapBuffers"
     );
     if( !SwapBuffers ) {
         return false;
     }
 
-    *out_gl    = lib_gl;
-    *out_gdi32 = lib_gdi32;
+    platform->lib_gl = lib_gl;
     return true;
 }
 
@@ -1691,37 +1688,15 @@ DWORD win32_log_error( b32 present_message_box ) {
     return error_code;
 }
 
-global usize HEAP_MEMORY_USAGE = 0;
-global usize PAGE_MEMORY_USAGE = 0;
-usize query_heap_usage() {
-    return HEAP_MEMORY_USAGE;
-}
-usize query_page_usage() {
-    return PAGE_MEMORY_USAGE;
-}
-
 void* heap_alloc( usize size ) {
     void* pointer = (void*)HeapAlloc(
         GetProcessHeap(),
         HEAP_ZERO_MEMORY,
         size
     );
-#if defined(LD_PROFILING)
-    if( pointer ) {
-        HEAP_MEMORY_USAGE += size;
-    }
-#endif
     return pointer;
 }
 void* heap_realloc( void* memory, usize new_size ) {
-
-#if defined(LD_PROFILING)
-    SIZE_T previous_size = HeapSize(
-        GetProcessHeap(),
-        0,
-        memory
-    );
-#endif
 
     void* pointer = (void*)HeapReAlloc(
         GetProcessHeap(),
@@ -1730,29 +1705,9 @@ void* heap_realloc( void* memory, usize new_size ) {
         new_size
     );
 
-#if defined(LD_PROFILING)
-    if( pointer && previous_size != (SIZE_T)-1 ) {
-        usize diff = new_size - previous_size;
-        HEAP_MEMORY_USAGE += diff;
-    }
-#endif
-
     return pointer;
 }
 void heap_free( void* memory ) {
-
-#if defined(LD_PROFILING)
-    SIZE_T mem_size = HeapSize(
-        GetProcessHeap(),
-        0,
-        memory
-    );
-    if( mem_size != (SIZE_T)-1 ) {
-        HEAP_MEMORY_USAGE -= mem_size;
-    }
-
-#endif
-
     HeapFree( GetProcessHeap(), 0, memory );
 }
 
@@ -1763,23 +1718,9 @@ void* page_alloc( usize size ) {
         MEM_RESERVE | MEM_COMMIT,
         PAGE_READWRITE
     );
-
-#if defined(LD_PROFILING)
-    PAGE_MEMORY_USAGE += size;
-#endif
     return pointer;
 }
 void page_free( void* memory ) {
-#if defined(LD_PROFILING)
-    MEMORY_BASIC_INFORMATION info;
-    if(VirtualQuery(
-        memory,
-        &info,
-        sizeof(MEMORY_BASIC_INFORMATION)
-    )) {
-        PAGE_MEMORY_USAGE -= info.RegionSize;
-    }
-#endif
     VirtualFree(
         memory,
         0,

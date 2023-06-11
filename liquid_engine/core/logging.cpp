@@ -19,7 +19,6 @@
 
 #if defined(SM_PLATFORM_WINDOWS)
     #include <windows.h>
-    HANDLE CONSOLE_HANDLE;
 #endif
 
 global LogLevel GLOBAL_LOG_LEVEL = LOG_LEVEL_NONE;
@@ -34,62 +33,8 @@ global LogLevel GLOBAL_LOG_LEVEL = LOG_LEVEL_NONE;
     LOG_LEVEL_VERBOSE \
 )
 
-global usize BUFFER_SIZE  = KILOBYTES(1);
-global char* PRINT_BUFFER = {};
-
-b32 log_init( LogLevel level ) {
-    #if defined(LD_LOGGING)
-        SM_ASSERT( level <= MAX_LOG_LEVEL );
-        GLOBAL_LOG_LEVEL = level;
-
-        void* print_buffer = impl::_mem_alloc(
-            BUFFER_SIZE,
-            MEMTYPE_PLATFORM_DATA
-        );
-        if( !print_buffer ) {
-            return false;
-        }
-
-        PRINT_BUFFER = (char*)print_buffer;
-
-        #if defined(SM_PLATFORM_WINDOWS)
-            CONSOLE_HANDLE = GetStdHandle( STD_OUTPUT_HANDLE );
-            if( !CONSOLE_HANDLE ) {
-                return false;
-            }
-
-            DWORD dwMode = 0;
-            GetConsoleMode(
-                CONSOLE_HANDLE,
-                &dwMode
-            );
-            dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-            SetConsoleMode(
-                CONSOLE_HANDLE,
-                dwMode
-            );
-        #endif
-    #endif
-
-    LOG_INFO("Logging subsystem successfully initialized.");
-
-    return true;
-}
-void log_shutdown() {
-#if defined(LD_LOGGING)
-
-    impl::_mem_free( PRINT_BUFFER );
-
-    // TODO(alicia): custom printf!
-    printf( "[NOTE  ] Logging subsystem shutdown.\n" );
-#if defined(SM_PLATFORM_WINDOWS)
-    OutputDebugStringA(
-        "[NOTE  ] Logging subsystem shutdown.\n"
-    );
-#endif
-
-#endif
-}
+global usize LOGGING_BUFFER_SIZE = KILOBYTES(1);
+global char* LOGGING_BUFFER      = nullptr;
 
 global const char* LOG_COLOR_CODES[LOG_COLOR_COUNT] = {
     "\033[1;30m",
@@ -104,10 +49,71 @@ global const char* LOG_COLOR_CODES[LOG_COLOR_COUNT] = {
     "\033[1;39m"
 };
 
-void set_color( LogColor color ) {
+internal void set_color( LogColor color ) {
     #if defined(LD_LOGGING)
         printf("%s", LOG_COLOR_CODES[color]);
     #endif
+}
+
+b32 log_init( LogLevel level ) {
+    #if defined(LD_LOGGING)
+        SM_ASSERT( level <= MAX_LOG_LEVEL );
+        GLOBAL_LOG_LEVEL = level;
+
+        void* logging_buffer = impl::_mem_alloc(
+            LOGGING_BUFFER_SIZE,
+            MEMTYPE_LOGGING
+        );
+        if( !logging_buffer ) {
+            return false;
+        }
+
+        LOGGING_BUFFER = (char*)logging_buffer;
+
+        #if defined(SM_PLATFORM_WINDOWS)
+            HANDLE console_handle = GetStdHandle( STD_OUTPUT_HANDLE );
+            if( console_handle == INVALID_HANDLE_VALUE ) {
+                return false;
+            }
+
+            DWORD dwMode = 0;
+            GetConsoleMode(
+                console_handle,
+                &dwMode
+            );
+            dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+            SetConsoleMode(
+                console_handle,
+                dwMode
+            );
+        #endif
+    #endif
+
+    LOG_INFO("Logging subsystem successfully initialized.");
+
+    return true;
+}
+void log_shutdown() {
+#if defined(LD_LOGGING)
+
+    impl::_mem_free( LOGGING_BUFFER );
+
+    set_color( LOG_COLOR_WHITE );
+
+    // TODO(alicia): custom printf!
+    printf(
+        "[INFO  ] Logging subsystem shutdown.\n"
+    );
+
+    set_color( LOG_COLOR_RESET );
+
+    #if defined(SM_PLATFORM_WINDOWS) && defined(LD_OUTPUT_DEBUG_STRING)
+        OutputDebugStringA(
+            "[INFO  ] Logging subsystem shutdown.\n"
+        );
+    #endif
+
+#endif
 }
 
 inline b32 is_level_valid( LogLevel level ) {
@@ -131,7 +137,7 @@ void log_formatted_locked(
 #if defined(LD_LOGGING)
 
     #if defined(SM_ASSERTIONS)
-        if( !PRINT_BUFFER ) {
+        if( !LOGGING_BUFFER ) {
             printf(
                 "LOG INIT WAS NOT CALLED BEFORE THIS LOG MESSAGE!\n"
             );
@@ -161,8 +167,8 @@ void log_formatted_locked(
     va_start( args, format );
 
     int write_size = vsnprintf(
-        PRINT_BUFFER,
-        BUFFER_SIZE,
+        LOGGING_BUFFER,
+        LOGGING_BUFFER_SIZE,
         format,
         args
     );
@@ -171,23 +177,23 @@ void log_formatted_locked(
 
     if(
         (!write_size || write_size < 0) ||
-        (((usize)write_size) >= (BUFFER_SIZE - 1))
+        (((usize)write_size) >= (LOGGING_BUFFER_SIZE - 1))
     ) {
         pthread_mutex_unlock( &MUTEX );
         return;
     }
 
     if( new_line ) {
-        PRINT_BUFFER[write_size] = '\n';
-        PRINT_BUFFER[write_size + 1] = 0;
+        LOGGING_BUFFER[write_size] = '\n';
+        LOGGING_BUFFER[write_size + 1] = 0;
     }
 
     set_color( color );
-    printf( PRINT_BUFFER );
+    printf( LOGGING_BUFFER );
     set_color( LOG_COLOR_RESET );
 
     #if defined(SM_PLATFORM_WINDOWS) && defined(LD_OUTPUT_DEBUG_STRING)
-        OutputDebugStringA( PRINT_BUFFER );
+        OutputDebugStringA( LOGGING_BUFFER );
     #endif
 
     pthread_mutex_unlock( &MUTEX );

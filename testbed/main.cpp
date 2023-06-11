@@ -18,13 +18,13 @@ b32 app_run(void*, f32) {
 
 int main( int argc, char** argv ) {
 
-    RendererBackendType backend_type = BACKEND_OPENGL;
+    RendererBackend backend = BACKEND_OPENGL;
 
     for( int i = 1; i < argc; ++i ) {
         if( str_cmp( "--gl", argv[i] ) ) {
-            backend_type = BACKEND_OPENGL;
+            backend = BACKEND_OPENGL;
         } else if( str_cmp( "--vk", argv[i] ) ) {
-            backend_type = BACKEND_VULKAN;
+            backend = BACKEND_VULKAN;
         }
     }
 
@@ -40,14 +40,13 @@ int main( int argc, char** argv ) {
         LIQUID_ENGINE_VERSION_MINOR
     );
 
-    config.main_surface.name       = name_buffer;
-    config.main_surface.dimensions = { 800, 600 };
-    config.main_surface.flags      = SURFACE_CREATE_VISIBLE |
-        SURFACE_CREATE_CENTERED;
+    config.surface.name       = name_buffer;
+    config.surface.dimensions = { 800, 600 };
+    config.platform_flags     = PLATFORM_DPI_AWARE;
 
     config.log_level        = LOG_LEVEL_ALL_VERBOSE;
     config.platform_flags   = PLATFORM_DPI_AWARE;
-    config.renderer_backend = backend_type;
+    config.renderer_backend = backend;
 
     config.application_run = app_run;
 
@@ -56,7 +55,7 @@ int main( int argc, char** argv ) {
     }
     LOG_INFO(
         "Using renderer backend \"%s\" . . .",
-        to_string( backend_type )
+        to_string( backend )
     );
 
     if( !app_run() ) {

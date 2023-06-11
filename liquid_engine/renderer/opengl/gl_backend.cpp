@@ -4,13 +4,11 @@
  * File Created: May 23, 2023
 */
 #include "gl_backend.h"
-#include "gl_defines.h"
 #include "platform/platform.h"
 #include <glad/glad.h>
+#include "core/memory.h"
 
-#define GL_DEFAULT_CLEAR_COLOR 1.0f, 0.0f, 1.0f, 1.0f
-
-global OpenGLContext CONTEXT = {};
+#define GL_DEFAULT_CLEAR_COLOR 0.0f, 0.0f, 0.0f, 1.0f
 
 void gl_debug_callback (
     GLenum ,       // source
@@ -22,18 +20,29 @@ void gl_debug_callback (
     const void*    // userParam
 );
 
-b32 gl_init(
-    struct RendererBackend* backend,
-    const char* app_name
-) {
-    if(!platform_gl_init(
-        backend->platform,
-        &CONTEXT
-    )) {
-        return false;
+RendererContext* gl_renderer_backend_initialize( Platform* platform ) {
+    OpenGLRendererContext* result = (OpenGLRendererContext*)mem_alloc(
+        sizeof(OpenGLRendererContext),
+        MEMTYPE_RENDERER
+    );
+    if( !result ) {
+        GL_LOG_FATAL("Failed to allocate backend memory!");
+        return nullptr;
+    }
+    result->ctx.platform = platform;
+
+    result->ctx.backend_shutdown    = gl_renderer_backend_shutdown;
+    result->ctx.backend_on_resize   = gl_renderer_backend_on_resize;
+    result->ctx.backend_begin_frame = gl_renderer_backend_begin_frame;
+    result->ctx.backend_end_frame   = gl_renderer_backend_end_frame;
+
+    void* glrc = platform_gl_init( platform );
+    if( !glrc ) {
+        mem_free( result );
+        return nullptr;
     }
 
-    glClearColor( GL_DEFAULT_CLEAR_COLOR );
+    result->glrc = glrc;
 
 #if defined( LD_LOGGING )
     glEnable( GL_DEBUG_OUTPUT );
@@ -41,62 +50,83 @@ b32 gl_init(
         gl_debug_callback,
         nullptr
     );
-
-    const char* vendor       = (const char*)glGetString( GL_VENDOR );
-    const char* renderer     = (const char*)glGetString( GL_RENDERER );
-    const char* glsl_version = (const char*)glGetString( GL_SHADING_LANGUAGE_VERSION );
-
-    GL_LOG_NOTE( "Vendor:       %s", vendor );
-    GL_LOG_NOTE( "Renderer:     %s", renderer );
-    GL_LOG_NOTE( "GLSL Version: %s", glsl_version );
-    
-    i32 ext_count = 0;
-    glGetIntegerv( GL_NUM_EXTENSIONS, &ext_count );
-    GL_LOG_NOTE( "Supported extensions count: %i", ext_count );
-
 #endif
 
-    SM_UNUSED(app_name);
-GL_LOG_INFO("OpenGL initialized successfully.");
-    return true;
-}
+    const char* device_vendor  = (const char*)glGetString( GL_VENDOR );
+    const char* device_name    = (const char*)glGetString( GL_RENDERER );
+    const char* device_version = (const char*)glGetString( GL_VERSION );
+    const char* device_glsl_version = (const char*)glGetString(
+        GL_SHADING_LANGUAGE_VERSION
+    );
 
-void gl_shutdown(
-    struct RendererBackend* backend
-) {
-    SM_UNUSED(backend);
-}
+    GL_LOG_NOTE( "Device Vendor:         %s", device_vendor );
+    GL_LOG_NOTE( "Device Name:           %s", device_name );
+    GL_LOG_NOTE( "Device Driver Version: %s", device_version );
+    GL_LOG_NOTE( "Device GLSL Version:   %s", device_glsl_version );
 
-void gl_on_resize(
-    struct RendererBackend* backend,
+    result->device_vendor       = device_vendor;
+    result->device_name         = device_name;
+    result->device_version      = device_version;
+    result->device_glsl_version = device_glsl_version;
+    
+    i32 extension_count = 0;
+    glGetIntegerv( GL_NUM_EXTENSIONS, &extension_count );
+    GL_LOG_NOTE( "Supported extensions count: %i", extension_count );
+
+    result->extension_count = extension_count;
+
+    glClearColor( GL_DEFAULT_CLEAR_COLOR );
+    glClear(
+        GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT
+    );
+    platform_gl_swap_buffers( result->ctx.platform );
+
+    glViewport(
+        0, 0,
+        platform->surface.width, platform->surface.height
+    );
+
+    GL_LOG_INFO("OpenGL backend initialized successfully.");
+    return (RendererContext*)result;
+}
+void gl_renderer_backend_shutdown( RendererContext* generic_ctx ) {
+    OpenGLRendererContext* ctx = (OpenGLRendererContext*)generic_ctx;
+    platform_gl_shutdown(
+        ctx->ctx.platform,
+        ctx->glrc
+    );
+
+    mem_free( ctx );
+    GL_LOG_INFO("OpenGL backend shutdown.");
+}
+void gl_renderer_backend_on_resize(
+    RendererContext*,
     i32 width, i32 height
 ) {
-    SM_UNUSED(backend);
-    SM_UNUSED(width);
-    SM_UNUSED(height);
+    glViewport( 0, 0, width, height );
 }
-
-b32 gl_begin_frame(
-    struct RendererBackend* backend,
+b32 gl_renderer_backend_begin_frame(
+    RendererContext* ctx,
     f32 delta_time
 ) {
+    // TODO(alicia): 
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-    SM_UNUSED(backend);
+    SM_UNUSED(ctx);
     SM_UNUSED(delta_time);
     return true;
 }
-
-b32 gl_end_frame(
-    struct RendererBackend* backend,
+b32 gl_renderer_backend_end_frame(
+    RendererContext* ctx,
     f32 delta_time
 ) {
-    platform_gl_swap_buffers( backend->platform );
+    // TODO(alicia): 
     SM_UNUSED(delta_time);
+    platform_gl_swap_buffers( ctx->platform );
     return true;
 }
 
-const char* to_string_source( GLenum source ) {
+inline const char* to_string_source( GLenum source ) {
     switch(source) {
         case GL_DEBUG_SOURCE_API: return "API";
         case GL_DEBUG_SOURCE_WINDOW_SYSTEM: return "Window System";
@@ -106,7 +136,7 @@ const char* to_string_source( GLenum source ) {
         default: return "Other";
     }
 }
-const char* to_string_type( GLenum type ) {
+inline const char* to_string_type( GLenum type ) {
     switch( type ) {
         case GL_DEBUG_TYPE_ERROR: return "Error";
         case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: return "Deprecated Behaviour";

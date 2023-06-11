@@ -63,7 +63,7 @@ struct Platform {
 };
 
 typedef u32 PlatformFlags;
-#define PLATFORM_DPI_AWARE   ( 1 << 0 )
+#define PLATFORM_DPI_AWARE ( 1 << 0 )
 
 /// Initialize platform state. Returns true if successful.
 b32 platform_init(
@@ -119,10 +119,10 @@ void platform_set_pad_motor_state(
 );
 /// Poll gamepad.
 void platform_poll_gamepad( Platform* platform );
-/// Create a vulkan surface. Returns true if successful.
-b32 platform_vk_create_surface(
+/// Create a vulkan surface.
+struct VkSurfaceKHR_T* platform_vk_create_surface(
     Platform* platform,
-    struct VulkanContext* context
+    struct VulkanRendererContext* ctx
 );
 /// Get required vulkan extension names.
 usize platform_vk_read_ext_names(
@@ -134,10 +134,9 @@ usize platform_vk_read_ext_names(
 /// Swap buffers. OpenGL only.
 void platform_gl_swap_buffers( Platform* platform );
 /// Initialize OpenGL.
-b32 platform_gl_init(
-    Platform* platform,
-    struct OpenGLContext* glcontext
-);
+void* platform_gl_init( Platform* platform );
+/// Shutdown OpenGL.
+void platform_gl_shutdown( Platform* platform, void* glrc );
 
 /// Types of message boxes
 enum MessageBoxType : u32 {
@@ -299,11 +298,6 @@ void heap_free( void* memory );
 void* page_alloc( usize size );
 /// Free page allocated memory.
 void page_free( void* memory );
-
-/// Allocate memory on the stack.
-/// Does not require a free call.
-/// Not guaranteed to be zeroed out.
-#define stack_alloc(size) __builtin_alloca(size)
 
 #endif // internal
 

@@ -5,7 +5,7 @@
 */
 #include "application.h"
 #include "platform/platform.h"
-#include "renderer/frontend.h"
+#include "renderer/renderer.h"
 #include "events.h"
 #include "logging.h"
 #include "input.h"
@@ -29,6 +29,7 @@ struct AppContext {
 
     AppRunFn application_run;
     void*    application_params;
+    RendererContext* renderer_context;
 };
 
 global AppContext CONTEXT = {};
@@ -38,12 +39,12 @@ EventReturnCode on_app_exit( Event*, void* ) {
     return EVENT_CONSUMED;
 }
 
-EventReturnCode on_main_surface_destroy( Event*, void* ) {
+EventReturnCode on_destroy( Event*, void* ) {
     CONTEXT.is_running = false;
     return EVENT_CONSUMED;
 }
 
-EventReturnCode on_main_surface_active( Event* event, void* ) {
+EventReturnCode on_active( Event* event, void* ) {
     b32 is_active = event->data.surface_active.is_active;
     if( is_active ) {
         LOG_NOTE("Surface activated.");
@@ -53,9 +54,13 @@ EventReturnCode on_main_surface_active( Event* event, void* ) {
     return EVENT_CONSUMED;
 }
 
-EventReturnCode on_main_surface_resize( Event* event, void* ) {
-    // TODO(alicia): 
-    SM_UNUSED(event);
+EventReturnCode on_resize( Event* event, void* app_ctx ) {
+    AppContext* ctx = (AppContext*)app_ctx;
+    renderer_on_resize(
+        ctx->renderer_context,
+        event->data.surface_resize.width,
+        event->data.surface_resize.height
+    );
     return EVENT_NOT_CONSUMED;
 }
 
@@ -101,19 +106,31 @@ b32 app_init( AppConfig* config ) {
         surface_name_buffer,
         MAX_SURFACE_NAME,
         "%s | %s",
-        config->main_surface.name,
+        config->surface.name,
         to_string( config->renderer_backend )
     );
 
     if( !platform_init(
         surface_name_buffer,
-        config->main_surface.dimensions,
-        0,
+        config->surface.dimensions,
+        config->platform_flags,
         &CONTEXT.platform
     ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
             "Failed to initialize platform services."
+        );
+        return false;
+    }
+    CONTEXT.renderer_context = renderer_init(
+        config->surface.name,
+        config->renderer_backend,
+        &CONTEXT.platform
+    );
+    if( !CONTEXT.renderer_context ) {
+        MESSAGE_BOX_FATAL(
+            "Subsystem Failure",
+            "Failed to initialize rendering subsystem."
         );
         return false;
     }
@@ -199,7 +216,7 @@ b32 app_init( AppConfig* config ) {
 
     if(!event_subscribe(
         EVENT_CODE_SURFACE_DESTROY,
-        on_main_surface_destroy,
+        on_destroy,
         nullptr
     )) {
         MESSAGE_BOX_FATAL(
@@ -210,7 +227,7 @@ b32 app_init( AppConfig* config ) {
     }
     if(!event_subscribe(
         EVENT_CODE_SURFACE_ACTIVE,
-        on_main_surface_active,
+        on_active,
         nullptr
     )) {
         MESSAGE_BOX_FATAL(
@@ -221,8 +238,8 @@ b32 app_init( AppConfig* config ) {
     }
     if(!event_subscribe(
         EVENT_CODE_SURFACE_RESIZE,
-        on_main_surface_resize,
-        nullptr
+        on_resize,
+        &CONTEXT
     )) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
@@ -253,18 +270,6 @@ b32 app_init( AppConfig* config ) {
         return false;
     }
 
-    if( !renderer_init(
-        config->main_surface.name,
-        config->renderer_backend,
-        &CONTEXT.platform
-    ) ) {
-        MESSAGE_BOX_FATAL(
-            "Subsystem Failure",
-            "Failed to initialize rendering subsystem."
-        );
-        return false;
-    }
-
     CONTEXT.is_running = true;
 
 #if defined(LD_LOGGING) && defined(LD_PROFILING)
@@ -280,9 +285,7 @@ b32 app_init( AppConfig* config ) {
         );
         LOG_NOTE("    %-30s %s", to_string(type), usage_buffer);
     }
-    usize heap_usage = query_heap_usage();
-    usize page_usage = query_page_usage();
-    usize total_memory_usage = heap_usage + page_usage;
+    usize total_memory_usage = query_total_memory_usage();
     char usage_buffer[32];
     format_bytes(
         total_memory_usage,
@@ -321,11 +324,14 @@ b32 app_run() {
         RenderOrder draw_order = {};
         draw_order.delta_time = CONTEXT.time.delta_time;
 
-        if( !renderer_draw_frame( &draw_order ) ) {
+        if( !renderer_draw_frame(
+            CONTEXT.renderer_context,
+            &draw_order
+        ) ) {
             MESSAGE_BOX_FATAL(
                 "Renderer Failure",
                 "Unknown Error!\n"
-                "Please contact me at smushybusiness@gmail.com if you see this!"
+                LD_CONTACT_MESSAGE
             );
             return false;
         }
@@ -338,18 +344,18 @@ b32 app_run() {
 void app_shutdown() {
     event_unsubscribe(
         EVENT_CODE_SURFACE_DESTROY,
-        on_main_surface_destroy,
+        on_destroy,
         nullptr
     );
     event_unsubscribe(
         EVENT_CODE_SURFACE_ACTIVE,
-        on_main_surface_active,
+        on_active,
         nullptr
     );
     event_unsubscribe(
         EVENT_CODE_SURFACE_RESIZE,
-        on_main_surface_resize,
-        nullptr
+        on_resize,
+        &CONTEXT
     );
     event_unsubscribe(
         EVENT_CODE_INPUT_KEY,
@@ -363,10 +369,10 @@ void app_shutdown() {
     );
 
     CONTEXT.is_running = false;
-    renderer_shutdown();
     event_shutdown();
     input_shutdown();
 
+    renderer_shutdown( CONTEXT.renderer_context );
     platform_shutdown( &CONTEXT.platform );
     log_shutdown();
 }
