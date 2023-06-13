@@ -56,7 +56,7 @@ typedef void* pvoid;
     "Please contact me at smushybusiness@gmail.com if you see this."
 
 /// Check if bits are set in bitfield
-#define ARE_BITS_SET( bits, mask ) ( (bits & mask) == mask )
+#define ARE_BITS_SET( bits, mask ) ( ((bits) & (mask)) == (mask) )
 
 #define TO_STRING( foo ) #foo
 #define VALUE_TO_STRING( foo ) TO_STRING( foo )

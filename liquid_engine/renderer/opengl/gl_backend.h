@@ -1,5 +1,5 @@
-#if !defined(GL_BACKEND_HPP)
-#define GL_BACKEND_HPP
+#if !defined(RENDERER_GL_BACKEND_HPP)
+#define RENDERER_GL_BACKEND_HPP
 /**
  * Description:  OpenGL Backend
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
@@ -7,6 +7,7 @@
 */
 #include "defines.h"
 #include "renderer/renderer.h"
+#include "gl_loader.h"
 
 RendererContext* gl_renderer_backend_initialize( struct Platform* platform );
 void gl_renderer_backend_shutdown( RendererContext* ctx );

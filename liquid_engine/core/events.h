@@ -9,6 +9,17 @@
 #include "input.h"
 #include "core/math/types.h"
 
+#define MAX_EVENT_SUBSCRIPTIONS 16
+
+enum EventCallbackReturnCode : u32 {
+    EVENT_CALLBACK_NOT_CONSUMED,
+    EVENT_CALLBACK_CONSUMED
+};
+typedef EventCallbackReturnCode (*EventCallbackFN)(
+    struct Event* event,
+    void* params
+);
+
 enum EventCode : u32 {
     EVENT_CODE_UNKNOWN,
 
@@ -38,43 +49,21 @@ enum EventCode : u32 {
 
     MAX_EVENT_CODE = 0x200
 };
-inline const char* engine_event_code_to_string(
-    EventCode code
-) {
-    local const char* strings[EVENT_CODE_LAST_RESERVED] = {
-        "Event Unknown",
-
-        "Event App Exit",
-
-        "Event Surface Destroy",
-        "Event Surface Active",
-        "Event Surface Resize",
-        "Event Surface Move",
-
-        "Event Input Key",
-        "Event Mouse Button",
-        "Event Mouse Move",
-        "Event Mouse Wheel",
-        "Event Mouse Horizontal Wheel",
-        "Event Gamepad Button",
-        "Event Gamepad Stick Left",
-        "Event Gamepad Stick Right",
-        "Event Gamepad Trigger Left",
-        "Event Gamepad Trigger Right",
-        "Event Gamepad Activate",
-        "Event Mouse Cursor Changed"
-    };
-    if( code >= EVENT_CODE_LAST_RESERVED ) {
-        return nullptr;
-    }
-
-    return strings[code];
-}
-
-enum EventReturnCode : u32 {
-    EVENT_NOT_CONSUMED,
-    EVENT_CONSUMED
-};
+/// Subscribe a listener to an event.
+SM_API b32 event_subscribe(
+    EventCode       code,
+    EventCallbackFN callback_function,
+    void*           callback_params
+);
+/// Unsubscribe a listener from an event.
+SM_API b32 event_unsubscribe(
+    EventCode       code,
+    EventCallbackFN callback_function,
+    void*           callback_params
+);
+/// Check how many more listeners the specified event can have.
+/// Returns negative if event code is invalid.
+SM_API i32 event_available_listener_count( EventCode code );
 
 struct Event {
     EventCode code;
@@ -148,6 +137,8 @@ struct Event {
         } gamepad_stick;
     } data;
 };
+/// Fire an event.
+SM_API void event_fire( Event event );
 
 #if defined(SM_API_INTERNAL)
 
@@ -156,30 +147,37 @@ struct Event {
 
 #endif // api internal
 
-typedef EventReturnCode (*EventListener)(
-    Event* event,
-    void* params
-);
+inline const char* engine_event_code_to_string(
+    EventCode code
+) {
+    local const char* strings[EVENT_CODE_LAST_RESERVED] = {
+        "Event Unknown",
 
-SM_API void event_fire( Event event );
+        "Event App Exit",
 
-SM_API b32 event_subscribe(
-    EventCode     code,
-    EventListener listener,
-    void*         listener_params
-);
+        "Event Surface Destroy",
+        "Event Surface Active",
+        "Event Surface Resize",
+        "Event Surface Move",
 
-SM_API b32 event_unsubscribe(
-    EventCode     code,
-    EventListener listener,
-    void*         listener_params
-);
+        "Event Input Key",
+        "Event Mouse Button",
+        "Event Mouse Move",
+        "Event Mouse Wheel",
+        "Event Mouse Horizontal Wheel",
+        "Event Gamepad Button",
+        "Event Gamepad Stick Left",
+        "Event Gamepad Stick Right",
+        "Event Gamepad Trigger Left",
+        "Event Gamepad Trigger Right",
+        "Event Gamepad Activate",
+        "Event Mouse Cursor Changed"
+    };
+    if( code >= EVENT_CODE_LAST_RESERVED ) {
+        return nullptr;
+    }
 
-SM_API b32 event_unsubscribe_multiple_codes(
-    usize         code_count,
-    EventCode*    codes,
-    EventListener listener,
-    void*         listener_params
-);
+    return strings[code];
+}
 
 #endif // header guard

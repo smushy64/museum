@@ -388,7 +388,7 @@ SM_API void* _list_insert(
     u8* buffer_bytes = (u8*)list;
 
     if( index != count - 1 ) {
-        mem_overlap_copy(
+        mem_copy_overlapped(
             buffer_bytes + ((index + 1) * stride),
             buffer_bytes + (index * stride),
             stride * ( count - index )
@@ -442,7 +442,7 @@ SM_API void* _list_insert_trace(
     u8* buffer_bytes = (u8*)list;
 
     if( index != count - 1 ) {
-        mem_overlap_copy(
+        mem_copy_overlapped(
             buffer_bytes + ((index + 1) * stride),
             buffer_bytes + (index * stride),
             stride * ( count - index )

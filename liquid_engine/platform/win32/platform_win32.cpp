@@ -7,13 +7,13 @@
 
 #if defined(SM_PLATFORM_WINDOWS)
 
-#include "platform.h"
 #include "core/logging.h"
 #include "core/string.h"
 #include "core/memory.h"
 #include "core/collections.h"
 #include "core/events.h"
 #include "core/math.h"
+#include "core/application.h"
 
 #include "renderer/renderer.h"
 
@@ -33,7 +33,7 @@ global char* ERROR_MESSAGE_BUFFER = nullptr;
 global b32 IS_DPI_AWARE = false;
 
 b32 platform_init(
-    const char* opt_surface_name,
+    const char* opt_icon_path,
     ivec2 surface_dimensions,
     PlatformFlags flags,
     Platform* out_platform
@@ -43,7 +43,7 @@ b32 platform_init(
 
     Win32Platform* win32_platform = (Win32Platform*)mem_alloc(
         sizeof(Win32Platform),
-        MEMTYPE_PLATFORM_DATA
+        MEMTYPE_PLATFORM
     );
     if( !win32_platform ) {
         MESSAGE_BOX_FATAL(
@@ -63,26 +63,48 @@ b32 platform_init(
         mem_free( win32_platform );
         return false;
     }
-    if( !win32_library_load(
-        L"GDI32.DLL",
-        &win32_platform->lib_gdi32
+    if( !library_load(
+        "GDI32.DLL",
+        (void**)&win32_platform->lib_gdi32
     ) ) {
         MESSAGE_BOX_FATAL(
             "Failed to load library!",
             "Failed to load gdi32.dll!"
         );
+        mem_free( win32_platform );
         return false;
     }
-    GetStockObject = (::impl::GetStockObjectFN)win32_proc_address_required(
+    GetStockObject = (::impl::GetStockObjectFN)library_load_function(
         win32_platform->lib_gdi32,
         "GetStockObject"
     );
     if( !GetStockObject ) {
+        MESSAGE_BOX_FATAL(
+            "Failed to load function!",
+            "Failed to load GetStockObject!"
+        );
+        mem_free( win32_platform );
         return false;
     }
 
     ERROR_MESSAGE_BUFFER = win32_platform->error_message_buffer;
-    win32_platform->instance = GetModuleHandleA( nullptr );
+    win32_platform->instance = GetModuleHandle( nullptr );
+
+    HICON window_icon = nullptr;
+    if( opt_icon_path ) {
+        window_icon = (HICON)LoadImageA(
+            nullptr,
+            opt_icon_path,
+            IMAGE_ICON,
+            0, 0,
+            LR_DEFAULTSIZE | LR_LOADFROMFILE
+        );
+        if( !window_icon ) {
+            win32_log_error(true);
+            mem_free( win32_platform );
+            return false;
+        }
+    }
 
     // create window
     WNDCLASSEX windowClass    = {};
@@ -91,15 +113,15 @@ b32 platform_init(
     windowClass.hInstance     = win32_platform->instance;
     windowClass.lpszClassName = L"LiquidEngineWindowClass";
     windowClass.hbrBackground = (HBRUSH)GetStockBrush(BLACK_BRUSH);
+    windowClass.hIcon         = window_icon;
     windowClass.hCursor       = LoadCursor(
         win32_platform->instance,
         IDC_ARROW
     );
-    // TODO(alicia): window icon!
-    windowClass.hIcon = nullptr;
 
     if( !RegisterClassEx( &windowClass ) ) {
         win32_log_error( true );
+        mem_free( win32_platform );
         return false;
     }
 
@@ -133,6 +155,7 @@ b32 platform_init(
             dpi
         ) ) {
             win32_log_error( true );
+            mem_free( win32_platform );
             return false;
         }
     } else {
@@ -148,45 +171,25 @@ b32 platform_init(
             dwExStyle
         ) ) {
             win32_log_error( true );
+            mem_free( win32_platform );
             return false;
         }
     }
 
     i32 x = 0, y = 0; {
-        i32 screen_width  = GetSystemMetrics( SM_CXSCREEN );
-        i32 screen_height = GetSystemMetrics( SM_CYSCREEN );
+        ivec2 screen_center = ivec2{
+            GetSystemMetrics( SM_CXSCREEN ),
+            GetSystemMetrics( SM_CYSCREEN )
+        } / 2;
 
-        i32 x_center = screen_width / 2;
-        i32 y_center = screen_height / 2;
-
-        i32 half_width  = width / 2;
-        i32 half_height = height / 2;
-
-        x = x_center - half_width;
-        y = y_center - half_height;
+        x = screen_center.x - (width / 2);
+        y = screen_center.y - (height / 2);
     }
-
-    const char* surface_name  = DEFAULT_SURFACE_NAME;
-    usize surface_name_length = DEFAULT_SURFACE_NAME_LENGTH;
-    if( opt_surface_name ) {
-        surface_name        = opt_surface_name;
-        surface_name_length = str_length( opt_surface_name );
-        surface_name_length = min(
-            MAX_WINDOW_TITLE_BUFFER_SIZE,
-            surface_name_length
-        );
-    }
-
-    mbstowcs(
-        win32_platform->window_title_buffer,
-        surface_name,
-        surface_name_length
-    );
     
     HWND hWnd = CreateWindowEx(
         dwExStyle,
         windowClass.lpszClassName,
-        win32_platform->window_title_buffer,
+        L"Liquid Engine",
         dwStyle,
         x, y,
         window_rect.right - window_rect.left,
@@ -201,6 +204,8 @@ b32 platform_init(
         mem_free( win32_platform );
         return false;
     }
+    DestroyIcon( window_icon );
+
     HDC dc = GetDC( hWnd );
     if( !dc ) {
         win32_log_error( true );
@@ -242,19 +247,17 @@ b32 platform_init(
 void platform_shutdown( Platform* platform ) {
     Win32Platform* win32_platform = (Win32Platform*)platform->platform;
 
-    for( u32 i = 0; i < MAX_MODULE_COUNT; ++i ) {
-        HMODULE module = win32_platform->modules[i];
-        if( !module ) {
-            continue;
+    u32 platform_module_count = STATIC_ARRAY_COUNT( win32_platform->modules );
+    for( u32 i = 0; i < platform_module_count; ++i ) {
+        if( win32_platform->modules[i] ) {
+            library_free( win32_platform->modules[i] );
         }
-
-        win32_library_free( module );
     }
 
     ERROR_MESSAGE_BUFFER = nullptr;
     DestroyWindow( win32_platform->window.handle );
 
-    mem_free( platform->platform );
+    mem_free( win32_platform );
 }
 u64 platform_read_absolute_time( Platform* platform ) {
     Win32Platform* win32_platform = (Win32Platform*)platform->platform;
@@ -286,23 +289,11 @@ b32 platform_pump_events( Platform* platform ) {
 }
 void platform_surface_set_name(
     Platform* platform,
-    usize name_length,
+    usize,
     const char* name
 ) {
     Win32Platform* win32_platform = (Win32Platform*)platform->platform;
-    usize max_length = min(
-        MAX_WINDOW_TITLE_BUFFER_SIZE,
-        name_length
-    );
-    mbstowcs(
-        win32_platform->window_title_buffer,
-        name,
-        max_length
-    );
-    SetWindowText(
-        win32_platform->window.handle,
-        win32_platform->window_title_buffer
-    );
+    SetWindowTextA( win32_platform->window.handle, name );
 }
 i32 platform_surface_read_name(
     Platform* platform,
@@ -363,14 +354,6 @@ void platform_cursor_set_visible( Platform* platform, b32 visible ) {
     ShowCursor( visible );
     win32_platform->cursor.is_visible = visible;
 }
-void platform_cursor_set_locked( Platform* platform, b32 locked ) {
-    if( locked ) {
-        platform_cursor_center( platform );
-        platform_cursor_set_visible( platform, false );
-    } else {
-        platform_cursor_set_visible( platform, true );
-    }
-}
 void platform_cursor_center( Platform* platform ) {
     Win32Platform* win32_platform = (Win32Platform*)platform->platform;
     POINT center = {};
@@ -393,14 +376,14 @@ void platform_set_pad_motor_state(
 ) {
     XINPUT_VIBRATION vibration = {};
     if( motor == GAMEPAD_MOTOR_LEFT ) {
-        f32 right_motor = input_query_motor_state(
+        f32 right_motor = input_pad_read_motor_state(
             gamepad_index,
             GAMEPAD_MOTOR_RIGHT
         );
         vibration.wLeftMotorSpeed  = (WORD)( value * (f32)U16::MAX );
         vibration.wRightMotorSpeed = (WORD)( right_motor * (f32)U16::MAX );
     } else {
-        f32 left_motor = input_query_motor_state(
+        f32 left_motor = input_pad_read_motor_state(
             gamepad_index,
             GAMEPAD_MOTOR_LEFT
         );
@@ -431,7 +414,7 @@ void platform_poll_gamepad( Platform* platform ) {
             &gamepad_state
         );
         // if gamepad activated this frame, fire an event
-        b32 was_active = input_is_pad_active( gamepad_index );
+        b32 was_active = input_pad_is_active( gamepad_index );
         if( was_active != is_active && is_active ) {
             event.code = EVENT_CODE_INPUT_GAMEPAD_ACTIVATE;
             event.data.gamepad_activate.gamepad_index = gamepad_index;
@@ -445,135 +428,130 @@ void platform_poll_gamepad( Platform* platform ) {
 
         XINPUT_GAMEPAD gamepad = gamepad_state.Gamepad;
 
-        b32 dpad_left  = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_LEFT );
-        b32 dpad_right = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_RIGHT );
-        b32 dpad_up    = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_UP );
-        b32 dpad_down  = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_DOWN );
-
-        b32 face_left  = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_X );
-        b32 face_right = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_B );
-        b32 face_up    = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_Y );
-        b32 face_down  = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_A );
-
-        b32 start  = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_START );
-        b32 select = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_BACK );
-
-        b32 bumper_left  = ARE_BITS_SET(
-            gamepad.wButtons,
-            XINPUT_GAMEPAD_LEFT_SHOULDER
-        );
-        b32 bumper_right = ARE_BITS_SET(
-            gamepad.wButtons,
-            XINPUT_GAMEPAD_RIGHT_SHOULDER
-        );
-
-        b32 click_left  = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_LEFT_THUMB );
-        b32 click_right = ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_RIGHT_THUMB );
-
-        #define HALF_TRIGGER_PRESS 127;
-
-        b32 trigger_left  = gamepad.bLeftTrigger  >= HALF_TRIGGER_PRESS;
-        b32 trigger_right = gamepad.bRightTrigger >= HALF_TRIGGER_PRESS;
-
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_DPAD_LEFT,
-            dpad_left
+            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_LEFT )
         );
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_DPAD_RIGHT,
-            dpad_right
+            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_RIGHT )
         );
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_DPAD_UP,
-            dpad_up
+            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_UP )
         );
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_DPAD_DOWN,
-            dpad_down
+            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_DOWN )
         );
 
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_FACE_LEFT,
-            face_left
+            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_X )
         );
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_FACE_RIGHT,
-            face_right
+            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_B )
         );
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_FACE_UP,
-            face_up
+            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_Y )
         );
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_FACE_DOWN,
-            face_down
+            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_A )
         );
 
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_START,
-            start
+            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_START )
         );
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_SELECT,
-            select
+            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_BACK )
         );
 
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_BUMPER_LEFT,
-            bumper_left
+            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_LEFT_SHOULDER )
         );
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_BUMPER_RIGHT,
-            bumper_right
-        );
-
-        input_set_pad_button(
-            gamepad_index,
-            PAD_CODE_TRIGGER_LEFT,
-            trigger_left
-        );
-        input_set_pad_button(
-            gamepad_index,
-            PAD_CODE_TRIGGER_RIGHT,
-            trigger_right
+            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_RIGHT_SHOULDER )
         );
 
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_STICK_LEFT_CLICK,
-            click_left
+            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_LEFT_THUMB )
         );
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_STICK_RIGHT_CLICK,
-            click_right
+            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_RIGHT_THUMB )
         );
 
-        f32 trigger_left_axis  = normalize_range( gamepad.bLeftTrigger );
-        f32 trigger_right_axis = normalize_range( gamepad.bRightTrigger );
+        f32 trigger_press_threshold =
+            input_pad_read_trigger_press_threshold( gamepad_index );
+
+        f32 trigger_left_deadzone =
+            input_pad_read_trigger_left_deadzone( gamepad_index );
+        f32 trigger_right_deadzone =
+            input_pad_read_trigger_right_deadzone( gamepad_index );
+
+        f32 trigger_left  = normalize_range( gamepad.bLeftTrigger );
+        f32 trigger_right = normalize_range( gamepad.bRightTrigger );
+
+        if( trigger_left >= trigger_left_deadzone ) {
+            trigger_left = remap(
+                trigger_left_deadzone, 1.0f,
+                0.0f, 1.0f,
+                trigger_left
+            );
+        } else {
+            trigger_left = 0;
+        }
+        if( trigger_right >= trigger_right_deadzone ) {
+            trigger_right = remap(
+                trigger_right_deadzone, 1.0f,
+                0.0f, 1.0f,
+                trigger_right
+            );
+        } else {
+            trigger_right = 0;
+        }
+
+        input_set_pad_button(
+            gamepad_index,
+            PAD_CODE_TRIGGER_LEFT,
+            trigger_left >= trigger_press_threshold
+        );
+        input_set_pad_button(
+            gamepad_index,
+            PAD_CODE_TRIGGER_RIGHT,
+            trigger_right >= trigger_press_threshold
+        );
 
         input_set_pad_trigger_left(
             gamepad_index,
-            trigger_left_axis
+            trigger_left
         );
         input_set_pad_trigger_right(
             gamepad_index,
-            trigger_right_axis
+            trigger_right
         );
-
-        // TODO(alicia): this may not be correct . . .
 
         vec2 stick_left = v2(
             normalize_range( gamepad.sThumbLX ),
@@ -583,45 +561,60 @@ void platform_poll_gamepad( Platform* platform ) {
             normalize_range( gamepad.sThumbRX ),
             normalize_range( gamepad.sThumbRY )
         );
+
+        f32 stick_left_magnitude  = mag( stick_left );
+        f32 stick_right_magnitude = mag( stick_right );
+
+        vec2 stick_left_direction  = stick_left_magnitude >= 0 ?
+            stick_left  / stick_left_magnitude  : VEC2::ZERO;
+        vec2 stick_right_direction = stick_right_magnitude >= 0 ?
+            stick_right / stick_right_magnitude : VEC2::ZERO;
+
+        f32 stick_left_deadzone  = input_pad_read_stick_left_deadzone( gamepad_index );
+        f32 stick_right_deadzone = input_pad_read_stick_right_deadzone( gamepad_index );
+
+        if( stick_left_magnitude >= stick_left_deadzone ) {
+            stick_left_magnitude = remap(
+                stick_left_deadzone, 1.0f,
+                0.0f, 1.0f,
+                stick_left_magnitude
+            );
+        } else {
+            stick_left_magnitude = 0;
+        }
+        if( stick_right_magnitude >= stick_right_deadzone ) {
+            stick_right_magnitude = remap(
+                stick_right_deadzone, 1.0f,
+                0.0f, 1.0f,
+                stick_right_magnitude
+            );
+        } else {
+            stick_right_magnitude = 0;
+        }
+
+        stick_left  = stick_left_magnitude * stick_left_direction;
+        stick_right = stick_right_magnitude * stick_right_direction;
         
-        b32 stick_left_moved = absolute( gamepad.sThumbLX ) >=
-            XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE;
-        b32 stick_right_moved = absolute( gamepad.sThumbRX ) >=
-            XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE;
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_STICK_LEFT,
-            stick_left_moved
+            stick_left_magnitude  >= 0
         );
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_STICK_RIGHT,
-            stick_right_moved
+            stick_right_magnitude >= 0
         );
         
-        if( stick_left_moved ) {
-            input_set_pad_stick_left(
-                gamepad_index,
-                stick_left
-            );
-            event = {};
-            event.code = EVENT_CODE_INPUT_GAMEPAD_STICK_LEFT;
-            event.data.gamepad_stick.gamepad_index = gamepad_index;
-            event.data.gamepad_stick.value         = stick_left;
-            event_fire( event );
-        }
+        input_set_pad_stick_left(
+            gamepad_index,
+            stick_left
+        );
 
-        if( stick_right_moved ) {
-            input_set_pad_stick_right(
-                gamepad_index,
-                stick_right
-            );
-            event = {};
-            event.code = EVENT_CODE_INPUT_GAMEPAD_STICK_RIGHT;
-            event.data.gamepad_stick.gamepad_index = gamepad_index;
-            event.data.gamepad_stick.value         = stick_right;
-            event_fire( event );
-        }
+        input_set_pad_stick_right(
+            gamepad_index,
+            stick_right
+        );
     }
 }
 // struct VkSurfaceKHR_T* platform_vk_create_surface(
@@ -651,36 +644,28 @@ void platform_poll_gamepad( Platform* platform ) {
 //     return vk_surface;
 
 // }
-// usize platform_vk_read_ext_names(
-//     Platform*,
-//     usize max_names,
-//     usize* name_count,
-//     const char** names
-// ) {
-//     usize win32_ext_count = STATIC_ARRAY_COUNT( WIN32_VULKAN_EXTENSIONS );
-//     usize max_count = win32_ext_count > max_names ?
-//         max_names : win32_ext_count;
+usize platform_vk_read_ext_names(
+    Platform*,
+    usize max_names,
+    usize* name_count,
+    const char** names
+) {
+    usize win32_ext_count = STATIC_ARRAY_COUNT( WIN32_VULKAN_EXTENSIONS );
+    usize max_count = win32_ext_count > max_names ?
+        max_names : win32_ext_count;
     
-//     usize count = *name_count;
-//     for( usize i = 0; i < max_count; ++i ) {
-//         names[count++] = WIN32_VULKAN_EXTENSIONS[i];
-//         win32_ext_count--;
-//     }
+    usize count = *name_count;
+    for( usize i = 0; i < max_count; ++i ) {
+        names[count++] = WIN32_VULKAN_EXTENSIONS[i];
+        win32_ext_count--;
+    }
 
-//     *name_count = count;
-//     return win32_ext_count;
-// }
-
-
+    *name_count = count;
+    return win32_ext_count;
+}
 void platform_gl_swap_buffers( Platform* platform ) {
     Win32Platform* win32_platform = (Win32Platform*)platform->platform;
-#if defined(DEBUG)
-    if( !SwapBuffers( win32_platform->window.device_context ) ) {
-        win32_log_error( true );
-    }
-#else
     SwapBuffers( win32_platform->window.device_context );
-#endif
 }
 internal HGLRC win32_gl_create_context( Platform* platform ) {
     Win32Platform* win32_platform = (Win32Platform*)platform->platform;
@@ -869,7 +854,7 @@ SystemInfo query_system_info() {
     GlobalMemoryStatusEx( &memory_status );
 
     result.total_memory = memory_status.ullTotalPhys;
-    result.thread_count = win32_info.dwNumberOfProcessors;
+    result.logical_processor_count = win32_info.dwNumberOfProcessors;
 
 #if defined(SM_ARCH_X86)
     mem_set(
@@ -1261,9 +1246,9 @@ MessageBoxResult message_box(
 b32 win32_load_user32( HMODULE* out_module ) {
     HMODULE lib_user32 = nullptr;
 
-    if( !win32_library_load(
-        L"USER32.DLL",
-        &lib_user32
+    if( !library_load(
+        "USER32.DLL",
+        (void**)&lib_user32
     ) ) {
         MESSAGE_BOX_FATAL(
             "Failed to load library!",
@@ -1273,7 +1258,7 @@ b32 win32_load_user32( HMODULE* out_module ) {
     }
 
     SetProcessDpiAwarenessContext =
-    (::impl::SetProcessDpiAwarenessContextFN)win32_proc_address_required(
+    (::impl::SetProcessDpiAwarenessContextFN)library_load_function(
         lib_user32,
         "SetProcessDpiAwarenessContext"
     );
@@ -1282,7 +1267,7 @@ b32 win32_load_user32( HMODULE* out_module ) {
     }
 
     GetDpiForSystem =
-    (::impl::GetDpiForSystemFN)win32_proc_address_required(
+    (::impl::GetDpiForSystemFN)library_load_function(
         lib_user32,
         "GetDpiForSystem"
     );
@@ -1291,7 +1276,7 @@ b32 win32_load_user32( HMODULE* out_module ) {
     }
 
     AdjustWindowRectExForDpi =
-    (::impl::AdjustWindowRectExForDpiFN)win32_proc_address_required(
+    (::impl::AdjustWindowRectExForDpiFN)library_load_function(
         lib_user32,
         "AdjustWindowRectExForDpi"
     );
@@ -1305,17 +1290,17 @@ b32 win32_load_user32( HMODULE* out_module ) {
 b32 win32_load_xinput( HMODULE* out_module ) {
     HMODULE lib_xinput = nullptr;
 
-    if( !win32_library_load(
-        L"XINPUT1_4.DLL",
-        &lib_xinput
+    if( !library_load(
+        "XINPUT1_4.DLL",
+        (void**)&lib_xinput
     ) ) {
-        if( !win32_library_load(
-            L"XINPUT9_1_0.DLL",
-            &lib_xinput
+        if( !library_load(
+            "XINPUT9_1_0.DLL",
+            (void**)&lib_xinput
         ) ) {
-            if( !win32_library_load(
-                L"XINPUT1_3.DLL",
-                &lib_xinput
+            if( !library_load(
+                "XINPUT1_3.DLL",
+                (void**)&lib_xinput
             ) ) {
                 MESSAGE_BOX_FATAL(
                     "Failed to load library!",
@@ -1327,7 +1312,7 @@ b32 win32_load_xinput( HMODULE* out_module ) {
     }
 
     XInputGetState =
-    (::impl::XInputGetStateFN)win32_proc_address_required(
+    (::impl::XInputGetStateFN)library_load_function(
         lib_xinput,
         "XInputGetState"
     );
@@ -1335,7 +1320,7 @@ b32 win32_load_xinput( HMODULE* out_module ) {
         return false;
     }
     XInputSetState =
-    (::impl::XInputSetStateFN)win32_proc_address_required(
+    (::impl::XInputSetStateFN)library_load_function(
         lib_xinput,
         "XInputSetState"
     );
@@ -1343,7 +1328,7 @@ b32 win32_load_xinput( HMODULE* out_module ) {
         return false;
     }
     ::impl::XInputEnableFN xinput_enable =
-    (::impl::XInputEnableFN)win32_proc_address(
+    (::impl::XInputEnableFN)library_load_function(
         lib_xinput,
         "XInputEnable"
     );
@@ -1357,9 +1342,9 @@ b32 win32_load_xinput( HMODULE* out_module ) {
 b32 win32_load_opengl( Win32Platform* platform ) {
     HMODULE lib_gl = nullptr;
 
-    if( !win32_library_load(
-        L"OPENGL32.DLL",
-        &lib_gl
+    if( !library_load(
+        "OPENGL32.DLL",
+        (void**)&lib_gl
     ) ) {
         MESSAGE_BOX_FATAL(
             "Failed to load library!",
@@ -1369,7 +1354,7 @@ b32 win32_load_opengl( Win32Platform* platform ) {
     }
 
     wglCreateContext =
-    (::impl::wglCreateContextFN)win32_proc_address_required(
+    (::impl::wglCreateContextFN)library_load_function(
         lib_gl,
         "wglCreateContext"
     );
@@ -1377,7 +1362,7 @@ b32 win32_load_opengl( Win32Platform* platform ) {
         return false;
     }
     wglMakeCurrent =
-    (::impl::wglMakeCurrentFN)win32_proc_address_required(
+    (::impl::wglMakeCurrentFN)library_load_function(
         lib_gl,
         "wglMakeCurrent"
     );
@@ -1385,7 +1370,7 @@ b32 win32_load_opengl( Win32Platform* platform ) {
         return false;
     }
     wglDeleteContext =
-    (::impl::wglDeleteContextFN)win32_proc_address_required(
+    (::impl::wglDeleteContextFN)library_load_function(
         lib_gl,
         "wglDeleteContext"
     );
@@ -1393,7 +1378,7 @@ b32 win32_load_opengl( Win32Platform* platform ) {
         return false;
     }
     wglGetProcAddress =
-    (::impl::wglGetProcAddressFN)win32_proc_address_required(
+    (::impl::wglGetProcAddressFN)library_load_function(
         lib_gl,
         "wglGetProcAddress"
     );
@@ -1402,7 +1387,7 @@ b32 win32_load_opengl( Win32Platform* platform ) {
     }
 
     DescribePixelFormat =
-    (::impl::DescribePixelFormatFN)win32_proc_address_required(
+    (::impl::DescribePixelFormatFN)library_load_function(
         platform->lib_gdi32,
         "DescribePixelFormat"
     );
@@ -1410,7 +1395,7 @@ b32 win32_load_opengl( Win32Platform* platform ) {
         return false;
     }
     ChoosePixelFormat =
-    (::impl::ChoosePixelFormatFN)win32_proc_address_required(
+    (::impl::ChoosePixelFormatFN)library_load_function(
         platform->lib_gdi32,
         "ChoosePixelFormat"
     );
@@ -1418,7 +1403,7 @@ b32 win32_load_opengl( Win32Platform* platform ) {
         return false;
     }
     SetPixelFormat =
-    (::impl::SetPixelFormatFN)win32_proc_address_required(
+    (::impl::SetPixelFormatFN)library_load_function(
         platform->lib_gdi32,
         "SetPixelFormat"
     );
@@ -1427,7 +1412,7 @@ b32 win32_load_opengl( Win32Platform* platform ) {
     }
 
     SwapBuffers =
-    (::impl::SwapBuffersFN)win32_proc_address_required(
+    (::impl::SwapBuffersFN)library_load_function(
         platform->lib_gdi32,
         "SwapBuffers"
     );
@@ -1440,31 +1425,29 @@ b32 win32_load_opengl( Win32Platform* platform ) {
 }
 
 namespace impl {
-    internal b32 _win32_library_load(
-        const wchar_t* module_name,
-        HMODULE* out_module
+    #define LIBRARY_NAME_BUFFER_SIZE 128
+
+    b32 _library_load(
+        const char* library_name, 
+        LibraryHandle* out_library
     ) {
-        HMODULE module = LoadLibrary(
-            module_name
-        );
+        HMODULE module = LoadLibraryA( library_name );
         if( !module ) {
             return false;
         }
-        *out_module = module;
+        *out_library = (void*)module;
         return true;
     }
-
-    internal b32 _win32_library_load_trace(
-        const wchar_t* module_name,
-        HMODULE* out_module,
+    b32 _library_load_trace(
+        const char* library_name, 
+        LibraryHandle* out_library,
         const char* function,
         const char* file,
         i32 line
     ) {
-        HMODULE module = LoadLibrary(
-            module_name
-        );
-        if( !module ) {
+        LibraryHandle result = nullptr;
+        _library_load( library_name, &result );
+        if( !_library_load( library_name, &result ) ) {
             log_formatted_locked(
                 LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,
                 LOG_COLOR_RED, 0,
@@ -1477,13 +1460,13 @@ namespace impl {
                 LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,
                 LOG_COLOR_RED,
                 LOG_FLAG_NEW_LINE,
-                "Failed to load library \"%ls\"!",
-                module_name
+                "Failed to load library \"%s\"!",
+                library_name
             );
             return false;
         }
 
-        *out_module = module;
+        *out_library = result;
         log_formatted_locked(
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
             LOG_COLOR_RESET, 0,
@@ -1496,30 +1479,30 @@ namespace impl {
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
             LOG_COLOR_RESET,
             LOG_FLAG_NEW_LINE,
-            "Library \"%ls\" has been loaded successfully.",
-            module_name
+            "Library \"%s\" has been loaded successfully.",
+            library_name
         );
 
         return true;
     }
-
-    internal void _win32_library_free( HMODULE module ) {
+    void _library_free( LibraryHandle library ) {
+        HMODULE module = (HMODULE)library;
         FreeLibrary( module );
     }
-
-    internal void _win32_library_free_trace(
-        HMODULE module,
+    void _library_free_trace( 
+        LibraryHandle library,
         const char* function,
         const char* file,
         i32 line
     ) {
-        static const u32 NAME_BUFFER_SIZE = 128;
-        wchar_t name_buffer[NAME_BUFFER_SIZE];
-        GetModuleBaseName(
+        HMODULE module = (HMODULE)library;
+
+        char library_name_buffer[LIBRARY_NAME_BUFFER_SIZE];
+        GetModuleBaseNameA(
             GetCurrentProcess(),
             module,
-            name_buffer,
-            NAME_BUFFER_SIZE
+            library_name_buffer,
+            LIBRARY_NAME_BUFFER_SIZE
         );
         log_formatted_locked(
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
@@ -1533,102 +1516,83 @@ namespace impl {
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
             LOG_COLOR_RESET,
             LOG_FLAG_NEW_LINE,
-            "Library \"%ls\" has been freed.",
-            name_buffer
+            "Library \"%s\" has been freed.",
+            library_name_buffer
         );
-        FreeLibrary( module );
+        _library_free( library );
+    }
+    void* _library_load_function(
+        LibraryHandle library,
+        const char* function_name
+    ) {
+        HMODULE module = (HMODULE)library;
+        FARPROC proc   = GetProcAddress(
+            module,
+            function_name
+        );
+        return (void*)proc;
+    }
+    void* _library_load_function_trace(
+        LibraryHandle library,
+        const char* function_name,
+        const char* function,
+        const char* file,
+        i32 line
+    ) {
+        HMODULE module = (HMODULE)library;
+        char library_name_buffer[LIBRARY_NAME_BUFFER_SIZE];
+        GetModuleBaseNameA(
+            GetCurrentProcess(),
+            module,
+            library_name_buffer,
+            LIBRARY_NAME_BUFFER_SIZE
+        );
+        void* result = _library_load_function(
+            library,
+            function_name
+        );
+
+        LogLevel level = result ?
+            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE :
+            LOG_LEVEL_ERROR | LOG_LEVEL_TRACE;
+        LogColor color = result ? LOG_COLOR_RESET : LOG_COLOR_RED;
+
+        LogFlags flags = result ? 0 : LOG_FLAG_ALWAYS_PRINT;
+
+        log_formatted_locked(
+            level,
+            color,
+            flags,
+            "[NOTE WIN32  | %s | %s:%i] ",
+            function,
+            file,
+            line
+        );
+        if( result ) {
+            log_formatted_locked(
+                level,
+                color,
+                LOG_FLAG_NEW_LINE | flags,
+                "Function \"%s\" "
+                "loaded from library \"%s\" successfully.",
+                function_name,
+                library_name_buffer
+            );
+        } else {
+            log_formatted_locked(
+                level,
+                color,
+                LOG_FLAG_NEW_LINE | flags,
+                "Unable to load function \"%s\" "
+                "from library \"%s\"!",
+                function_name,
+                library_name_buffer
+            );
+        }
+        return result;
     }
 
 } // namespace impl
-
-internal void* win32_proc_address(
-    HMODULE module,
-    const char* proc_name
-) {
-    void* result = (void*)GetProcAddress(
-        module,
-        proc_name
-    );
-
-#if defined(LD_LOGGING)
-    static const usize MODULE_NAME_BUFFER_SIZE = 128;
-    wchar_t module_name_buffer[MODULE_NAME_BUFFER_SIZE];
-    GetModuleBaseName(
-        GetCurrentProcess(),
-        module,
-        module_name_buffer,
-        MODULE_NAME_BUFFER_SIZE
-    );
-    if( result ) {
-        WIN32_LOG_NOTE(
-            "Function \"%s\" loaded from library \"%ls\".",
-            proc_name,
-            module_name_buffer
-        );
-    } else {
-        WIN32_LOG_WARN(
-            "Failed to load function \"%s\" from library \"%ls\"!",
-            proc_name,
-            module_name_buffer
-        );
-    }
-#endif
-
-    return result;
-}
-
-internal void* win32_proc_address_required(
-    HMODULE module,
-    const char* proc_name
-) {
-    void* result = (void*)GetProcAddress(
-        module,
-        proc_name
-    );
-
-    if( result ) {
-#if defined(LD_LOGGING)
-        static const usize MODULE_NAME_BUFFER_SIZE = 128;
-        wchar_t module_name_buffer[MODULE_NAME_BUFFER_SIZE];
-        GetModuleBaseName(
-            GetCurrentProcess(),
-            module,
-            module_name_buffer,
-            MODULE_NAME_BUFFER_SIZE
-        );
-        WIN32_LOG_NOTE(
-            "Function \"%s\" loaded from library \"%ls\".",
-            proc_name,
-            module_name_buffer
-        );
-#endif
-    } else {
-        static const usize MODULE_NAME_BUFFER_SIZE = 128;
-        wchar_t module_name_buffer[MODULE_NAME_BUFFER_SIZE];
-        GetModuleBaseName(
-            GetCurrentProcess(),
-            module,
-            module_name_buffer,
-            MODULE_NAME_BUFFER_SIZE
-        );
-        static const usize MESSAGE_BUFFER_SIZE = 512;
-        char message_buffer[MESSAGE_BUFFER_SIZE];
-        snprintf(
-            message_buffer,
-            MESSAGE_BUFFER_SIZE,
-            "Failed to load function \"%s\" from module \"%ls\"!",
-            proc_name,
-            module_name_buffer
-        );
-        WIN32_LOG_ERROR("%s", message_buffer);
-        MESSAGE_BOX_FATAL(
-            "Failed to load function.",
-            message_buffer
-        );
-    }
-
-    return result;
-}
 
 DWORD win32_log_error( b32 present_message_box ) {
     DWORD error_code = GetLastError();
@@ -1636,53 +1600,46 @@ DWORD win32_log_error( b32 present_message_box ) {
         return error_code;
     }
 
-    wchar_t* message_buffer = nullptr;
-    DWORD message_buffer_size = FormatMessage(
+    if( !ERROR_MESSAGE_BUFFER ) {
+        WIN32_LOG_WARN(
+            "Attempted to present error message box while "
+            "message buffer is null!"
+        );
+        return error_code;
+    }
+
+    DWORD message_length = FormatMessageA(
         FORMAT_MESSAGE_FROM_SYSTEM |
         FORMAT_MESSAGE_IGNORE_INSERTS |
-        FORMAT_MESSAGE_ALLOCATE_BUFFER |
         FORMAT_MESSAGE_MAX_WIDTH_MASK,
         nullptr,
         error_code,
         0,
-        (LPWSTR)&message_buffer,
-        0,
+        ERROR_MESSAGE_BUFFER,
+        ERROR_MESSAGE_BUFFER_SIZE,
         nullptr
     );
 
-    if( message_buffer ) {
-        if( message_buffer_size > 0 ) {
-            WIN32_LOG_ERROR(
-                "%u: %ls",
-                error_code,
-                message_buffer
+    if( message_length ) {
+        WIN32_LOG_ERROR(
+            "%u: %s",
+            error_code,
+            ERROR_MESSAGE_BUFFER
+        );
+
+        if( present_message_box ) {
+            snprintf(
+                ERROR_MESSAGE_BUFFER + message_length,
+                ERROR_MESSAGE_BUFFER_SIZE - (message_length + 1),
+                "Encountered a fatal Windows error!\n"
+                LD_CONTACT_MESSAGE "\n"
             );
 
-            if( present_message_box ) {
-                if( ERROR_MESSAGE_BUFFER ) {
-                    snprintf(
-                        ERROR_MESSAGE_BUFFER,
-                        ERROR_MESSAGE_BUFFER_SIZE,
-                        "Encountered a fatal Windows error!\n"
-                        LD_CONTACT_MESSAGE "\n"
-                        "%ls",
-                        message_buffer
-                    );
-
-                    MESSAGE_BOX_FATAL(
-                        "Fatal Windows Error",
-                        ERROR_MESSAGE_BUFFER
-                    );
-                } else {
-                    WIN32_LOG_WARN(
-                        "Attempted to present error message box while "
-                        "message buffer is null!"
-                    );
-                }
-            }
+            MESSAGE_BOX_FATAL(
+                "Fatal Windows Error",
+                ERROR_MESSAGE_BUFFER
+            );
         }
-
-        LocalFree( message_buffer );
     }
 
     return error_code;

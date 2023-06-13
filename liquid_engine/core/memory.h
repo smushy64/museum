@@ -16,22 +16,26 @@
 
 enum MemoryType : u64 {
     MEMTYPE_UNKNOWN,
+    MEMTYPE_APPLICATION,
     MEMTYPE_DYNAMIC_LIST,
-    MEMTYPE_PLATFORM_DATA,
+    MEMTYPE_PLATFORM,
     MEMTYPE_EVENT_LISTENER_REGISTRY,
     MEMTYPE_RENDERER,
     MEMTYPE_LOGGING,
+    MEMTYPE_USER,
 
     MEMTYPE_COUNT
 };
 inline const char* to_string(MemoryType memtype) {
     local const char* strings[MEMTYPE_COUNT] = {
         "Unknown Memory",
+        "Application Memory",
         "Dynamic List Memory",
-        "Platform Data Memory",
+        "Platform Memory",
         "Event Listener Registry Memory",
         "Renderer Memory",
-        "Logging Buffer Memory"
+        "Logging Buffer Memory",
+        "User Memory"
     };
     if( memtype >= MEMTYPE_COUNT ) {
         return strings[0];
@@ -133,7 +137,7 @@ SM_API usize query_total_memory_usage();
 SM_API void mem_copy( void* dst, const void* src, usize size );
 /// Copy memory between overlapping buffers.
 /// Potentially a lot slower than mem_copy so only use when necessary.
-SM_API void mem_overlap_copy( void* dst, const void* src, usize size );
+SM_API void mem_copy_overlapped( void* dst, const void* src, usize size );
 /// Set a range of bytes to a specific value.
 SM_API void mem_set( u8 value, usize dst_size, void* dst );
 /// Zero out memory.

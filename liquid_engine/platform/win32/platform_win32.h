@@ -1,4 +1,3 @@
-
 #if !defined(PLATFORM_WIN32_HPP)
 #define PLATFORM_WIN32_HPP
 /**
@@ -10,7 +9,7 @@
 #if defined(SM_PLATFORM_WINDOWS)
 
 #include "core/logging.h"
-#include "platform.h"
+#include "platform/platform.h"
 
 #define WIN32_LEAN_AND_MEAN
 #define NOGDI
@@ -19,23 +18,18 @@
 #include <psapi.h>
 #include <xinput.h>
 
-struct Win32Cursor {
-    CursorStyle style;
-    b32         is_visible;
-};
-
-struct Win32Window {
-    HWND handle;
-    HDC  device_context;
-};
-
-#define MAX_WINDOW_TITLE_BUFFER_SIZE 256ULL
 #define ERROR_MESSAGE_BUFFER_SIZE 512ULL
-#define MAX_MODULE_COUNT 4
 struct Win32Platform {
-    Win32Window window;
-    Win32Cursor cursor;
+    struct Win32Window {
+        HWND handle;
+        HDC  device_context;
+    } window;
+    struct Win32Cursor {
+        CursorStyle style;
+        b32         is_visible;
+    } cursor;
     HINSTANCE instance;
+
     union {
         struct {
             HMODULE lib_user32;
@@ -43,13 +37,13 @@ struct Win32Platform {
             HMODULE lib_gl;
             HMODULE lib_gdi32;
         };
-        HMODULE modules[MAX_MODULE_COUNT];
+        HMODULE modules[4];
     };
+
     LARGE_INTEGER performance_frequency;
     LARGE_INTEGER performance_counter;
 
     char error_message_buffer[ERROR_MESSAGE_BUFFER_SIZE];
-    wchar_t window_title_buffer[MAX_WINDOW_TITLE_BUFFER_SIZE];
 };
 global const char* WIN32_VULKAN_EXTENSIONS[] = {
     "VK_KHR_win32_surface"
@@ -307,31 +301,6 @@ typedef struct tagPIXELFORMATDESCRIPTOR {
 #define PFD_UNDERLAY_PLANE (-1)
 
 namespace impl {
-    [[maybe_unused]]
-    internal b32 _win32_library_load(
-        const wchar_t* module_name,
-        HMODULE* out_module
-    );
-
-    [[maybe_unused]]
-    internal b32 _win32_library_load_trace(
-        const wchar_t* module_name,
-        HMODULE* out_module,
-        const char* function,
-        const char* file,
-        i32 line
-    );
-
-    [[maybe_unused]]
-    internal void _win32_library_free( HMODULE module );
-
-    [[maybe_unused]]
-    internal void _win32_library_free_trace(
-        HMODULE module,
-        const char* function,
-        const char* file,
-        i32 line
-    );
 
     typedef BOOL (*SetProcessDpiAwarenessContextFN)( DPI_AWARENESS_CONTEXT );
     [[maybe_unused]]
@@ -400,29 +369,6 @@ namespace impl {
 
 } // namespace impl
 
-#if defined(LD_LOGGING)
-    #define win32_library_load( module_name, out_module )\
-        ::impl::_win32_library_load_trace(\
-            module_name,\
-            out_module,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__\
-        )
-    #define win32_library_free( module )\
-        ::impl::_win32_library_free_trace(\
-            module,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__\
-        )
-#else
-    #define win32_library_load( module_name, out_module ) \
-        ::impl::_win32_library_load( module_name, out_module )
-    #define win32_library_free( module )\
-        ::impl::_win32_library_free( module )
-#endif
-
 #define SetProcessDpiAwarenessContext ::impl::in_SetProcessDpiAwarenessContext
 #define GetDpiForSystem               ::impl::in_GetDpiForSystem
 #define AdjustWindowRectExForDpi      ::impl::in_AdjustWindowRectExForDpi
@@ -451,17 +397,6 @@ namespace impl {
 #define WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
 #define ERROR_INVALID_VERSION_ARB                 0x2095
 #define ERROR_INVALID_PROFILE_ARB                 0x2096
-
-[[maybe_unused]]
-internal void* win32_proc_address(
-    HMODULE module,
-    const char* proc_name
-);
-[[maybe_unused]]
-internal void* win32_proc_address_required(
-    HMODULE module,
-    const char* proc_name
-);
 
 #endif // if platform windows
 #endif // header guard

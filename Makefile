@@ -46,7 +46,7 @@ export INCLUDE_PATHS := -I../liquid_engine
 
 RELEASE_C_FLAGS := -O2
 DEBUG_C_FLAGS   := -O0 -g -gcodeview -Wall -Wextra -Wno-missing-braces
-C_FLAGS         := -march=native -MMD -MP -fno-rtti -fno-exceptions -Werror=vla
+C_FLAGS         := -march=native -MMD -MP -fno-rtti -fno-exceptions -Werror=vla -ffast-math
 
 RELEASE_CPP_FLAGS :=
 DEBUG_CPP_FLAGS   := -DDEBUG -DLD_LOGGING -DSM_ASSERTIONS -DLD_OUTPUT_DEBUG_STRING -DLD_PROFILING

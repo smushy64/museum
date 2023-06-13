@@ -424,16 +424,30 @@ SM_API f32 input_pad_last_trigger_left( u32 gamepad_index );
 SM_API f32 input_pad_trigger_right( u32 gamepad_index );
 SM_API f32 input_pad_last_trigger_right( u32 gamepad_index );
 
-SM_API void input_set_pad_motor_state(
+SM_API void input_pad_write_motor_state(
     u32 gamepad_index,
     u32 motor,
     f32 value
 );
-SM_API b32 input_is_pad_active( u32 gamepad_index );
-SM_API f32 input_query_motor_state(
+SM_API b32 input_pad_is_active( u32 gamepad_index );
+SM_API f32 input_pad_read_motor_state(
     u32 gamepad_index,
     u32 motor
 );
+
+SM_API f32 input_pad_read_stick_left_deadzone( u32 gamepad_index );
+SM_API f32 input_pad_read_stick_right_deadzone( u32 gamepad_index );
+SM_API f32 input_pad_read_trigger_left_deadzone( u32 gamepad_index );
+SM_API f32 input_pad_read_trigger_right_deadzone( u32 gamepad_index );
+
+SM_API f32 input_pad_read_trigger_press_threshold( u32 gamepad_index );
+
+SM_API void input_pad_write_stick_left_deadzone( u32 gamepad_index, f32 deadzone );
+SM_API void input_pad_write_stick_right_deadzone( u32 gamepad_index, f32 deadzone );
+SM_API void input_pad_write_trigger_left_deadzone( u32 gamepad_index, f32 deadzone );
+SM_API void input_pad_write_trigger_right_deadzone( u32 gamepad_index, f32 deadzone );
+
+SM_API void input_pad_write_trigger_press_threshold( u32 gamepad_index, f32 threshold );
 
 inline vec2 mouse_position_to_ndc(
     ivec2 position,

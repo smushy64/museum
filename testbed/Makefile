@@ -50,11 +50,11 @@ $(pch):pch.h
 	@mkdir -p $(dir $@)
 	@$(CXX) $(pch_flags) $< -o $@ $(compiler_flags) -c $(preprocessor_flags) $(INCLUDE_PATHS)
 
-$(test_bed_win_res):
+$(test_bed_win_res):../win32/resources.rc ../win32/Application.manifest
 	@echo "    Make: compiling windows resources . . ."
 	@mkdir -p ../$(BUILD_PATH)/obj/
 	@windres ../win32/resources.rc -o $(test_bed_win_res)
-
+	
 .PHONY: all print_info
 
 -include $(deps)

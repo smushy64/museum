@@ -10,6 +10,9 @@
 #include "platform/platform.h"
 
 #define KEY_STATE_COUNT 255
+#define DEFAULT_STICK_DEADZONE   0.05f
+#define DEFAULT_TRIGGER_DEADZONE 0.05f
+#define DEFAULT_TRIGGER_PRESS_THRESHOLD 0.5f
 
 struct GamepadState {
     b8 last_buttons[PAD_CODE_COUNT];
@@ -33,6 +36,23 @@ struct GamepadState {
         };
         f32 motors[2];
     };
+
+    union {
+        struct {
+            f32 stick_left_deadzone  = DEFAULT_STICK_DEADZONE;
+            f32 stick_right_deadzone = DEFAULT_STICK_DEADZONE;
+        };
+        f32 stick_deadzones[2];
+    };
+    union {
+        struct {
+            f32 trigger_left_deadzone  = DEFAULT_TRIGGER_DEADZONE;
+            f32 trigger_right_deadzone = DEFAULT_TRIGGER_DEADZONE;
+        };
+        f32 trigger_deadzones[2];
+    };
+
+    f32 trigger_press_threshold = DEFAULT_TRIGGER_PRESS_THRESHOLD;
 
     b32 is_active;
 };
@@ -303,7 +323,7 @@ f32 input_pad_last_trigger_right( u32 gamepad_index ) {
     );
     return INPUT_STATE.gamepads[gamepad_index].last_trigger_right;
 }
-b32 input_is_pad_active( u32 gamepad_index ) {
+b32 input_pad_is_active( u32 gamepad_index ) {
     LOG_ASSERT(
         MAX_GAMEPAD_INDEX > gamepad_index,
         "Gamepad index out of bounds!"
@@ -311,7 +331,7 @@ b32 input_is_pad_active( u32 gamepad_index ) {
     return INPUT_STATE.gamepads[gamepad_index].is_active;
 }
 
-f32 input_query_motor_state( u32 gamepad_index, u32 motor ) {
+f32 input_pad_read_motor_state( u32 gamepad_index, u32 motor ) {
     LOG_ASSERT(
         MAX_GAMEPAD_INDEX > gamepad_index,
         "Gamepad index out of bounds!"
@@ -323,7 +343,7 @@ f32 input_query_motor_state( u32 gamepad_index, u32 motor ) {
     return INPUT_STATE.gamepads[gamepad_index].motors[motor];
 }
 
-void input_set_pad_motor_state(
+void input_pad_write_motor_state(
     u32 gamepad_index,
     u32 motor,
     f32 value
@@ -334,4 +354,38 @@ void input_set_pad_motor_state(
         motor,
         value
     );
+}
+
+f32 input_pad_read_stick_left_deadzone( u32 gamepad_index ) {
+    return INPUT_STATE.gamepads[gamepad_index].stick_left_deadzone;
+}
+f32 input_pad_read_stick_right_deadzone( u32 gamepad_index ) {
+    return INPUT_STATE.gamepads[gamepad_index].stick_right_deadzone;
+}
+f32 input_pad_read_trigger_left_deadzone( u32 gamepad_index ) {
+    return INPUT_STATE.gamepads[gamepad_index].trigger_left_deadzone;
+}
+f32 input_pad_read_trigger_right_deadzone( u32 gamepad_index ) {
+    return INPUT_STATE.gamepads[gamepad_index].trigger_right_deadzone;
+}
+
+void input_pad_write_stick_left_deadzone( u32 gamepad_index, f32 deadzone ) {
+    INPUT_STATE.gamepads[gamepad_index].stick_left_deadzone = deadzone;
+}
+void input_pad_write_stick_right_deadzone( u32 gamepad_index, f32 deadzone ) {
+    INPUT_STATE.gamepads[gamepad_index].stick_right_deadzone = deadzone;
+}
+void input_pad_write_trigger_left_deadzone( u32 gamepad_index, f32 deadzone ) {
+    INPUT_STATE.gamepads[gamepad_index].trigger_left_deadzone = deadzone;
+}
+void input_pad_write_trigger_right_deadzone( u32 gamepad_index, f32 deadzone ) {
+    INPUT_STATE.gamepads[gamepad_index].trigger_right_deadzone = deadzone;
+}
+
+f32 input_pad_read_trigger_press_threshold( u32 gamepad_index ) {
+    return INPUT_STATE.gamepads[gamepad_index].trigger_press_threshold;
+}
+
+void input_pad_write_trigger_press_threshold( u32 gamepad_index, f32 threshold ) {
+    INPUT_STATE.gamepads[gamepad_index].trigger_press_threshold = threshold;
 }

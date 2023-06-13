@@ -10,9 +10,10 @@
 #include <core/application.h>
 #include <core/input.h>
 #include <core/events.h>
+#include <core/math.h>
 #include <stdio.h>
 
-b32 app_run(void*, f32) {
+b32 app_run( void*, f32 ) {
     return true;
 }
 
@@ -28,9 +29,8 @@ int main( int argc, char** argv ) {
         }
     }
 
-
     AppConfig config = {};
-    #define NAME_BUFFER_SIZE 255
+    #define NAME_BUFFER_SIZE 32
     char name_buffer[NAME_BUFFER_SIZE] = {};
     snprintf(
         name_buffer,
@@ -40,9 +40,9 @@ int main( int argc, char** argv ) {
         LIQUID_ENGINE_VERSION_MINOR
     );
 
-    config.surface.name       = name_buffer;
-    config.surface.dimensions = { 800, 600 };
-    config.platform_flags     = PLATFORM_DPI_AWARE;
+    config.opt_surface_icon_path = "./resources/images/ui/testbed_icon_256x256.ico";
+    config.surface.name          = name_buffer;
+    config.surface.dimensions    = { 800, 600 };
 
     config.log_level        = LOG_LEVEL_ALL_VERBOSE;
     config.platform_flags   = PLATFORM_DPI_AWARE;

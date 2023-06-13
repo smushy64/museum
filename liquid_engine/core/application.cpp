@@ -16,10 +16,12 @@
 // TODO(alicia): custom string formatting!
 #include <stdio.h>
 
+#define SURFACE_TITLE_BUFFER_PADDING 32
 struct AppContext {
     Platform   platform;
     SystemInfo sysinfo;
     b32 is_running;
+    RendererBackend renderer_backend;
 
     struct {
         f32 delta_time;
@@ -27,44 +29,56 @@ struct AppContext {
         u64 frame_count;
     } time;
 
+    struct {
+        CursorStyle style;
+        b32 visible;
+        b32 locked;
+    } cursor_state;
+
     AppRunFn application_run;
     void*    application_params;
     RendererContext* renderer_context;
+
+    char* surface_title_buffer;
+    u32 surface_title_buffer_size;
+    u32 surface_title_writable_offset;
+
+    b32 pause_on_surface_inactive;
 };
 
 global AppContext CONTEXT = {};
 
-EventReturnCode on_app_exit( Event*, void* ) {
+EventCallbackReturnCode on_app_exit( Event*, void* ) {
     CONTEXT.is_running = false;
-    return EVENT_CONSUMED;
+    return EVENT_CALLBACK_CONSUMED;
 }
 
-EventReturnCode on_destroy( Event*, void* ) {
+EventCallbackReturnCode on_destroy( Event*, void* ) {
     CONTEXT.is_running = false;
-    return EVENT_CONSUMED;
+    return EVENT_CALLBACK_CONSUMED;
 }
 
-EventReturnCode on_active( Event* event, void* ) {
+EventCallbackReturnCode on_active( Event* event, void* ) {
     b32 is_active = event->data.surface_active.is_active;
     if( is_active ) {
         LOG_NOTE("Surface activated.");
     } else {
         LOG_NOTE("Surface deactivated.");
     }
-    return EVENT_CONSUMED;
+    return EVENT_CALLBACK_CONSUMED;
 }
 
-EventReturnCode on_resize( Event* event, void* app_ctx ) {
+EventCallbackReturnCode on_resize( Event* event, void* app_ctx ) {
     AppContext* ctx = (AppContext*)app_ctx;
     renderer_on_resize(
         ctx->renderer_context,
         event->data.surface_resize.width,
         event->data.surface_resize.height
     );
-    return EVENT_NOT_CONSUMED;
+    return EVENT_CALLBACK_NOT_CONSUMED;
 }
 
-EventReturnCode on_f4( Event* event, void* ) {
+EventCallbackReturnCode on_f4( Event* event, void* ) {
     if( event->data.keyboard.code == KEY_F4 ) {
         if(
             input_is_key_down( KEY_ALT_LEFT ) ||
@@ -75,7 +89,7 @@ EventReturnCode on_f4( Event* event, void* ) {
             event_fire( event );
         }
     }
-    return EVENT_NOT_CONSUMED;
+    return EVENT_CALLBACK_NOT_CONSUMED;
 }
 
 b32 app_init( AppConfig* config ) {
@@ -99,19 +113,8 @@ b32 app_init( AppConfig* config ) {
         LIQUID_ENGINE_VERSION_MINOR
     );
 
-    #define MAX_SURFACE_NAME 255
-
-    char surface_name_buffer[MAX_SURFACE_NAME];
-    snprintf(
-        surface_name_buffer,
-        MAX_SURFACE_NAME,
-        "%s | %s",
-        config->surface.name,
-        to_string( config->renderer_backend )
-    );
-
     if( !platform_init(
-        surface_name_buffer,
+        config->opt_surface_icon_path,
         config->surface.dimensions,
         config->platform_flags,
         &CONTEXT.platform
@@ -122,6 +125,14 @@ b32 app_init( AppConfig* config ) {
         );
         return false;
     }
+
+    CONTEXT.pause_on_surface_inactive = ARE_BITS_SET(
+        config->platform_flags,
+        PLATFORM_PAUSE_ON_SURFACE_INACTIVE
+    );
+
+    CONTEXT.renderer_backend = config->renderer_backend;
+    surface_set_name( config->surface.name );
     CONTEXT.renderer_context = renderer_init(
         config->surface.name,
         config->renderer_backend,
@@ -138,10 +149,12 @@ b32 app_init( AppConfig* config ) {
     CONTEXT.sysinfo = query_system_info();
 
     LOG_NOTE("CPU: %s", CONTEXT.sysinfo.cpu_name_buffer);
-    LOG_NOTE("  Threads: %llu", CONTEXT.sysinfo.thread_count);
+    LOG_NOTE("  Logical Processors: %llu",
+        CONTEXT.sysinfo.logical_processor_count
+    );
 
 #if defined(SM_ARCH_X86)
-    b32 sse = ARE_SSE_INSTRUCTIONS_AVAILABLE( CONTEXT.sysinfo.features );
+    b32 sse = system_is_sse_available( CONTEXT.sysinfo.features );
     if( SM_SIMD_WIDTH == 4 && !sse ) {
         local const usize ERROR_MESSAGE_SIZE = 0xFF;
         char error_message_buffer[ERROR_MESSAGE_SIZE];
@@ -150,12 +163,12 @@ b32 app_init( AppConfig* config ) {
             ERROR_MESSAGE_SIZE,
             "Your CPU does not support SSE instructions!\n"
             "Missing instructions: %s%s%s%s%s%s",
-            IS_SSE_AVAILABLE(CONTEXT.sysinfo.features)    ? "" : "SSE, ",
-            IS_SSE2_AVAILABLE(CONTEXT.sysinfo.features)   ? "" : "SSE2, ",
-            IS_SSE3_AVAILABLE(CONTEXT.sysinfo.features)   ? "" : "SSE3, ",
-            IS_SSSE3_AVAILABLE(CONTEXT.sysinfo.features)  ? "" : "SSSE3, ",
-            IS_SSE4_1_AVAILABLE(CONTEXT.sysinfo.features) ? "" : "SSE4.1, ",
-            IS_SSE4_2_AVAILABLE(CONTEXT.sysinfo.features) ? "" : "SSE4.2"
+            ARE_BITS_SET(CONTEXT.sysinfo.features, SSE_MASK)    ? "" : "SSE, ",
+            ARE_BITS_SET(CONTEXT.sysinfo.features, SSE2_MASK)   ? "" : "SSE2, ",
+            ARE_BITS_SET(CONTEXT.sysinfo.features, SSE3_MASK)   ? "" : "SSE3, ",
+            ARE_BITS_SET(CONTEXT.sysinfo.features, SSSE3_MASK)  ? "" : "SSSE3, ",
+            ARE_BITS_SET(CONTEXT.sysinfo.features, SSE4_1_MASK) ? "" : "SSE4.1, ",
+            ARE_BITS_SET(CONTEXT.sysinfo.features, SSE4_2_MASK) ? "" : "SSE4.2"
         );
         MESSAGE_BOX_FATAL(
             "Missing instructions.",
@@ -164,8 +177,8 @@ b32 app_init( AppConfig* config ) {
         return false;
     }
 
-    b32 avx  = IS_AVX_AVAILABLE( CONTEXT.sysinfo.features );
-    b32 avx2 = IS_AVX2_AVAILABLE( CONTEXT.sysinfo.features );
+    b32 avx  = system_is_avx_available( CONTEXT.sysinfo.features );
+    b32 avx2 = system_is_avx2_available( CONTEXT.sysinfo.features );
 
     if( SM_SIMD_WIDTH == 8 && !(avx && avx2) ) {
         MESSAGE_BOX_FATAL(
@@ -176,9 +189,7 @@ b32 app_init( AppConfig* config ) {
         return false;
     }
 
-    b32 avx512 = IS_AVX512_AVAILABLE(
-        CONTEXT.sysinfo.features
-    );
+    b32 avx512 = system_is_avx512_available( CONTEXT.sysinfo.features );
 
     LOG_NOTE(
         "  Features: %s%s%s%s",
@@ -295,17 +306,29 @@ b32 app_init( AppConfig* config ) {
     LOG_NOTE("    %-30s %s", "Total Memory Usage", usage_buffer);
 #endif
 
+    CONTEXT.cursor_state.style   = CURSOR_ARROW;
+    CONTEXT.cursor_state.visible = true;
+
     return true;
 }
 b32 app_run() {
+
+    #define UPDATE_FRAME_RATE_COUNTER_RATE 100
 
     while( CONTEXT.is_running ) {
         input_swap();
         platform_poll_gamepad( &CONTEXT.platform );
         platform_pump_events( &CONTEXT.platform );
 
-        if( !CONTEXT.platform.is_active ) {
+        if(
+            !CONTEXT.platform.is_active &&
+            CONTEXT.pause_on_surface_inactive
+        ) {
             continue;
+        }
+
+        if( CONTEXT.cursor_state.locked ) {
+            platform_cursor_center( &CONTEXT.platform );
         }
 
         f64 seconds_elapsed = platform_read_seconds_elapsed(
@@ -335,6 +358,23 @@ b32 app_run() {
             );
             return false;
         }
+
+        if( (CONTEXT.time.frame_count + 1) % UPDATE_FRAME_RATE_COUNTER_RATE == 0 ) {
+            f32 fps = CONTEXT.time.delta_time == 0.0f ? 0.0f : 1.0f / CONTEXT.time.delta_time;
+
+            snprintf(
+                CONTEXT.surface_title_buffer + CONTEXT.surface_title_writable_offset - 1,
+                CONTEXT.surface_title_buffer_size - CONTEXT.surface_title_writable_offset,
+                " | %.1f FPS",
+                fps
+            );
+            platform_surface_set_name(
+                &CONTEXT.platform,
+                CONTEXT.surface_title_buffer_size,
+                CONTEXT.surface_title_buffer
+            );
+        }
+
 
         CONTEXT.time.frame_count++;
     }
@@ -375,4 +415,113 @@ void app_shutdown() {
     renderer_shutdown( CONTEXT.renderer_context );
     platform_shutdown( &CONTEXT.platform );
     log_shutdown();
+}
+
+void cursor_set_style( CursorStyle style ) {
+    platform_cursor_set_style(
+        &CONTEXT.platform,
+        style
+    );
+}
+void cursor_set_visibility( b32 visible ) {
+    platform_cursor_set_visible(
+        &CONTEXT.platform,
+        visible
+    );
+}
+void cursor_set_locked( b32 locked ) {
+    CONTEXT.cursor_state.locked = locked;
+    if( locked ) {
+        CONTEXT.cursor_state.visible = false;
+    }
+}
+void cursor_center() {
+    platform_cursor_center( &CONTEXT.platform );
+}
+CursorStyle cursor_query_style() {
+    return CONTEXT.cursor_state.style;
+}
+b32 cursor_query_visibility() {
+    return CONTEXT.cursor_state.visible;
+}
+b32 cursor_query_locked() {
+    return CONTEXT.cursor_state.locked;
+}
+void surface_set_name( const char* name ) {
+
+    #define FATAL_MESSAGE()\
+        LOG_FATAL( "Unable to allocate surface title buffer!" );\
+        MESSAGE_BOX_FATAL(\
+            "Out of Memory",\
+            "No memory available for window title buffer!\n"\
+            LD_CONTACT_MESSAGE\
+        );
+
+    usize name_length = str_length( name );
+    usize required_buffer_size = name_length;
+    const char* renderer_backend_name = to_string(
+        CONTEXT.renderer_backend
+    );
+    required_buffer_size += str_length( renderer_backend_name );
+    required_buffer_size += SURFACE_TITLE_BUFFER_PADDING;
+
+    if( !CONTEXT.surface_title_buffer ) {
+        void* surface_title_buffer = mem_alloc(
+            required_buffer_size,
+            MEMTYPE_APPLICATION
+        );
+        if( !surface_title_buffer ) {
+            FATAL_MESSAGE();
+            SM_PANIC();
+            return;
+        }
+        CONTEXT.surface_title_buffer      = (char*)surface_title_buffer;
+        CONTEXT.surface_title_buffer_size = required_buffer_size;
+    } else if( required_buffer_size >= CONTEXT.surface_title_buffer_size ) {
+        void* surface_title_buffer = mem_realloc(
+            CONTEXT.surface_title_buffer,
+            required_buffer_size
+        );
+        if( !surface_title_buffer ) {
+            FATAL_MESSAGE();
+            SM_PANIC();
+            return;
+        }
+        CONTEXT.surface_title_buffer = (char*)surface_title_buffer;
+        CONTEXT.surface_title_buffer_size = required_buffer_size;
+    }
+
+    snprintf(
+        CONTEXT.surface_title_buffer,
+        CONTEXT.surface_title_buffer_size,
+        "%s | %s",
+        name,
+        renderer_backend_name
+    );
+
+    CONTEXT.surface_title_writable_offset = str_length(
+        CONTEXT.surface_title_buffer
+    );
+
+    platform_surface_set_name(
+        &CONTEXT.platform,
+        CONTEXT.surface_title_buffer_size,
+        CONTEXT.surface_title_buffer
+    );
+}
+
+b32 system_is_sse_available( ProcessorFeatures features ) {
+    return ARE_BITS_SET(
+        features,
+        SSE_MASK | SSE2_MASK | SSE3_MASK | SSE4_1_MASK | SSE4_2_MASK | SSSE3_MASK
+    );
+}
+b32 system_is_avx_available( ProcessorFeatures features ) {
+    return ARE_BITS_SET( features, AVX_MASK );
+}
+b32 system_is_avx2_available( ProcessorFeatures features ) {
+    return ARE_BITS_SET( features, AVX2_MASK );
+}
+b32 system_is_avx512_available( ProcessorFeatures features ) {
+    return ARE_BITS_SET( features, AVX512_MASK );
 }

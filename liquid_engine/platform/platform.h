@@ -23,6 +23,9 @@ struct Surface {
     };
     void* platform;
 };
+
+#if !defined(CURSOR_STYLES_DEFINED)
+#define CURSOR_STYLES_DEFINED
 /// Supported cursor styles
 enum CursorStyle : u32 {
     CURSOR_ARROW,
@@ -37,6 +40,8 @@ enum CursorStyle : u32 {
 
     CURSOR_COUNT
 };
+#endif
+
 inline const char* to_string( CursorStyle cursor_style ) {
     const char* strings[CURSOR_COUNT] = {
         "Arrow",
@@ -67,7 +72,7 @@ typedef u32 PlatformFlags;
 
 /// Initialize platform state. Returns true if successful.
 b32 platform_init(
-    const char* opt_surface_name,
+    const char* opt_icon_path,
     ivec2 surface_dimensions,
     PlatformFlags flags,
     Platform* out_platform
@@ -103,9 +108,6 @@ void platform_cursor_set_style(
 /// Set cursor visibility.
 /// Does nothing on platforms that don't use a cursor.
 void platform_cursor_set_visible( Platform* platform, b32 visible );
-/// Lock cursor to surface.
-/// Does nothing on platforms that don't use a cursor.
-void platform_cursor_set_locked( Platform* platform, b32 locked );
 /// Set cursor position to surface center.
 /// Does nothing on platforms that don't use a cursor.
 void platform_cursor_center( Platform* platform );
@@ -210,7 +212,7 @@ inline const char* to_string( MessageBoxResult result ) {
 }
 
 /// Create a message box to report urgent information.
-SM_API MessageBoxResult message_box(
+MessageBoxResult message_box(
     const char* window_title,
     const char* message,
     MessageBoxType type,
@@ -224,65 +226,6 @@ SM_API MessageBoxResult message_box(
         MBTYPE_OK,\
         MBICON_ERROR\
     )
-
-typedef u16 ProcessorFeatures;
-
-#define SSE_MASK    (1 << 0)
-#define SSE2_MASK   (1 << 1)
-#define SSE3_MASK   (1 << 2)
-#define SSSE3_MASK  (1 << 3)
-#define SSE4_1_MASK (1 << 4)
-#define SSE4_2_MASK (1 << 5)
-#define AVX_MASK    (1 << 6)
-#define AVX2_MASK   (1 << 7)
-#define AVX512_MASK (1 << 8)
-
-#define IS_SSE_AVAILABLE(processor_features)\
-    ( (processor_features & SSE_MASK) == SSE_MASK )
-#define IS_SSE2_AVAILABLE(processor_features)\
-    ( (processor_features & SSE2_MASK) == SSE2_MASK )
-#define IS_SSE3_AVAILABLE(processor_features)\
-    ( (processor_features & SSE3_MASK) == SSE3_MASK )
-#define IS_SSSE3_AVAILABLE(processor_features)\
-    ( (processor_features & SSSE3_MASK) == SSSE3_MASK )
-#define IS_SSE4_1_AVAILABLE(processor_features)\
-    ( (processor_features & SSE4_1_MASK) == SSE4_1_MASK )
-#define IS_SSE4_2_AVAILABLE(processor_features)\
-    ( (processor_features & SSE4_2_MASK) == SSE4_2_MASK )
-
-#define ARE_SSE_INSTRUCTIONS_AVAILABLE(processor_features) (\
-    IS_SSE_AVAILABLE(processor_features)    &&\
-    IS_SSE2_AVAILABLE(processor_features)   &&\
-    IS_SSE3_AVAILABLE(processor_features)   &&\
-    IS_SSSE3_AVAILABLE(processor_features)  &&\
-    IS_SSE4_1_AVAILABLE(processor_features) &&\
-    IS_SSE4_2_AVAILABLE(processor_features)   \
-)
-
-#define IS_AVX_AVAILABLE(processor_features)\
-    ( (processor_features & AVX_MASK) == AVX_MASK )
-#define IS_AVX2_AVAILABLE(processor_features)\
-    ( (processor_features & AVX2_MASK) == AVX2_MASK )
-#define IS_AVX512_AVAILABLE(processor_features)\
-    ( (processor_features & AVX512_MASK) == AVX512_MASK )
-
-#if defined(SM_ARCH_X86)
-    #define CPU_NAME_BUFFER_LEN 68
-#else
-    #error "Architecture is not yet supported!"
-#endif
-
-/// System information
-struct SystemInfo {
-    usize thread_count;
-    usize total_memory;
-    char  cpu_name_buffer[CPU_NAME_BUFFER_LEN];
-    ProcessorFeatures features;
-};
-/// Get information about the current processor.
-SM_API SystemInfo query_system_info();
-
-#if defined(SM_API_INTERNAL)
 
 /// Allocate memory on the heap.
 /// All platforms must zero out memory before returning pointer.
@@ -298,7 +241,5 @@ void heap_free( void* memory );
 void* page_alloc( usize size );
 /// Free page allocated memory.
 void page_free( void* memory );
-
-#endif // internal
 
 #endif

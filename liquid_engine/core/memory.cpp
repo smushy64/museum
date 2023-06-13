@@ -82,7 +82,7 @@ void* _mem_realloc_trace(
         new_size,
         (u64)result
     );
-    return _mem_realloc( memory, new_size );
+    return result;
 }
 void _mem_free_trace(
     void* memory,
@@ -112,7 +112,7 @@ void* _mem_alloc( usize size, MemoryType type ) {
     
     if( type == MEMTYPE_UNKNOWN ) {
         LOG_WARN(
-            "Allocating memory of type unknown!"
+            "Allocating memory of type unknown! "
             "All memory allocations should be categorized!"
         );
     }
@@ -216,7 +216,7 @@ void mem_copy( void* dst, const void* src, usize size ) {
 
 #define INTERMEDIATE_BUFFER_SIZE 128
 global u8 INTERMEDIATE_BUFFER[INTERMEDIATE_BUFFER_SIZE] = {};
-void mem_overlap_copy( void* dst, const void* src, usize size ) {
+void mem_copy_overlapped( void* dst, const void* src, usize size ) {
     if( size < INTERMEDIATE_BUFFER_SIZE ) {
         mem_copy( INTERMEDIATE_BUFFER, src, size );
         mem_copy( dst, INTERMEDIATE_BUFFER, size );
