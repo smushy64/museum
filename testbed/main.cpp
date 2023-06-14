@@ -11,9 +11,11 @@
 #include <core/input.h>
 #include <core/events.h>
 #include <core/math.h>
+#include <core/graphics.h>
 #include <stdio.h>
 
-b32 app_run( void*, f32 ) {
+b32 app_run( struct RenderOrder* render_order, void*, f32 ) {
+    upload_mesh_list( render_order, nullptr, 0 );
     return true;
 }
 

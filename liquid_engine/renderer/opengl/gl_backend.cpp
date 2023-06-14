@@ -4,9 +4,11 @@
  * File Created: May 23, 2023
 */
 #include "gl_backend.h"
+#include "gl_functions.h"
+
 #include "platform/platform.h"
-#include <glad/glad.h>
 #include "core/memory.h"
+#include "core/collections.h"
 
 #define GL_DEFAULT_CLEAR_COLOR 0.0f, 0.0f, 0.0f, 1.0f
 
@@ -83,7 +85,8 @@ RendererContext* gl_renderer_backend_initialize( Platform* platform ) {
 
     glViewport(
         0, 0,
-        platform->surface.width, platform->surface.height
+        platform->surface.width,
+        platform->surface.height
     );
 
     GL_LOG_INFO("OpenGL backend initialized successfully.");
@@ -110,7 +113,7 @@ b32 gl_renderer_backend_begin_frame(
     f32 delta_time
 ) {
     // TODO(alicia): 
-    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT );
 
     SM_UNUSED(ctx);
     SM_UNUSED(delta_time);
@@ -122,6 +125,7 @@ b32 gl_renderer_backend_end_frame(
 ) {
     // TODO(alicia): 
     SM_UNUSED(delta_time);
+    
     platform_gl_swap_buffers( ctx->platform );
     return true;
 }

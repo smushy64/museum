@@ -8,9 +8,22 @@
 #include "defines.h"
 #include "math/types.h"
 #include "platform/flags.h"
-#include "renderer/renderer.h"
 
-typedef b32 (*AppRunFn)( void* params, f32 delta_time );
+#if !defined(RENDERER_BACKEND_DEFINED)
+#define RENDERER_BACKEND_DEFINED
+enum RendererBackend : u32 {
+    BACKEND_VULKAN,
+    BACKEND_OPENGL,
+    BACKEND_DX11,
+    BACKEND_DX12,
+
+    BACKEND_COUNT
+};
+#endif
+const char* to_string( RendererBackend backend );
+
+typedef b32 (*AppRunFn)( struct RenderOrder*, void* params, f32 delta_time );
+
 
 struct AppConfig {
     struct SurfaceConfig {

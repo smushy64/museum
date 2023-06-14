@@ -337,16 +337,16 @@ b32 app_run() {
         CONTEXT.time.delta_time   = seconds_elapsed - CONTEXT.time.elapsed_time;
         CONTEXT.time.elapsed_time = seconds_elapsed;
 
+        RenderOrder draw_order = {};
+        draw_order.delta_time  = CONTEXT.time.delta_time;
         if(!CONTEXT.application_run(
+            &draw_order,
             CONTEXT.application_params,
             CONTEXT.time.delta_time
         )) {
             return false;
         }
-
-        RenderOrder draw_order = {};
-        draw_order.delta_time = CONTEXT.time.delta_time;
-
+        
         if( !renderer_draw_frame(
             CONTEXT.renderer_context,
             &draw_order

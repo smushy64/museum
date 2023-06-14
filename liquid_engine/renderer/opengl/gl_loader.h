@@ -1,5 +1,5 @@
-#if !defined(RENDERER_GL_LOADER_HPP)
-#define RENDERER_GL_LOADER_HPP
+#if !defined(RENDERER_OPENGL_GL_LOADER_HPP)
+#define RENDERER_OPENGL_GL_LOADER_HPP
 /**
  * Description:  OpenGL function loader
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
@@ -9,9 +9,6 @@
 typedef void* (*GetProcFN)(const char* function_name);
 
 [[maybe_unused]]
-inline b32 gl_load( GetProcFN getproc ) {
-    SM_UNUSED(getproc);
-    return false;
-}
+b32 gl_load( GetProcFN getproc );
 
 #endif // header guard

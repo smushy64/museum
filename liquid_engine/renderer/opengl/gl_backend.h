@@ -7,6 +7,7 @@
 */
 #include "defines.h"
 #include "renderer/renderer.h"
+#include "gl_types.h"
 #include "gl_loader.h"
 
 RendererContext* gl_renderer_backend_initialize( struct Platform* platform );
@@ -26,6 +27,8 @@ b32 gl_renderer_backend_end_frame(
 
 struct OpenGLRendererContext {
     RendererContext ctx;
+
+    GLuint u_matrices;
 
     const char* device_vendor;
     const char* device_name;

@@ -73,6 +73,7 @@ export liquid_engine_dll := $(ENGINE_NAME)_$(project_version_underscore)$(if $(I
 all:
 	@$(MAKE) --directory=liquid_engine --no-print-directory
 	@$(MAKE) --directory=testbed --no-print-directory
+	@$(MAKE) --directory=shader --no-print-directory
 
 # TODO(alicia): run!
 
@@ -97,6 +98,7 @@ clean:
 	@echo Make: removing everything from build directory . . .
 	@rm -r -f build/debug/*
 	@rm -r -f build/release/*
+	@rm -r -f resources/shaders/*
 
 # for debugging variables
 spit:

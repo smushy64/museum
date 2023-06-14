@@ -10,11 +10,6 @@
 #include "core/input.h"
 #include "flags.h"
 
-inline const char* DEFAULT_SURFACE_NAME = "Surface";
-#define DEFAULT_SURFACE_NAME_LENGTH 7
-
-#define DEFAULT_SURFACE_WIDTH  800
-#define DEFAULT_SURFACE_HEIGHT 600
 /// Platform independent drawing surface
 struct Surface {
     union {
@@ -41,7 +36,6 @@ enum CursorStyle : u32 {
     CURSOR_COUNT
 };
 #endif
-
 inline const char* to_string( CursorStyle cursor_style ) {
     const char* strings[CURSOR_COUNT] = {
         "Arrow",
@@ -59,6 +53,7 @@ inline const char* to_string( CursorStyle cursor_style ) {
     }
     return strings[cursor_style];
 }
+
 /// Platform state
 struct Platform {
     Surface surface;
@@ -66,10 +61,6 @@ struct Platform {
 
     b32 is_active;
 };
-
-typedef u32 PlatformFlags;
-#define PLATFORM_DPI_AWARE ( 1 << 0 )
-
 /// Initialize platform state. Returns true if successful.
 b32 platform_init(
     const char* opt_icon_path,

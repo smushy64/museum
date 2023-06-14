@@ -7,7 +7,10 @@
 */
 #include "defines.h"
 #include "core/logging.h"
+#include "core/graphics.h"
 
+#if !defined(RENDERER_BACKEND_DEFINED)
+#define RENDERER_BACKEND_DEFINED
 enum RendererBackend : u32 {
     BACKEND_VULKAN,
     BACKEND_OPENGL,
@@ -17,6 +20,7 @@ enum RendererBackend : u32 {
     BACKEND_COUNT
 };
 const char* to_string( RendererBackend backend );
+#endif
 
 typedef void (*RendererBackendShutdownFn)(
     struct RendererContext* ctx
@@ -50,6 +54,8 @@ struct RendererContext {
 };
 
 struct RenderOrder {
+    Mesh* meshes;
+    u32   mesh_count;
     f32 delta_time;
 };
 

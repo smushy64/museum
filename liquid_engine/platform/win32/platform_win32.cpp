@@ -21,7 +21,6 @@
 // #include <vulkan/vulkan.h>
 // #include "renderer/vulkan/vk_backend.h"
 
-#include <glad/glad.h>
 #include "renderer/opengl/gl_backend.h"
 
 #include <intrin.h>
@@ -782,10 +781,14 @@ void* platform_gl_init( Platform* platform ) {
         return nullptr;
     }
 
-    if( !gladLoadGLLoader( win32_gl_load_proc ) ) {
-        GL_LOG_FATAL( "Failed to load OpenGL functions!" );
+    if( !gl_load( win32_gl_load_proc ) ) {
+        WIN32_LOG_FATAL( "Failed to load OpenGL functions!" );
         return nullptr;
     }
+    // if( !gladLoadGLLoader( win32_gl_load_proc ) ) {
+    //     GL_LOG_FATAL( "Failed to load OpenGL functions!" );
+    //     return nullptr;
+    // }
 
     return (void*)gl_context;
 }
