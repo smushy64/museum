@@ -22,6 +22,7 @@ enum MemoryType : u64 {
     MEMTYPE_EVENT_LISTENER_REGISTRY,
     MEMTYPE_RENDERER,
     MEMTYPE_LOGGING,
+    MEMTYPE_THREADING,
     MEMTYPE_USER,
 
     MEMTYPE_COUNT
@@ -35,6 +36,7 @@ inline const char* to_string(MemoryType memtype) {
         "Event Listener Registry Memory",
         "Renderer Memory",
         "Logging Buffer Memory",
+        "Threading Memory",
         "User Memory"
     };
     if( memtype >= MEMTYPE_COUNT ) {

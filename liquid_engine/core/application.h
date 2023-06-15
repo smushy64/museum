@@ -22,8 +22,12 @@ enum RendererBackend : u32 {
 #endif
 const char* to_string( RendererBackend backend );
 
-typedef b32 (*AppRunFn)( struct RenderOrder*, void* params, f32 delta_time );
-
+typedef b32 (*AppRunFn)(
+    struct ThreadWorkQueue* work_queue,
+    struct RenderOrder* render_order,
+    f32 delta_time,
+    void* params
+);
 
 struct AppConfig {
     struct SurfaceConfig {
@@ -181,8 +185,9 @@ struct SystemInfo {
     char  cpu_name_buffer[CPU_NAME_BUFFER_LEN];
     ProcessorFeatures features;
 };
-/// Query CPU and memory information.
-SM_API SystemInfo query_system_info();
+/// Get system info from application
+SM_API SystemInfo* system_info_read();
+
 /// Check if SSE instructions are available.
 SM_API b32 system_is_sse_available( ProcessorFeatures features );
 /// Check if AVX instructions are available.

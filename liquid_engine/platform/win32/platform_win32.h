@@ -10,6 +10,8 @@
 
 #include "core/logging.h"
 #include "platform/platform.h"
+#include "platform/io.h"
+#include "platform/threading.h"
 
 #define WIN32_LEAN_AND_MEAN
 #define NOGDI
@@ -40,11 +42,21 @@ struct Win32Platform {
         HMODULE modules[4];
     };
 
+    HANDLE semaphore_handles[MAX_SEMAPHORE_HANDLES];
+
     LARGE_INTEGER performance_frequency;
     LARGE_INTEGER performance_counter;
 
     char error_message_buffer[ERROR_MESSAGE_BUFFER_SIZE];
 };
+
+struct Win32ThreadHandle {
+    HANDLE       thread_handle;
+    ThreadProcFN thread_proc;
+    void*        thread_proc_user_params;
+    DWORD        thread_id;
+};
+
 global const char* WIN32_VULKAN_EXTENSIONS[] = {
     "VK_KHR_win32_surface"
 };

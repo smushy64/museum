@@ -5,21 +5,48 @@
 */
 #include "application.h"
 #include "platform/platform.h"
+#include "platform/io.h"
+#include "platform/threading.h"
 #include "renderer/renderer.h"
+#include "threading.h"
 #include "events.h"
 #include "logging.h"
 #include "input.h"
 #include "time.h"
 #include "memory.h"
 #include "string.h"
+#include "math/functions.h"
 
 // TODO(alicia): custom string formatting!
 #include <stdio.h>
 
+struct ThreadInfo {
+    struct ThreadHandle*    thread_handle;
+    struct ThreadWorkQueue* work_queue;
+    u32 thread_index;
+};
+struct ThreadWorkQueue {
+    ThreadInfo*      threads;
+    ThreadWorkEntry* work_entries;
+    SemaphoreHandle  wake_semaphore;
+
+    u32              work_entry_count;
+    u32              thread_count;
+
+    volatile u32     push_entry;
+    volatile u32     read_entry;
+    volatile u32     entry_completion_count;
+    volatile u32     pending_work_count;
+};
+
 #define SURFACE_TITLE_BUFFER_PADDING 32
 struct AppContext {
-    Platform   platform;
-    SystemInfo sysinfo;
+    Platform        platform;
+    SystemInfo      sysinfo;
+    ThreadWorkQueue thread_work_queue;
+    ThreadHandle*   thread_handles;
+    u32             thread_count;
+
     b32 is_running;
     RendererBackend renderer_backend;
 
@@ -92,6 +119,8 @@ EventCallbackReturnCode on_f4( Event* event, void* ) {
     return EVENT_CALLBACK_NOT_CONSUMED;
 }
 
+internal ThreadReturnCode thread_proc( void* user_params );
+
 b32 app_init( AppConfig* config ) {
 
 #if defined(LD_LOGGING)
@@ -147,6 +176,91 @@ b32 app_init( AppConfig* config ) {
     }
 
     CONTEXT.sysinfo = query_system_info();
+
+    u32 thread_count = CONTEXT.sysinfo.logical_processor_count;
+    thread_count = (thread_count == 1 ? thread_count : thread_count - 1);
+
+    CONTEXT.thread_work_queue.threads = (ThreadInfo*)mem_alloc(
+        sizeof(ThreadInfo) * thread_count,
+        MEMTYPE_THREADING
+    );
+    CONTEXT.thread_work_queue.work_entries = (ThreadWorkEntry*)mem_alloc(
+        sizeof(ThreadWorkEntry) * THREAD_WORK_ENTRY_COUNT,
+        MEMTYPE_THREADING
+    );
+    CONTEXT.thread_handles = (ThreadHandle*)mem_alloc(
+        sizeof( ThreadHandle ) * thread_count,
+        MEMTYPE_THREADING
+    );
+    if(
+        !CONTEXT.thread_work_queue.threads ||
+        !CONTEXT.thread_work_queue.work_entries ||
+        !CONTEXT.thread_handles
+    ) {
+        MESSAGE_BOX_FATAL(
+            "Subsytem Failure - Out of Memory",
+            "Failed to allocate memory for worker threads"
+        );
+        return false;
+    }
+    CONTEXT.thread_work_queue.work_entry_count = THREAD_WORK_ENTRY_COUNT;
+
+    if(!semaphore_create(
+        0,
+        thread_count,
+        &CONTEXT.thread_work_queue.wake_semaphore
+    )) {
+        MESSAGE_BOX_FATAL(
+            "Subsystem Failure",
+            "Failed to create wake semaphore!"
+        );
+        return false;
+    }
+
+    read_write_fence();
+    for( u32 i = 0; i < thread_count; ++i ) {
+        ThreadInfo* current_thread_info =
+            &CONTEXT.thread_work_queue.threads[i];
+        current_thread_info->work_queue    = &CONTEXT.thread_work_queue;
+        current_thread_info->thread_handle = &CONTEXT.thread_handles[i];
+        current_thread_info->thread_index  = i;
+
+        if(!platform_thread_create(
+            &CONTEXT.platform,
+            thread_proc,
+            current_thread_info,
+            THREAD_STACK_SIZE_SAME_AS_MAIN,
+            false,
+            &CONTEXT.thread_handles[i]
+        )) {
+            if( i == 0 ) {
+                thread_count = 0;
+            } else {
+                thread_count = i - 1;
+            }
+            break;
+        }
+    }
+
+    if( !thread_count ) {
+        MESSAGE_BOX_FATAL(
+            "Subsystem Failure",
+            "Failed to create any threads!"
+        );
+        return false;
+    }
+    LOG_INFO( "Instantiated %llu threads.", thread_count );
+
+    read_write_fence();
+
+    for( u32 i = 0; i < thread_count; ++i ) {
+        platform_thread_resume(
+            &CONTEXT.thread_handles[i]
+        );
+    }
+
+    CONTEXT.thread_count                   = thread_count;
+    CONTEXT.thread_work_queue.thread_count = thread_count;
 
     LOG_NOTE("CPU: %s", CONTEXT.sysinfo.cpu_name_buffer);
     LOG_NOTE("  Logical Processors: %llu",
@@ -340,9 +454,10 @@ b32 app_run() {
         RenderOrder draw_order = {};
         draw_order.delta_time  = CONTEXT.time.delta_time;
         if(!CONTEXT.application_run(
+            &CONTEXT.thread_work_queue,
             &draw_order,
-            CONTEXT.application_params,
-            CONTEXT.time.delta_time
+            CONTEXT.time.delta_time,
+            CONTEXT.application_params
         )) {
             return false;
         }
@@ -412,9 +527,97 @@ void app_shutdown() {
     event_shutdown();
     input_shutdown();
 
+    semaphore_destroy(
+        &CONTEXT.thread_work_queue.wake_semaphore
+    );
+    mem_free( CONTEXT.thread_handles );
+    mem_free( CONTEXT.thread_work_queue.threads );
+    mem_free( CONTEXT.thread_work_queue.work_entries );
+
     renderer_shutdown( CONTEXT.renderer_context );
     platform_shutdown( &CONTEXT.platform );
     log_shutdown();
+    platform_exit();
+}
+void thread_work_queue_push(
+    ThreadWorkQueue* work_queue,
+    ThreadWorkEntry work_entry
+) {
+    work_queue->work_entries[work_queue->push_entry] =
+        work_entry;
+
+    read_write_fence();
+
+    work_queue->push_entry = platform_interlocked_increment(
+        &work_queue->push_entry
+    ) % work_queue->work_entry_count;
+
+    work_queue->pending_work_count = platform_interlocked_increment(
+        &work_queue->pending_work_count
+    );
+
+    LOG_ASSERT(
+        work_queue->pending_work_count < work_queue->work_entry_count,
+        "Exceeded thread work entry count!!"
+    );
+
+    semaphore_increment(
+        &work_queue->wake_semaphore,
+        1, nullptr
+    );
+}
+internal b32 thread_work_queue_pop(
+    ThreadWorkQueue* work_queue,
+    ThreadWorkEntry* out_work_entry
+) {
+    if(
+        work_queue->push_entry ==
+        work_queue->read_entry
+    ) {
+        return false;
+    }
+
+    *out_work_entry = work_queue->work_entries[work_queue->read_entry];
+
+    read_write_fence();
+
+    work_queue->read_entry = platform_interlocked_increment(
+        &work_queue->read_entry
+    ) % work_queue->work_entry_count;
+
+    return true;
+}
+internal ThreadReturnCode thread_proc( void* user_params ) {
+    ThreadInfo* thread_info = (ThreadInfo*)user_params;
+
+    ThreadWorkEntry entry = {};
+    loop {
+        semaphore_wait(
+            &thread_info->work_queue->wake_semaphore,
+            true, 0
+        );
+
+        if( thread_work_queue_pop(
+            thread_info->work_queue,
+            &entry
+        ) ) {
+            entry.thread_work_proc(
+                thread_info,
+                entry.thread_work_user_params
+            );
+
+            read_write_fence();
+
+            platform_interlocked_increment(
+                &thread_info->work_queue->entry_completion_count
+            );
+            platform_interlocked_decrement(
+                &thread_info->work_queue->pending_work_count
+            );
+        }
+    }
+
+    return 0;
 }
 
 void cursor_set_style( CursorStyle style ) {
@@ -509,7 +712,13 @@ void surface_set_name( const char* name ) {
         CONTEXT.surface_title_buffer
     );
 }
+u32 thread_info_read_index( struct ThreadInfo* thread_info ) {
+    return thread_info->thread_index;
+}
 
+SystemInfo* system_info_read() {
+    return &CONTEXT.sysinfo;
+}
 b32 system_is_sse_available( ProcessorFeatures features ) {
     return ARE_BITS_SET(
         features,

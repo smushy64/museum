@@ -28,6 +28,7 @@
 // TODO(alicia): custom formatting and printing
 #include <stdio.h>
 
+global HANDLE* SEMAPHORE_STORAGE  = nullptr;
 global char* ERROR_MESSAGE_BUFFER = nullptr;
 global b32 IS_DPI_AWARE = false;
 
@@ -86,6 +87,7 @@ b32 platform_init(
         return false;
     }
 
+    SEMAPHORE_STORAGE    = win32_platform->semaphore_handles;
     ERROR_MESSAGE_BUFFER = win32_platform->error_message_buffer;
     win32_platform->instance = GetModuleHandle( nullptr );
 
@@ -257,6 +259,9 @@ void platform_shutdown( Platform* platform ) {
     DestroyWindow( win32_platform->window.handle );
 
     mem_free( win32_platform );
+}
+void platform_exit() {
+    ExitProcess( 0 );
 }
 u64 platform_read_absolute_time( Platform* platform ) {
     Win32Platform* win32_platform = (Win32Platform*)platform->platform;
@@ -1246,6 +1251,136 @@ MessageBoxResult message_box(
     return result;
 }
 
+b32 platform_file_open( const char* path, FileOpenFlags flags, FileHandle* out_handle ) {
+    DWORD dwDesiredAccess = 0;
+    if( ARE_BITS_SET( flags, PLATFORM_FILE_OPEN_READ ) ) {
+        dwDesiredAccess |= GENERIC_READ;
+    }
+    if( ARE_BITS_SET( flags, PLATFORM_FILE_OPEN_WRITE ) ) {
+        dwDesiredAccess |= GENERIC_WRITE;
+    }
+
+    DWORD dwShareMode = 0;
+    if( ARE_BITS_SET( flags, PLATFORM_FILE_OPEN_SHARE_READ ) ) {
+        dwShareMode |= FILE_SHARE_READ;
+    }
+    if( ARE_BITS_SET( flags, PLATFORM_FILE_OPEN_SHARE_WRITE ) ) {
+        dwShareMode |= FILE_SHARE_WRITE;
+    }
+
+    DWORD dwCreationDisposition = 0;
+    if( ARE_BITS_SET( flags, PLATFORM_FILE_OPEN_EXISTING ) ) {
+        dwCreationDisposition |= OPEN_EXISTING;
+    } else {
+        dwCreationDisposition |= OPEN_ALWAYS;
+    }
+
+    HANDLE handle = CreateFileA(
+        path,
+        dwDesiredAccess,
+        dwShareMode,
+        nullptr,
+        dwCreationDisposition,
+        0,
+        nullptr
+    );
+    if( handle == INVALID_HANDLE_VALUE ) {
+        win32_log_error( true );
+        return false;
+    }
+
+    out_handle->platform = (void*)handle;
+    return true;
+}
+void platform_file_close( FileHandle handle ) {
+    HANDLE win32_handle = (HANDLE)handle.platform;
+    CloseHandle( win32_handle );
+}
+b32 platform_file_read(
+    FileHandle handle,
+    usize read_size,
+    usize buffer_size,
+    void* buffer
+) {
+    LOG_ASSERT( read_size < U32::MAX, "platform_file_read does not support reads over 4GB on Win32!" );
+
+    HANDLE win32_handle = (HANDLE)handle.platform;
+
+    if( read_size > buffer_size ) {
+        WIN32_LOG_ERROR(
+            "Attempted to read a file into a buffer that isn't large enough! "
+            "Read size: %llu Buffer size: %llu",
+            read_size, buffer_size
+        );
+        return false;
+    }
+
+    DWORD bytes_to_read = (DWORD)read_size;
+    DWORD bytes_read = 0;
+    if( !ReadFile(
+        win32_handle,
+        buffer,
+        bytes_to_read,
+        &bytes_read,
+        nullptr
+    ) ) {
+        win32_log_error( false );
+        return false;
+    } else {
+        if( bytes_read != bytes_to_read ) {
+            WIN32_LOG_ERROR(
+                "Failed to read requested bytes! "
+                "Requested bytes: %u Bytes read: %u",
+                bytes_to_read, bytes_read
+            );
+            return false;
+        }
+        return true;
+    }
+}
+usize platform_file_query_size( FileHandle handle ) {
+    HANDLE win32_handle  = (HANDLE)handle.platform;
+    LARGE_INTEGER result = {};
+    if( GetFileSizeEx( win32_handle, &result ) ) {
+        return result.QuadPart;
+    } else {
+        win32_log_error( false );
+        return 0;
+    }
+}
+usize platform_file_query_offset( FileHandle handle ) {
+    HANDLE win32_handle  = (HANDLE)handle.platform;
+
+    LARGE_INTEGER offset = {};
+    LARGE_INTEGER result = {};
+    SetFilePointerEx(
+        win32_handle,
+        offset,
+        &result,
+        FILE_CURRENT
+    );
+
+    return result.QuadPart;
+}
+b32 platform_file_set_offset( FileHandle handle, usize offset ) {
+    HANDLE win32_handle = (HANDLE)handle.platform;
+
+    LARGE_INTEGER large_offset = {};
+    large_offset.QuadPart = offset;
+
+    if( !SetFilePointerEx(
+        win32_handle,
+        large_offset,
+        nullptr,
+        FILE_BEGIN
+    ) ) {
+        win32_log_error( false );
+        return false;
+    } else {
+        return true;
+    }
+}
+
 b32 win32_load_user32( HMODULE* out_module ) {
     HMODULE lib_user32 = nullptr;
 
@@ -1688,200 +1823,197 @@ void page_free( void* memory ) {
     );
 }
 
-// struct Win32ThreadHandle {
-//     HANDLE     handle;
-//     ThreadProc proc;
-//     void*      params;
-//     DWORD      id;
-// };
+internal DWORD WINAPI win32_thread_proc( void* params ) {
+    Win32ThreadHandle* win32_thread_handle = (Win32ThreadHandle*)params;
 
+    DWORD result = win32_thread_handle->thread_proc(
+        win32_thread_handle->thread_proc_user_params
+    );
 
-// // MULTI-THREADING | BEGIN ------------------------------------------------
+    return result;
+}
+b32 platform_thread_create(
+    struct Platform*,
+    ThreadProcFN     thread_proc,
+    void*            user_params,
+    usize            thread_stack_size,
+    b32              run_on_create,
+    ThreadHandle*    out_thread_handle
+) {
+    Win32ThreadHandle* win32_thread_handle =
+        (Win32ThreadHandle*)out_thread_handle;
 
-// internal DWORD WINAPI win32_thread_proc( void* params ) {
-//     Win32ThreadHandle* thread_handle = (Win32ThreadHandle*)params;
+    win32_thread_handle->thread_proc             = thread_proc;
+    win32_thread_handle->thread_proc_user_params = user_params;
 
-//     DWORD return_value = thread_handle->proc(
-//         thread_handle->params
-//     );
+    read_write_fence();
 
-//     mem_free( params );
+    win32_thread_handle->thread_handle = CreateThread(
+        nullptr,
+        thread_stack_size,
+        win32_thread_proc,
+        win32_thread_handle,
+        CREATE_SUSPENDED,
+        &win32_thread_handle->thread_id
+    );
 
-//     return return_value;
-// }
+    if( !win32_thread_handle->thread_handle ) {
+        win32_log_error( true );
+        return false;
+    }
 
-// #define THREAD_STACK_SIZE_SAME_AS_MAIN 0
-// #define THREAD_RUN_ON_CREATE 0
-// ThreadHandle thread_create(
-//     OldPlatformState* state,
-//     ThreadProc thread_proc,
-//     void*      params,
-//     b32        run_on_creation
-// ) {
+    read_write_fence();
+    if( run_on_create ) {
+        if(!platform_thread_resume(
+            out_thread_handle
+        )) {
+            return false;
+        }
+    }
 
-//     Win32State* win32_state = (Win32State*)state->platform_data;
+    return true;
+}
+b32 platform_thread_resume( ThreadHandle* thread_handle ) {
+    Win32ThreadHandle* win32_thread = (Win32ThreadHandle*)thread_handle;
+    DWORD result = ResumeThread( win32_thread->thread_handle );
+    if( result == (DWORD)-1 ) {
+        win32_log_error( false );
+        return false;
+    } else {
+        return true;
+    }
+}
+global usize SEMAPHORE_COUNT = 0;
+b32 semaphore_create(
+    u32 initial_count, u32 maximum_count,
+    SemaphoreHandle* out_semaphore_handle
+) {
+    if( SEMAPHORE_COUNT >= MAX_SEMAPHORE_HANDLES ) {
+        WIN32_LOG_ERROR( "Exceeded maximum number of semaphore handles!" );
+        return false;
+    }
 
-//     Win32ThreadHandle* thread_handle = get_next_handle( win32_state );
-//     if( !thread_handle ) {
-//         LOG_ERROR("Out of thread handles!");
-//         return nullptr;
-//     }
-//     thread_handle->proc   = thread_proc;
-//     thread_handle->params = params;
+    HANDLE result = CreateSemaphoreEx(
+        nullptr,
+        initial_count,
+        maximum_count,
+        nullptr,
+        0,
+        SEMAPHORE_ALL_ACCESS
+    );
+    if( !result ) {
+        win32_log_error( false );
+        return false;
+    }
 
-//     // we don't care about this
-//     LPSECURITY_ATTRIBUTES lpThreadAttributes = nullptr;
+    SEMAPHORE_COUNT++;
+    out_semaphore_handle->platform = (void*)result;
+    return true;
+}
+void semaphore_increment(
+    SemaphoreHandle* semaphore_handle,
+    u32 increment, u32* out_opt_previous_count
+) {
+    HANDLE win32_semaphore_handle = (HANDLE)semaphore_handle->platform;
+    ReleaseSemaphore(
+        win32_semaphore_handle,
+        increment,
+        (LONG*)out_opt_previous_count
+    );
+}
+void semaphore_wait(
+    SemaphoreHandle* semaphore_handle,
+    b32 infinite_timeout, u32 opt_timeout_ms
+) {
+    HANDLE win32_semaphore_handle = (HANDLE)semaphore_handle->platform;
+    WaitForSingleObjectEx(
+        win32_semaphore_handle,
+        infinite_timeout ?
+            INFINITE : opt_timeout_ms,
+        FALSE
+    );
+}
+void semaphore_wait_multiple(
+    usize            semaphore_handle_count,
+    SemaphoreHandle* semaphore_handles,
+    b32 wait_for_all, b32 infinite_timeout,
+    u32 opt_timeout_ms
+) {
+    LOG_ASSERT(
+        semaphore_handle_count < MAX_SEMAPHORE_HANDLES,
+        "Exceeded maximum number of semaphore handles!"
+    );
 
-//     SIZE_T dwStackSize     = THREAD_STACK_SIZE_SAME_AS_MAIN;
-//     DWORD  dwCreationFlags = CREATE_SUSPENDED;
+    for( usize i = 0; i < semaphore_handle_count; ++i ) {
+        SEMAPHORE_STORAGE[i] = (HANDLE)semaphore_handles[i].platform;
+    }
 
-//     mem_fence();
+    WaitForMultipleObjects(
+        semaphore_handle_count,
+        SEMAPHORE_STORAGE,
+        wait_for_all ? TRUE : FALSE,
+        infinite_timeout ? INFINITE : opt_timeout_ms
+    );
+}
+void semaphore_destroy( SemaphoreHandle* semaphore_handle ) {
+    HANDLE win32_semaphore_handle = (HANDLE)semaphore_handle;
+    CloseHandle( win32_semaphore_handle );
+    SEMAPHORE_COUNT--;
+}
+u32 platform_interlocked_increment( volatile u32* addend ) {
+    return InterlockedIncrement( addend );
+}
+u32 platform_interlocked_decrement( volatile u32* addend ) {
+    return InterlockedDecrement( addend );
+}
+u32 platform_interlocked_exchange( volatile u32* target, u32 value ) {
+    return InterlockedExchange( target, value );
+}
+void* platform_interlocked_compare_exchange_pointer(
+    void* volatile* dst,
+    void* exchange, void* comperand
+) {
+    return InterlockedCompareExchangePointer(
+        dst,
+        exchange,
+        comperand
+    );
+}
+u32 platform_interlocked_compare_exchange(
+    u32 volatile* dst,
+    u32 exchange, u32 comperand
+) {
+    return InterlockedCompareExchange(
+        dst,
+        exchange,
+        comperand
+    );
+}
 
-//     thread_handle->handle = CreateThread(
-//         lpThreadAttributes,
-//         dwStackSize,
-//         win32_thread_proc,
-//         thread_handle,
-//         dwCreationFlags,
-//         &thread_handle->id
-//     );
-
-//     if( !thread_handle->handle ) {
-//         win32_log_error( true );
-//         return nullptr;
-//     }
-
-//     if( run_on_creation ) {
-//         thread_resume( thread_handle );
-//     }
-
-//     return thread_handle;
-// }
-// void thread_resume( ThreadHandle thread ) {
-//     Win32ThreadHandle* win32_thread = (Win32ThreadHandle*)thread;
-//     ResumeThread( win32_thread->handle );
-// }
-
-// Semaphore semaphore_create(
-//     u32 initial_count,
-//     u32 maximum_count
-// ) {
-//     // we don't care about these
-//     LPSECURITY_ATTRIBUTES security_attributes = nullptr;
-//     LPCWSTR name = nullptr;
-//     DWORD flags = 0;
-
-//     DWORD desired_access = SEMAPHORE_ALL_ACCESS;
-
-//     HANDLE semaphore_handle = CreateSemaphoreExW(
-//         security_attributes,
-//         initial_count,
-//         maximum_count,
-//         name,
-//         flags,
-//         desired_access
-//     );
-
-//     return (Semaphore*)semaphore_handle;
-// }
-// void semaphore_increment(
-//     Semaphore semaphore,
-//     u32       increment,
-//     u32*      opt_out_previous_count
-// ) {
-//     HANDLE win32_handle = (HANDLE)semaphore;
-//     ReleaseSemaphore(
-//         win32_handle,
-//         increment,
-//         (LONG*)opt_out_previous_count
-//     );
-// }
-// void semaphore_wait_for(
-//     Semaphore semaphore,
-//     u32       timeout_ms
-// ) {
-//     HANDLE win32_handle = (HANDLE)semaphore;
-//     WaitForSingleObjectEx(
-//         win32_handle,
-//         timeout_ms,
-//         FALSE
-//     );
-// }
-// void semaphore_wait_for_multiple(
-//     usize      count,
-//     Semaphore* semaphores,
-//     b32        wait_for_all,
-//     u32        timeout_ms
-// ) {
-//     const HANDLE* win32_handles = (const HANDLE*)semaphores;
-//     WaitForMultipleObjects(
-//         count,
-//         win32_handles,
-//         wait_for_all ? TRUE : FALSE,
-//         timeout_ms
-//     );
-// }
-// void semaphore_destroy( Semaphore semaphore ) {
-//     HANDLE win32_handle = (HANDLE)semaphore;
-//     CloseHandle( win32_handle );
-// }
-
-// u32 interlocked_increment( volatile u32* addend ) {
-//     return InterlockedIncrement( addend );
-// }
-// u32 interlocked_decrement( volatile u32* addend ) {
-//     return InterlockedDecrement( addend );
-// }
-// u32 interlocked_exchange( volatile u32* target, u32 value ) {
-//     return InterlockedExchange( target, value );
-// }
-// void* interlocked_compare_exchange_pointer(
-//     void* volatile* dst,
-//     void* exchange,
-//     void* comperand
-// ) {
-//     return InterlockedCompareExchangePointer(
-//         dst,
-//         exchange,
-//         comperand
-//     );
-// }
-// u32 interlocked_compare_exchange(
-//     u32 volatile* dst,
-//     u32 exchange,
-//     u32 comperand
-// ) {
-//     return InterlockedCompareExchange(
-//         dst,
-//         exchange,
-//         comperand
-//     );
-// }
-
-// void mem_fence() {
-//     _ReadWriteBarrier();
-// #if defined(SM_ARCH_X86)
-//     _mm_mfence();
-// #elif
-//     #error "mem_fence: Platform is not supported!"
-// #endif
-// }
-// void read_fence() {
-//     _ReadBarrier();
-// #if defined(SM_ARCH_X86)
-//     _mm_lfence();
-// #elif
-//     #error "read_fence: Platform is not supported!"
-// #endif
-// }
-// void write_fence() {
-//     _WriteBarrier();
-// #if defined(SM_ARCH_X86)
-//     _mm_sfence();
-// #elif
-//     #error "write_fence: Platform is not supported!"
-// #endif
-// }
+void read_write_fence() {
+    _ReadWriteBarrier();
+#if defined(SM_ARCH_X86)
+    _mm_mfence();
+#elif
+    #error "mem_fence: Platform is not supported!"
+#endif
+}
+void read_fence() {
+    _ReadBarrier();
+#if defined(SM_ARCH_X86)
+    _mm_lfence();
+#elif
+    #error "read_fence: Platform is not supported!"
+#endif
+}
+void write_fence() {
+    _WriteBarrier();
+#if defined(SM_ARCH_X86)
+    _mm_sfence();
+#elif
+    #error "write_fence: Platform is not supported!"
+#endif
+}
 
 // // MULTI-THREADING | END   ------------------------------------------------
 

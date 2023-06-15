@@ -12,10 +12,15 @@
 #include <core/events.h>
 #include <core/math.h>
 #include <core/graphics.h>
+#include <core/threading.h>
 #include <stdio.h>
 
-b32 app_run( struct RenderOrder* render_order, void*, f32 ) {
-    upload_mesh_list( render_order, nullptr, 0 );
+b32 app_run(
+    struct ThreadWorkQueue*,
+    struct RenderOrder*,
+    f32,
+    void*
+) {
     return true;
 }
 

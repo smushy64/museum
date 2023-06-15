@@ -51,6 +51,7 @@ typedef void* pvoid;
 #define internal static
 #define local    static
 #define global   static
+#define loop     for( ;; )
 
 #define LD_CONTACT_MESSAGE \
     "Please contact me at smushybusiness@gmail.com if you see this."

@@ -130,6 +130,8 @@ void platform_gl_swap_buffers( Platform* platform );
 void* platform_gl_init( Platform* platform );
 /// Shutdown OpenGL.
 void platform_gl_shutdown( Platform* platform, void* glrc );
+/// Platform exit program.
+void platform_exit();
 
 /// Types of message boxes
 enum MessageBoxType : u32 {
@@ -232,5 +234,8 @@ void heap_free( void* memory );
 void* page_alloc( usize size );
 /// Free page allocated memory.
 void page_free( void* memory );
+
+/// Query CPU and memory information.
+struct SystemInfo query_system_info();
 
 #endif
