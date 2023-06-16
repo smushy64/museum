@@ -58,8 +58,14 @@ b32 gl_load( GetProcFN getproc ) {
     LOAD_PROC_REQUIRED( glBindRenderbuffer );
     LOAD_PROC_REQUIRED( glGenerateTextureMipmap );
 
+    LOAD_PROC_REQUIRED( glCreateShader );
+    LOAD_PROC_REQUIRED( glCreateProgram );
     LOAD_PROC_REQUIRED( glCreateShaderProgramv );
+    LOAD_PROC_REQUIRED( glUseProgram );
+    LOAD_PROC_REQUIRED( glShaderBinary );
+    LOAD_PROC_REQUIRED( glSpecializeShader );
     LOAD_PROC_REQUIRED( glCompileShader );
+    LOAD_PROC_REQUIRED( glLinkProgram );
     LOAD_PROC_REQUIRED( glGetShaderiv );
     LOAD_PROC_REQUIRED( glGetProgramiv );
     LOAD_PROC_REQUIRED( glDeleteShader );
@@ -110,6 +116,9 @@ b32 gl_load( GetProcFN getproc ) {
     LOAD_PROC_REQUIRED( glVertexArrayElementBuffer );
     LOAD_PROC_REQUIRED( glNamedBufferData );
     LOAD_PROC_REQUIRED( glNamedBufferSubData );
+    LOAD_PROC_REQUIRED( glBindVertexBuffer );
+    LOAD_PROC_REQUIRED( glBindBuffer );
+    LOAD_PROC_REQUIRED( glBindBufferBase );
     LOAD_PROC_REQUIRED( glMapNamedBuffer );
     LOAD_PROC_REQUIRED( glMapNamedBufferRange );
     LOAD_PROC_REQUIRED( glUnmapNamedBuffer );

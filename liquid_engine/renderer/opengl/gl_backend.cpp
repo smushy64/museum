@@ -7,8 +7,11 @@
 #include "gl_functions.h"
 
 #include "platform/platform.h"
+#include "platform/io.h"
 #include "core/memory.h"
 #include "core/collections.h"
+#include "core/time.h"
+#include "core/math.h"
 
 #define GL_DEFAULT_CLEAR_COLOR 0.0f, 0.0f, 0.0f, 1.0f
 
@@ -78,8 +81,9 @@ RendererContext* gl_renderer_backend_initialize( Platform* platform ) {
     result->extension_count = extension_count;
 
     glClearColor( GL_DEFAULT_CLEAR_COLOR );
-    glClear(
-        GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT
+    glClear( GL_COLOR_BUFFER_BIT |
+        GL_DEPTH_BUFFER_BIT |
+        GL_STENCIL_BUFFER_BIT
     );
     platform_gl_swap_buffers( result->ctx.platform );
 
@@ -87,6 +91,182 @@ RendererContext* gl_renderer_backend_initialize( Platform* platform ) {
         0, 0,
         platform->surface.width,
         platform->surface.height
+    );
+
+    // TODO(alicia): TEST CODE!!!!!
+    glCreateBuffers( 3, result->buffers );
+    f32 aspect_ratio =
+        (f32)platform->surface.width /
+        (f32)platform->surface.height;
+    mat4 view_projection = lookat(
+        VEC3::FORWARD,
+        VEC3::ZERO,
+        VEC3::UP
+    ) * ortho(
+        -aspect_ratio,
+        aspect_ratio,
+        -1.0f,
+        1.0f
+    );
+    glNamedBufferStorage(
+        result->u_matrices,
+        sizeof( mat4 ),
+        value_pointer( view_projection ),
+        GL_DYNAMIC_STORAGE_BIT
+    );
+    glBindBufferBase(
+        GL_UNIFORM_BUFFER,
+        0,
+        result->u_matrices
+    );
+
+    FileHandle phong_vert_file = {}, phong_frag_file = {};
+    if( !platform_file_open(
+        "./resources/shaders/phong.vert.spv",
+        PLATFORM_FILE_OPEN_EXISTING |
+        PLATFORM_FILE_OPEN_READ |
+        PLATFORM_FILE_OPEN_SHARE_READ,
+        &phong_vert_file
+    ) ) {
+        GL_LOG_FATAL("FUCK");
+        return nullptr;
+    }
+    if( !platform_file_open(
+        "./resources/shaders/phong.frag.spv",
+        PLATFORM_FILE_OPEN_EXISTING |
+        PLATFORM_FILE_OPEN_READ |
+        PLATFORM_FILE_OPEN_SHARE_READ,
+        &phong_frag_file
+    ) ) {
+        GL_LOG_FATAL("FUCK");
+        return nullptr;
+    }
+
+    u32 phong_vert_binary_size =
+        platform_file_query_size( phong_vert_file );
+    void* phong_vert_binary = mem_alloc(
+        phong_vert_binary_size,
+        MEMTYPE_RENDERER
+    );
+    platform_file_read(
+        phong_vert_file,
+        phong_vert_binary_size,
+        phong_vert_binary_size,
+        phong_vert_binary
+    );
+
+    u32 phong_frag_binary_size =
+        platform_file_query_size( phong_frag_file );
+    void* phong_frag_binary = mem_alloc(
+        phong_frag_binary_size,
+        MEMTYPE_RENDERER
+    );
+    platform_file_read(
+        phong_frag_file,
+        phong_frag_binary_size,
+        phong_frag_binary_size,
+        phong_frag_binary
+    );
+
+    platform_file_close( phong_vert_file );
+    platform_file_close( phong_frag_file );
+
+    Shader phong_shaders[2] = {};
+
+    if( !gl_shader_compile(
+        phong_vert_binary_size,
+        phong_vert_binary,
+        GL_VERTEX_SHADER,
+        "main",
+        0,
+        0,
+        0,
+        &phong_shaders[0]
+    ) ) {
+        return nullptr;
+    }
+    if( !gl_shader_compile(
+        phong_frag_binary_size,
+        phong_frag_binary,
+        GL_FRAGMENT_SHADER,
+        "main",
+        0,
+        0,
+        0,
+        &phong_shaders[1]
+    ) ) {
+        return nullptr;
+    }
+    if( !gl_shader_program_link(
+        2, phong_shaders,
+        &result->phong
+    ) ) {
+        return nullptr;
+    }
+    gl_shader_delete( 2, phong_shaders );
+    if( !gl_shader_program_reflection( &result->phong ) ) {
+        return nullptr;
+    }
+
+    glCreateVertexArrays( 1, &result->vao_triangle );
+    local f32 TRIANGLE_VERTICES[] = {
+        -1.0f, -1.0f, /* color */  1.0f,  0.0f,  0.0f,
+         1.0f, -1.0f, /* color */  0.0f,  1.0f,  0.0f,
+        0.0f,1.0f, /* color */ 0.0f, 0.0f, 1.0f,
+    };
+    local u32 TRIANGLE_INDICES[] = {
+        0, 1, 2
+    };
+    glNamedBufferData(
+        result->vbo_triangle,
+        STATIC_ARRAY_SIZE( TRIANGLE_VERTICES ),
+        TRIANGLE_VERTICES,
+        GL_STATIC_DRAW
+    );
+    glVertexArrayVertexBuffer(
+        result->vao_triangle,
+        0,
+        result->vbo_triangle,
+        0, sizeof(f32) * 5
+    );
+    glEnableVertexArrayAttrib( result->vao_triangle, 0 );
+    glEnableVertexArrayAttrib( result->vao_triangle, 1 );
+    glVertexArrayAttribFormat(
+        result->vao_triangle,
+        0,
+        2,
+        GL_FLOAT,
+        GL_FALSE,
+        0
+    );
+    glVertexArrayAttribFormat(
+        result->vao_triangle,
+        1,
+        3,
+        GL_FLOAT,
+        GL_FALSE,
+        sizeof(f32) * 2
+    );
+    glVertexArrayAttribBinding(
+        result->vao_triangle,
+        0,
+        0
+    );
+    glVertexArrayAttribBinding(
+        result->vao_triangle,
+        1,
+        0
+    );
+
+    glNamedBufferData(
+        result->ebo_triangle,
+        STATIC_ARRAY_SIZE( TRIANGLE_INDICES ),
+        TRIANGLE_INDICES,
+        GL_STATIC_DRAW
+    );
+    glVertexArrayElementBuffer(
+        result->vao_triangle,
+        result->ebo_triangle
     );
 
     GL_LOG_INFO("OpenGL backend initialized successfully.");
@@ -103,28 +283,50 @@ void gl_renderer_backend_shutdown( RendererContext* generic_ctx ) {
     GL_LOG_INFO("OpenGL backend shutdown.");
 }
 void gl_renderer_backend_on_resize(
-    RendererContext*,
+    RendererContext* generic_ctx,
     i32 width, i32 height
 ) {
+    OpenGLRendererContext* ctx = (OpenGLRendererContext*)generic_ctx;
+
     glViewport( 0, 0, width, height );
+    f32 aspect_ratio = (f32)width / (f32)height;
+    mat4 view_projection = lookat(
+        VEC3::FORWARD,
+        VEC3::ZERO,
+        VEC3::UP
+    ) * ortho(
+        -aspect_ratio,
+        aspect_ratio,
+        -1.0f,
+        1.0f
+    );
+    glNamedBufferSubData(
+        ctx->u_matrices,
+        0,
+        sizeof(mat4),
+        value_pointer( view_projection )
+    );
 }
-b32 gl_renderer_backend_begin_frame(
-    RendererContext* ctx,
-    f32 delta_time
-) {
+b32 gl_renderer_backend_begin_frame( RendererContext* generic_ctx, Time* time ) {
+    OpenGLRendererContext* ctx = (OpenGLRendererContext*)generic_ctx;
     // TODO(alicia): 
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT );
 
-    SM_UNUSED(ctx);
-    SM_UNUSED(delta_time);
+    glUseProgram( ctx->phong.handle );
+    glBindVertexArray( ctx->vao_triangle );
+    glDrawElements(
+        GL_TRIANGLES,
+        3,
+        GL_UNSIGNED_INT,
+        nullptr
+    );
+
+    SM_UNUSED(time);
     return true;
 }
-b32 gl_renderer_backend_end_frame(
-    RendererContext* ctx,
-    f32 delta_time
-) {
+b32 gl_renderer_backend_end_frame( RendererContext* ctx, Time* time ) {
     // TODO(alicia): 
-    SM_UNUSED(delta_time);
+    SM_UNUSED(time);
     
     platform_gl_swap_buffers( ctx->platform );
     return true;

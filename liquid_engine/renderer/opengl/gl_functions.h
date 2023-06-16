@@ -46,8 +46,14 @@ DEFINE_GL_FUNCTION( void, glBindFramebuffer, GLenum, GLuint );
 DEFINE_GL_FUNCTION( void, glBindRenderbuffer, GLenum, GLuint );
 DEFINE_GL_FUNCTION( void, glGenerateTextureMipmap, GLuint );
 // Shaders -------------------------------------------------------------
+DEFINE_GL_FUNCTION( GLuint, glCreateShader, GLenum );
+DEFINE_GL_FUNCTION( GLuint, glCreateProgram );
 DEFINE_GL_FUNCTION( GLuint, glCreateShaderProgramv, GLenum, GLsizei, const char** );
+DEFINE_GL_FUNCTION( void, glUseProgram, GLuint );
+DEFINE_GL_FUNCTION( void, glShaderBinary, GLsizei, const GLuint*, GLenum, const void*, GLsizei );
+DEFINE_GL_FUNCTION( void, glSpecializeShader, GLuint, const GLchar*, GLuint, const GLuint*, const GLuint* );
 DEFINE_GL_FUNCTION( void, glCompileShader, GLuint );
+DEFINE_GL_FUNCTION( void, glLinkProgram, GLuint );
 DEFINE_GL_FUNCTION( void, glGetShaderiv, GLuint, GLenum, GLint* );
 DEFINE_GL_FUNCTION( void, glGetProgramiv, GLuint, GLenum, GLint* );
 DEFINE_GL_FUNCTION( void, glDeleteShader, GLuint );
@@ -56,7 +62,7 @@ DEFINE_GL_FUNCTION( void, glAttachShader, GLuint, GLuint );
 DEFINE_GL_FUNCTION( void, glDetachShader, GLuint, GLuint );
 DEFINE_GL_FUNCTION( void, glGetShaderInfoLog, GLuint, GLsizei, GLsizei*, GLchar* );
 DEFINE_GL_FUNCTION( void, glGetProgramInfoLog, GLuint, GLsizei, GLsizei*, GLchar* );
-DEFINE_GL_FUNCTION( void, glGetActiveUniform, GLuint, GLuint, GLsizei, GLsizei*, GLint*, GLenum, GLchar* );
+DEFINE_GL_FUNCTION( void, glGetActiveUniform, GLuint, GLuint, GLsizei, GLsizei*, GLint*, GLenum*, GLchar* );
 DEFINE_GL_FUNCTION( GLint, glGetUniformLocation, GLuint, const GLchar* );
 DEFINE_GL_FUNCTION( void, glProgramUniform1f, GLuint, GLint, GLfloat );
 DEFINE_GL_FUNCTION( void, glProgramUniform2f, GLuint, GLint, GLfloat, GLfloat );
@@ -100,6 +106,9 @@ DEFINE_GL_FUNCTION( void, glDrawArrays, GLenum, GLint, GLsizei );
 DEFINE_GL_FUNCTION( void, glDrawElements, GLenum, GLsizei, GLenum, const GLvoid* );
 DEFINE_GL_FUNCTION( void, glNamedBufferData, GLuint, GLsizeiptr, const void*, GLenum );
 DEFINE_GL_FUNCTION( void, glNamedBufferSubData, GLuint, GLintptr, GLsizei, const void* );
+DEFINE_GL_FUNCTION( void, glBindVertexBuffer, GLuint, GLuint, GLintptr, GLintptr );
+DEFINE_GL_FUNCTION( void, glBindBuffer, GLenum, GLuint );
+DEFINE_GL_FUNCTION( void, glBindBufferBase, GLenum, GLuint, GLuint );
 DEFINE_GL_FUNCTION( void*, glMapNamedBuffer, GLuint, GLenum );
 DEFINE_GL_FUNCTION( void*, glMapNamedBufferRange, GLuint, GLintptr, GLsizei, GLbitfield );
 DEFINE_GL_FUNCTION( GLboolean, glUnmapNamedBuffer, GLuint );
@@ -274,11 +283,29 @@ IMPL_GL_FUNCTION( void, glGenerateTextureMipmap, GLuint texture ) {
     return impl::in_glGenerateTextureMipmap( texture );
 }
 // Shaders -------------------------------------------------------------
+IMPL_GL_FUNCTION( GLuint, glCreateShader, GLenum shaderType ) {
+    return impl::in_glCreateShader( shaderType );
+}
+IMPL_GL_FUNCTION( GLuint, glCreateProgram ) {
+    return impl::in_glCreateProgram();
+}
 IMPL_GL_FUNCTION( GLuint, glCreateShaderProgramv, GLenum type, GLsizei count, const char** strings ) {
     return impl::in_glCreateShaderProgramv( type, count, strings );
 }
+IMPL_GL_FUNCTION( void, glUseProgram, GLuint program ) {
+    return impl::in_glUseProgram( program );
+}
+IMPL_GL_FUNCTION( void, glShaderBinary, GLsizei count, const GLuint* shaders, GLenum binaryFormat, const void* binary, GLsizei length ) {
+    return impl::in_glShaderBinary( count, shaders, binaryFormat, binary, length );
+}
+IMPL_GL_FUNCTION( void, glSpecializeShader, GLuint shader, const GLchar* pEntryPoint, GLuint numSpecializationConstants, const GLuint* pConstantIndex, const GLuint* pConstantValue ) {
+    return impl::in_glSpecializeShader( shader, pEntryPoint, numSpecializationConstants, pConstantIndex, pConstantValue );
+}
 IMPL_GL_FUNCTION( void, glCompileShader, GLuint shader ) {
     return impl::in_glCompileShader( shader );
+}
+IMPL_GL_FUNCTION( void, glLinkProgram, GLuint program ) {
+    return impl::in_glLinkProgram( program );
 }
 IMPL_GL_FUNCTION( void, glGetShaderiv, GLuint shader, GLenum pname, GLint* params ) {
     return impl::in_glGetShaderiv( shader, pname, params );
@@ -323,6 +350,15 @@ IMPL_GL_FUNCTION( void, glNamedBufferData, GLuint buffer, GLsizeiptr size, const
 IMPL_GL_FUNCTION( void, glNamedBufferSubData, GLuint buffer, GLintptr offset, GLsizei size, const void* data ) {
     return impl::in_glNamedBufferSubData( buffer, offset, size, data );
 }
+IMPL_GL_FUNCTION( void, glBindVertexBuffer, GLuint bindingIndex, GLuint buffer, GLintptr offset, GLintptr stride ) {
+    return impl::in_glBindVertexBuffer( bindingIndex, buffer, offset, stride );
+}
+IMPL_GL_FUNCTION( void, glBindBuffer, GLenum target, GLuint buffer ) {
+    return impl::in_glBindBuffer( target, buffer );
+}
+IMPL_GL_FUNCTION( void, glBindBufferBase, GLenum target, GLuint index, GLuint buffer ) {
+    return impl::in_glBindBufferBase( target, index, buffer );
+}
 IMPL_GL_FUNCTION( void*, glMapNamedBuffer, GLuint buffer, GLenum access ) {
     return impl::in_glMapNamedBuffer( buffer, access );
 }
@@ -362,7 +398,7 @@ IMPL_GL_FUNCTION( void, glVertexArrayAttribLFormat, GLuint vao, GLuint attribInd
 IMPL_GL_FUNCTION( void, glVertexArrayAttribBinding, GLuint vao, GLuint attribIndex, GLuint bindingIndex ) {
     return impl::in_glVertexArrayAttribBinding( vao, attribIndex, bindingIndex );
 }
-IMPL_GL_FUNCTION( void, glGetActiveUniform, GLuint program, GLuint index, GLsizei bufSize, GLsizei* length, GLint* size, GLenum type, GLchar* name ) {
+IMPL_GL_FUNCTION( void, glGetActiveUniform, GLuint program, GLuint index, GLsizei bufSize, GLsizei* length, GLint* size, GLenum* type, GLchar* name ) {
     return impl::in_glGetActiveUniform( program, index, bufSize, length, size, type, name );
 }
 IMPL_GL_FUNCTION( GLint, glGetUniformLocation, GLuint program, const GLchar* name ) {

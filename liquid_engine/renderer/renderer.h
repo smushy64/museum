@@ -33,12 +33,12 @@ typedef void (*RendererBackendOnResizeFn)(
 
 typedef b32 (*RendererBackendBeginFrameFn)(
     struct RendererContext* ctx,
-    f32 delta_time
+    struct Time* time
 );
 
 typedef b32 (*RendererBackendEndFrameFn)(
     struct RendererContext* ctx,
-    f32 delta_time
+    struct Time* time
 );
 
 struct RendererContext {
@@ -49,14 +49,14 @@ struct RendererContext {
     RendererBackendBeginFrameFn backend_begin_frame;
     RendererBackendEndFrameFn   backend_end_frame;
 
-    u64   frame_count;
     void* backend;
 };
 
 struct RenderOrder {
     Mesh* meshes;
     u32   mesh_count;
-    f32 delta_time;
+
+    struct Time* time;
 };
 
 RendererContext* renderer_init(

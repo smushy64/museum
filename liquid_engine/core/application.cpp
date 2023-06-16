@@ -15,11 +15,13 @@
 #include "time.h"
 #include "memory.h"
 #include "string.h"
+#include "time.h"
 #include "math/functions.h"
 
 // TODO(alicia): custom string formatting!
 #include <stdio.h>
 
+#define THREAD_WORK_ENTRY_COUNT 256
 struct ThreadInfo {
     struct ThreadHandle*    thread_handle;
     struct ThreadWorkQueue* work_queue;
@@ -30,13 +32,13 @@ struct ThreadWorkQueue {
     ThreadWorkEntry* work_entries;
     SemaphoreHandle  wake_semaphore;
 
-    u32              work_entry_count;
-    u32              thread_count;
+    u32 work_entry_count;
+    u32 thread_count;
 
-    volatile u32     push_entry;
-    volatile u32     read_entry;
-    volatile u32     entry_completion_count;
-    volatile u32     pending_work_count;
+    volatile u32 push_entry;
+    volatile u32 read_entry;
+    volatile u32 entry_completion_count;
+    volatile u32 pending_work_count;
 };
 
 #define SURFACE_TITLE_BUFFER_PADDING 32
@@ -50,11 +52,7 @@ struct AppContext {
     b32 is_running;
     RendererBackend renderer_backend;
 
-    struct {
-        f32 delta_time;
-        f32 elapsed_time;
-        u64 frame_count;
-    } time;
+    Time time;
 
     struct {
         CursorStyle style;
@@ -127,7 +125,8 @@ b32 app_init( AppConfig* config ) {
     if( !log_init( config->log_level ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
-            "Failed to initialize logging subsystem"
+            "Failed to initialize logging subsystem!\n "
+            LD_CONTACT_MESSAGE
         );
         return false;
     }
@@ -150,7 +149,8 @@ b32 app_init( AppConfig* config ) {
     ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
-            "Failed to initialize platform services."
+            "Failed to initialize platform services!\n "
+            LD_CONTACT_MESSAGE
         );
         return false;
     }
@@ -170,7 +170,8 @@ b32 app_init( AppConfig* config ) {
     if( !CONTEXT.renderer_context ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
-            "Failed to initialize rendering subsystem."
+            "Failed to initialize rendering subsystem!\n "
+            LD_CONTACT_MESSAGE
         );
         return false;
     }
@@ -199,7 +200,8 @@ b32 app_init( AppConfig* config ) {
     ) {
         MESSAGE_BOX_FATAL(
             "Subsytem Failure - Out of Memory",
-            "Failed to allocate memory for worker threads"
+            "Failed to allocate memory for worker threads!\n "
+            LD_CONTACT_MESSAGE
         );
         return false;
     }
@@ -212,7 +214,8 @@ b32 app_init( AppConfig* config ) {
     )) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
-            "Failed to create wake semaphore!"
+            "Failed to create wake semaphore!\n "
+            LD_CONTACT_MESSAGE
         );
         return false;
     }
@@ -245,11 +248,12 @@ b32 app_init( AppConfig* config ) {
     if( !thread_count ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
-            "Failed to create any threads!"
+            "Failed to create any threads!\n "
+            LD_CONTACT_MESSAGE
         );
         return false;
     }
-    LOG_INFO( "Instantiated %llu threads.", thread_count );
+    LOG_NOTE( "Instantiated %llu threads.", thread_count );
 
     read_write_fence();
 
@@ -327,14 +331,16 @@ b32 app_init( AppConfig* config ) {
     if( !event_init() ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
-            "Failed to initialize event subsystem."
+            "Failed to initialize event subsystem!\n "
+            LD_CONTACT_MESSAGE
         );
         return false;
     }
     if( !input_init( &CONTEXT.platform ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
-            "Failed to initialize input subsystem."
+            "Failed to initialize input subsystem!\n "
+            LD_CONTACT_MESSAGE
         );
         return false;
     }
@@ -346,7 +352,8 @@ b32 app_init( AppConfig* config ) {
     )) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
-            "Failed to initialize event subsystem."
+            "Failed to initialize event subsystem!\n "
+            LD_CONTACT_MESSAGE
         );
         return false;
     }
@@ -357,7 +364,8 @@ b32 app_init( AppConfig* config ) {
     )) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
-            "Failed to initialize event subsystem."
+            "Failed to initialize event subsystem!\n "
+            LD_CONTACT_MESSAGE
         );
         return false;
     }
@@ -368,7 +376,8 @@ b32 app_init( AppConfig* config ) {
     )) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
-            "Failed to initialize event subsystem."
+            "Failed to initialize event subsystem!\n "
+            LD_CONTACT_MESSAGE
         );
         return false;
     }
@@ -379,7 +388,8 @@ b32 app_init( AppConfig* config ) {
     )) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
-            "Failed to initialize event subsystem."
+            "Failed to initialize event subsystem!\n "
+            LD_CONTACT_MESSAGE
         );
         return false;
     }
@@ -390,7 +400,8 @@ b32 app_init( AppConfig* config ) {
     )) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
-            "Failed to initialize event subsystem."
+            "Failed to initialize event subsystem!\n "
+            LD_CONTACT_MESSAGE
         );
         return false;
     }
@@ -448,15 +459,16 @@ b32 app_run() {
         f64 seconds_elapsed = platform_read_seconds_elapsed(
             &CONTEXT.platform
         );
-        CONTEXT.time.delta_time   = seconds_elapsed - CONTEXT.time.elapsed_time;
-        CONTEXT.time.elapsed_time = seconds_elapsed;
+        CONTEXT.time.delta_seconds =
+            seconds_elapsed - CONTEXT.time.elapsed_seconds;
+        CONTEXT.time.elapsed_seconds = seconds_elapsed;
 
         RenderOrder draw_order = {};
-        draw_order.delta_time  = CONTEXT.time.delta_time;
+        draw_order.time  = &CONTEXT.time;
         if(!CONTEXT.application_run(
             &CONTEXT.thread_work_queue,
             &draw_order,
-            CONTEXT.time.delta_time,
+            &CONTEXT.time,
             CONTEXT.application_params
         )) {
             return false;
@@ -475,7 +487,8 @@ b32 app_run() {
         }
 
         if( (CONTEXT.time.frame_count + 1) % UPDATE_FRAME_RATE_COUNTER_RATE == 0 ) {
-            f32 fps = CONTEXT.time.delta_time == 0.0f ? 0.0f : 1.0f / CONTEXT.time.delta_time;
+            f32 fps = CONTEXT.time.delta_seconds == 0.0f ?
+                0.0f : 1.0f / CONTEXT.time.delta_seconds;
 
             snprintf(
                 CONTEXT.surface_title_buffer + CONTEXT.surface_title_writable_offset - 1,

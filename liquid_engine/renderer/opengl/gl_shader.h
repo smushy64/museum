@@ -1,0 +1,60 @@
+#if !defined(RENDERER_OPENGL_GL_SHADER_HPP)
+#define RENDERER_OPENGL_GL_SHADER_HPP
+/**
+ * Description:  OpenGL Shader
+ * Author:       Alicia Amarilla (smushyaa@gmail.com)
+ * File Created: June 15, 2023
+*/
+#include "gl_types.h"
+
+/// OpenGL Shader Uniform Information
+struct UniformInfo {
+    const char* name;
+    GLint       location;
+    GLenum      type;
+    GLsizei     location_count;
+};
+/// OpenGL Shader Program
+struct ShaderProgram {
+    GLuint handle;
+    char*        uniform_names;
+    UniformInfo* uniforms;
+    GLint        uniform_name_max_length;
+    GLint        uniform_count;
+};
+/// OpenGL Shader
+struct Shader {
+    GLuint handle;
+};
+
+/// Compile SPIR-V Shader
+b32 gl_shader_compile(
+    u32           spirv_binary_size,
+    void*         spirv_binary_buffer,
+    GLenum        shader_type,
+    const char*   shader_entry_point,
+    GLuint        num_specialization_constants,
+    const GLuint* constant_index,
+    const GLuint* constant_value,
+    Shader*       out_shader
+);
+/// Link shaders.
+b32 gl_shader_program_link(
+    u32            shader_count,
+    Shader*        shaders,
+    ShaderProgram* out_shader_program
+);
+/// Collect information about shader program uniforms.
+b32 gl_shader_program_reflection( ShaderProgram* shader_program );
+/// Get the location of the specified uniform.
+/// Returns -1 if uniform was not found.
+GLint gl_shader_program_uniform_location(
+    ShaderProgram* shader_program,
+    const char* uniform_name
+);
+/// Delete shaders.
+void gl_shader_delete( u32 count, Shader* shaders );
+/// Delete shader programs.
+void gl_shader_program_delete( u32 count, ShaderProgram* programs );
+
+#endif // header guard

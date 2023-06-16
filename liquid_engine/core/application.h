@@ -25,7 +25,7 @@ const char* to_string( RendererBackend backend );
 typedef b32 (*AppRunFn)(
     struct ThreadWorkQueue* work_queue,
     struct RenderOrder* render_order,
-    f32 delta_time,
+    struct Time* time,
     void* params
 );
 

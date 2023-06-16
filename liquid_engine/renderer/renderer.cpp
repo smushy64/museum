@@ -5,6 +5,7 @@
 */
 #include "renderer.h"
 #include "opengl/gl_backend.h"
+#include "core/time.h"
 
 RendererContext* renderer_init(
     const char*      app_name,
@@ -44,12 +45,11 @@ void renderer_on_resize(
 ) {
     ctx->backend_on_resize( ctx, width, height );
 }
-b32 renderer_begin_frame( RendererContext* ctx, f32 delta_time ) {
-    return ctx->backend_begin_frame( ctx, delta_time );
+b32 renderer_begin_frame( RendererContext* ctx, Time* time ) {
+    return ctx->backend_begin_frame( ctx, time );
 }
-b32 renderer_end_frame( RendererContext* ctx, f32 delta_time ) {
-    b32 result = ctx->backend_end_frame( ctx, delta_time );
-    ctx->frame_count++;
+b32 renderer_end_frame( RendererContext* ctx, Time* time ) {
+    b32 result = ctx->backend_end_frame( ctx, time );
     return result;
 }
 b32 renderer_draw_frame(
@@ -57,12 +57,10 @@ b32 renderer_draw_frame(
     RenderOrder* order
 ) {
     if( renderer_begin_frame(
-        ctx,
-        order->delta_time
+        ctx, order->time
     ) ) {
         if( !renderer_end_frame(
-            ctx,
-            order->delta_time
+            ctx, order->time
         ) ) {
             LOG_FATAL( "Renderer end frame failed!" );
             return false;

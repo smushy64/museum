@@ -53,7 +53,6 @@ typedef struct ThreadInfo* pThreadInfo;
 typedef void (*ThreadWorkProcFN)
     ( pThreadInfo thread_info, void* user_params );
 
-#define THREAD_WORK_ENTRY_COUNT 256
 /// Thread work entry
 struct ThreadWorkEntry {
     ThreadWorkProcFN thread_work_proc;

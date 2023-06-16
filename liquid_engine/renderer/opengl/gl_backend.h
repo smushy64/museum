@@ -9,6 +9,7 @@
 #include "renderer/renderer.h"
 #include "gl_types.h"
 #include "gl_loader.h"
+#include "gl_shader.h"
 
 RendererContext* gl_renderer_backend_initialize( struct Platform* platform );
 void gl_renderer_backend_shutdown( RendererContext* ctx );
@@ -18,17 +19,27 @@ void gl_renderer_backend_on_resize(
 );
 b32 gl_renderer_backend_begin_frame(
     RendererContext* ctx,
-    f32 delta_time
+    struct Time* time
 );
 b32 gl_renderer_backend_end_frame(
     RendererContext* ctx,
-    f32 delta_time
+    struct Time* time
 );
 
 struct OpenGLRendererContext {
     RendererContext ctx;
 
-    GLuint u_matrices;
+    union {
+        struct {
+            GLuint u_matrices;
+            GLuint vbo_triangle;
+            GLuint ebo_triangle;
+        };
+        GLuint buffers[3];
+    };
+    GLuint vao_triangle;
+
+    ShaderProgram phong;
 
     const char* device_vendor;
     const char* device_name;

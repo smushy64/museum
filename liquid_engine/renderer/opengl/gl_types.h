@@ -1427,4 +1427,101 @@ typedef void (*DEBUGPROC)(
 #define GL_TRANSFORM_FEEDBACK_OVERFLOW 0x82EC
 #define GL_TRANSFORM_FEEDBACK_STREAM_OVERFLOW 0x82ED
 
+inline const char* gl_type_to_string( GLenum type ) {
+    switch( type ) {
+        case GL_UNSIGNED_BYTE:
+            return "Uint8";
+        case GL_BYTE:
+            return "Int8";
+        case GL_UNSIGNED_SHORT:
+            return "Uint16";
+        case GL_SHORT:
+            return "Int16";
+        case GL_UNSIGNED_INT:
+            return "Uint32";
+        case GL_INT:
+            return "Int32";
+        case GL_FLOAT:
+            return "Float";
+        case GL_DOUBLE:
+            return "Double";
+        case GL_FLOAT_VEC2:
+            return "Float Vec2";
+        case GL_FLOAT_VEC3:
+            return "Float Vec3";
+        case GL_FLOAT_VEC4:
+            return "Float Vec4";
+        case GL_INT_VEC2:
+            return "Int32 Vec2";
+        case GL_INT_VEC3:
+            return "Int32 Vec3";
+        case GL_INT_VEC4:
+            return "Int32 Vec4";
+        case GL_FLOAT_MAT2:
+            return "Float Mat2";
+        case GL_FLOAT_MAT3:
+            return "Float Mat3";
+        case GL_FLOAT_MAT4:
+            return "Float Mat4";
+        case GL_FLOAT_MAT3x2:
+            return "Float Mat3x2";
+        case GL_FLOAT_MAT2x3:
+            return "Float Mat2x3";
+        case GL_FLOAT_MAT4x2:
+            return "Float Mat4x2";
+        case GL_FLOAT_MAT2x4:
+            return "Float Mat2x4";
+        case GL_FLOAT_MAT4x3:
+            return "Float Mat4x3";
+        case GL_FLOAT_MAT3x4:
+            return "Float Mat3x4";
+        default: return "Unknown";
+    }
+}
+inline u32 gl_type_size( GLenum type ) {
+    switch( type ) {
+        case GL_UNSIGNED_BYTE:
+        case GL_BYTE:
+            return sizeof(GLbyte);
+        case GL_UNSIGNED_SHORT:
+        case GL_SHORT:
+            return sizeof(GLshort);
+        case GL_UNSIGNED_INT:
+        case GL_INT:
+            return sizeof(GLint);
+        case GL_FLOAT:
+            return sizeof(GLfloat);
+        case GL_DOUBLE:
+            return sizeof(GLdouble);
+        case GL_FLOAT_VEC2:
+            return sizeof(GLfloat) * 2;
+        case GL_FLOAT_VEC3:
+            return sizeof(GLfloat) * 3;
+        case GL_FLOAT_VEC4:
+            return sizeof(GLfloat) * 3;
+        case GL_INT_VEC2:
+            return sizeof(GLint) * 2;
+        case GL_INT_VEC3:
+            return sizeof(GLint) * 3;
+        case GL_INT_VEC4:
+            return sizeof(GLint) * 3;
+        case GL_FLOAT_MAT2:
+            return sizeof(GLfloat) * 4;
+        case GL_FLOAT_MAT3:
+            return sizeof(GLfloat) * 9;
+        case GL_FLOAT_MAT4:
+            return sizeof(GLfloat) * 16;
+        case GL_FLOAT_MAT3x2:
+        case GL_FLOAT_MAT2x3:
+            return sizeof(GLfloat) * 6;
+        case GL_FLOAT_MAT4x2:
+        case GL_FLOAT_MAT2x4:
+            return sizeof(GLfloat) * 8;
+        case GL_FLOAT_MAT4x3:
+        case GL_FLOAT_MAT3x4:
+            return sizeof(GLfloat) * 12;
+        default: return 0;
+    }
+}
+
 #endif // header guard

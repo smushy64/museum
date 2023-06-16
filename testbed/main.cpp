@@ -13,12 +13,13 @@
 #include <core/math.h>
 #include <core/graphics.h>
 #include <core/threading.h>
+#include <core/time.h>
 #include <stdio.h>
 
 b32 app_run(
     struct ThreadWorkQueue*,
     struct RenderOrder*,
-    f32,
+    struct Time*,
     void*
 ) {
     return true;
