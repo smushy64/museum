@@ -10,6 +10,7 @@
 #include "gl_types.h"
 #include "gl_loader.h"
 #include "gl_shader.h"
+#include "gl_buffer.h"
 
 RendererContext* gl_renderer_backend_initialize( struct Platform* platform );
 void gl_renderer_backend_shutdown( RendererContext* ctx );
@@ -35,9 +36,11 @@ struct OpenGLRendererContext {
             GLuint vbo_triangle;
             GLuint ebo_triangle;
         };
-        GLuint buffers[3];
+        GLuint buffer_handles[3];
     };
     GLuint vao_triangle;
+
+    UniformBlockBuffer block_buffer_matrices;
 
     ShaderProgram phong;
 

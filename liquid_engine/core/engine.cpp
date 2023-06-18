@@ -1,9 +1,7 @@
-/**
- * Description:  Application Implementation
- * Author:       Alicia Amarilla (smushyaa@gmail.com)
- * File Created: May 02, 2023
-*/
-#include "application.h"
+// * Description:  Engine Implementation
+// * Author:       Alicia Amarilla (smushyaa@gmail.com)
+// * File Created: June 18, 2023
+#include "engine.h"
 #include "platform/platform.h"
 #include "platform/io.h"
 #include "platform/threading.h"
@@ -16,7 +14,7 @@
 #include "memory.h"
 #include "string.h"
 #include "time.h"
-#include "math/functions.h"
+#include "math.h"
 
 // TODO(alicia): custom string formatting!
 #include <stdio.h>
@@ -42,44 +40,39 @@ struct ThreadWorkQueue {
 };
 
 #define SURFACE_TITLE_BUFFER_PADDING 32
-struct AppContext {
-    Platform        platform;
-    SystemInfo      sysinfo;
-    ThreadWorkQueue thread_work_queue;
-    ThreadHandle*   thread_handles;
-    u32             thread_count;
+struct EngineContext {
+    SystemInfo       system_info;       // 88 
+    ThreadWorkQueue  thread_work_queue; // 48
+    Platform         platform;          // 32
+    Time             time;              // 16
+    RendererContext* renderer_context;  // 8
 
-    b32 is_running;
-    RendererBackend renderer_backend;
+    char* application_title_buffer;
 
-    Time time;
+    ThreadHandle* thread_handles; // 8
+    u32 thread_count; // 4
+    RendererBackend renderer_backend; // 4
+    
+    u32 application_title_buffer_size; // 4
+    u32 application_title_buffer_writable_offset; // 4
+    
+    CursorStyle cursor_style;
 
-    struct {
-        CursorStyle style;
-        b32 visible;
-        b32 locked;
-    } cursor_state;
-
-    AppRunFn application_run;
-    void*    application_params;
-    RendererContext* renderer_context;
-
-    char* surface_title_buffer;
-    u32 surface_title_buffer_size;
-    u32 surface_title_writable_offset;
-
-    b32 pause_on_surface_inactive;
+    b8 cursor_is_visible; // 1
+    b8 cursor_is_locked;  // 1
+    b8 is_running; // 1
+    b8 pause_on_surface_inactive; // 1
 };
 
-global AppContext CONTEXT = {};
-
-EventCallbackReturnCode on_app_exit( Event*, void* ) {
-    CONTEXT.is_running = false;
+EventCallbackReturnCode on_app_exit( Event*, void* void_ctx ) {
+    EngineContext* ctx = (EngineContext*)void_ctx;
+    ctx->is_running    = false;
     return EVENT_CALLBACK_CONSUMED;
 }
 
-EventCallbackReturnCode on_destroy( Event*, void* ) {
-    CONTEXT.is_running = false;
+EventCallbackReturnCode on_destroy( Event*, void* void_ctx ) {
+    EngineContext* ctx = (EngineContext*)void_ctx;
+    ctx->is_running = false;
     return EVENT_CALLBACK_CONSUMED;
 }
 
@@ -93,8 +86,8 @@ EventCallbackReturnCode on_active( Event* event, void* ) {
     return EVENT_CALLBACK_CONSUMED;
 }
 
-EventCallbackReturnCode on_resize( Event* event, void* app_ctx ) {
-    AppContext* ctx = (AppContext*)app_ctx;
+EventCallbackReturnCode on_resize( Event* event, void* void_ctx ) {
+    EngineContext* ctx = (EngineContext*)void_ctx;
     renderer_on_resize(
         ctx->renderer_context,
         event->data.surface_resize.width,
@@ -119,7 +112,15 @@ EventCallbackReturnCode on_f4( Event* event, void* ) {
 
 internal ThreadReturnCode thread_proc( void* user_params );
 
-b32 app_init( AppConfig* config ) {
+b32 engine_run(
+    int argc, char** argv,
+    ApplicationRunFN application_run,
+    void* application_run_user_params,
+    EngineConfig* config
+) {
+    // TODO(alicia): parse arguments!
+    SM_UNUSED(argc);
+    SM_UNUSED(argv);
 
 #if defined(LD_LOGGING)
     if( !log_init( config->log_level ) ) {
@@ -132,20 +133,19 @@ b32 app_init( AppConfig* config ) {
     }
 #endif
 
-    SM_ASSERT(config->application_run);
-    CONTEXT.application_run    = config->application_run;
-    CONTEXT.application_params = config->application_params;
-
+    SM_ASSERT( application_run );
     LOG_INFO("Liquid Engine Version: %i.%i",
         LIQUID_ENGINE_VERSION_MAJOR,
         LIQUID_ENGINE_VERSION_MINOR
     );
 
+    EngineContext ctx = {};
+
     if( !platform_init(
-        config->opt_surface_icon_path,
-        config->surface.dimensions,
+        config->opt_application_icon_path,
+        { config->surface_dimensions.width, config->surface_dimensions.height },
         config->platform_flags,
-        &CONTEXT.platform
+        &ctx.platform
     ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
@@ -155,19 +155,18 @@ b32 app_init( AppConfig* config ) {
         return false;
     }
 
-    CONTEXT.pause_on_surface_inactive = ARE_BITS_SET(
+    ctx.pause_on_surface_inactive = ARE_BITS_SET(
         config->platform_flags,
         PLATFORM_PAUSE_ON_SURFACE_INACTIVE
     );
-
-    CONTEXT.renderer_backend = config->renderer_backend;
-    surface_set_name( config->surface.name );
-    CONTEXT.renderer_context = renderer_init(
-        config->surface.name,
+    ctx.renderer_backend = config->renderer_backend;
+    engine_set_application_name( &ctx, config->application_name );
+    ctx.renderer_context = renderer_init(
+        config->application_name,
         config->renderer_backend,
-        &CONTEXT.platform
+        &ctx.platform
     );
-    if( !CONTEXT.renderer_context ) {
+    if( !ctx.renderer_context ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
             "Failed to initialize rendering subsystem!\n "
@@ -175,28 +174,27 @@ b32 app_init( AppConfig* config ) {
         );
         return false;
     }
+    ctx.system_info = query_system_info();
 
-    CONTEXT.sysinfo = query_system_info();
-
-    u32 thread_count = CONTEXT.sysinfo.logical_processor_count;
+    u32 thread_count = ctx.system_info.logical_processor_count;
     thread_count = (thread_count == 1 ? thread_count : thread_count - 1);
 
-    CONTEXT.thread_work_queue.threads = (ThreadInfo*)mem_alloc(
+    ctx.thread_work_queue.threads = (ThreadInfo*)mem_alloc(
         sizeof(ThreadInfo) * thread_count,
         MEMTYPE_THREADING
     );
-    CONTEXT.thread_work_queue.work_entries = (ThreadWorkEntry*)mem_alloc(
+    ctx.thread_work_queue.work_entries = (ThreadWorkEntry*)mem_alloc(
         sizeof(ThreadWorkEntry) * THREAD_WORK_ENTRY_COUNT,
         MEMTYPE_THREADING
     );
-    CONTEXT.thread_handles = (ThreadHandle*)mem_alloc(
+    ctx.thread_handles = (ThreadHandle*)mem_alloc(
         sizeof( ThreadHandle ) * thread_count,
         MEMTYPE_THREADING
     );
     if(
-        !CONTEXT.thread_work_queue.threads ||
-        !CONTEXT.thread_work_queue.work_entries ||
-        !CONTEXT.thread_handles
+        !ctx.thread_work_queue.threads ||
+        !ctx.thread_work_queue.work_entries ||
+        !ctx.thread_handles
     ) {
         MESSAGE_BOX_FATAL(
             "Subsytem Failure - Out of Memory",
@@ -205,12 +203,12 @@ b32 app_init( AppConfig* config ) {
         );
         return false;
     }
-    CONTEXT.thread_work_queue.work_entry_count = THREAD_WORK_ENTRY_COUNT;
+    ctx.thread_work_queue.work_entry_count = THREAD_WORK_ENTRY_COUNT;
 
     if(!semaphore_create(
         0,
         thread_count,
-        &CONTEXT.thread_work_queue.wake_semaphore
+        &ctx.thread_work_queue.wake_semaphore
     )) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
@@ -223,18 +221,18 @@ b32 app_init( AppConfig* config ) {
     read_write_fence();
     for( u32 i = 0; i < thread_count; ++i ) {
         ThreadInfo* current_thread_info =
-            &CONTEXT.thread_work_queue.threads[i];
-        current_thread_info->work_queue    = &CONTEXT.thread_work_queue;
-        current_thread_info->thread_handle = &CONTEXT.thread_handles[i];
+            &ctx.thread_work_queue.threads[i];
+        current_thread_info->work_queue    = &ctx.thread_work_queue;
+        current_thread_info->thread_handle = &ctx.thread_handles[i];
         current_thread_info->thread_index  = i;
 
         if(!platform_thread_create(
-            &CONTEXT.platform,
+            &ctx.platform,
             thread_proc,
             current_thread_info,
             THREAD_STACK_SIZE_SAME_AS_MAIN,
             false,
-            &CONTEXT.thread_handles[i]
+            &ctx.thread_handles[i]
         )) {
             if( i == 0 ) {
                 thread_count = 0;
@@ -259,34 +257,38 @@ b32 app_init( AppConfig* config ) {
 
     for( u32 i = 0; i < thread_count; ++i ) {
         platform_thread_resume(
-            &CONTEXT.thread_handles[i]
+            &ctx.thread_handles[i]
         );
     }
 
-    CONTEXT.thread_count                   = thread_count;
-    CONTEXT.thread_work_queue.thread_count = thread_count;
+    ctx.thread_count                   = thread_count;
+    ctx.thread_work_queue.thread_count = thread_count;
 
-    LOG_NOTE("CPU: %s", CONTEXT.sysinfo.cpu_name_buffer);
+    LOG_NOTE("CPU: %s", ctx.system_info.cpu_name_buffer);
     LOG_NOTE("  Logical Processors: %llu",
-        CONTEXT.sysinfo.logical_processor_count
+        ctx.system_info.logical_processor_count
     );
 
 #if defined(SM_ARCH_X86)
-    b32 sse = system_is_sse_available( CONTEXT.sysinfo.features );
+    b32 sse  = engine_query_is_sse_available( &ctx );
+    b32 avx  = engine_query_is_avx_available( &ctx );
+    b32 avx2 = engine_query_is_avx2_available( &ctx );
+    b32 avx512 = engine_query_is_avx512_available( &ctx );
+    ProcessorFeatures features = ctx.system_info.features;
     if( SM_SIMD_WIDTH == 4 && !sse ) {
         local const usize ERROR_MESSAGE_SIZE = 0xFF;
         char error_message_buffer[ERROR_MESSAGE_SIZE];
-        snprintf(
+        snprintf( 
             error_message_buffer,
             ERROR_MESSAGE_SIZE,
             "Your CPU does not support SSE instructions!\n"
             "Missing instructions: %s%s%s%s%s%s",
-            ARE_BITS_SET(CONTEXT.sysinfo.features, SSE_MASK)    ? "" : "SSE, ",
-            ARE_BITS_SET(CONTEXT.sysinfo.features, SSE2_MASK)   ? "" : "SSE2, ",
-            ARE_BITS_SET(CONTEXT.sysinfo.features, SSE3_MASK)   ? "" : "SSE3, ",
-            ARE_BITS_SET(CONTEXT.sysinfo.features, SSSE3_MASK)  ? "" : "SSSE3, ",
-            ARE_BITS_SET(CONTEXT.sysinfo.features, SSE4_1_MASK) ? "" : "SSE4.1, ",
-            ARE_BITS_SET(CONTEXT.sysinfo.features, SSE4_2_MASK) ? "" : "SSE4.2"
+            ARE_BITS_SET(features, SSE_MASK)    ? "" : "SSE, ",
+            ARE_BITS_SET(features, SSE2_MASK)   ? "" : "SSE2, ",
+            ARE_BITS_SET(features, SSE3_MASK)   ? "" : "SSE3, ",
+            ARE_BITS_SET(features, SSSE3_MASK)  ? "" : "SSSE3, ",
+            ARE_BITS_SET(features, SSE4_1_MASK) ? "" : "SSE4.1, ",
+            ARE_BITS_SET(features, SSE4_2_MASK) ? "" : "SSE4.2"
         );
         MESSAGE_BOX_FATAL(
             "Missing instructions.",
@@ -294,9 +296,6 @@ b32 app_init( AppConfig* config ) {
         );
         return false;
     }
-
-    b32 avx  = system_is_avx_available( CONTEXT.sysinfo.features );
-    b32 avx2 = system_is_avx2_available( CONTEXT.sysinfo.features );
 
     if( SM_SIMD_WIDTH == 8 && !(avx && avx2) ) {
         MESSAGE_BOX_FATAL(
@@ -307,7 +306,6 @@ b32 app_init( AppConfig* config ) {
         return false;
     }
 
-    b32 avx512 = system_is_avx512_available( CONTEXT.sysinfo.features );
 
     LOG_NOTE(
         "  Features: %s%s%s%s",
@@ -318,13 +316,7 @@ b32 app_init( AppConfig* config ) {
     );
 
     LOG_NOTE("Memory: %6.3f GB",
-        MB_TO_GB(
-            KB_TO_MB(
-                BYTES_TO_KB(
-                    CONTEXT.sysinfo.total_memory
-                )
-            )
-        )
+        MB_TO_GB( KB_TO_MB( BYTES_TO_KB( ctx.system_info.total_memory ) ) )
     );
 #endif
 
@@ -336,7 +328,7 @@ b32 app_init( AppConfig* config ) {
         );
         return false;
     }
-    if( !input_init( &CONTEXT.platform ) ) {
+    if( !input_init( &ctx.platform ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
             "Failed to initialize input subsystem!\n "
@@ -348,7 +340,7 @@ b32 app_init( AppConfig* config ) {
     if(!event_subscribe(
         EVENT_CODE_SURFACE_DESTROY,
         on_destroy,
-        nullptr
+        &ctx
     )) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
@@ -360,7 +352,7 @@ b32 app_init( AppConfig* config ) {
     if(!event_subscribe(
         EVENT_CODE_SURFACE_ACTIVE,
         on_active,
-        nullptr
+        &ctx
     )) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
@@ -372,7 +364,7 @@ b32 app_init( AppConfig* config ) {
     if(!event_subscribe(
         EVENT_CODE_SURFACE_RESIZE,
         on_resize,
-        &CONTEXT
+        &ctx
     )) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
@@ -384,7 +376,7 @@ b32 app_init( AppConfig* config ) {
     if(!event_subscribe(
         EVENT_CODE_INPUT_KEY,
         on_f4,
-        nullptr
+        &ctx
     )) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
@@ -396,7 +388,7 @@ b32 app_init( AppConfig* config ) {
     if(!event_subscribe(
         EVENT_CODE_APP_EXIT,
         on_app_exit,
-        nullptr
+        &ctx
     )) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
@@ -405,8 +397,7 @@ b32 app_init( AppConfig* config ) {
         );
         return false;
     }
-
-    CONTEXT.is_running = true;
+    ctx.is_running = true;
 
 #if defined(LD_LOGGING) && defined(LD_PROFILING)
     LOG_NOTE("Initial Memory Usage:");
@@ -431,51 +422,48 @@ b32 app_init( AppConfig* config ) {
     LOG_NOTE("    %-30s %s", "Total Memory Usage", usage_buffer);
 #endif
 
-    CONTEXT.cursor_state.style   = CURSOR_ARROW;
-    CONTEXT.cursor_state.visible = true;
-
-    return true;
-}
-b32 app_run() {
+    ctx.cursor_style      = CURSOR_ARROW;
+    ctx.cursor_is_visible = true;
 
     #define UPDATE_FRAME_RATE_COUNTER_RATE 100
 
-    while( CONTEXT.is_running ) {
+    while( ctx.is_running ) {
         input_swap();
-        platform_poll_gamepad( &CONTEXT.platform );
-        platform_pump_events( &CONTEXT.platform );
+        platform_poll_gamepad( &ctx.platform );
+        platform_pump_events( &ctx.platform );
 
         if(
-            !CONTEXT.platform.is_active &&
-            CONTEXT.pause_on_surface_inactive
+            !ctx.platform.is_active &&
+            ctx.pause_on_surface_inactive
         ) {
             continue;
         }
 
-        if( CONTEXT.cursor_state.locked ) {
-            platform_cursor_center( &CONTEXT.platform );
+        if( ctx.cursor_is_locked ) {
+            platform_cursor_center( &ctx.platform );
         }
 
         f64 seconds_elapsed = platform_read_seconds_elapsed(
-            &CONTEXT.platform
+            &ctx.platform
         );
-        CONTEXT.time.delta_seconds =
-            seconds_elapsed - CONTEXT.time.elapsed_seconds;
-        CONTEXT.time.elapsed_seconds = seconds_elapsed;
+        ctx.time.delta_seconds =
+            seconds_elapsed - ctx.time.elapsed_seconds;
+        ctx.time.elapsed_seconds = seconds_elapsed;
 
         RenderOrder draw_order = {};
-        draw_order.time  = &CONTEXT.time;
-        if(!CONTEXT.application_run(
-            &CONTEXT.thread_work_queue,
+        draw_order.time  = &ctx.time;
+        if( !application_run(
+            &ctx,
+            &ctx.thread_work_queue,
             &draw_order,
-            &CONTEXT.time,
-            CONTEXT.application_params
-        )) {
+            &ctx.time,
+            application_run_user_params
+        ) ) {
             return false;
         }
         
         if( !renderer_draw_frame(
-            CONTEXT.renderer_context,
+            ctx.renderer_context,
             &draw_order
         ) ) {
             MESSAGE_BOX_FATAL(
@@ -486,71 +474,73 @@ b32 app_run() {
             return false;
         }
 
-        if( (CONTEXT.time.frame_count + 1) % UPDATE_FRAME_RATE_COUNTER_RATE == 0 ) {
-            f32 fps = CONTEXT.time.delta_seconds == 0.0f ?
-                0.0f : 1.0f / CONTEXT.time.delta_seconds;
+        if( (ctx.time.frame_count + 1) % UPDATE_FRAME_RATE_COUNTER_RATE == 0 ) {
+            f32 fps = ctx.time.delta_seconds == 0.0f ?
+                0.0f : 1.0f / ctx.time.delta_seconds;
+            char* stream = ctx.application_title_buffer +
+                ctx.application_title_buffer_writable_offset - 1;
+            size_t n = ctx.application_title_buffer_size -
+                ctx.application_title_buffer_writable_offset;
 
             snprintf(
-                CONTEXT.surface_title_buffer + CONTEXT.surface_title_writable_offset - 1,
-                CONTEXT.surface_title_buffer_size - CONTEXT.surface_title_writable_offset,
+                stream, n,
                 " | %.1f FPS",
                 fps
             );
             platform_surface_set_name(
-                &CONTEXT.platform,
-                CONTEXT.surface_title_buffer_size,
-                CONTEXT.surface_title_buffer
+                &ctx.platform,
+                ctx.application_title_buffer_size,
+                ctx.application_title_buffer
             );
         }
 
 
-        CONTEXT.time.frame_count++;
+        ctx.time.frame_count++;
     }
 
-    return true;
-}
-void app_shutdown() {
     event_unsubscribe(
         EVENT_CODE_SURFACE_DESTROY,
         on_destroy,
-        nullptr
+        &ctx
     );
     event_unsubscribe(
         EVENT_CODE_SURFACE_ACTIVE,
         on_active,
-        nullptr
+        &ctx
     );
     event_unsubscribe(
         EVENT_CODE_SURFACE_RESIZE,
         on_resize,
-        &CONTEXT
+        &ctx
     );
     event_unsubscribe(
         EVENT_CODE_INPUT_KEY,
         on_f4,
-        nullptr
+        &ctx
     );
     event_unsubscribe(
         EVENT_CODE_APP_EXIT,
         on_app_exit,
-        nullptr
+        &ctx
     );
 
-    CONTEXT.is_running = false;
+    ctx.is_running = false; 
     event_shutdown();
     input_shutdown();
 
     semaphore_destroy(
-        &CONTEXT.thread_work_queue.wake_semaphore
+        &ctx.thread_work_queue.wake_semaphore 
     );
-    mem_free( CONTEXT.thread_handles );
-    mem_free( CONTEXT.thread_work_queue.threads );
-    mem_free( CONTEXT.thread_work_queue.work_entries );
+    mem_free( ctx.thread_handles ); 
+    mem_free( ctx.thread_work_queue.threads ); 
+    mem_free( ctx.thread_work_queue.work_entries ); 
 
-    renderer_shutdown( CONTEXT.renderer_context );
-    platform_shutdown( &CONTEXT.platform );
+    renderer_shutdown( ctx.renderer_context ); 
+    platform_shutdown( &ctx.platform ); 
     log_shutdown();
     platform_exit();
+
+    return true;
 }
 void thread_work_queue_push(
     ThreadWorkQueue* work_queue,
@@ -633,38 +623,39 @@ internal ThreadReturnCode thread_proc( void* user_params ) {
     return 0;
 }
 
-void cursor_set_style( CursorStyle style ) {
+void engine_set_cursor_style( struct EngineContext* ctx, u32 style ) {
+    ctx->cursor_style = (CursorStyle)style;
     platform_cursor_set_style(
-        &CONTEXT.platform,
-        style
+        &ctx->platform,
+        (CursorStyle)style
     );
 }
-void cursor_set_visibility( b32 visible ) {
+void engine_set_cursor_visibility( struct EngineContext* ctx, b32 visible ) {
+    ctx->cursor_is_visible = visible;
     platform_cursor_set_visible(
-        &CONTEXT.platform,
+        &ctx->platform,
         visible
     );
 }
-void cursor_set_locked( b32 locked ) {
-    CONTEXT.cursor_state.locked = locked;
+void engine_center_cursor( struct EngineContext* ctx ) {
+    platform_cursor_center( &ctx->platform );
+}
+void engine_lock_cursor( struct EngineContext* ctx, b32 locked ) {
+    ctx->cursor_is_locked = locked;
     if( locked ) {
-        CONTEXT.cursor_state.visible = false;
+        ctx->cursor_is_visible = false;
     }
 }
-void cursor_center() {
-    platform_cursor_center( &CONTEXT.platform );
+u32 engine_query_cursor_style( struct EngineContext* ctx ) {
+    return (u32)ctx->cursor_style;
 }
-CursorStyle cursor_query_style() {
-    return CONTEXT.cursor_state.style;
+b32 engine_query_cursor_visibility( struct EngineContext* ctx ) {
+    return ctx->cursor_is_visible;
 }
-b32 cursor_query_visibility() {
-    return CONTEXT.cursor_state.visible;
+b32 engine_query_cursor_locked( struct EngineContext* ctx ) {
+    return ctx->cursor_is_locked;
 }
-b32 cursor_query_locked() {
-    return CONTEXT.cursor_state.locked;
-}
-void surface_set_name( const char* name ) {
-
+void engine_set_application_name( struct EngineContext* ctx, const char* name ) {
     #define FATAL_MESSAGE()\
         LOG_FATAL( "Unable to allocate surface title buffer!" );\
         MESSAGE_BOX_FATAL(\
@@ -676,12 +667,12 @@ void surface_set_name( const char* name ) {
     usize name_length = str_length( name );
     usize required_buffer_size = name_length;
     const char* renderer_backend_name = to_string(
-        CONTEXT.renderer_backend
+        ctx->renderer_backend
     );
     required_buffer_size += str_length( renderer_backend_name );
     required_buffer_size += SURFACE_TITLE_BUFFER_PADDING;
 
-    if( !CONTEXT.surface_title_buffer ) {
+    if( !ctx->application_title_buffer ) {
         void* surface_title_buffer = mem_alloc(
             required_buffer_size,
             MEMTYPE_APPLICATION
@@ -691,11 +682,11 @@ void surface_set_name( const char* name ) {
             SM_PANIC();
             return;
         }
-        CONTEXT.surface_title_buffer      = (char*)surface_title_buffer;
-        CONTEXT.surface_title_buffer_size = required_buffer_size;
-    } else if( required_buffer_size >= CONTEXT.surface_title_buffer_size ) {
+        ctx->application_title_buffer      = (char*)surface_title_buffer;
+        ctx->application_title_buffer_size = required_buffer_size;
+    } else if( required_buffer_size >= ctx->application_title_buffer_size ) {
         void* surface_title_buffer = mem_realloc(
-            CONTEXT.surface_title_buffer,
+            ctx->application_title_buffer,
             required_buffer_size
         );
         if( !surface_title_buffer ) {
@@ -703,47 +694,56 @@ void surface_set_name( const char* name ) {
             SM_PANIC();
             return;
         }
-        CONTEXT.surface_title_buffer = (char*)surface_title_buffer;
-        CONTEXT.surface_title_buffer_size = required_buffer_size;
+        ctx->application_title_buffer = (char*)surface_title_buffer;
+        ctx->application_title_buffer_size = required_buffer_size;
     }
 
     snprintf(
-        CONTEXT.surface_title_buffer,
-        CONTEXT.surface_title_buffer_size,
+        ctx->application_title_buffer,
+        ctx->application_title_buffer_size,
         "%s | %s",
         name,
         renderer_backend_name
     );
 
-    CONTEXT.surface_title_writable_offset = str_length(
-        CONTEXT.surface_title_buffer
+    ctx->application_title_buffer_writable_offset = str_length(
+        ctx->application_title_buffer
     );
-
     platform_surface_set_name(
-        &CONTEXT.platform,
-        CONTEXT.surface_title_buffer_size,
-        CONTEXT.surface_title_buffer
+        &ctx->platform,
+        ctx->application_title_buffer_size,
+        ctx->application_title_buffer
     );
 }
+const char* engine_query_application_name( struct EngineContext* ctx ) {
+    return ctx->application_title_buffer;
+}
+usize engine_query_logical_processor_count( struct EngineContext* ctx ) {
+    return ctx->system_info.logical_processor_count;
+}
+usize engine_query_total_system_memory( struct EngineContext* ctx ) {
+    return ctx->system_info.total_memory;
+}
+const char* engine_query_processor_name( struct EngineContext* ctx ) {
+    return ctx->system_info.cpu_name_buffer;
+}
+b32 engine_query_is_sse_available( struct EngineContext* ctx ) {
+    return ARE_BITS_SET(
+        ctx->system_info.features,
+        SSE_MASK | SSE2_MASK | SSE3_MASK | SSE4_1_MASK | SSE4_2_MASK | SSSE3_MASK
+    );
+}
+b32 engine_query_is_avx_available( struct EngineContext* ctx ) {
+    return ARE_BITS_SET( ctx->system_info.features, AVX_MASK );
+}
+b32 engine_query_is_avx2_available( struct EngineContext* ctx ) {
+    return ARE_BITS_SET( ctx->system_info.features, AVX2_MASK );
+}
+b32 engine_query_is_avx512_available( struct EngineContext* ctx ) {
+    return ARE_BITS_SET( ctx->system_info.features, AVX512_MASK );
+}
+
 u32 thread_info_read_index( struct ThreadInfo* thread_info ) {
     return thread_info->thread_index;
 }
 
-SystemInfo* system_info_read() {
-    return &CONTEXT.sysinfo;
-}
-b32 system_is_sse_available( ProcessorFeatures features ) {
-    return ARE_BITS_SET(
-        features,
-        SSE_MASK | SSE2_MASK | SSE3_MASK | SSE4_1_MASK | SSE4_2_MASK | SSSE3_MASK
-    );
-}
-b32 system_is_avx_available( ProcessorFeatures features ) {
-    return ARE_BITS_SET( features, AVX_MASK );
-}
-b32 system_is_avx2_available( ProcessorFeatures features ) {
-    return ARE_BITS_SET( features, AVX2_MASK );
-}
-b32 system_is_avx512_available( ProcessorFeatures features ) {
-    return ARE_BITS_SET( features, AVX512_MASK );
-}

@@ -235,6 +235,23 @@ void* page_alloc( usize size );
 /// Free page allocated memory.
 void page_free( void* memory );
 
+#define CPU_NAME_BUFFER_SIZE 68
+typedef u16 ProcessorFeatures;
+#define SSE_MASK    (1 << 0)
+#define SSE2_MASK   (1 << 1)
+#define SSE3_MASK   (1 << 2)
+#define SSSE3_MASK  (1 << 3)
+#define SSE4_1_MASK (1 << 4)
+#define SSE4_2_MASK (1 << 5)
+#define AVX_MASK    (1 << 6)
+#define AVX2_MASK   (1 << 7)
+#define AVX512_MASK (1 << 8)
+struct SystemInfo {
+    usize logical_processor_count;
+    usize total_memory;
+    char  cpu_name_buffer[CPU_NAME_BUFFER_SIZE];
+    ProcessorFeatures features;
+};
 /// Query CPU and memory information.
 struct SystemInfo query_system_info();
 

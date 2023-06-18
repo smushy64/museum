@@ -44,7 +44,7 @@ b32 gl_shader_compile(
     );
 
     if( compile_status ) {
-        out_shader->handle = shader_handle;
+        *out_shader = shader_handle;
         return true;
     } else {
         // TODO(alicia): don't heap allocate!
@@ -77,13 +77,13 @@ b32 gl_shader_program_link(
     GLuint program_handle = glCreateProgram();
 
     for( u32 i = 0; i < shader_count; ++i ) {
-        glAttachShader( program_handle, shaders[i].handle );
+        glAttachShader( program_handle, shaders[i] );
     }
 
     glLinkProgram( program_handle );
 
     for( u32 i = 0; i < shader_count; ++i ) {
-        glDetachShader( program_handle, shaders[i].handle );
+        glDetachShader( program_handle, shaders[i] );
     }
 
     GLint link_status = 0;
@@ -174,34 +174,28 @@ b32 gl_shader_program_reflection( ShaderProgram* shader_program ) {
 
     return true;
 }
-GLint gl_shader_program_uniform_location(
+UniformInfo* gl_shader_program_uniform_info(
     ShaderProgram* shader_program,
     const char* uniform_name
 ) {
-    GLint result = -1;
     for( GLint i = 0; i < shader_program->uniform_count; ++i ) {
         UniformInfo* current_uniform = &shader_program->uniforms[i];
         if( str_cmp( uniform_name, current_uniform->name ) ) {
-            result = i;
-            break;
+            return current_uniform;
         }
     }
-    return result;
+    return nullptr;
 }
-void gl_shader_delete( u32 count, Shader* shaders ) {
-    for( u32 i = 0; i < count; ++i ) {
-        glDeleteShader( shaders[i].handle );
-    }
+void gl_shader_delete( Shader shader ) {
+    glDeleteShader( shader );
 }
-void gl_shader_program_delete( u32 count, ShaderProgram* programs ) {
-    for( u32 i = 0; i < count; ++i ) {
-        glDeleteProgram( programs[i].handle );
-        if( programs[i].uniform_names ) {
-            mem_free( programs[i].uniform_names );
-        }
-        if( programs[i].uniforms ) {
-            mem_free( programs[i].uniforms );
-        }
-        programs[i] = {};
+void gl_shader_program_delete( ShaderProgram* program ) {
+    glDeleteProgram( program->handle );
+    if( program->uniform_names ) {
+        mem_free( program->uniform_names );
     }
+    if( program->uniforms ) {
+        mem_free( program->uniforms );
+    }
+    *program = {};
 }

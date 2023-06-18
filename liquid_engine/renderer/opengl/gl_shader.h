@@ -22,10 +22,7 @@ struct ShaderProgram {
     GLint        uniform_name_max_length;
     GLint        uniform_count;
 };
-/// OpenGL Shader
-struct Shader {
-    GLuint handle;
-};
+typedef GLuint Shader;
 
 /// Compile SPIR-V Shader
 b32 gl_shader_compile(
@@ -46,15 +43,15 @@ b32 gl_shader_program_link(
 );
 /// Collect information about shader program uniforms.
 b32 gl_shader_program_reflection( ShaderProgram* shader_program );
-/// Get the location of the specified uniform.
-/// Returns -1 if uniform was not found.
-GLint gl_shader_program_uniform_location(
+/// Get information about the specified uniform.
+/// Returns null if uniform was not found.
+UniformInfo* gl_shader_program_uniform_info(
     ShaderProgram* shader_program,
     const char* uniform_name
 );
 /// Delete shaders.
-void gl_shader_delete( u32 count, Shader* shaders );
-/// Delete shader programs.
-void gl_shader_program_delete( u32 count, ShaderProgram* programs );
+void gl_shader_delete( Shader shader );
+/// Delete shader program.
+void gl_shader_program_delete( ShaderProgram* program );
 
 #endif // header guard

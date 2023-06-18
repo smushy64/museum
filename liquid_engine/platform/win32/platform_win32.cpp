@@ -13,7 +13,7 @@
 #include "core/collections.h"
 #include "core/events.h"
 #include "core/math.h"
-#include "core/application.h"
+#include "core/engine.h"
 
 #include "renderer/renderer.h"
 
@@ -867,10 +867,10 @@ SystemInfo query_system_info() {
 #if defined(SM_ARCH_X86)
     mem_set(
         ' ',
-        CPU_NAME_BUFFER_LEN,
+        CPU_NAME_BUFFER_SIZE,
         result.cpu_name_buffer
     );
-    result.cpu_name_buffer[CPU_NAME_BUFFER_LEN - 1] = 0;
+    result.cpu_name_buffer[CPU_NAME_BUFFER_SIZE - 1] = 0;
 
     int cpu_info[4] = {};
     __cpuid( cpu_info, 0x80000002 );
@@ -893,7 +893,7 @@ SystemInfo query_system_info() {
     );
 
     str_trim_trailing_whitespace(
-        CPU_NAME_BUFFER_LEN,
+        CPU_NAME_BUFFER_SIZE,
         result.cpu_name_buffer
     );
 #endif
@@ -2014,7 +2014,5 @@ void write_fence() {
     #error "write_fence: Platform is not supported!"
 #endif
 }
-
-// // MULTI-THREADING | END   ------------------------------------------------
 
 #endif // SM_PLATFORM_WINDOWS

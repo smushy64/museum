@@ -7,7 +7,7 @@
 #include <core/string.h>
 #include <core/memory.h>
 #include <core/collections.h>
-#include <core/application.h>
+#include <core/engine.h>
 #include <core/input.h>
 #include <core/events.h>
 #include <core/math.h>
@@ -16,28 +16,35 @@
 #include <core/time.h>
 #include <stdio.h>
 
-b32 app_run(
-    struct ThreadWorkQueue*,
-    struct RenderOrder*,
-    struct Time*,
-    void*
+b32 run(
+    struct EngineContext*   engine_ctx,
+    struct ThreadWorkQueue* thread_work_queue,
+    struct RenderOrder* render_order,
+    struct Time* time,
+    void* user_params
 ) {
+    SM_UNUSED(engine_ctx),
+    SM_UNUSED(thread_work_queue);
+    SM_UNUSED(render_order);
+    SM_UNUSED(time);
+    SM_UNUSED(user_params);
     return true;
 }
 
 int main( int argc, char** argv ) {
 
-    RendererBackend backend = BACKEND_OPENGL;
+    RendererBackend backend = 0;
 
     for( int i = 1; i < argc; ++i ) {
         if( str_cmp( "--gl", argv[i] ) ) {
-            backend = BACKEND_OPENGL;
+            backend = 0;
         } else if( str_cmp( "--vk", argv[i] ) ) {
-            backend = BACKEND_VULKAN;
+            backend = 1;
         }
     }
 
-    AppConfig config = {};
+    EngineConfig config = {};
+
     #define NAME_BUFFER_SIZE 32
     char name_buffer[NAME_BUFFER_SIZE] = {};
     snprintf(
@@ -48,28 +55,18 @@ int main( int argc, char** argv ) {
         LIQUID_ENGINE_VERSION_MINOR
     );
 
-    config.opt_surface_icon_path = "./resources/images/ui/testbed_icon_256x256.ico";
-    config.surface.name          = name_buffer;
-    config.surface.dimensions    = { 800, 600 };
-
+    config.opt_application_icon_path = "./resources/images/ui/testbed_icon_256x256.ico";
+    config.application_name          = name_buffer;
+    config.surface_dimensions        = { 800, 600 };
     config.log_level        = LOG_LEVEL_ALL_VERBOSE;
-    config.platform_flags   = PLATFORM_DPI_AWARE;
+    config.platform_flags   = (1 << 0);
     config.renderer_backend = backend;
 
-    config.application_run = app_run;
-
-    if( !app_init( &config ) ) {
-        return -1;
-    }
-    LOG_INFO(
-        "Using renderer backend \"%s\" . . .",
-        to_string( backend )
+    b32 result = engine_run(
+        argc, argv,
+        run, nullptr,
+        &config
     );
 
-    if( !app_run() ) {
-        return -1;
-    }
-
-    app_shutdown();
-    return 0;
+    return result ? 0 : -1;
 }

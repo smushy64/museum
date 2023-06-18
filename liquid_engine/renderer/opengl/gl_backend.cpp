@@ -5,6 +5,7 @@
 */
 #include "gl_backend.h"
 #include "gl_functions.h"
+#include "gl_buffer.h"
 
 #include "platform/platform.h"
 #include "platform/io.h"
@@ -94,7 +95,7 @@ RendererContext* gl_renderer_backend_initialize( Platform* platform ) {
     );
 
     // TODO(alicia): TEST CODE!!!!!
-    glCreateBuffers( 3, result->buffers );
+    glCreateBuffers( 3, result->buffer_handles );
     f32 aspect_ratio =
         (f32)platform->surface.width /
         (f32)platform->surface.height;
@@ -108,17 +109,29 @@ RendererContext* gl_renderer_backend_initialize( Platform* platform ) {
         -1.0f,
         1.0f
     );
-    glNamedBufferStorage(
-        result->u_matrices,
-        sizeof( mat4 ),
+    UniformBlockBuffer block_buffer = {};
+    if( !gl_uniform_block_buffer_create_std140(
+        &block_buffer,
+        &result->u_matrices,
         value_pointer( view_projection ),
-        GL_DYNAMIC_STORAGE_BIT
-    );
+        GL_DYNAMIC_STORAGE_BIT,
+        1,
+        BufferDataType {
+            BUFFER_DATA_BASE_TYPE_FLOAT32,
+            BUFFER_DATA_STRUCT_TYPE_MAT4,
+            0
+        }
+    ) ) {
+        GL_LOG_FATAL("FUCK");
+        return nullptr;
+    }
     glBindBufferBase(
         GL_UNIFORM_BUFFER,
         0,
         result->u_matrices
     );
+
+    result->block_buffer_matrices = block_buffer;
 
     FileHandle phong_vert_file = {}, phong_frag_file = {};
     if( !platform_file_open(
@@ -203,7 +216,8 @@ RendererContext* gl_renderer_backend_initialize( Platform* platform ) {
     ) ) {
         return nullptr;
     }
-    gl_shader_delete( 2, phong_shaders );
+    gl_shader_delete( phong_shaders[0] );
+    gl_shader_delete( phong_shaders[1] );
     if( !gl_shader_program_reflection( &result->phong ) ) {
         return nullptr;
     }
@@ -274,6 +288,19 @@ RendererContext* gl_renderer_backend_initialize( Platform* platform ) {
 }
 void gl_renderer_backend_shutdown( RendererContext* generic_ctx ) {
     OpenGLRendererContext* ctx = (OpenGLRendererContext*)generic_ctx;
+
+    // TODO(alicia): TEST CODE ONLY
+
+    glDeleteBuffers( 3, ctx->buffer_handles );
+    gl_uniform_block_buffer_free(
+        &ctx->block_buffer_matrices,
+        false
+    );
+    gl_shader_program_delete( &ctx->phong );
+    glDeleteVertexArrays( 1, &ctx->vao_triangle );
+
+    // TODO(alicia): END TEST CODE ONLY
+
     platform_gl_shutdown(
         ctx->ctx.platform,
         ctx->glrc
@@ -300,10 +327,9 @@ void gl_renderer_backend_on_resize(
         -1.0f,
         1.0f
     );
-    glNamedBufferSubData(
-        ctx->u_matrices,
+    gl_uniform_block_buffer_upload_field(
+        &ctx->block_buffer_matrices,
         0,
-        sizeof(mat4),
         value_pointer( view_projection )
     );
 }
