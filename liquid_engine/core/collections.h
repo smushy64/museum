@@ -11,43 +11,43 @@
 
 namespace impl {
 
-global const u32 LIST_FIELD_CAPACITY = 0;
-global const u32 LIST_FIELD_COUNT    = 1;
-global const u32 LIST_FIELD_STRIDE   = 2;
+#define LIST_FIELD_CAPACITY 0
+#define LIST_FIELD_COUNT    1
+#define LIST_FIELD_STRIDE   2
 
-SM_API void* _list_create( usize capacity, usize stride );
-SM_API void* _list_realloc( void* list, usize new_capacity );
-SM_API void  _list_free( void* list );
+LD_API void* _list_create( usize capacity, usize stride );
+LD_API void* _list_realloc( void* list, usize new_capacity );
+LD_API void  _list_free( void* list );
 
-SM_API void* _list_append(
+LD_API void* _list_append(
     void* list,
     usize append_count,
     const void* pvalue
 );
 
-SM_API void* _list_push( void* list, const void* pvalue );
-SM_API b32   _list_pop( void* list, void* dst );
+LD_API void* _list_push( void* list, const void* pvalue );
+LD_API b32   _list_pop( void* list, void* dst );
 
-SM_API usize _list_field_read( void* list, u32 field );
-SM_API void _list_field_write(
+LD_API usize _list_field_read( void* list, u32 field );
+LD_API void _list_field_write(
     void* list,
     u32 field,
     usize value
 );
 
-SM_API void* _list_remove(
+LD_API void* _list_remove(
     void* list,
     usize index,
     void* opt_dst
 );
 
-SM_API void* _list_insert(
+LD_API void* _list_insert(
     void* list,
     usize index,
     void* pvalue
 );
 
-SM_API void* _list_create_trace(
+LD_API void* _list_create_trace(
     usize capacity,
     usize stride,
     const char* function,
@@ -55,7 +55,7 @@ SM_API void* _list_create_trace(
     int line
 );
 
-SM_API void* _list_realloc_trace(
+LD_API void* _list_realloc_trace(
     void* list,
     usize new_capacity,
     const char* function,
@@ -63,7 +63,7 @@ SM_API void* _list_realloc_trace(
     int line
 );
 
-SM_API void* _list_push_trace(
+LD_API void* _list_push_trace(
     void* list,
     const void* pvalue,
     const char* function,
@@ -71,7 +71,7 @@ SM_API void* _list_push_trace(
     int line
 );
 
-SM_API void* _list_append_trace(
+LD_API void* _list_append_trace(
     void* list,
     usize append_count,
     const void* pvalue,
@@ -80,7 +80,7 @@ SM_API void* _list_append_trace(
     int line
 );
 
-SM_API void* _list_insert_trace(
+LD_API void* _list_insert_trace(
     void* list,
     usize index,
     void* pvalue,
@@ -89,7 +89,7 @@ SM_API void* _list_insert_trace(
     int line
 );
 
-SM_API void _list_free_trace(
+LD_API void _list_free_trace(
     void* list,
     const char* function,
     const char* file,

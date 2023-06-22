@@ -4,42 +4,31 @@
  * File Created: April 27, 2023
 */
 #include "pch.h"
+#include "entry.h"
 #include <core/string.h>
-#include <core/memory.h>
-#include <core/collections.h>
 #include <core/engine.h>
-#include <core/input.h>
-#include <core/events.h>
-#include <core/math.h>
-#include <core/graphics.h>
-#include <core/threading.h>
-#include <core/time.h>
 #include <stdio.h>
 
-b32 run(
-    struct EngineContext*   engine_ctx,
-    struct ThreadWorkQueue* thread_work_queue,
-    struct RenderOrder* render_order,
-    struct Time* time,
-    void* user_params
-) {
-    SM_UNUSED(engine_ctx),
-    SM_UNUSED(thread_work_queue);
-    SM_UNUSED(render_order);
-    SM_UNUSED(time);
-    SM_UNUSED(user_params);
-    return true;
-}
+int main( int argc, const char** argv ) {
 
-int main( int argc, char** argv ) {
-
-    RendererBackend backend = 0;
+    RendererBackend backend = RENDERER_BACKEND_OPENGL;
 
     for( int i = 1; i < argc; ++i ) {
-        if( str_cmp( "--gl", argv[i] ) ) {
-            backend = 0;
-        } else if( str_cmp( "--vk", argv[i] ) ) {
-            backend = 1;
+        if( string_cmp( "--gl", argv[i] ) ) {
+            backend = RENDERER_BACKEND_OPENGL;
+        } else if( string_cmp( "--vk", argv[i] ) ) {
+            backend = RENDERER_BACKEND_VULKAN;
+        } else if( string_cmp( "--dx11", argv[i] ) ) {
+            backend = RENDERER_BACKEND_DX11;
+        }  else if( string_cmp( "--dx12", argv[i] ) ) {
+            backend = RENDERER_BACKEND_DX12;
+        } 
+        if( !renderer_backend_is_supported( backend ) ) {
+            printf(
+                "Renderer Backend %s is not supported on this platform!",
+                to_string( backend )
+            );
+            return -1;
         }
     }
 
@@ -63,10 +52,11 @@ int main( int argc, char** argv ) {
     config.renderer_backend = backend;
 
     b32 result = engine_run(
-        argc, argv,
-        run, nullptr,
+        argc, (char**)argv,
+        entry, nullptr,
         &config
     );
 
     return result ? 0 : -1;
 }
+

@@ -8,27 +8,27 @@
 #include "core/time.h"
 
 RendererContext* renderer_init(
-    const char*      app_name,
+    StringView       app_name,
     RendererBackend  backend,
     struct Platform* platform
 ) {
-    SM_ASSERT( platform );
+    LD_ASSERT( platform );
 
     RendererContext* result = nullptr;
     switch( backend ) {
-        case BACKEND_OPENGL: {
+        case RENDERER_BACKEND_OPENGL: {
             result = gl_renderer_backend_initialize( platform );
             if( !result ) {
                 return nullptr;
             }
         } break;
         default: {
-            SM_UNUSED(app_name);
+            unused(app_name);
             LOG_FATAL(
                 "Backend \"%s\" is not currently supported!",
                 to_string(backend)
             );
-            SM_PANIC();
+            LD_PANIC();
         } return nullptr;
     }
 
@@ -70,18 +70,32 @@ b32 renderer_draw_frame(
 }
 
 const char* to_string( RendererBackend backend ) {
-    local const char* strings[BACKEND_COUNT] = {
-        "Vulkan "
-            VALUE_TO_STRING(VULKAN_VERSION_MAJOR)
-            "."
-            VALUE_TO_STRING(VULKAN_VERSION_MINOR),
+    local const char* strings[RENDERER_BACKEND_COUNT] = {
         "OpenGL "
             VALUE_TO_STRING(GL_VERSION_MAJOR)
             "."
             VALUE_TO_STRING(GL_VERSION_MINOR),
+        "Vulkan "
+            VALUE_TO_STRING(VULKAN_VERSION_MAJOR)
+            "."
+            VALUE_TO_STRING(VULKAN_VERSION_MINOR),
         "DirectX 11",
         "DirectX 12"
     };
-    SM_ASSERT( backend < BACKEND_COUNT );
+    LD_ASSERT( backend < RENDERER_BACKEND_COUNT );
     return strings[backend];
 }
+
+b32 renderer_backend_is_supported( RendererBackend backend ) {
+#if !defined(LD_PLATFORM_WINDOWS)
+    if(
+        backend == RENDERER_BACKEND_DX11 ||
+        backend == RENDERER_BACKEND_DX12
+    ) {
+        return false;
+    }
+#endif
+    unused(backend);
+    return true;
+}
+

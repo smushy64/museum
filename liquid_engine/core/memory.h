@@ -10,7 +10,7 @@
 */
 #include "defines.h"
 
-#if defined(SM_COMPILER_MSVC)
+#if defined(LD_COMPILER_MSVC)
     #include <malloc.h>
 #endif
 
@@ -23,6 +23,7 @@ enum MemoryType : u64 {
     MEMTYPE_RENDERER,
     MEMTYPE_LOGGING,
     MEMTYPE_THREADING,
+    MEMTYPE_STRING,
     MEMTYPE_USER,
 
     MEMTYPE_COUNT
@@ -37,6 +38,7 @@ inline const char* to_string(MemoryType memtype) {
         "Renderer Memory",
         "Logging Buffer Memory",
         "Threading Memory",
+        "String Memory",
         "User Memory"
     };
     if( memtype >= MEMTYPE_COUNT ) {
@@ -48,14 +50,14 @@ inline const char* to_string(MemoryType memtype) {
 namespace impl {
 
 /// Allocate memory.
-SM_API void* _mem_alloc( usize size, MemoryType type );
+LD_API void* _mem_alloc( usize size, MemoryType type );
 /// Reallocate memory.
-SM_API void* _mem_realloc( void* memory, usize new_size );
+LD_API void* _mem_realloc( void* memory, usize new_size );
 /// Free memory.
-SM_API void _mem_free( void* memory );
+LD_API void _mem_free( void* memory );
 
 /// Allocate memory.
-SM_API void* _mem_alloc_trace(
+LD_API void* _mem_alloc_trace(
     usize size,
     MemoryType type,
     const char* function,
@@ -63,7 +65,7 @@ SM_API void* _mem_alloc_trace(
     int line
 );
 /// Reallocate memory.
-SM_API void* _mem_realloc_trace(
+LD_API void* _mem_realloc_trace(
     void* memory,
     usize new_size,
     const char* function,
@@ -71,7 +73,7 @@ SM_API void* _mem_realloc_trace(
     int line
 );
 /// Free memory.
-SM_API void _mem_free_trace(
+LD_API void _mem_free_trace(
     void* memory,
     const char* function,
     const char* file,
@@ -114,16 +116,16 @@ SM_API void _mem_free_trace(
 #endif
 
 /// Query the size of a memory block
-SM_API usize mem_query_size( void* memory );
+LD_API usize mem_query_size( void* memory );
 /// Query the type of a memory block
-SM_API MemoryType mem_query_type( void* memory );
+LD_API MemoryType mem_query_type( void* memory );
 
 /// Query memory usage for each memory type.
-SM_API usize query_memory_usage( MemoryType memtype );
+LD_API usize query_memory_usage( MemoryType memtype );
 /// Query total memory usage in bytes.
-SM_API usize query_total_memory_usage();
+LD_API usize query_total_memory_usage();
 
-#if defined(SM_COMPILER_MSVC)
+#if defined(LD_COMPILER_MSVC)
     /// Allocate memory on the stack.
     /// Does not require a free call.
     /// Not guaranteed to be zeroed out.
@@ -136,13 +138,13 @@ SM_API usize query_total_memory_usage();
 #endif
 
 /// Copy memory from source pointer to destination pointer.
-SM_API void mem_copy( void* dst, const void* src, usize size );
+LD_API void mem_copy( void* dst, const void* src, usize size );
 /// Copy memory between overlapping buffers.
 /// Potentially a lot slower than mem_copy so only use when necessary.
-SM_API void mem_copy_overlapped( void* dst, const void* src, usize size );
+LD_API void mem_copy_overlapped( void* dst, const void* src, usize size );
 /// Set a range of bytes to a specific value.
-SM_API void mem_set( u8 value, usize dst_size, void* dst );
+LD_API void mem_set( u8 value, usize dst_size, void* dst );
 /// Zero out memory.
-SM_API void mem_zero( void* ptr, usize size );
+LD_API void mem_zero( void* ptr, usize size );
 
 #endif

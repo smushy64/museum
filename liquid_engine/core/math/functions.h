@@ -7,13 +7,13 @@
 */
 #include "defines.h"
 
-#if !(defined(SM_COMPILER_CLANG) || defined(SM_COMPILER_GCC))
+#if !(defined(LD_COMPILER_CLANG) || defined(LD_COMPILER_GCC))
     #include <math.h>
 #endif
 
 namespace impl {
 
-#if defined(SM_COMPILER_GCC) || defined(SM_COMPILER_CLANG)
+#if defined(LD_COMPILER_GCC) || defined(LD_COMPILER_CLANG)
 
     inline f32 _sinf_( f32 x ) {
         return __builtin_sinf(x);

@@ -9,7 +9,7 @@
 #include "functions.h"
 #include "types.h"
 
-#if defined(SM_COMPILER_CLANG)
+#if defined(LD_COMPILER_CLANG)
     #pragma clang diagnostic push
     #pragma clang diagnostic ignored "-Wmissing-braces"
 #endif
@@ -1224,7 +1224,7 @@ inline mat3 normal_matrix_unchecked( const mat4& m ) {
     return m3( transpose( inverse_unchecked( m ) ) );
 }
 
-#if defined(SM_COMPILER_CLANG) && !defined(_CLANGD)
+#if defined(LD_COMPILER_CLANG) && !defined(_CLANGD)
     #pragma clang diagnostic pop
 #endif
 

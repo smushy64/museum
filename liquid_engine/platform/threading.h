@@ -13,14 +13,14 @@
 
 /// Handle to a thread.
 struct ThreadHandle {
-#if defined(SM_PLATFORM_WINDOWS)
+#if defined(LD_PLATFORM_WINDOWS)
     u8 platform[THREAD_HANDLE_WIN32_SIZE];
 #else
     u8 platform[THREAD_HANDLE_OTHER_SIZE];
 #endif
 };
 
-#if defined(SM_PLATFORM_WINDOWS)
+#if defined(LD_PLATFORM_WINDOWS)
     typedef unsigned long ThreadReturnCode;
 #else
     typedef int ThreadReturnCode;

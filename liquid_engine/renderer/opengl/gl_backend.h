@@ -40,8 +40,6 @@ struct OpenGLRendererContext {
     };
     GLuint vao_triangle;
 
-    UniformBlockBuffer block_buffer_matrices;
-
     ShaderProgram phong;
 
     const char* device_vendor;

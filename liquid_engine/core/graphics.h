@@ -8,6 +8,8 @@
 #include "defines.h"
 #include "math/types.h"
 
+typedef u32 RendererID;
+
 /// Vertex definition
 struct Vertex {
     vec4 position;
@@ -23,10 +25,18 @@ struct Mesh {
 
     u32 vertex_count;
     u32 index_count;
+
+    RendererID id;
 };
+LD_API Mesh mesh_create(
+    u32 vertex_count,
+    u32 index_count,
+    Vertex* vertices,
+    u32* indices
+);
 
 /// Basic mesh upload
-SM_API void upload_mesh_list(
+LD_API void upload_mesh_list(
     struct RenderOrder* order,
     Mesh* list,
     u32 mesh_count

@@ -7,7 +7,7 @@ MAKEFLAGS += -j4
 SLC := glslc -std=450core --target-env=opengl --target-spv=spv1.6 -x glsl
 SL_DEBUG_C_FLAGS := -O0
 SL_RELEASE_C_FLAGS := -O
-SL_C_FLAGS :=
+SL_C_FLAGS := -I.
 
 sl_flags := $(SL_C_FLAGS) $(if $(IS_DEBUG),$(SL_DEBUG_C_FLAGS),$(SL_RELEASE_C_FLAGS))
 

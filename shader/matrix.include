@@ -1,0 +1,7 @@
+// * Description:  Matrix shader includes
+// * Author:       Alicia Amarilla (smushyaa@gmail.com)
+// * File Created: June 20, 2023
+layout(std140, binding = 0) uniform matrices {
+    mat4 VIEW_PROJECTION;
+};
+

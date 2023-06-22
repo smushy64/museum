@@ -109,29 +109,17 @@ RendererContext* gl_renderer_backend_initialize( Platform* platform ) {
         -1.0f,
         1.0f
     );
-    UniformBlockBuffer block_buffer = {};
-    if( !gl_uniform_block_buffer_create_std140(
-        &block_buffer,
-        &result->u_matrices,
+    glNamedBufferStorage(
+        result->u_matrices,
+        sizeof(mat4),
         value_pointer( view_projection ),
-        GL_DYNAMIC_STORAGE_BIT,
-        1,
-        BufferDataType {
-            BUFFER_DATA_BASE_TYPE_FLOAT32,
-            BUFFER_DATA_STRUCT_TYPE_MAT4,
-            0
-        }
-    ) ) {
-        GL_LOG_FATAL("FUCK");
-        return nullptr;
-    }
+        GL_DYNAMIC_STORAGE_BIT
+    );
     glBindBufferBase(
         GL_UNIFORM_BUFFER,
         0,
         result->u_matrices
     );
-
-    result->block_buffer_matrices = block_buffer;
 
     FileHandle phong_vert_file = {}, phong_frag_file = {};
     if( !platform_file_open(
@@ -292,10 +280,6 @@ void gl_renderer_backend_shutdown( RendererContext* generic_ctx ) {
     // TODO(alicia): TEST CODE ONLY
 
     glDeleteBuffers( 3, ctx->buffer_handles );
-    gl_uniform_block_buffer_free(
-        &ctx->block_buffer_matrices,
-        false
-    );
     gl_shader_program_delete( &ctx->phong );
     glDeleteVertexArrays( 1, &ctx->vao_triangle );
 
@@ -327,9 +311,9 @@ void gl_renderer_backend_on_resize(
         -1.0f,
         1.0f
     );
-    gl_uniform_block_buffer_upload_field(
-        &ctx->block_buffer_matrices,
-        0,
+    glNamedBufferSubData(
+        ctx->u_matrices,
+        0, sizeof(mat4),
         value_pointer( view_projection )
     );
 }
@@ -347,12 +331,12 @@ b32 gl_renderer_backend_begin_frame( RendererContext* generic_ctx, Time* time ) 
         nullptr
     );
 
-    SM_UNUSED(time);
+    unused(time);
     return true;
 }
 b32 gl_renderer_backend_end_frame( RendererContext* ctx, Time* time ) {
     // TODO(alicia): 
-    SM_UNUSED(time);
+    unused(time);
     
     platform_gl_swap_buffers( ctx->platform );
     return true;

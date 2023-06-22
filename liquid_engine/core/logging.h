@@ -66,7 +66,7 @@ typedef u32 LogLevel;
 
 typedef u32 LogFlags;
 
-#if defined(SM_API_INTERNAL)
+#if defined(LD_API_INTERNAL)
 
     /// initialize logging subsystem
     b32 log_init( LogLevel level );
@@ -76,11 +76,11 @@ typedef u32 LogFlags;
 #endif
 
 /// Get the current log level.
-SM_API LogLevel query_log_level();
+LD_API LogLevel query_log_level();
 
 /// log a formatted message, uses a mutex
 /// to prevent crosstalk between threads.
-SM_API void log_formatted_locked(
+LD_API void log_formatted_locked(
     LogLevel    level,
     LogColor    color,
     LogFlags    flags,
@@ -219,7 +219,7 @@ SM_API void log_formatted_locked(
     #define LOG_FATAL( format, ... )
 #endif
 
-#if defined(SM_ASSERTIONS)
+#if defined(LD_ASSERTIONS)
 
     #if defined(LD_LOGGING)
 
@@ -237,7 +237,7 @@ SM_API void log_formatted_locked(
                         #condition,\
                         ##__VA_ARGS__\
                     );\
-                    SM_PANIC();\
+                    LD_PANIC();\
                 }\
             } while(0)
 
@@ -252,11 +252,11 @@ SM_API void log_formatted_locked(
                     __FILE__,\
                     __LINE__\
                 );\
-                SM_PANIC();\
+                LD_PANIC();\
             } while(0)
     #else
-        #define LOG_ASSERT( condition, format, ... ) SM_ASSERT( condition )
-        #define DEBUG_UNIMPLEMENTED() SM_PANIC()
+        #define LOG_ASSERT( condition, format, ... ) LD_ASSERT( condition )
+        #define DEBUG_UNIMPLEMENTED() LD_PANIC()
     #endif
 
 #else

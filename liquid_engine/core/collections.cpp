@@ -55,7 +55,7 @@
 
 namespace impl {
 
-SM_API void* _list_create_trace(
+LD_API void* _list_create_trace(
     usize capacity,
     usize stride,
     const char* function,
@@ -78,7 +78,7 @@ SM_API void* _list_create_trace(
     return result;
 }
 
-SM_API void* _list_realloc_trace(
+LD_API void* _list_realloc_trace(
     void* list,
     usize new_capacity,
     const char* function,
@@ -106,7 +106,7 @@ SM_API void* _list_realloc_trace(
     return result;
 }
 
-SM_API void _list_free_trace(
+LD_API void _list_free_trace(
     void* list,
     const char* function,
     const char* file,
@@ -129,7 +129,7 @@ SM_API void _list_free_trace(
     _list_free( list );
 }
 
-SM_API void* _list_create( usize capacity, usize stride ) {
+LD_API void* _list_create( usize capacity, usize stride ) {
     usize total_size = (capacity * stride) + LIST_FIELDS_SIZE;
     u64* base = (u64*)::impl::_mem_alloc(
         total_size,
@@ -145,7 +145,7 @@ SM_API void* _list_create( usize capacity, usize stride ) {
 
     return BASE_TO_BUFFER_POINTER(base);
 }
-SM_API void  _list_free( void* list ) {
+LD_API void  _list_free( void* list ) {
     if( !list ) {
         return;
     }
@@ -153,7 +153,7 @@ SM_API void  _list_free( void* list ) {
     ::impl::_mem_free( base );
 }
 
-SM_API void* _list_realloc( void* list, usize new_capacity ) {
+LD_API void* _list_realloc( void* list, usize new_capacity ) {
     u64* base = BUFFER_TO_BASE_POINTER(list);
 
     usize stride   = base[LIST_FIELD_STRIDE];
@@ -170,7 +170,7 @@ SM_API void* _list_realloc( void* list, usize new_capacity ) {
     return BASE_TO_BUFFER_POINTER(new_base);
 }
 
-SM_API void* _list_append(
+LD_API void* _list_append(
     void* list,
     usize append_count,
     const void* pvalue
@@ -199,7 +199,7 @@ SM_API void* _list_append(
     return list;
 }
 
-SM_API void* _list_append_trace(
+LD_API void* _list_append_trace(
     void* list,
     usize append_count,
     const void* pvalue,
@@ -234,7 +234,7 @@ SM_API void* _list_append_trace(
     return list;
 }
 
-SM_API void* _list_push( void* list, const void* pvalue ) {
+LD_API void* _list_push( void* list, const void* pvalue ) {
     u64*  base     = BUFFER_TO_BASE_POINTER(list);
     usize count    = base[LIST_FIELD_COUNT];
     usize capacity = base[LIST_FIELD_CAPACITY];
@@ -293,7 +293,7 @@ void* _list_push_trace(
     return list;
 }
 
-SM_API b32 _list_pop( void* list, void* dst ) {
+LD_API b32 _list_pop( void* list, void* dst ) {
     u64*  base   = BUFFER_TO_BASE_POINTER(list);
     usize count  = base[LIST_FIELD_COUNT];
     usize stride = base[LIST_FIELD_STRIDE];
@@ -309,11 +309,11 @@ SM_API b32 _list_pop( void* list, void* dst ) {
     return true;
 }
 
-SM_API usize _list_field_read( void* list, u32 field ) {
+LD_API usize _list_field_read( void* list, u32 field ) {
     u64*   base = BUFFER_TO_BASE_POINTER(list);
     return base[field];
 }
-SM_API void _list_field_write(
+LD_API void _list_field_write(
     void* list,
     u32 field,
     usize value
@@ -322,7 +322,7 @@ SM_API void _list_field_write(
     base[field] = value;
 }
 
-SM_API void* _list_remove(
+LD_API void* _list_remove(
     void* list,
     usize i,
     void* dst
@@ -335,7 +335,7 @@ SM_API void* _list_remove(
 
     if( i >= capacity || i >= count ) {
         LOG_FATAL("List remove out of bounds! index: %llu", i);
-        SM_PANIC();
+        LD_PANIC();
     }
 
     u8*   bytes = (u8*)list;
@@ -358,7 +358,7 @@ SM_API void* _list_remove(
 
     return list;
 }
-SM_API void* _list_insert(
+LD_API void* _list_insert(
     void* list,
     usize index,
     void* pvalue
@@ -373,7 +373,7 @@ SM_API void* _list_insert(
             "Index outside the bounds of the list! index: %llu",
             index
         );
-        SM_PANIC();
+        LD_PANIC();
         return nullptr;
     }
     
@@ -406,7 +406,7 @@ SM_API void* _list_insert(
     return list;
 }
 
-SM_API void* _list_insert_trace(
+LD_API void* _list_insert_trace(
     void* list,
     usize index,
     void* pvalue,
@@ -424,7 +424,7 @@ SM_API void* _list_insert_trace(
             "Index outside the bounds of the list! index: %llu",
             index
         );
-        SM_PANIC();
+        LD_PANIC();
         return nullptr;
     }
     

@@ -5,7 +5,7 @@
  * File Created: February 24, 2023
  * Includes:     <stdint.h>
  *               <intrin.h> MSVC ONLY
- * Notes:        define SM_ASSERTIONS to enable DEBUG_ASSERT macro
+ * Notes:        define LD_ASSERTIONS to enable DEBUG_ASSERT macro
 */
 #if !defined(DEFINES_HPP)
 #define DEFINES_HPP
@@ -48,24 +48,31 @@ typedef double f64;
 /// void* pointer alias, might come in handy at some point
 typedef void* pvoid;
 
+#define LD_CONTACT_MESSAGE \
+    "Please contact me at smushybusiness@gmail.com if you see this."
+
 #define internal static
 #define local    static
 #define global   static
 #define loop     for( ;; )
-
-#define LD_CONTACT_MESSAGE \
-    "Please contact me at smushybusiness@gmail.com if you see this."
+/// mark value as unused
+#define unused(x) x = x
 
 /// Check if bits are set in bitfield
 #define ARE_BITS_SET( bits, mask ) ( ((bits) & (mask)) == (mask) )
 
+/// Convert macro to const char*
 #define TO_STRING( foo ) #foo
+/// Convert macro value to const char*
 #define VALUE_TO_STRING( foo ) TO_STRING( foo )
 
+/// Make a version uint32
 #define LD_MAKE_VERSION( major, minor )\
     ((u32)major << 16u) | ((u32)minor)
-#define LD_GETMAJOR( version )\
+/// Get major version from uint32 version
+#define LD_GET_MAJOR( version )\
     ((u32)version >> 16u)
+/// Get minor version from uint32 version
 #define LD_GET_MINOR( version )\
     ((u32)minor & 0x0000FFFF)
 
@@ -76,8 +83,6 @@ typedef void* pvoid;
 /// Calculate byte size of a static array
 #define STATIC_ARRAY_SIZE( array ) \
     (sizeof(array))
-
-#define MAX_SURFACE_COUNT 4
 
 #define KILOBYTES(num) ( num * 1024ULL )
 #define MEGABYTES(num) ( KILOBYTES( num ) * 1024ULL )
@@ -107,28 +112,28 @@ typedef void* pvoid;
 
 /// compiler defines
 #if defined(__GNUC__) || defined(__GNUG__)
-    #define SM_COMPILER_GCC
+    #define LD_COMPILER_GCC
 #endif
 
 #if defined(__clang__)
-    #if defined(SM_COMPILER_GCC)
-        #undef SM_COMPILER_GCC
+    #if defined(LD_COMPILER_GCC)
+        #undef LD_COMPILER_GCC
     #endif
-    #define SM_COMPILER_CLANG
+    #define LD_COMPILER_CLANG
 #endif
 
 #if defined(_MSC_VER)
-    #if defined(SM_COMPILER_GCC)
-        #undef SM_COMPILER_GCC
+    #if defined(LD_COMPILER_GCC)
+        #undef LD_COMPILER_GCC
     #endif
-    #if defined(SM_COMPILER_CLANG)
-        #undef SM_COMPILER_CLANG
+    #if defined(LD_COMPILER_CLANG)
+        #undef LD_COMPILER_CLANG
     #endif
-    #define SM_COMPILER_MSVC
+    #define LD_COMPILER_MSVC
 #endif
 
-#if !defined(SM_COMPILER_GCC) && !defined(SM_COMPILER_CLANG) && !defined(SM_COMPILER_MSVC)
-    #define SM_COMPILER_UNKNOWN
+#if !defined(LD_COMPILER_GCC) && !defined(LD_COMPILER_CLANG) && !defined(LD_COMPILER_MSVC)
+    #define LD_COMPILER_UNKNOWN
 #endif
 
 // panic
@@ -137,140 +142,139 @@ typedef void* pvoid;
 // always/never inline
 // never optimize away
 // packed struct declaration
-#if defined(SM_COMPILER_MSVC)
+#if defined(LD_COMPILER_MSVC)
     #include <intrin.h>
-    #define SM_PANIC() __debugbreak()
+    #define LD_PANIC() __debugbreak()
 
-    #define SM_STATIC_ASSERT static_assert
-    #define SM_NO_OPTIMIZE _Pragma( "optimize(\"\", off)" )
+    #define LD_STATIC_ASSERT static_assert
+    #define LD_NO_OPTIMIZE _Pragma( "optimize(\"\", off)" )
 
-    #define SM_ALWAYS_INLINE __forceinline
-    #define SM_NOINLINE __declspec(noinline)
+    #define LD_ALWAYS_INLINE __forceinline
+    #define LD_NOINLINE __declspec(noinline)
 
-    #define SM_PACKED( declaration ) __pragma( pack(push, 1) ) declaration __pragma( pack(pop) )
+    #define LD_PACKED( declaration ) __pragma( pack(push, 1) ) declaration __pragma( pack(pop) )
 
-    #if defined(SM_EXPORT)
-        #define SM_API __declspec(dllexport)
+    #if defined(LD_EXPORT)
+        #define LD_API __declspec(dllexport)
     #else // import
-        #define SM_API __declspec(dllimport)
+        #define LD_API __declspec(dllimport)
     #endif
 
 
 #else // not MSVC
-    #define SM_PANIC() __builtin_trap()
+    #define LD_PANIC() __builtin_trap()
 
-    #if defined(SM_COMPILER_GCC)
-        #define SM_STATIC_ASSERT _Static_assert
-        #define SM_NO_OPTIMIZE __attribute__((optimize("O0")))
+    #if defined(LD_COMPILER_GCC)
+        #define LD_STATIC_ASSERT _Static_assert
+        #define LD_NO_OPTIMIZE __attribute__((optimize("O0")))
     #else // clang
-        #define SM_STATIC_ASSERT _Static_assert
-        #define SM_NO_OPTIMIZE __attribute__((optnone))
+        #define LD_STATIC_ASSERT _Static_assert
+        #define LD_NO_OPTIMIZE __attribute__((optnone))
     #endif
 
-    #define SM_ALWAYS_INLINE __attribute__((always_inline)) inline
-    #define SM_NOINLINE      __attribute__((noinline))
-    #define SM_PACKED( declaration ) declaration __attribute__((__packed__))
+    #define LD_ALWAYS_INLINE __attribute__((always_inline)) inline
+    #define LD_NOINLINE      __attribute__((noinline))
+    #define LD_PACKED( declaration ) declaration __attribute__((__packed__))
 
-    #if defined(SM_EXPORT)
-        #define SM_API __attribute__((visibility("default")))
+    #if defined(LD_EXPORT)
+        #define LD_API __attribute__((visibility("default")))
     #else // import
         // unknown?
-        #define SM_API 
+        #define LD_API 
     #endif
 
 #endif
 
-#if defined(SM_EXPORT)
-    #define SM_API_INTERNAL
+#if defined(LD_EXPORT)
+    #define LD_API_INTERNAL
 #endif
 
 // assert that type sizes are correct
-SM_STATIC_ASSERT(sizeof(u8)  == 1, "Expected u8 to be 1 byte!");
-SM_STATIC_ASSERT(sizeof(u16) == 2, "Expected u16 to be 2 bytes!");
-SM_STATIC_ASSERT(sizeof(u32) == 4, "Expected u32 to be 4 bytes!");
-SM_STATIC_ASSERT(sizeof(u64) == 8, "Expected u64 to be 8 bytes!");
-SM_STATIC_ASSERT(sizeof(i8)  == 1, "Expected i8 to be 1 byte!");
-SM_STATIC_ASSERT(sizeof(i16) == 2, "Expected i16 to be 2 bytes!");
-SM_STATIC_ASSERT(sizeof(i32) == 4, "Expected i32 to be 4 bytes!");
-SM_STATIC_ASSERT(sizeof(i64) == 8, "Expected i64 to be 8 bytes!");
-SM_STATIC_ASSERT(sizeof(f32) == 4, "Expected f32 to be 4 bytes!");
-SM_STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes!");
+LD_STATIC_ASSERT(sizeof(u8)  == 1, "Expected u8 to be 1 byte!");
+LD_STATIC_ASSERT(sizeof(u16) == 2, "Expected u16 to be 2 bytes!");
+LD_STATIC_ASSERT(sizeof(u32) == 4, "Expected u32 to be 4 bytes!");
+LD_STATIC_ASSERT(sizeof(u64) == 8, "Expected u64 to be 8 bytes!");
+LD_STATIC_ASSERT(sizeof(i8)  == 1, "Expected i8 to be 1 byte!");
+LD_STATIC_ASSERT(sizeof(i16) == 2, "Expected i16 to be 2 bytes!");
+LD_STATIC_ASSERT(sizeof(i32) == 4, "Expected i32 to be 4 bytes!");
+LD_STATIC_ASSERT(sizeof(i64) == 8, "Expected i64 to be 8 bytes!");
+LD_STATIC_ASSERT(sizeof(f32) == 4, "Expected f32 to be 4 bytes!");
+LD_STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes!");
 
 // platform defines
 #if defined(_WIN32) || defined(__WIN32__) || defined(_WIN64) || defined(__WIN64__)
-    #define SM_PLATFORM_WINDOWS
+    #define LD_PLATFORM_WINDOWS
 #elif defined(__linux__) || defined(__gnu_linux__)
-    #define SM_PLATFORM_LINUX
+    #define LD_PLATFORM_LINUX
 #elif defined(__ANDROID__)
-    #define SM_PLATFORM_ANDROID
+    #define LD_PLATFORM_ANDROID
 #elif defined(__APPLE__)
     #include <TargetConditionals.h>
     #if defined(TARGET_IPHONE_SIMULATION) || defined(TARGET_OS_IPHONE)
-        #define SM_PLATFORM_IOS
+        #define LD_PLATFORM_IOS
     #elif defined(TARGET_OS_MAC)
-        #define SM_PLATFORM_MACOS
+        #define LD_PLATFORM_MACOS
     #endif
 #else
-    #define SM_PLATFORM_UNKNOWN
+    #define LD_PLATFORM_UNKNOWN
 #endif
 
 // platform cpu defines
 #if defined(_M_IX86) || defined(__i386__)
-    #define SM_ARCH_X86
-    #define SM_ARCH_32_BIT
+    #define LD_ARCH_X86
+    #define LD_ARCH_32_BIT
 #endif
 
 #if defined(__x86_64__) || defined(_M_X64_)
-    #if !defined(SM_ARCH_X86)
-        #define SM_ARCH_X86
+    #if !defined(LD_ARCH_X86)
+        #define LD_ARCH_X86
     #endif
-    #if defined(SM_ARCH_32_BIT)
-        #undef SM_ARCH_32_BIT
+    #if defined(LD_ARCH_32_BIT)
+        #undef LD_ARCH_32_BIT
     #endif
-    #define SM_ARCH_64_BIT
+    #define LD_ARCH_64_BIT
 #endif
 
 #if defined(__arm__) || defined(_M_ARM_)
-    #define SM_ARCH_ARM
-    #define SM_ARCH_32_BIT
+    #define LD_ARCH_ARM
+    #define LD_ARCH_32_BIT
 #endif
 
 #if defined(__aarch64__)
-    #if !defined(SM_ARCH_ARM)
-        #define SM_ARCH_ARM
+    #if !defined(LD_ARCH_ARM)
+        #define LD_ARCH_ARM
     #endif
-    #if defined(SM_ARCH_32_BIT)
-        #undef SM_ARCH_32_BIT
+    #if defined(LD_ARCH_32_BIT)
+        #undef LD_ARCH_32_BIT
     #endif
-    #define SM_ARCH_64_BIT
+    #define LD_ARCH_64_BIT
 #endif
 
-#if defined(SM_ARCH_32_BIT)
-    SM_STATIC_ASSERT(sizeof(usize) == sizeof(u32), "Expected to be running on 32 bit architecture!");
-#elif defined(SM_ARCH_64_BIT)
-    SM_STATIC_ASSERT(sizeof(usize) == sizeof(u64), "Expected to be running on 64 bit architecture!");
+#if defined(LD_ARCH_32_BIT)
+    LD_STATIC_ASSERT(sizeof(usize) == sizeof(u32), "Expected to be running on 32 bit architecture!");
+#elif defined(LD_ARCH_64_BIT)
+    LD_STATIC_ASSERT(sizeof(usize) == sizeof(u64), "Expected to be running on 64 bit architecture!");
 #endif
 
-#if !defined(SM_SIMD_WIDTH)
-    #define SM_SIMD_WIDTH 1
+#if !defined(LD_SIMD_WIDTH)
+    #define LD_SIMD_WIDTH 1
 #else
-    #if !(SM_SIMD_WIDTH == 1 || SM_SIMD_WIDTH == 4 || SM_SIMD_WIDTH == 8)
-        #error "SM_SIMD_WIDTH can only be 1, 4 or 8!!!"
+    #if !(LD_SIMD_WIDTH == 1 || LD_SIMD_WIDTH == 4 || LD_SIMD_WIDTH == 8)
+        #error "LD_SIMD_WIDTH can only be 1, 4 or 8!!!"
     #endif
 #endif
 
-/// tell compiler that value is unused
-#define SM_UNUSED(x) x = x
+
 
 /// debug assertions
-#if defined(SM_ASSERTIONS)
-    #define SM_ASSERT(condition) do {\
+#if defined(LD_ASSERTIONS)
+    #define LD_ASSERT(condition) do {\
         if(!(condition)) {\
-            SM_PANIC();\
+            LD_PANIC();\
         }\
     } while(0)
 #else
-    #define SM_ASSERT(condition)
+    #define LD_ASSERT(condition)
 #endif
 
 /// 32-bit floating point constants
@@ -391,6 +395,8 @@ namespace I32 {
     global const i32 MAX = 2147483647;
     /// Smallest i32 value
     global const i32 MIN = -2147483648;
+    /// Sign mask
+    global const u32 SIGN_MASK = (1u << 31u);
 };
 
 /// 64-bit integer constants
@@ -399,6 +405,8 @@ namespace I64 {
     global const i64 MAX = 9223372036854775807;
     /// Smallest i64 value
     global const i64 MIN = -9223372036854775807 - 1;
+    /// Sign mask
+    global const u64 SIGN_MASK = (1ull << 63ull);
 };
 
 #endif

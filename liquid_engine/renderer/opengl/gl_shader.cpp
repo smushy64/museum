@@ -176,11 +176,12 @@ b32 gl_shader_program_reflection( ShaderProgram* shader_program ) {
 }
 UniformInfo* gl_shader_program_uniform_info(
     ShaderProgram* shader_program,
-    const char* uniform_name
+    const char* uniform_name_str
 ) {
+    StringView uniform_name = uniform_name_str;
     for( GLint i = 0; i < shader_program->uniform_count; ++i ) {
         UniformInfo* current_uniform = &shader_program->uniforms[i];
-        if( str_cmp( uniform_name, current_uniform->name ) ) {
+        if( string_cmp( uniform_name, current_uniform->name ) ) {
             return current_uniform;
         }
     }

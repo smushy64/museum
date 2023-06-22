@@ -6,7 +6,7 @@
  * File Created: June 08, 2023
 */
 #include "defines.h"
-#if defined(SM_PLATFORM_WINDOWS)
+#if defined(LD_PLATFORM_WINDOWS)
 
 #include "core/logging.h"
 #include "platform/platform.h"
@@ -21,6 +21,7 @@
 #include <xinput.h>
 
 #define ERROR_MESSAGE_BUFFER_SIZE 512ULL
+#define WIDE_CONVERSION_BUFFER_SIZE 512ULL
 struct Win32Platform {
     struct Win32Window {
         HWND handle;
@@ -48,6 +49,7 @@ struct Win32Platform {
     LARGE_INTEGER performance_counter;
 
     char error_message_buffer[ERROR_MESSAGE_BUFFER_SIZE];
+    wchar_t conversion_buffer[WIDE_CONVERSION_BUFFER_SIZE];
 };
 
 struct Win32ThreadHandle {
@@ -375,7 +377,7 @@ namespace impl {
     global SwapBuffersFN in_SwapBuffers = nullptr;
 
     typedef void (*XInputEnableFN)( BOOL );
-    internal void XInputEnableStub( BOOL enable ) { SM_UNUSED( enable ); }
+    internal void XInputEnableStub( BOOL enable ) { unused( enable ); }
     [[maybe_unused]]
     global XInputEnableFN in_XInputEnable = XInputEnableStub;
 

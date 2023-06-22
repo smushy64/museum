@@ -13,6 +13,9 @@
 
 #define MEMORY_HEADER_SIZE (sizeof(u64) * 2)
 
+// TODO(alicia): MSVC VERSION
+#define stack_alloc(size) __builtin_alloca(size)
+
 struct MemoryUsage {
     u64 usage[MEMTYPE_COUNT];
 };
@@ -183,69 +186,51 @@ MemoryType mem_query_type( void* memory ) {
     return (MemoryType)header[MEMORY_FIELD_TYPE];
 }
 
-inline void mem_copy_bytes( void* dst, const void* src, usize size ) {
-    u8* end_dst = (u8*)dst + size;
-    u8* end_src = (u8*)src + size;
-    while( end_dst != dst ) {
-        *end_dst-- = *end_src--;
-    }
-}
-
 void mem_copy( void* dst, const void* src, usize size ) {
-    if( size < sizeof(u64) ) {
-        mem_copy_bytes( dst, src, size );
-        return;
-    }
-    
-    u64* src64 = (u64*)src;
-    u64* dst64 = (u64*)dst;
     usize count64 = size / sizeof(u64);
     for( usize i = 0; i < count64; ++i ) {
-        dst64[i] = src64[i];
+        *((u64*)dst + i) = *((u64*)src + i);
     }
 
     usize remainder = size % sizeof(u64);
-    if( remainder ) {
-        mem_copy_bytes(
-            (u8*)dst + (size - remainder - 1),
-            (u8*)src + (size - remainder - 1),
-            remainder
-        );
+    u8* src_remainder = (u8*)((u64*)src + count64);
+    u8* dst_remainder = (u8*)((u64*)dst + count64);
+    for( usize i = 0; i < remainder; ++i ) {
+        *(dst_remainder + i) = *(src_remainder + i);
     }
 }
 
-#define INTERMEDIATE_BUFFER_SIZE 128
-global u8 INTERMEDIATE_BUFFER[INTERMEDIATE_BUFFER_SIZE] = {};
 void mem_copy_overlapped( void* dst, const void* src, usize size ) {
-    if( size < INTERMEDIATE_BUFFER_SIZE ) {
-        mem_copy( INTERMEDIATE_BUFFER, src, size );
-        mem_copy( dst, INTERMEDIATE_BUFFER, size );
-    }
-    usize remainder  = size % INTERMEDIATE_BUFFER_SIZE;
-    usize iterations = size / INTERMEDIATE_BUFFER_SIZE;
+    #define INTERMEDIATE_BUFFER_SIZE 256ULL
+    void* intermediate_buffer = stack_alloc( INTERMEDIATE_BUFFER_SIZE );
 
-    u8* src_ptr = (u8*)src;
-    u8* dst_ptr = (u8*)dst;
-    for( usize i = 0; i < iterations; ++i ) {
+    if( size <= INTERMEDIATE_BUFFER_SIZE ) {
+        mem_copy( intermediate_buffer, src, size );
+        mem_copy( dst, intermediate_buffer, size );
+        return;
+    }
+
+    usize iteration_count = size / INTERMEDIATE_BUFFER_SIZE;
+    usize remaining_bytes = size % INTERMEDIATE_BUFFER_SIZE;
+
+    for( usize i = 0; i < iteration_count; ++i ) {
+        usize offset = i * INTERMEDIATE_BUFFER_SIZE;
         mem_copy(
-            INTERMEDIATE_BUFFER,
-            src_ptr + (i * INTERMEDIATE_BUFFER_SIZE),
+            intermediate_buffer,
+            (u8*)src + offset,
             INTERMEDIATE_BUFFER_SIZE
         );
         mem_copy(
-            dst_ptr + (i * INTERMEDIATE_BUFFER_SIZE),
-            INTERMEDIATE_BUFFER,
+            (u8*)dst + offset,
+            intermediate_buffer,
             INTERMEDIATE_BUFFER_SIZE
         );
     }
 
-    src_ptr = src_ptr + (iterations * INTERMEDIATE_BUFFER_SIZE);
-    dst_ptr = dst_ptr + (iterations * INTERMEDIATE_BUFFER_SIZE);
-    for( usize i = 0; i < remainder; ++i ) {
-        INTERMEDIATE_BUFFER[i] = src_ptr[i];
-    }
-    for( usize i = 0; i < remainder; ++i ) {
-        dst_ptr[i] = INTERMEDIATE_BUFFER[i];
+    if( remaining_bytes ) {
+        usize offset = (iteration_count * INTERMEDIATE_BUFFER_SIZE);
+        mem_copy( intermediate_buffer, (u8*)src + offset, remaining_bytes );
+        mem_copy( (u8*)dst + offset, intermediate_buffer, remaining_bytes );
     }
 
 }
@@ -257,28 +242,16 @@ void mem_set( u8 value, usize dst_size, void* dst ) {
     }
 }
 
-void mem_zero( void* ptr, usize size ) {
-    if( size < 8 ) {
-        u8* end = (u8*)ptr + size;
-        while( end != ptr ) {
-            *end-- = 0;
-        }
-        return;
-    }
-    
-    usize remainder  = size % sizeof(u64);
-    usize long_size  = size - remainder;
-    usize long_count = long_size / sizeof(u64);
-    u64*  long_end   = (u64*)ptr + long_count;
-
-    while( long_count-- > 0 ) {
-        *long_end-- = 0ULL;
+void mem_zero( void* dst, usize size ) {
+    usize count64 = size / sizeof(u64);
+    for( usize i = 0; i < count64; ++i ) {
+        *((u64*)dst + i) = 0ULL;
     }
 
-    u8* byte_end = (u8*)ptr + remainder;
-
-    while( remainder-- > 0 ) {
-        *byte_end-- = 0;
+    usize remainder = size % sizeof(u64);
+    u8* dst_remainder = (u8*)((u64*)dst + count64);
+    for( usize i = 0; i < remainder; ++i ) {
+        *(dst_remainder + i) = 0;
     }
 
 }

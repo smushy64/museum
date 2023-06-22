@@ -50,20 +50,20 @@ enum EventCode : u32 {
     MAX_EVENT_CODE = 0x200
 };
 /// Subscribe a listener to an event.
-SM_API b32 event_subscribe(
+LD_API b32 event_subscribe(
     EventCode       code,
     EventCallbackFN callback_function,
     void*           callback_params
 );
 /// Unsubscribe a listener from an event.
-SM_API b32 event_unsubscribe(
+LD_API b32 event_unsubscribe(
     EventCode       code,
     EventCallbackFN callback_function,
     void*           callback_params
 );
 /// Check how many more listeners the specified event can have.
 /// Returns negative if event code is invalid.
-SM_API i32 event_available_listener_count( EventCode code );
+LD_API i32 event_available_listener_count( EventCode code );
 
 struct Event {
     EventCode code;
@@ -138,9 +138,9 @@ struct Event {
     } data;
 };
 /// Fire an event.
-SM_API void event_fire( Event event );
+LD_API void event_fire( Event event );
 
-#if defined(SM_API_INTERNAL)
+#if defined(LD_API_INTERNAL)
 
     b32  event_init();
     void event_shutdown();

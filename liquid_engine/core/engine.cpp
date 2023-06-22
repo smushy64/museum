@@ -29,6 +29,7 @@ struct ThreadWorkQueue {
     ThreadInfo*      threads;
     ThreadWorkEntry* work_entries;
     SemaphoreHandle  wake_semaphore;
+    SemaphoreHandle  on_frame_update_semaphore;
 
     u32 work_entry_count;
     u32 thread_count;
@@ -47,13 +48,13 @@ struct EngineContext {
     Time             time;              // 16
     RendererContext* renderer_context;  // 8
 
-    char* application_title_buffer;
+    String application_name;
+    StringView application_name_writable_view;
 
     ThreadHandle* thread_handles; // 8
     u32 thread_count; // 4
     RendererBackend renderer_backend; // 4
     
-    u32 application_title_buffer_size; // 4
     u32 application_title_buffer_writable_offset; // 4
     
     CursorStyle cursor_style;
@@ -119,8 +120,8 @@ b32 engine_run(
     EngineConfig* config
 ) {
     // TODO(alicia): parse arguments!
-    SM_UNUSED(argc);
-    SM_UNUSED(argv);
+    unused(argc);
+    unused(argv);
 
 #if defined(LD_LOGGING)
     if( !log_init( config->log_level ) ) {
@@ -133,13 +134,28 @@ b32 engine_run(
     }
 #endif
 
-    SM_ASSERT( application_run );
+    LD_ASSERT( application_run );
     LOG_INFO("Liquid Engine Version: %i.%i",
         LIQUID_ENGINE_VERSION_MAJOR,
         LIQUID_ENGINE_VERSION_MINOR
     );
 
     EngineContext ctx = {};
+
+    #define ENGINE_APPLICATION_NAME_DEFAULT_BUFFER_SIZE 256
+    u32 allocation_size = ENGINE_APPLICATION_NAME_DEFAULT_BUFFER_SIZE;
+    if( config->application_name.len > allocation_size ) {
+        allocation_size = config->application_name.len;
+    }
+    if(!dstring_with_capacity( allocation_size, &ctx.application_name )) {
+        MESSAGE_BOX_FATAL(
+            "Subsystem Failure",
+            "Failed to allocate application name buffer!\n "
+            LD_CONTACT_MESSAGE
+        );
+        return false;
+    }
+    dstring_append( &ctx.application_name, config->application_name, false );
 
     if( !platform_init(
         config->opt_application_icon_path,
@@ -154,13 +170,13 @@ b32 engine_run(
         );
         return false;
     }
+    engine_set_application_name( &ctx, ctx.application_name );
 
     ctx.pause_on_surface_inactive = ARE_BITS_SET(
         config->platform_flags,
         PLATFORM_PAUSE_ON_SURFACE_INACTIVE
     );
     ctx.renderer_backend = config->renderer_backend;
-    engine_set_application_name( &ctx, config->application_name );
     ctx.renderer_context = renderer_init(
         config->application_name,
         config->renderer_backend,
@@ -217,6 +233,18 @@ b32 engine_run(
         );
         return false;
     }
+    if(!semaphore_create(
+        0,
+        thread_count,
+        &ctx.thread_work_queue.on_frame_update_semaphore
+    )) {
+        MESSAGE_BOX_FATAL(
+            "Subsystem Failure",
+            "Failed to create on frame update semaphore!\n "
+            LD_CONTACT_MESSAGE
+        );
+        return false;
+    }
 
     read_write_fence();
     for( u32 i = 0; i < thread_count; ++i ) {
@@ -269,13 +297,13 @@ b32 engine_run(
         ctx.system_info.logical_processor_count
     );
 
-#if defined(SM_ARCH_X86)
+#if defined(LD_ARCH_X86)
     b32 sse  = engine_query_is_sse_available( &ctx );
     b32 avx  = engine_query_is_avx_available( &ctx );
     b32 avx2 = engine_query_is_avx2_available( &ctx );
     b32 avx512 = engine_query_is_avx512_available( &ctx );
     ProcessorFeatures features = ctx.system_info.features;
-    if( SM_SIMD_WIDTH == 4 && !sse ) {
+    if( LD_SIMD_WIDTH == 4 && !sse ) {
         local const usize ERROR_MESSAGE_SIZE = 0xFF;
         char error_message_buffer[ERROR_MESSAGE_SIZE];
         snprintf( 
@@ -297,7 +325,7 @@ b32 engine_run(
         return false;
     }
 
-    if( SM_SIMD_WIDTH == 8 && !(avx && avx2) ) {
+    if( LD_SIMD_WIDTH == 8 && !(avx && avx2) ) {
         MESSAGE_BOX_FATAL(
             "Missing instructions.",
             "Your CPU does not support AVX/AVX2 instructions! "
@@ -474,28 +502,34 @@ b32 engine_run(
             return false;
         }
 
-        if( (ctx.time.frame_count + 1) % UPDATE_FRAME_RATE_COUNTER_RATE == 0 ) {
+        if( ctx.time.frame_count % UPDATE_FRAME_RATE_COUNTER_RATE == 0 ) {
             f32 fps = ctx.time.delta_seconds == 0.0f ?
                 0.0f : 1.0f / ctx.time.delta_seconds;
-            char* stream = ctx.application_title_buffer +
-                ctx.application_title_buffer_writable_offset - 1;
-            size_t n = ctx.application_title_buffer_size -
-                ctx.application_title_buffer_writable_offset;
-
+            u32 required_space = (u32)snprintf(
+                0, 0,
+                " | %.1f FPS",
+                fps
+            ) + 1;
+            if( ctx.application_name.capacity < required_space ) {
+                LD_ASSERT( dstring_reserve(
+                    &ctx.application_name,
+                    required_space + ctx.application_name.capacity
+                ) );
+            }
             snprintf(
-                stream, n,
+                ctx.application_name_writable_view.buffer - 1,
+                required_space,
                 " | %.1f FPS",
                 fps
             );
-            platform_surface_set_name(
-                &ctx.platform,
-                ctx.application_title_buffer_size,
-                ctx.application_title_buffer
-            );
+            platform_surface_set_name( &ctx.platform, ctx.application_name );
         }
 
-
         ctx.time.frame_count++;
+        semaphore_increment(
+            &ctx.thread_work_queue.on_frame_update_semaphore,
+            1, nullptr
+        );
     }
 
     event_unsubscribe(
@@ -531,9 +565,13 @@ b32 engine_run(
     semaphore_destroy(
         &ctx.thread_work_queue.wake_semaphore 
     );
+    semaphore_destroy(
+        &ctx.thread_work_queue.on_frame_update_semaphore
+    );
     mem_free( ctx.thread_handles ); 
     mem_free( ctx.thread_work_queue.threads ); 
     mem_free( ctx.thread_work_queue.work_entries ); 
+    dstring_free( &ctx.application_name );
 
     renderer_shutdown( ctx.renderer_context ); 
     platform_shutdown( &ctx.platform ); 
@@ -655,68 +693,41 @@ b32 engine_query_cursor_visibility( struct EngineContext* ctx ) {
 b32 engine_query_cursor_locked( struct EngineContext* ctx ) {
     return ctx->cursor_is_locked;
 }
-void engine_set_application_name( struct EngineContext* ctx, const char* name ) {
+void engine_set_application_name( struct EngineContext* ctx, StringView name ) {
     #define FATAL_MESSAGE()\
         LOG_FATAL( "Unable to allocate surface title buffer!" );\
         MESSAGE_BOX_FATAL(\
             "Out of Memory",\
             "No memory available for window title buffer!\n"\
             LD_CONTACT_MESSAGE\
-        );
+        );\
+        LD_PANIC()
 
-    usize name_length = str_length( name );
-    usize required_buffer_size = name_length;
-    const char* renderer_backend_name = to_string(
-        ctx->renderer_backend
-    );
-    required_buffer_size += str_length( renderer_backend_name );
-    required_buffer_size += SURFACE_TITLE_BUFFER_PADDING;
+    StringView renderer_backend_name = to_string( ctx->renderer_backend );
 
-    if( !ctx->application_title_buffer ) {
-        void* surface_title_buffer = mem_alloc(
-            required_buffer_size,
-            MEMTYPE_APPLICATION
-        );
-        if( !surface_title_buffer ) {
-            FATAL_MESSAGE();
-            SM_PANIC();
-            return;
-        }
-        ctx->application_title_buffer      = (char*)surface_title_buffer;
-        ctx->application_title_buffer_size = required_buffer_size;
-    } else if( required_buffer_size >= ctx->application_title_buffer_size ) {
-        void* surface_title_buffer = mem_realloc(
-            ctx->application_title_buffer,
-            required_buffer_size
-        );
-        if( !surface_title_buffer ) {
-            FATAL_MESSAGE();
-            SM_PANIC();
-            return;
-        }
-        ctx->application_title_buffer = (char*)surface_title_buffer;
-        ctx->application_title_buffer_size = required_buffer_size;
+    if(!dstring_format(
+        &ctx->application_name,
+        true,
+        "%.*s | %.*s",
+        name.len, name.buffer,
+        renderer_backend_name.len,
+        renderer_backend_name.buffer
+    )) {
+        FATAL_MESSAGE();
     }
 
-    snprintf(
-        ctx->application_title_buffer,
-        ctx->application_title_buffer_size,
-        "%s | %s",
-        name,
-        renderer_backend_name
+    ctx->application_name_writable_view = dstring_view_capacity_bounds(
+        &ctx->application_name, ctx->application_name.len
     );
 
-    ctx->application_title_buffer_writable_offset = str_length(
-        ctx->application_title_buffer
-    );
     platform_surface_set_name(
         &ctx->platform,
-        ctx->application_title_buffer_size,
-        ctx->application_title_buffer
+        ctx->application_name
     );
+
 }
-const char* engine_query_application_name( struct EngineContext* ctx ) {
-    return ctx->application_title_buffer;
+StringView engine_query_application_name( struct EngineContext* ctx ) {
+    return ctx->application_name;
 }
 usize engine_query_logical_processor_count( struct EngineContext* ctx ) {
     return ctx->system_info.logical_processor_count;
@@ -745,5 +756,9 @@ b32 engine_query_is_avx512_available( struct EngineContext* ctx ) {
 
 u32 thread_info_read_index( struct ThreadInfo* thread_info ) {
     return thread_info->thread_index;
+}
+
+SemaphoreHandle* thread_info_on_frame_update_semaphore( struct ThreadInfo* thread_info ) {
+    return &thread_info->work_queue->on_frame_update_semaphore;
 }
 

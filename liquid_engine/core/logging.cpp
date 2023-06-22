@@ -11,13 +11,13 @@
 #include <stdio.h>
 #include <pthread.h>
 
-#if defined( SM_COMPILER_MSVC )
+#if defined( LD_COMPILER_MSVC )
     #define VA_LIST va_list
 #else
     #define VA_LIST __builtin_va_list
 #endif
 
-#if defined(SM_PLATFORM_WINDOWS)
+#if defined(LD_PLATFORM_WINDOWS)
     #include <windows.h>
 #endif
 
@@ -57,7 +57,7 @@ internal void set_color( LogColor color ) {
 
 b32 log_init( LogLevel level ) {
     #if defined(LD_LOGGING)
-        SM_ASSERT( level <= MAX_LOG_LEVEL );
+        LD_ASSERT( level <= MAX_LOG_LEVEL );
         GLOBAL_LOG_LEVEL = level;
 
         void* logging_buffer = impl::_mem_alloc(
@@ -70,7 +70,7 @@ b32 log_init( LogLevel level ) {
 
         LOGGING_BUFFER = (char*)logging_buffer;
 
-        #if defined(SM_PLATFORM_WINDOWS)
+        #if defined(LD_PLATFORM_WINDOWS)
             HANDLE console_handle = GetStdHandle( STD_OUTPUT_HANDLE );
             if( console_handle == INVALID_HANDLE_VALUE ) {
                 return false;
@@ -107,7 +107,7 @@ void log_shutdown() {
 
     set_color( LOG_COLOR_RESET );
 
-    #if defined(SM_PLATFORM_WINDOWS) && defined(LD_OUTPUT_DEBUG_STRING)
+    #if defined(LD_PLATFORM_WINDOWS) && defined(LD_OUTPUT_DEBUG_STRING)
         OutputDebugStringA(
             "[INFO  ] Logging subsystem shutdown.\n"
         );
@@ -136,17 +136,17 @@ void log_formatted_locked(
 ) {
 #if defined(LD_LOGGING)
 
-    #if defined(SM_ASSERTIONS)
+    #if defined(LD_ASSERTIONS)
         if( !LOGGING_BUFFER ) {
             printf(
                 "LOG INIT WAS NOT CALLED BEFORE THIS LOG MESSAGE!\n"
             );
-            #if defined(SM_PLATFORM_WINDOWS) && defined(LD_OUTPUT_DEBUG_STRING)
+            #if defined(LD_PLATFORM_WINDOWS) && defined(LD_OUTPUT_DEBUG_STRING)
                 OutputDebugStringA(
                     "LOG INIT WAS NOT CALLED BEFORE THIS LOG MESSAGE!\n"
                 );
             #endif
-            SM_PANIC();
+            LD_PANIC();
         }
     #endif
 
@@ -192,7 +192,7 @@ void log_formatted_locked(
     printf( LOGGING_BUFFER );
     set_color( LOG_COLOR_RESET );
 
-    #if defined(SM_PLATFORM_WINDOWS) && defined(LD_OUTPUT_DEBUG_STRING)
+    #if defined(LD_PLATFORM_WINDOWS) && defined(LD_OUTPUT_DEBUG_STRING)
         OutputDebugStringA( LOGGING_BUFFER );
     #endif
 

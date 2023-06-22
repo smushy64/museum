@@ -5,7 +5,7 @@
 */
 #include "platform_win32.h"
 
-#if defined(SM_PLATFORM_WINDOWS)
+#if defined(LD_PLATFORM_WINDOWS)
 
 #include "core/logging.h"
 #include "core/string.h"
@@ -33,7 +33,7 @@ global char* ERROR_MESSAGE_BUFFER = nullptr;
 global b32 IS_DPI_AWARE = false;
 
 b32 platform_init(
-    const char* opt_icon_path,
+    StringView opt_icon_path,
     ivec2 surface_dimensions,
     PlatformFlags flags,
     Platform* out_platform
@@ -92,10 +92,18 @@ b32 platform_init(
     win32_platform->instance = GetModuleHandle( nullptr );
 
     HICON window_icon = nullptr;
-    if( opt_icon_path ) {
-        window_icon = (HICON)LoadImageA(
+    if( opt_icon_path.buffer ) {
+
+        str_ascii_to_wide(
+            opt_icon_path.len,
+            opt_icon_path.buffer,
+            WIDE_CONVERSION_BUFFER_SIZE,
+            win32_platform->conversion_buffer
+        );
+
+        window_icon = (HICON)LoadImage(
             nullptr,
-            opt_icon_path,
+            win32_platform->conversion_buffer,
             IMAGE_ICON,
             0, 0,
             LR_DEFAULTSIZE | LR_LOADFROMFILE
@@ -293,11 +301,13 @@ b32 platform_pump_events( Platform* platform ) {
 }
 void platform_surface_set_name(
     Platform* platform,
-    usize,
-    const char* name
+    StringView name
 ) {
     Win32Platform* win32_platform = (Win32Platform*)platform->platform;
-    SetWindowTextA( win32_platform->window.handle, name );
+    SetWindowTextA(
+        win32_platform->window.handle,
+        name.buffer
+    );
 }
 i32 platform_surface_read_name(
     Platform* platform,
@@ -864,7 +874,7 @@ SystemInfo query_system_info() {
     result.total_memory = memory_status.ullTotalPhys;
     result.logical_processor_count = win32_info.dwNumberOfProcessors;
 
-#if defined(SM_ARCH_X86)
+#if defined(LD_ARCH_X86)
     mem_set(
         ' ',
         CPU_NAME_BUFFER_SIZE,
@@ -892,10 +902,8 @@ SystemInfo query_system_info() {
         sizeof(cpu_info)
     );
 
-    str_trim_trailing_whitespace(
-        CPU_NAME_BUFFER_SIZE,
-        result.cpu_name_buffer
-    );
+    StringView cpu_name = result.cpu_name_buffer;
+    string_trim_trailing_whitespace( cpu_name );
 #endif
 
     return result;
@@ -1992,7 +2000,7 @@ u32 platform_interlocked_compare_exchange(
 
 void read_write_fence() {
     _ReadWriteBarrier();
-#if defined(SM_ARCH_X86)
+#if defined(LD_ARCH_X86)
     _mm_mfence();
 #elif
     #error "mem_fence: Platform is not supported!"
@@ -2000,7 +2008,7 @@ void read_write_fence() {
 }
 void read_fence() {
     _ReadBarrier();
-#if defined(SM_ARCH_X86)
+#if defined(LD_ARCH_X86)
     _mm_lfence();
 #elif
     #error "read_fence: Platform is not supported!"
@@ -2008,11 +2016,11 @@ void read_fence() {
 }
 void write_fence() {
     _WriteBarrier();
-#if defined(SM_ARCH_X86)
+#if defined(LD_ARCH_X86)
     _mm_sfence();
 #elif
     #error "write_fence: Platform is not supported!"
 #endif
 }
 
-#endif // SM_PLATFORM_WINDOWS
+#endif // LD_PLATFORM_WINDOWS

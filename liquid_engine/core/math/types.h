@@ -7,7 +7,7 @@
 */
 #include "defines.h"
 
-#if defined(SM_COMPILER_CLANG)
+#if defined(LD_COMPILER_CLANG)
     #pragma clang diagnostic push
     #pragma clang diagnostic ignored "-Wmissing-braces"
 #endif
@@ -735,7 +735,7 @@ inline quat operator+( quat lhs, quat rhs );
 inline quat operator-( quat lhs, quat rhs );
 inline quat operator*( quat lhs, f32 rhs );
 inline quat operator/( quat lhs, f32 rhs );
-SM_API quat operator*( quat lhs, quat rhs );
+LD_API quat operator*( quat lhs, quat rhs );
 
 namespace QUAT {
     global const usize COMPONENT_COUNT = 4;
@@ -1101,10 +1101,10 @@ namespace MAT4 {
     global const u32 CELL_COUNT   = 16;
     global const u32 COLUMN_COUNT = 4;
 };
-SM_API mat4 operator+( const mat4& lhs, const mat4& rhs );
-SM_API mat4 operator-( const mat4& lhs, const mat4& rhs );
-SM_API mat4 operator*( const mat4& lhs, f32 rhs );
-SM_API mat4 operator/( const mat4& lhs, f32 rhs );
+LD_API mat4 operator+( const mat4& lhs, const mat4& rhs );
+LD_API mat4 operator-( const mat4& lhs, const mat4& rhs );
+LD_API mat4 operator*( const mat4& lhs, f32 rhs );
+LD_API mat4 operator/( const mat4& lhs, f32 rhs );
 /// column-major 4x4 32-bit float matrix
 union mat4 {
     struct {
@@ -1173,13 +1173,13 @@ namespace MAT4 {
     };
 } // namespace MAT4
 /// Pointer to matrix value.
-SM_ALWAYS_INLINE f32* value_pointer( const mat4& m ) {
+LD_ALWAYS_INLINE f32* value_pointer( const mat4& m ) {
     return (f32*)&m.m00;
 }
 /// Create a zero matrix.
-SM_ALWAYS_INLINE mat4 m4() { return {}; }
+LD_ALWAYS_INLINE mat4 m4() { return {}; }
 /// Create a matrix from given values.
-SM_ALWAYS_INLINE mat4 m4(
+LD_ALWAYS_INLINE mat4 m4(
     f32 m00, f32 m01, f32 m02, f32 m03,
     f32 m10, f32 m11, f32 m12, f32 m13,
     f32 m20, f32 m21, f32 m22, f32 m23,
@@ -1235,7 +1235,7 @@ inline vec4 operator*( const mat4& lhs, vec4 rhs ) {
     };
 }
 
-#if defined(SM_COMPILER_CLANG) && !defined(_CLANGD)
+#if defined(LD_COMPILER_CLANG) && !defined(_CLANGD)
     #pragma clang diagnostic pop
 #endif
 

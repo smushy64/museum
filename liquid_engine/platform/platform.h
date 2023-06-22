@@ -8,6 +8,8 @@
 #include "defines.h"
 #include "core/math/types.h"
 #include "core/input.h"
+#include "core/engine.h"
+#include "core/string.h"
 #include "flags.h"
 
 /// Platform independent drawing surface
@@ -28,7 +30,7 @@ struct Platform {
 };
 /// Initialize platform state. Returns true if successful.
 b32 platform_init(
-    const char* opt_icon_path,
+    StringView opt_icon_path,
     ivec2 surface_dimensions,
     PlatformFlags flags,
     Platform* out_platform
@@ -42,11 +44,11 @@ f64 platform_read_seconds_elapsed( Platform* platform );
 /// Pump platform events.
 b32 platform_pump_events( Platform* platform );
 /// Set platform surface name.
+/// StringView MUST have a null-terminator
 /// Does nothing on platforms that don't use windows.
 void platform_surface_set_name(
     Platform* platform,
-    usize name_length,
-    const char* name
+    StringView name
 );
 /// Read platform surface name.
 /// Returns:
@@ -56,40 +58,6 @@ i32 platform_surface_read_name(
     Platform* platform,
     char* buffer, usize max_buffer_size
 );
-#if !defined(CURSOR_STYLES_DEFINED)
-#define CURSOR_STYLES_DEFINED
-/// Supported cursor styles
-enum CursorStyle : u32 {
-    CURSOR_ARROW,
-    CURSOR_RESIZE_VERTICAL,
-    CURSOR_RESIZE_HORIZONTAL,
-    CURSOR_RESIZE_TOP_RIGHT_BOTTOM_LEFT,
-    CURSOR_RESIZE_TOP_LEFT_BOTTOM_RIGHT,
-    CURSOR_BEAM,
-    CURSOR_CLICK,
-    CURSOR_WAIT,
-    CURSOR_FORBIDDEN,
-
-    CURSOR_COUNT
-};
-#endif
-inline const char* to_string( CursorStyle cursor_style ) {
-    const char* strings[CURSOR_COUNT] = {
-        "Arrow",
-        "Resize Vertical",
-        "Resize Horizontal",
-        "Resize Top Right Bottom Left",
-        "Resize Top Left Bottom Right",
-        "Beam",
-        "Click",
-        "Wait",
-        "Forbidden",
-    };
-    if( cursor_style >= CURSOR_COUNT ) {
-        return "Unknown";
-    }
-    return strings[cursor_style];
-}
 /// Set cursor style.
 /// Does nothing on platforms that don't use a cursor.
 void platform_cursor_set_style(

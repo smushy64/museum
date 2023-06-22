@@ -165,7 +165,7 @@ DEFINE_GL_FUNCTION( void, glDebugMessageCallback, DEBUGPROC, void* );
 
 #define IMPL_GL_FUNCTION( return_value, name, ... )\
     [[maybe_unused]]\
-    SM_ALWAYS_INLINE return_value\
+    LD_ALWAYS_INLINE return_value\
     name( __VA_ARGS__ )
 
 } // namespace impl

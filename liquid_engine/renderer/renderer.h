@@ -8,19 +8,8 @@
 #include "defines.h"
 #include "core/logging.h"
 #include "core/graphics.h"
-
-#if !defined(RENDERER_BACKEND_DEFINED)
-#define RENDERER_BACKEND_DEFINED
-enum RendererBackend : u32 {
-    BACKEND_OPENGL,
-    BACKEND_VULKAN,
-    BACKEND_DX11,
-    BACKEND_DX12,
-
-    BACKEND_COUNT
-};
-const char* to_string( RendererBackend backend );
-#endif
+#include "core/engine.h"
+#include "core/string.h"
 
 typedef void (*RendererBackendShutdownFn)(
     struct RendererContext* ctx
@@ -60,7 +49,7 @@ struct RenderOrder {
 };
 
 RendererContext* renderer_init(
-    const char*      app_name,
+    StringView       app_name,
     RendererBackend  backend,
     struct Platform* platform
 );

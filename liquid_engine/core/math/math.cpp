@@ -6,11 +6,11 @@
 #include "types.h"
 #include "type_functions.h"
 
-#if defined(SM_ARCH_X86) && SM_SIMD_WIDTH != 1
+#if defined(LD_ARCH_X86) && LD_SIMD_WIDTH != 1
     #include <immintrin.h>
 #endif
 
-#if SM_SIMD_WIDTH == 1
+#if LD_SIMD_WIDTH == 1
 
 quat operator*( quat lhs, quat rhs ) {
     return {
@@ -138,9 +138,9 @@ mat4 operator*( const mat4& lhs, const mat4& rhs ) {
 
 #endif // scalar
 
-#if SM_SIMD_WIDTH >= 4
+#if LD_SIMD_WIDTH >= 4
 
-#if defined( SM_ARCH_X86 )
+#if defined( LD_ARCH_X86 )
 
 static const __m128 negate_first128 = _mm_setr_ps(
     -1.0f,
