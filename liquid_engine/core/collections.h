@@ -225,26 +225,26 @@ LD_API void _list_free_trace(
 #define list_clear(list)\
     ::impl::_list_field_write(\
         list,\
-        ::impl::LIST_FIELD_COUNT,\
+        LIST_FIELD_COUNT,\
         0\
     )\
 
 #define list_count(list)\
     ::impl::_list_field_read(\
         list,\
-        ::impl::LIST_FIELD_COUNT\
+        LIST_FIELD_COUNT\
     )
 
 #define list_capacity(list)\
     ::impl::_list_field_read(\
         list,\
-        ::impl::LIST_FIELD_CAPACITY\
+        LIST_FIELD_CAPACITY\
     )
 
 #define list_stride(list)\
     ::impl::_list_field_read(\
         list,\
-        ::impl::LIST_FIELD_STRIDE\
+        LIST_FIELD_STRIDE\
     )
 
 #define list_size(list)\
@@ -253,7 +253,7 @@ LD_API void _list_free_trace(
 #define list_set_count(list, value)\
     ::impl::_list_field_write(\
         list,\
-        ::impl::LIST_FIELD_COUNT,\
+        LIST_FIELD_COUNT,\
         value\
     )
 

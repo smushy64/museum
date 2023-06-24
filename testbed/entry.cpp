@@ -3,7 +3,7 @@
 // * File Created: June 21, 2023
 #include "entry.h"
 #include <core/collections.h>
-#include <core/events.h>
+#include <core/event.h>
 #include <core/input.h>
 
 b32 entry(
@@ -21,7 +21,7 @@ b32 entry(
 
     if( input_is_key_down( KEY_ESCAPE ) ) {
         Event event = {};
-        event.code  = EVENT_CODE_APP_EXIT;
+        event.code  = EVENT_CODE_EXIT;
         event_fire( event );
     }
     return true;

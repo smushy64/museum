@@ -11,7 +11,7 @@
 #include "core/string.h"
 #include "core/memory.h"
 #include "core/collections.h"
-#include "core/events.h"
+#include "core/event.h"
 #include "core/math.h"
 #include "core/engine.h"
 
@@ -348,11 +348,6 @@ void platform_cursor_set_style(
     SetCursor(
         LoadCursor( nullptr, win32_style )
     );
-
-    Event event = {};
-    event.code = EVENT_CODE_MOUSE_CURSOR_STYLE_CHANGED;
-    event.data.raw.uint32[0] = cursor_style;
-    event_fire( event );
 }
 void platform_cursor_set_visible( Platform* platform, b32 visible ) {
     Win32Platform* win32_platform = (Win32Platform*)platform->platform;
@@ -420,9 +415,10 @@ void platform_poll_gamepad( Platform* platform ) {
         );
         // if gamepad activated this frame, fire an event
         b32 was_active = input_pad_is_active( gamepad_index );
-        if( was_active != is_active && is_active ) {
-            event.code = EVENT_CODE_GAMEPAD_ACTIVATE;
-            event.data.gamepad_activate.gamepad_index = gamepad_index;
+        if( was_active != is_active ) {
+            event.code = EVENT_CODE_GAMEPAD_ACTIVE;
+            event.data.uint32[0] = gamepad_index;
+            event.data.bool32[1] = is_active;
             event_fire( event );
         }
         input_set_pad_active( gamepad_index, is_active );
@@ -928,7 +924,7 @@ LRESULT win32_winproc(
     Event event = {};
     switch( Msg ) {
         case WM_DESTROY: {
-            event.code = EVENT_CODE_SURFACE_DESTROY;
+            event.code = EVENT_CODE_EXIT;
             event_fire( event );
         } break;
 
@@ -937,8 +933,8 @@ LRESULT win32_winproc(
                 wParam == WA_CLICKACTIVE;
 
             XInputEnable( (BOOL)is_active );
-            event.code = EVENT_CODE_SURFACE_ACTIVE;
-            event.data.surface_active.is_active = is_active;
+            event.code = EVENT_CODE_ACTIVE;
+            event.data.bool32[0] = is_active;
             event_fire( event );
 
             if( !is_active ) {
@@ -966,8 +962,9 @@ LRESULT win32_winproc(
                 };
 
                 platform->surface.dimensions = dimensions;
-                event.code = EVENT_CODE_SURFACE_RESIZE;
-                event.data.surface_resize.dimensions = dimensions;
+                event.code = EVENT_CODE_RESIZE;
+                event.data.int32[0] = dimensions.width;
+                event.data.int32[1] = dimensions.height;
                 event_fire( event );
 
                 last_rect = rect;

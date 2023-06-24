@@ -6,7 +6,6 @@
 #include "input.h"
 #include "logging.h"
 #include "memory.h"
-#include "events.h"
 #include "platform/platform.h"
 
 #define KEY_STATE_COUNT 255

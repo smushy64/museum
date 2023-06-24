@@ -7,7 +7,7 @@
 #include "platform/threading.h"
 #include "renderer/renderer.h"
 #include "threading.h"
-#include "events.h"
+#include "event.h"
 #include "logging.h"
 #include "input.h"
 #include "time.h"
@@ -68,20 +68,14 @@ struct EngineContext {
     b8 pause_on_surface_inactive; // 1
 };
 
-EventCallbackReturnCode on_app_exit( Event*, void* void_ctx ) {
+EventCallbackReturn on_app_exit( Event*, void* void_ctx ) {
     EngineContext* ctx = (EngineContext*)void_ctx;
     ctx->is_running    = false;
     return EVENT_CALLBACK_CONSUMED;
 }
 
-EventCallbackReturnCode on_destroy( Event*, void* void_ctx ) {
-    EngineContext* ctx = (EngineContext*)void_ctx;
-    ctx->is_running = false;
-    return EVENT_CALLBACK_CONSUMED;
-}
-
-EventCallbackReturnCode on_active( Event* event, void* ) {
-    b32 is_active = event->data.surface_active.is_active;
+EventCallbackReturn on_active( Event* event, void* ) {
+    b32 is_active = event->data.bool32[0];
     if( is_active ) {
         LOG_NOTE("Surface activated.");
     } else {
@@ -90,13 +84,11 @@ EventCallbackReturnCode on_active( Event* event, void* ) {
     return EVENT_CALLBACK_CONSUMED;
 }
 
-EventCallbackReturnCode on_resize( Event* event, void* void_ctx ) {
+EventCallbackReturn on_resize( Event* event, void* void_ctx ) {
     EngineContext* ctx = (EngineContext*)void_ctx;
-    renderer_on_resize(
-        ctx->renderer_context,
-        event->data.surface_resize.width,
-        event->data.surface_resize.height
-    );
+    i32 width  = event->data.int32[0];
+    i32 height = event->data.int32[1];
+    renderer_on_resize( ctx->renderer_context, width, height );
     return EVENT_CALLBACK_NOT_CONSUMED;
 }
 
@@ -148,11 +140,17 @@ b32 engine_run(
         LIQUID_ENGINE_VERSION_MINOR
     );
 
-
     ctx.application_name_view.len    = APPLICATION_NAME_BUFFER_SIZE;
     ctx.application_name_view.buffer = APPLICATION_NAME_BUFFER;
 
-    if( !event_init() ) {
+    u32 event_subsystem_data_size = event_subsystem_size();
+    void* event_subsystem_data    = stack_arena_push_item(
+        &ctx.arena,
+        event_subsystem_data_size
+    );
+    LD_ASSERT( event_subsystem_data );
+
+    if( !event_init( event_subsystem_data ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
             "Failed to initialize event subsystem!\n "
@@ -373,8 +371,8 @@ b32 engine_run(
     }
 
     if(!event_subscribe(
-        EVENT_CODE_SURFACE_DESTROY,
-        on_destroy,
+        EVENT_CODE_EXIT,
+        on_app_exit,
         &ctx
     )) {
         MESSAGE_BOX_FATAL(
@@ -385,7 +383,7 @@ b32 engine_run(
         return false;
     }
     if(!event_subscribe(
-        EVENT_CODE_SURFACE_ACTIVE,
+        EVENT_CODE_ACTIVE,
         on_active,
         &ctx
     )) {
@@ -397,20 +395,8 @@ b32 engine_run(
         return false;
     }
     if(!event_subscribe(
-        EVENT_CODE_SURFACE_RESIZE,
+        EVENT_CODE_RESIZE,
         on_resize,
-        &ctx
-    )) {
-        MESSAGE_BOX_FATAL(
-            "Subsystem Failure",
-            "Failed to initialize event subsystem!\n "
-            LD_CONTACT_MESSAGE
-        );
-        return false;
-    }
-    if(!event_subscribe(
-        EVENT_CODE_APP_EXIT,
-        on_app_exit,
         &ctx
     )) {
         MESSAGE_BOX_FATAL(
@@ -467,7 +453,7 @@ b32 engine_run(
         ) {
             if( input_is_key_down( KEY_F4 ) ) {
                 Event event = {};
-                event.code  = EVENT_CODE_APP_EXIT;
+                event.code  = EVENT_CODE_EXIT;
                 event_fire( event );
             }
         }
@@ -513,27 +499,6 @@ b32 engine_run(
             1, nullptr
         );
     }
-
-    event_unsubscribe(
-        EVENT_CODE_SURFACE_DESTROY,
-        on_destroy,
-        &ctx
-    );
-    event_unsubscribe(
-        EVENT_CODE_SURFACE_ACTIVE,
-        on_active,
-        &ctx
-    );
-    event_unsubscribe(
-        EVENT_CODE_SURFACE_RESIZE,
-        on_resize,
-        &ctx
-    );
-    event_unsubscribe(
-        EVENT_CODE_APP_EXIT,
-        on_app_exit,
-        &ctx
-    );
 
     ctx.is_running = false; 
 
