@@ -124,6 +124,32 @@ LD_API b32 dstring_format(
 
     return true;
 }
+LD_API u32 string_view_format(
+    StringView string_view,
+    const char* format,
+    ...
+) {
+    va_list va;
+    va_start( va, format );
+    if( !string_view.len ) {
+        int required_size = vsnprintf(
+            0, 0,
+            format,
+            va
+        );
+        va_end(va);
+        return (u32)required_size;
+    } else {
+        int required_size = vsnprintf(
+            string_view.buffer,
+            string_view.len,
+            format,
+            va
+        );
+        va_end( va );
+        return (u32)required_size;
+    }
+}
 
 inline internal b32 string_cmp_internal(
     u32 a_len, const char* a_buffer,
@@ -303,6 +329,16 @@ LD_API void str_ascii_to_wide(
         dst_buffer[i] = (wchar_t)str_buffer[i];
     }
     dst_buffer[max - 1] = 0;
+}
+LD_API void str_buffer_fill(
+    u32 buffer_size,
+    char* buffer,
+    char character
+) {
+    for( u32 i = 0; i < buffer_size; ++i ) {
+        buffer[i] = character;
+    }
+    buffer[buffer_size - 1] = 0;
 }
 
 isize format_bytes(

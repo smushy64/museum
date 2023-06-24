@@ -100,7 +100,7 @@ LD_API u32 engine_query_cursor_style( struct EngineContext* ctx );
 LD_API b32 engine_query_cursor_visibility( struct EngineContext* ctx );
 /// Query cursor lock mode.
 LD_API b32 engine_query_cursor_locked( struct EngineContext* ctx );
-/// Set application name.
+/// Set application name. Application name cannot exceed 255 length.
 LD_API void engine_set_application_name( struct EngineContext* ctx, StringView name );
 /// Query application name.
 LD_API StringView engine_query_application_name( struct EngineContext* ctx );

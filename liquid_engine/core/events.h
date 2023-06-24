@@ -30,17 +30,7 @@ enum EventCode : u32 {
     EVENT_CODE_SURFACE_RESIZE,
     EVENT_CODE_SURFACE_MOVE,
 
-    EVENT_CODE_INPUT_KEY,
-    EVENT_CODE_INPUT_MOUSE_BUTTON,
-    EVENT_CODE_INPUT_MOUSE_MOVE,
-    EVENT_CODE_INPUT_MOUSE_WHEEL,
-    EVENT_CODE_INPUT_HORIZONTAL_MOUSE_WHEEL,
-    EVENT_CODE_INPUT_GAMEPAD_BUTTON,
-    EVENT_CODE_INPUT_GAMEPAD_STICK_LEFT,
-    EVENT_CODE_INPUT_GAMEPAD_STICK_RIGHT,
-    EVENT_CODE_INPUT_GAMEPAD_TRIGGER_LEFT,
-    EVENT_CODE_INPUT_GAMEPAD_TRIGGER_RIGHT,
-    EVENT_CODE_INPUT_GAMEPAD_ACTIVATE,
+    EVENT_CODE_GAMEPAD_ACTIVATE,
 
     EVENT_CODE_MOUSE_CURSOR_STYLE_CHANGED,
 
@@ -105,36 +95,8 @@ struct Event {
         } surface_move;
 
         struct {
-            KeyCode code;
-            b32     is_down;
-        } keyboard;
-        struct {
-            MouseCode code;
-            b32       is_down;
-        } mouse_button;
-        union {
-            struct { i32 x, y; };
-            ivec2 coord;
-        } mouse_move;
-        struct {
-            i32 delta;
-        } mouse_wheel;
-        struct {
             u32 gamepad_index;
         } gamepad_activate;
-        struct {
-            PadCode code;
-            u8      gamepad_index;
-            b32     is_down;
-        } gamepad_button;
-        struct {
-            f32 value;
-            u8  gamepad_index;
-        } gamepad_trigger;
-        struct {
-            vec2 value;
-            u8   gamepad_index;
-        } gamepad_stick;
     } data;
 };
 /// Fire an event.
@@ -160,16 +122,6 @@ inline const char* engine_event_code_to_string(
         "Event Surface Resize",
         "Event Surface Move",
 
-        "Event Input Key",
-        "Event Mouse Button",
-        "Event Mouse Move",
-        "Event Mouse Wheel",
-        "Event Mouse Horizontal Wheel",
-        "Event Gamepad Button",
-        "Event Gamepad Stick Left",
-        "Event Gamepad Stick Right",
-        "Event Gamepad Trigger Left",
-        "Event Gamepad Trigger Right",
         "Event Gamepad Activate",
         "Event Mouse Cursor Changed"
     };

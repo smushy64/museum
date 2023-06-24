@@ -48,10 +48,13 @@ struct RenderOrder {
     struct Time* time;
 };
 
-RendererContext* renderer_init(
+u32 renderer_backend_size( RendererBackend backend );
+b32 renderer_init(
     StringView       app_name,
     RendererBackend  backend,
-    struct Platform* platform
+    struct Platform* platform,
+    u32 storage_size,
+    RendererContext* storage
 );
 void renderer_shutdown( RendererContext* ctx );
 void renderer_on_resize(

@@ -7,19 +7,38 @@
 #include "opengl/gl_backend.h"
 #include "core/time.h"
 
-RendererContext* renderer_init(
+u32 renderer_backend_size( RendererBackend backend ) {
+    local const u32 sizes[] = {
+        sizeof(OpenGLRendererContext),
+        0, // Vulkan
+        0, // DX11
+        0, // DX12
+    };
+    if( backend >= RENDERER_BACKEND_COUNT ) {
+        return 0;
+    }
+    return sizes[backend];
+}
+
+b32 renderer_init(
     StringView       app_name,
     RendererBackend  backend,
-    struct Platform* platform
+    struct Platform* platform,
+    u32 storage_size,
+    RendererContext* storage
 ) {
     LD_ASSERT( platform );
+    LD_ASSERT( storage );
 
-    RendererContext* result = nullptr;
+    storage->platform = platform;
     switch( backend ) {
         case RENDERER_BACKEND_OPENGL: {
-            result = gl_renderer_backend_initialize( platform );
-            if( !result ) {
-                return nullptr;
+            if( storage_size != sizeof(OpenGLRendererContext) ) {
+                LOG_FATAL( "Renderer Context buffer is not the right size!" );
+                return false;
+            }
+            if( !gl_renderer_backend_initialize( storage ) ) {
+                return false;
             }
         } break;
         default: {
@@ -29,12 +48,11 @@ RendererContext* renderer_init(
                 to_string(backend)
             );
             LD_PANIC();
-        } return nullptr;
+        } return false;
     }
 
-    result->platform = platform;
 
-    return result;
+    return true;
 }
 void renderer_shutdown( RendererContext* ctx ) {
     ctx->backend_shutdown( ctx );

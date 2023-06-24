@@ -40,15 +40,18 @@ struct ThreadWorkQueue {
     volatile u32 pending_work_count;
 };
 
-#define SURFACE_TITLE_BUFFER_PADDING 32
+#define APPLICATION_NAME_BUFFER_SIZE 255
+char APPLICATION_NAME_BUFFER[APPLICATION_NAME_BUFFER_SIZE] = {};
+
 struct EngineContext {
     SystemInfo       system_info;       // 88 
     ThreadWorkQueue  thread_work_queue; // 48
     Platform         platform;          // 32
     Time             time;              // 16
+    StackArena       arena; // 16
     RendererContext* renderer_context;  // 8
 
-    String application_name;
+    StringView application_name_view;
     StringView application_name_writable_view;
 
     ThreadHandle* thread_handles; // 8
@@ -97,20 +100,6 @@ EventCallbackReturnCode on_resize( Event* event, void* void_ctx ) {
     return EVENT_CALLBACK_NOT_CONSUMED;
 }
 
-EventCallbackReturnCode on_f4( Event* event, void* ) {
-    if( event->data.keyboard.code == KEY_F4 ) {
-        if(
-            input_is_key_down( KEY_ALT_LEFT ) ||
-            input_is_key_down( KEY_ALT_RIGHT )
-        ) {
-            Event event = {};
-            event.code = EVENT_CODE_APP_EXIT;
-            event_fire( event );
-        }
-    }
-    return EVENT_CALLBACK_NOT_CONSUMED;
-}
-
 internal ThreadReturnCode thread_proc( void* user_params );
 
 b32 engine_run(
@@ -123,15 +112,34 @@ b32 engine_run(
     unused(argc);
     unused(argv);
 
-#if defined(LD_LOGGING)
-    if( !log_init( config->log_level ) ) {
-        MESSAGE_BOX_FATAL(
+    EngineContext ctx = {};
+    u32 stack_arena_size = MEGABYTES(1) / 2;
+    if( !stack_arena_create( stack_arena_size, MEMTYPE_ENGINE, &ctx.arena ) ) {
+        LOG_FATAL(
             "Subsystem Failure",
-            "Failed to initialize logging subsystem!\n "
-            LD_CONTACT_MESSAGE
+            "Failed to create stack arena! Requested size: %u",
+            stack_arena_size
         );
         return false;
     }
+
+#if defined(LD_LOGGING)
+
+    if( !is_log_initialized() ) {
+        StringView logging_buffer = {};
+        logging_buffer.len = KILOBYTES(1);
+        logging_buffer.buffer =
+            (char*)stack_arena_push_item( &ctx.arena, logging_buffer.len );
+        if( !log_init( config->log_level, logging_buffer ) ) {
+            MESSAGE_BOX_FATAL(
+                "Subsystem Failure",
+                "Failed to initialize logging subsystem!\n "
+                LD_CONTACT_MESSAGE
+            );
+            return false;
+        }
+    }
+
 #endif
 
     LD_ASSERT( application_run );
@@ -140,22 +148,26 @@ b32 engine_run(
         LIQUID_ENGINE_VERSION_MINOR
     );
 
-    EngineContext ctx = {};
 
-    #define ENGINE_APPLICATION_NAME_DEFAULT_BUFFER_SIZE 256
-    u32 allocation_size = ENGINE_APPLICATION_NAME_DEFAULT_BUFFER_SIZE;
-    if( config->application_name.len > allocation_size ) {
-        allocation_size = config->application_name.len;
-    }
-    if(!dstring_with_capacity( allocation_size, &ctx.application_name )) {
+    ctx.application_name_view.len    = APPLICATION_NAME_BUFFER_SIZE;
+    ctx.application_name_view.buffer = APPLICATION_NAME_BUFFER;
+
+    if( !event_init() ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
-            "Failed to allocate application name buffer!\n "
+            "Failed to initialize event subsystem!\n "
             LD_CONTACT_MESSAGE
         );
         return false;
     }
-    dstring_append( &ctx.application_name, config->application_name, false );
+
+    u32 platform_ctx_size = platform_context_size();
+    ctx.platform.platform = stack_arena_push_item( &ctx.arena, platform_ctx_size );
+    LOG_ASSERT(
+        ctx.platform.platform,
+        "Stack Arena of size %u is not enough to initialize engine!",
+        ctx.arena.arena_size
+    );
 
     if( !platform_init(
         config->opt_application_icon_path,
@@ -170,19 +182,31 @@ b32 engine_run(
         );
         return false;
     }
-    engine_set_application_name( &ctx, ctx.application_name );
+    engine_set_application_name( &ctx, config->application_name );
 
     ctx.pause_on_surface_inactive = ARE_BITS_SET(
         config->platform_flags,
         PLATFORM_PAUSE_ON_SURFACE_INACTIVE
     );
     ctx.renderer_backend = config->renderer_backend;
-    ctx.renderer_context = renderer_init(
+    u32 renderer_ctx_size = renderer_backend_size( ctx.renderer_backend );
+    RendererContext* renderer_ctx_buffer =
+        (RendererContext*)stack_arena_push_item( &ctx.arena, renderer_ctx_size );
+    LOG_ASSERT(
+        renderer_ctx_buffer,
+        "Stack Arena of size %u is not enough to initialize engine!",
+        ctx.arena.arena_size
+    );
+
+    ctx.renderer_context = renderer_ctx_buffer;
+
+    if( !renderer_init(
         config->application_name,
         config->renderer_backend,
-        &ctx.platform
-    );
-    if( !ctx.renderer_context ) {
+        &ctx.platform,
+        renderer_ctx_size,
+        ctx.renderer_context
+    ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
             "Failed to initialize rendering subsystem!\n "
@@ -190,35 +214,26 @@ b32 engine_run(
         );
         return false;
     }
+
     ctx.system_info = query_system_info();
 
     u32 thread_count = ctx.system_info.logical_processor_count;
     thread_count = (thread_count == 1 ? thread_count : thread_count - 1);
 
-    ctx.thread_work_queue.threads = (ThreadInfo*)mem_alloc(
-        sizeof(ThreadInfo) * thread_count,
-        MEMTYPE_THREADING
+    ctx.thread_work_queue.threads = (ThreadInfo*)stack_arena_push_item(
+        &ctx.arena, sizeof(ThreadInfo) * thread_count
     );
-    ctx.thread_work_queue.work_entries = (ThreadWorkEntry*)mem_alloc(
-        sizeof(ThreadWorkEntry) * THREAD_WORK_ENTRY_COUNT,
-        MEMTYPE_THREADING
+    ctx.thread_work_queue.work_entries = (ThreadWorkEntry*)stack_arena_push_item(
+        &ctx.arena, sizeof(ThreadWorkEntry) * THREAD_WORK_ENTRY_COUNT
     );
-    ctx.thread_handles = (ThreadHandle*)mem_alloc(
-        sizeof( ThreadHandle ) * thread_count,
-        MEMTYPE_THREADING
+    ctx.thread_handles = (ThreadHandle*)stack_arena_push_item(
+        &ctx.arena, sizeof(ThreadHandle) * thread_count
     );
-    if(
-        !ctx.thread_work_queue.threads ||
-        !ctx.thread_work_queue.work_entries ||
-        !ctx.thread_handles
-    ) {
-        MESSAGE_BOX_FATAL(
-            "Subsytem Failure - Out of Memory",
-            "Failed to allocate memory for worker threads!\n "
-            LD_CONTACT_MESSAGE
-        );
-        return false;
-    }
+    LD_ASSERT(
+        ctx.thread_work_queue.threads &&
+        ctx.thread_work_queue.work_entries &&
+        ctx.thread_handles
+    );
     ctx.thread_work_queue.work_entry_count = THREAD_WORK_ENTRY_COUNT;
 
     if(!semaphore_create(
@@ -279,7 +294,7 @@ b32 engine_run(
         );
         return false;
     }
-    LOG_NOTE( "Instantiated %llu threads.", thread_count );
+    LOG_NOTE( "Instantiated %u threads.", thread_count );
 
     read_write_fence();
 
@@ -304,11 +319,11 @@ b32 engine_run(
     b32 avx512 = engine_query_is_avx512_available( &ctx );
     ProcessorFeatures features = ctx.system_info.features;
     if( LD_SIMD_WIDTH == 4 && !sse ) {
-        local const usize ERROR_MESSAGE_SIZE = 0xFF;
+        #define ERROR_MESSAGE_SIZE 256
         char error_message_buffer[ERROR_MESSAGE_SIZE];
-        snprintf( 
+        str_buffer_fill( ERROR_MESSAGE_SIZE, error_message_buffer, ' ' );
+        string_view_format(
             error_message_buffer,
-            ERROR_MESSAGE_SIZE,
             "Your CPU does not support SSE instructions!\n"
             "Missing instructions: %s%s%s%s%s%s",
             ARE_BITS_SET(features, SSE_MASK)    ? "" : "SSE, ",
@@ -318,10 +333,7 @@ b32 engine_run(
             ARE_BITS_SET(features, SSE4_1_MASK) ? "" : "SSE4.1, ",
             ARE_BITS_SET(features, SSE4_2_MASK) ? "" : "SSE4.2"
         );
-        MESSAGE_BOX_FATAL(
-            "Missing instructions.",
-            error_message_buffer
-        );
+        MESSAGE_BOX_FATAL( "Missing instructions.", error_message_buffer );
         return false;
     }
 
@@ -346,16 +358,11 @@ b32 engine_run(
     LOG_NOTE("Memory: %6.3f GB",
         MB_TO_GB( KB_TO_MB( BYTES_TO_KB( ctx.system_info.total_memory ) ) )
     );
+
+    LOG_NOTE("Engine stack arena pointer: %u", ctx.arena.stack_pointer);
 #endif
 
-    if( !event_init() ) {
-        MESSAGE_BOX_FATAL(
-            "Subsystem Failure",
-            "Failed to initialize event subsystem!\n "
-            LD_CONTACT_MESSAGE
-        );
-        return false;
-    }
+
     if( !input_init( &ctx.platform ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
@@ -392,18 +399,6 @@ b32 engine_run(
     if(!event_subscribe(
         EVENT_CODE_SURFACE_RESIZE,
         on_resize,
-        &ctx
-    )) {
-        MESSAGE_BOX_FATAL(
-            "Subsystem Failure",
-            "Failed to initialize event subsystem!\n "
-            LD_CONTACT_MESSAGE
-        );
-        return false;
-    }
-    if(!event_subscribe(
-        EVENT_CODE_INPUT_KEY,
-        on_f4,
         &ctx
     )) {
         MESSAGE_BOX_FATAL(
@@ -467,6 +462,16 @@ b32 engine_run(
             continue;
         }
 
+        if( input_is_key_down( KEY_ALT_LEFT ) ||
+            input_is_key_down(KEY_ALT_RIGHT)
+        ) {
+            if( input_is_key_down( KEY_F4 ) ) {
+                Event event = {};
+                event.code  = EVENT_CODE_APP_EXIT;
+                event_fire( event );
+            }
+        }
+
         if( ctx.cursor_is_locked ) {
             platform_cursor_center( &ctx.platform );
         }
@@ -502,29 +507,6 @@ b32 engine_run(
             return false;
         }
 
-        if( ctx.time.frame_count % UPDATE_FRAME_RATE_COUNTER_RATE == 0 ) {
-            f32 fps = ctx.time.delta_seconds == 0.0f ?
-                0.0f : 1.0f / ctx.time.delta_seconds;
-            u32 required_space = (u32)snprintf(
-                0, 0,
-                " | %.1f FPS",
-                fps
-            ) + 1;
-            if( ctx.application_name.capacity < required_space ) {
-                LD_ASSERT( dstring_reserve(
-                    &ctx.application_name,
-                    required_space + ctx.application_name.capacity
-                ) );
-            }
-            snprintf(
-                ctx.application_name_writable_view.buffer - 1,
-                required_space,
-                " | %.1f FPS",
-                fps
-            );
-            platform_surface_set_name( &ctx.platform, ctx.application_name );
-        }
-
         ctx.time.frame_count++;
         semaphore_increment(
             &ctx.thread_work_queue.on_frame_update_semaphore,
@@ -548,17 +530,13 @@ b32 engine_run(
         &ctx
     );
     event_unsubscribe(
-        EVENT_CODE_INPUT_KEY,
-        on_f4,
-        &ctx
-    );
-    event_unsubscribe(
         EVENT_CODE_APP_EXIT,
         on_app_exit,
         &ctx
     );
 
     ctx.is_running = false; 
+
     event_shutdown();
     input_shutdown();
 
@@ -568,13 +546,11 @@ b32 engine_run(
     semaphore_destroy(
         &ctx.thread_work_queue.on_frame_update_semaphore
     );
-    mem_free( ctx.thread_handles ); 
-    mem_free( ctx.thread_work_queue.threads ); 
-    mem_free( ctx.thread_work_queue.work_entries ); 
-    dstring_free( &ctx.application_name );
 
     renderer_shutdown( ctx.renderer_context ); 
     platform_shutdown( &ctx.platform ); 
+    stack_arena_free( &ctx.arena );
+
     log_shutdown();
     platform_exit();
 
@@ -694,40 +670,22 @@ b32 engine_query_cursor_locked( struct EngineContext* ctx ) {
     return ctx->cursor_is_locked;
 }
 void engine_set_application_name( struct EngineContext* ctx, StringView name ) {
-    #define FATAL_MESSAGE()\
-        LOG_FATAL( "Unable to allocate surface title buffer!" );\
-        MESSAGE_BOX_FATAL(\
-            "Out of Memory",\
-            "No memory available for window title buffer!\n"\
-            LD_CONTACT_MESSAGE\
-        );\
-        LD_PANIC()
-
     StringView renderer_backend_name = to_string( ctx->renderer_backend );
 
-    if(!dstring_format(
-        &ctx->application_name,
-        true,
+    string_view_format(
+        ctx->application_name_view,
         "%.*s | %.*s",
         name.len, name.buffer,
-        renderer_backend_name.len,
-        renderer_backend_name.buffer
-    )) {
-        FATAL_MESSAGE();
-    }
-
-    ctx->application_name_writable_view = dstring_view_capacity_bounds(
-        &ctx->application_name, ctx->application_name.len
+        renderer_backend_name.len, renderer_backend_name.buffer
     );
 
     platform_surface_set_name(
         &ctx->platform,
-        ctx->application_name
+        ctx->application_name_view
     );
-
 }
 StringView engine_query_application_name( struct EngineContext* ctx ) {
-    return ctx->application_name;
+    return ctx->application_name_view;
 }
 usize engine_query_logical_processor_count( struct EngineContext* ctx ) {
     return ctx->system_info.logical_processor_count;

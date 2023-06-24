@@ -12,6 +12,8 @@
 #include "core/string.h"
 #include "flags.h"
 
+#define MAX_PLATFORM_SURFACE_TITLE_SIZE 255
+
 /// Platform independent drawing surface
 struct Surface {
     union {
@@ -28,6 +30,8 @@ struct Platform {
 
     b32 is_active;
 };
+/// Returns how many bytes the current platform requires.
+u32 platform_context_size();
 /// Initialize platform state. Returns true if successful.
 b32 platform_init(
     StringView opt_icon_path,
@@ -199,9 +203,9 @@ void heap_free( void* memory );
 
 /// Page allocate memory.
 /// All platforms must zero out memory before returning pointer.
-void* page_alloc( usize size );
+void* platform_page_alloc( usize size );
 /// Free page allocated memory.
-void page_free( void* memory );
+void platform_page_free( void* memory );
 
 #define CPU_NAME_BUFFER_SIZE 68
 typedef u16 ProcessorFeatures;

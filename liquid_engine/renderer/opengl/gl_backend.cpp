@@ -26,29 +26,20 @@ void gl_debug_callback (
     const void*    // userParam
 );
 
-RendererContext* gl_renderer_backend_initialize( Platform* platform ) {
-    OpenGLRendererContext* result = (OpenGLRendererContext*)mem_alloc(
-        sizeof(OpenGLRendererContext),
-        MEMTYPE_RENDERER
-    );
-    if( !result ) {
-        GL_LOG_FATAL("Failed to allocate backend memory!");
-        return nullptr;
-    }
-    result->ctx.platform = platform;
+b32 gl_renderer_backend_initialize( RendererContext* generic_ctx ) {
+    OpenGLRendererContext* ctx = (OpenGLRendererContext*)generic_ctx;
 
-    result->ctx.backend_shutdown    = gl_renderer_backend_shutdown;
-    result->ctx.backend_on_resize   = gl_renderer_backend_on_resize;
-    result->ctx.backend_begin_frame = gl_renderer_backend_begin_frame;
-    result->ctx.backend_end_frame   = gl_renderer_backend_end_frame;
+    generic_ctx->backend_shutdown    = gl_renderer_backend_shutdown;
+    generic_ctx->backend_on_resize   = gl_renderer_backend_on_resize;
+    generic_ctx->backend_begin_frame = gl_renderer_backend_begin_frame;
+    generic_ctx->backend_end_frame   = gl_renderer_backend_end_frame;
 
-    void* glrc = platform_gl_init( platform );
+    void* glrc = platform_gl_init( generic_ctx->platform );
     if( !glrc ) {
-        mem_free( result );
-        return nullptr;
+        return false;
     }
 
-    result->glrc = glrc;
+    ctx->glrc = glrc;
 
 #if defined( LD_LOGGING )
     glEnable( GL_DEBUG_OUTPUT );
@@ -70,35 +61,40 @@ RendererContext* gl_renderer_backend_initialize( Platform* platform ) {
     GL_LOG_NOTE( "Device Driver Version: %s", device_version );
     GL_LOG_NOTE( "Device GLSL Version:   %s", device_glsl_version );
 
-    result->device_vendor       = device_vendor;
-    result->device_name         = device_name;
-    result->device_version      = device_version;
-    result->device_glsl_version = device_glsl_version;
+    ctx->device_vendor       = device_vendor;
+    ctx->device_name         = device_name;
+    ctx->device_version      = device_version;
+    ctx->device_glsl_version = device_glsl_version;
     
     i32 extension_count = 0;
     glGetIntegerv( GL_NUM_EXTENSIONS, &extension_count );
     GL_LOG_NOTE( "Supported extensions count: %i", extension_count );
 
-    result->extension_count = extension_count;
+    ctx->extension_count = extension_count;
 
     glClearColor( GL_DEFAULT_CLEAR_COLOR );
     glClear( GL_COLOR_BUFFER_BIT |
         GL_DEPTH_BUFFER_BIT |
         GL_STENCIL_BUFFER_BIT
     );
-    platform_gl_swap_buffers( result->ctx.platform );
+    platform_gl_swap_buffers( generic_ctx->platform );
+
+    ivec2 dimensions = {
+        generic_ctx->platform->surface.width,
+        generic_ctx->platform->surface.height
+    };
 
     glViewport(
         0, 0,
-        platform->surface.width,
-        platform->surface.height
+        dimensions.width,
+        dimensions.height
     );
 
     // TODO(alicia): TEST CODE!!!!!
-    glCreateBuffers( 3, result->buffer_handles );
+    glCreateBuffers( 3, ctx->buffer_handles );
     f32 aspect_ratio =
-        (f32)platform->surface.width /
-        (f32)platform->surface.height;
+        (f32)dimensions.width /
+        (f32)dimensions.height;
     mat4 view_projection = lookat(
         VEC3::FORWARD,
         VEC3::ZERO,
@@ -110,7 +106,7 @@ RendererContext* gl_renderer_backend_initialize( Platform* platform ) {
         1.0f
     );
     glNamedBufferStorage(
-        result->u_matrices,
+        ctx->u_matrices,
         sizeof(mat4),
         value_pointer( view_projection ),
         GL_DYNAMIC_STORAGE_BIT
@@ -118,7 +114,7 @@ RendererContext* gl_renderer_backend_initialize( Platform* platform ) {
     glBindBufferBase(
         GL_UNIFORM_BUFFER,
         0,
-        result->u_matrices
+        ctx->u_matrices
     );
 
     FileHandle phong_vert_file = {}, phong_frag_file = {};
@@ -130,7 +126,7 @@ RendererContext* gl_renderer_backend_initialize( Platform* platform ) {
         &phong_vert_file
     ) ) {
         GL_LOG_FATAL("FUCK");
-        return nullptr;
+        return false;
     }
     if( !platform_file_open(
         "./resources/shaders/phong.frag.spv",
@@ -140,7 +136,7 @@ RendererContext* gl_renderer_backend_initialize( Platform* platform ) {
         &phong_frag_file
     ) ) {
         GL_LOG_FATAL("FUCK");
-        return nullptr;
+        return false;
     }
 
     u32 phong_vert_binary_size =
@@ -184,7 +180,7 @@ RendererContext* gl_renderer_backend_initialize( Platform* platform ) {
         0,
         &phong_shaders[0]
     ) ) {
-        return nullptr;
+        return false;
     }
     if( !gl_shader_compile(
         phong_frag_binary_size,
@@ -196,21 +192,23 @@ RendererContext* gl_renderer_backend_initialize( Platform* platform ) {
         0,
         &phong_shaders[1]
     ) ) {
-        return nullptr;
+        return false;
     }
     if( !gl_shader_program_link(
         2, phong_shaders,
-        &result->phong
+        &ctx->phong
     ) ) {
-        return nullptr;
+        return false;
     }
     gl_shader_delete( phong_shaders[0] );
     gl_shader_delete( phong_shaders[1] );
-    if( !gl_shader_program_reflection( &result->phong ) ) {
-        return nullptr;
+    mem_free( phong_vert_binary );
+    mem_free( phong_frag_binary );
+    if( !gl_shader_program_reflection( &ctx->phong ) ) {
+        return false;
     }
 
-    glCreateVertexArrays( 1, &result->vao_triangle );
+    glCreateVertexArrays( 1, &ctx->vao_triangle );
     local f32 TRIANGLE_VERTICES[] = {
         -1.0f, -1.0f, /* color */  1.0f,  0.0f,  0.0f,
          1.0f, -1.0f, /* color */  0.0f,  1.0f,  0.0f,
@@ -220,21 +218,21 @@ RendererContext* gl_renderer_backend_initialize( Platform* platform ) {
         0, 1, 2
     };
     glNamedBufferData(
-        result->vbo_triangle,
+        ctx->vbo_triangle,
         STATIC_ARRAY_SIZE( TRIANGLE_VERTICES ),
         TRIANGLE_VERTICES,
         GL_STATIC_DRAW
     );
     glVertexArrayVertexBuffer(
-        result->vao_triangle,
+        ctx->vao_triangle,
         0,
-        result->vbo_triangle,
+        ctx->vbo_triangle,
         0, sizeof(f32) * 5
     );
-    glEnableVertexArrayAttrib( result->vao_triangle, 0 );
-    glEnableVertexArrayAttrib( result->vao_triangle, 1 );
+    glEnableVertexArrayAttrib( ctx->vao_triangle, 0 );
+    glEnableVertexArrayAttrib( ctx->vao_triangle, 1 );
     glVertexArrayAttribFormat(
-        result->vao_triangle,
+        ctx->vao_triangle,
         0,
         2,
         GL_FLOAT,
@@ -242,7 +240,7 @@ RendererContext* gl_renderer_backend_initialize( Platform* platform ) {
         0
     );
     glVertexArrayAttribFormat(
-        result->vao_triangle,
+        ctx->vao_triangle,
         1,
         3,
         GL_FLOAT,
@@ -250,29 +248,29 @@ RendererContext* gl_renderer_backend_initialize( Platform* platform ) {
         sizeof(f32) * 2
     );
     glVertexArrayAttribBinding(
-        result->vao_triangle,
+        ctx->vao_triangle,
         0,
         0
     );
     glVertexArrayAttribBinding(
-        result->vao_triangle,
+        ctx->vao_triangle,
         1,
         0
     );
 
     glNamedBufferData(
-        result->ebo_triangle,
+        ctx->ebo_triangle,
         STATIC_ARRAY_SIZE( TRIANGLE_INDICES ),
         TRIANGLE_INDICES,
         GL_STATIC_DRAW
     );
     glVertexArrayElementBuffer(
-        result->vao_triangle,
-        result->ebo_triangle
+        ctx->vao_triangle,
+        ctx->ebo_triangle
     );
 
     GL_LOG_INFO("OpenGL backend initialized successfully.");
-    return (RendererContext*)result;
+    return true;
 }
 void gl_renderer_backend_shutdown( RendererContext* generic_ctx ) {
     OpenGLRendererContext* ctx = (OpenGLRendererContext*)generic_ctx;
@@ -290,7 +288,6 @@ void gl_renderer_backend_shutdown( RendererContext* generic_ctx ) {
         ctx->glrc
     );
 
-    mem_free( ctx );
     GL_LOG_INFO("OpenGL backend shutdown.");
 }
 void gl_renderer_backend_on_resize(

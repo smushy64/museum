@@ -33,7 +33,7 @@ global LogLevel GLOBAL_LOG_LEVEL = LOG_LEVEL_NONE;
     LOG_LEVEL_VERBOSE \
 )
 
-global usize LOGGING_BUFFER_SIZE = KILOBYTES(1);
+global u32   LOGGING_BUFFER_SIZE = 0ULL;
 global char* LOGGING_BUFFER      = nullptr;
 
 global const char* LOG_COLOR_CODES[LOG_COLOR_COUNT] = {
@@ -55,20 +55,21 @@ internal void set_color( LogColor color ) {
     #endif
 }
 
-b32 log_init( LogLevel level ) {
+LD_API b32 is_log_initialized() {
+    return LOGGING_BUFFER != nullptr;
+}
+
+b32 log_init( LogLevel level, StringView logging_buffer ) {
     #if defined(LD_LOGGING)
+
+        LD_ASSERT(!is_log_initialized());
+
         LD_ASSERT( level <= MAX_LOG_LEVEL );
         GLOBAL_LOG_LEVEL = level;
 
-        void* logging_buffer = impl::_mem_alloc(
-            LOGGING_BUFFER_SIZE,
-            MEMTYPE_LOGGING
-        );
-        if( !logging_buffer ) {
-            return false;
-        }
-
-        LOGGING_BUFFER = (char*)logging_buffer;
+        LD_ASSERT( logging_buffer.buffer );
+        LOGGING_BUFFER_SIZE = logging_buffer.len;
+        LOGGING_BUFFER      = logging_buffer.buffer;
 
         #if defined(LD_PLATFORM_WINDOWS)
             HANDLE console_handle = GetStdHandle( STD_OUTPUT_HANDLE );
@@ -95,22 +96,15 @@ b32 log_init( LogLevel level ) {
 }
 void log_shutdown() {
 #if defined(LD_LOGGING)
-
-    impl::_mem_free( LOGGING_BUFFER );
-
     set_color( LOG_COLOR_WHITE );
 
     // TODO(alicia): custom printf!
-    printf(
-        "[INFO  ] Logging subsystem shutdown.\n"
-    );
+    printf( "[INFO  ] Logging subsystem shutdown.\n" );
 
     set_color( LOG_COLOR_RESET );
 
     #if defined(LD_PLATFORM_WINDOWS) && defined(LD_OUTPUT_DEBUG_STRING)
-        OutputDebugStringA(
-            "[INFO  ] Logging subsystem shutdown.\n"
-        );
+        OutputDebugStringA( "[INFO  ] Logging subsystem shutdown.\n" );
     #endif
 
 #endif
@@ -134,6 +128,9 @@ void log_formatted_locked(
     const char* format,
     ...
 ) {
+    if( !is_log_initialized() ) {
+        return;
+    }
 #if defined(LD_LOGGING)
 
     #if defined(LD_ASSERTIONS)

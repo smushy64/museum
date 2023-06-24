@@ -11,6 +11,7 @@
  *                 very start of the program
 */
 #include "defines.h"
+#include "core/string.h"
 
 enum LogColor : u32 {
     LOG_COLOR_BLACK,
@@ -66,13 +67,14 @@ typedef u32 LogLevel;
 
 typedef u32 LogFlags;
 
-#if defined(LD_API_INTERNAL)
+/// Query if logging subsystem is already initialized.
+LD_API b32 is_log_initialized();
+/// initialize logging subsystem
+LD_API b32 log_init( LogLevel level, StringView logging_buffer );
 
-    /// initialize logging subsystem
-    b32 log_init( LogLevel level );
+#if defined(LD_API_INTERNAL)
     /// shutdown logging subsystem
     void log_shutdown();
-
 #endif
 
 /// Get the current log level.

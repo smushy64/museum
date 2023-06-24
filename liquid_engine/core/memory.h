@@ -10,13 +10,15 @@
 */
 #include "defines.h"
 
-#if defined(LD_COMPILER_MSVC)
-    #include <malloc.h>
-#endif
+struct StackArena {
+    void* arena;
+    u32 stack_pointer;
+    u32 arena_size;
+};
 
 enum MemoryType : u64 {
     MEMTYPE_UNKNOWN,
-    MEMTYPE_APPLICATION,
+    MEMTYPE_ENGINE,
     MEMTYPE_DYNAMIC_LIST,
     MEMTYPE_PLATFORM,
     MEMTYPE_EVENT_LISTENER_REGISTRY,
@@ -31,7 +33,7 @@ enum MemoryType : u64 {
 inline const char* to_string(MemoryType memtype) {
     local const char* strings[MEMTYPE_COUNT] = {
         "Unknown Memory",
-        "Application Memory",
+        "Engine Memory",
         "Dynamic List Memory",
         "Platform Memory",
         "Event Listener Registry Memory",
@@ -80,6 +82,68 @@ LD_API void _mem_free_trace(
     int line
 );
 
+/// Page allocate memory.
+LD_API void* _mem_page_alloc( usize size, MemoryType type );
+/// Free page allocated memory.
+LD_API void _mem_page_free( void* memory );
+
+/// Page allocate memory.
+LD_API void* _mem_page_alloc_trace(
+    usize size, MemoryType type,
+    const char* function,
+    const char* file,
+    int line
+);
+/// Free page allocated memory.
+LD_API void _mem_page_free_trace(
+    void* memory,
+    const char* function,
+    const char* file,
+    int line
+);
+
+/// Create a stack arena.
+LD_API b32 _stack_arena_create(
+    u32 size, MemoryType type,
+    StackArena* out_arena
+);
+/// Free a stack arena.
+LD_API void _stack_arena_free( StackArena* arena );
+/// Push an item into stack arena.
+LD_API void* _stack_arena_push_item( StackArena* arena, u32 item_size );
+/// Pop an item from stack arena.
+LD_API void _stack_arena_pop_item( StackArena* arena, u32 item_size );
+
+/// Create a stack arena.
+LD_API b32 _stack_arena_create_trace(
+    u32 size, MemoryType type,
+    StackArena* out_arena,
+    const char* function,
+    const char* file,
+    int line
+);
+/// Free a stack arena.
+LD_API void _stack_arena_free_trace(
+    StackArena* arena,
+    const char* function,
+    const char* file,
+    int line
+);
+/// Push an item into stack arena.
+LD_API void* _stack_arena_push_item_trace(
+    StackArena* arena, u32 item_size,
+    const char* function,
+    const char* file,
+    int line
+);
+/// Pop an item from stack arena.
+LD_API void _stack_arena_pop_item_trace(
+    StackArena* arena, u32 item_size,
+    const char* function,
+    const char* file,
+    int line
+);
+
 }; // namespace impl
 
 #if defined(LD_LOGGING)
@@ -106,6 +170,49 @@ LD_API void _mem_free_trace(
             __FILE__,\
             __LINE__\
         )
+    #define mem_page_alloc( size, type )\
+        ::impl::_mem_page_alloc_trace(\
+            size, type,\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__\
+        )
+    #define mem_page_free( memory )\
+        ::impl::_mem_page_free_trace(\
+            memory,\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__\
+        )
+    #define stack_arena_create( size, type, out_arena )\
+        ::impl::_stack_arena_create_trace(\
+            size, type, out_arena,\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__\
+        )
+    #define stack_arena_free( arena )\
+        ::impl::_stack_arena_free_trace(\
+            arena,\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__\
+        )
+    #define stack_arena_push_item( arena, item_size )\
+        ::impl::_stack_arena_push_item_trace(\
+            arena, item_size,\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__\
+        )
+    #define stack_arena_pop_item( arena, item_size )\
+        ::impl::_stack_arena_pop_item_trace(\
+            arena, item_size,\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__\
+        )
+
 #else
     #define mem_alloc( size, type )\
         ::impl::_mem_alloc( size, type )
@@ -113,7 +220,24 @@ LD_API void _mem_free_trace(
         ::impl::_mem_realloc( memory, new_size )
     #define mem_free( memory )\
         ::impl::_mem_free( memory )
+    #define mem_page_alloc( size, type )\
+        ::impl::_mem_page_alloc( size, type )
+    #define mem_page_free( memory )\
+        ::impl::_mem_page_free( memory )
+    #define stack_arena_create( size, type, out_arena )\
+        ::impl::_stack_arena_create( size, type, out_arena )
+    #define stack_arena_free( arena )\
+        ::impl::_stack_arena_free( arena )
+    #define stack_arena_push_item( arena, item_size )\
+        ::impl::_stack_arena_push_item( arena, item_size )
+    #define stack_arena_pop_item( arena, item_size )\
+        ::impl::_stack_arena_pop_item( arena, item_size )
 #endif
+
+#define stack_arena_push( arena, type )\
+    (type*)stack_arena_push_item( &(arena), sizeof(type) )
+#define stack_arena_pop( arena, type )\
+    stack_arena_pop_item( &(arena), sizeof(type) )
 
 /// Query the size of a memory block
 LD_API usize mem_query_size( void* memory );
@@ -125,18 +249,6 @@ LD_API usize query_memory_usage( MemoryType memtype );
 /// Query total memory usage in bytes.
 LD_API usize query_total_memory_usage();
 
-#if defined(LD_COMPILER_MSVC)
-    /// Allocate memory on the stack.
-    /// Does not require a free call.
-    /// Not guaranteed to be zeroed out.
-    #define stack_alloc(size) _alloca(size)
-#else
-    /// Allocate memory on the stack.
-    /// Does not require a free call.
-    /// Not guaranteed to be zeroed out.
-    #define stack_alloc(size) __builtin_alloca(size)
-#endif
-
 /// Copy memory from source pointer to destination pointer.
 LD_API void mem_copy( void* dst, const void* src, usize size );
 /// Copy memory between overlapping buffers.
@@ -146,5 +258,6 @@ LD_API void mem_copy_overlapped( void* dst, const void* src, usize size );
 LD_API void mem_set( u8 value, usize dst_size, void* dst );
 /// Zero out memory.
 LD_API void mem_zero( void* ptr, usize size );
+
 
 #endif

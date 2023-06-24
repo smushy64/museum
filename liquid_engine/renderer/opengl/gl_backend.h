@@ -12,7 +12,7 @@
 #include "gl_shader.h"
 #include "gl_buffer.h"
 
-RendererContext* gl_renderer_backend_initialize( struct Platform* platform );
+b32 gl_renderer_backend_initialize( RendererContext* generic_ctx );
 void gl_renderer_backend_shutdown( RendererContext* ctx );
 void gl_renderer_backend_on_resize(
     RendererContext* ctx,

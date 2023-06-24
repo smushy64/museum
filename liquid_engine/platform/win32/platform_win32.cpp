@@ -32,6 +32,9 @@ global HANDLE* SEMAPHORE_STORAGE  = nullptr;
 global char* ERROR_MESSAGE_BUFFER = nullptr;
 global b32 IS_DPI_AWARE = false;
 
+u32 platform_context_size() {
+    return sizeof(Win32Platform);
+}
 b32 platform_init(
     StringView opt_icon_path,
     ivec2 surface_dimensions,
@@ -39,20 +42,10 @@ b32 platform_init(
     Platform* out_platform
 ) {
 
-    IS_DPI_AWARE = ARE_BITS_SET( flags, PLATFORM_DPI_AWARE );
+    LD_ASSERT( out_platform->platform );
+    Win32Platform* win32_platform = (Win32Platform*)out_platform->platform;
 
-    Win32Platform* win32_platform = (Win32Platform*)mem_alloc(
-        sizeof(Win32Platform),
-        MEMTYPE_PLATFORM
-    );
-    if( !win32_platform ) {
-        MESSAGE_BOX_FATAL(
-            "Fatal Windows Error",
-            "Out of memory.\n"
-            LD_CONTACT_MESSAGE
-        );
-        return false;
-    }
+    IS_DPI_AWARE = ARE_BITS_SET( flags, PLATFORM_DPI_AWARE );
 
     // load libraries
     if( !win32_load_user32( &win32_platform->lib_user32 ) ) {
@@ -265,8 +258,6 @@ void platform_shutdown( Platform* platform ) {
 
     ERROR_MESSAGE_BUFFER = nullptr;
     DestroyWindow( win32_platform->window.handle );
-
-    mem_free( win32_platform );
 }
 void platform_exit() {
     ExitProcess( 0 );
@@ -430,7 +421,7 @@ void platform_poll_gamepad( Platform* platform ) {
         // if gamepad activated this frame, fire an event
         b32 was_active = input_pad_is_active( gamepad_index );
         if( was_active != is_active && is_active ) {
-            event.code = EVENT_CODE_INPUT_GAMEPAD_ACTIVATE;
+            event.code = EVENT_CODE_GAMEPAD_ACTIVATE;
             event.data.gamepad_activate.gamepad_index = gamepad_index;
             event_fire( event );
         }
@@ -1020,11 +1011,6 @@ LRESULT win32_winproc(
             b32 is_down = !((lParam & TRANSITION_STATE_MASK) != 0);
             input_set_key( (KeyCode)keycode, is_down );
 
-            event.code = EVENT_CODE_INPUT_KEY;
-            event.data.keyboard.code    = (KeyCode)keycode;
-            event.data.keyboard.is_down = is_down;
-            event_fire( event );
-
         } return TRUE;
         
         case WM_MOUSEMOVE: {
@@ -1040,10 +1026,6 @@ LRESULT win32_winproc(
             mouse_position.x = GET_X_LPARAM(lParam);
             mouse_position.y = client_rect.bottom - GET_Y_LPARAM(lParam);
             input_set_mouse_position( mouse_position );
-
-            event.code = EVENT_CODE_INPUT_MOUSE_MOVE;
-            event.data.mouse_move.coord = mouse_position;
-            event_fire( event );
 
         } return TRUE;
 
@@ -1074,10 +1056,6 @@ LRESULT win32_winproc(
             }
 
             input_set_mouse_button( code, is_down );
-            event.code = EVENT_CODE_INPUT_MOUSE_BUTTON;
-            event.data.mouse_button.code    = code;
-            event.data.mouse_button.is_down = is_down;
-            event_fire( event );
 
         } return TRUE;
 
@@ -1093,10 +1071,6 @@ LRESULT win32_winproc(
             MouseCode code = (MouseCode)(button + (MBC_BUTTON_EXTRA_1 - 1));
 
             input_set_mouse_button( code, is_down );
-            event.code = EVENT_CODE_INPUT_MOUSE_BUTTON;
-            event.data.mouse_button.code    = code;
-            event.data.mouse_button.is_down = is_down;
-            event_fire( event );
 
         } return TRUE;
 
@@ -1109,17 +1083,13 @@ LRESULT win32_winproc(
 
             i64 delta = GET_WHEEL_DELTA_WPARAM(wParam);
             delta = delta == 0 ? 0 : absolute(delta);
-            event.data.mouse_wheel.delta = delta;
 
             if( Msg == WM_MOUSEWHEEL ) {
-                event.code = EVENT_CODE_INPUT_MOUSE_WHEEL;
                 input_set_mouse_wheel( delta );
             } else {
-                event.code = EVENT_CODE_INPUT_HORIZONTAL_MOUSE_WHEEL;
                 input_set_horizontal_mouse_wheel( delta );
             }
 
-            event_fire( event );
 
         } return TRUE;
 
@@ -1814,7 +1784,8 @@ void heap_free( void* memory ) {
     HeapFree( GetProcessHeap(), 0, memory );
 }
 
-void* page_alloc( usize size ) {
+void* platform_page_alloc( usize size ) {
+    // VirtualAlloc returns automatically zeroed memory.
     void* pointer = (void*)VirtualAlloc(
         nullptr,
         size,
@@ -1823,7 +1794,7 @@ void* page_alloc( usize size ) {
     );
     return pointer;
 }
-void page_free( void* memory ) {
+void platform_page_free( void* memory ) {
     VirtualFree(
         memory,
         0,

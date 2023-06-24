@@ -9,7 +9,14 @@
 #include <core/engine.h>
 #include <stdio.h>
 
+global char TESTBED_LOGGING_BUFFER[KILOBYTES(1)];
+
 int main( int argc, const char** argv ) {
+
+    StringView logging_buffer = {};
+    logging_buffer.buffer = TESTBED_LOGGING_BUFFER;
+    logging_buffer.len    = KILOBYTES(1);
+    LD_ASSERT(log_init( LOG_LEVEL_ALL_VERBOSE, logging_buffer ));
 
     RendererBackend backend = RENDERER_BACKEND_OPENGL;
 

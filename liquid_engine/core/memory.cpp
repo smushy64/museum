@@ -18,6 +18,7 @@
 
 struct MemoryUsage {
     u64 usage[MEMTYPE_COUNT];
+    u64 page_usage[MEMTYPE_COUNT];
 };
 global MemoryUsage USAGE = {};
 
@@ -39,6 +40,30 @@ global MemoryUsage USAGE = {};
         LOG_COLOR_CYAN,\
         LOG_FLAG_NEW_LINE,\
         "[FREE  | %s() | %s:%i] " format,\
+        function,\
+        file,\
+        line,\
+        ##__VA_ARGS__\
+    )
+
+#define LOG_PAGE_ALLOC( function, file, line, format, ... ) \
+    log_formatted_locked(\
+        LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
+        LOG_COLOR_GREEN,\
+        LOG_FLAG_NEW_LINE,\
+        "[PAGE ALLOC | %s() | %s:%i] " format,\
+        function,\
+        file,\
+        line,\
+        ##__VA_ARGS__\
+    )
+
+#define LOG_PAGE_FREE( function, file, line, format, ... ) \
+    log_formatted_locked(\
+        LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
+        LOG_COLOR_CYAN,\
+        LOG_FLAG_NEW_LINE,\
+        "[PAGE FREE  | %s() | %s:%i] " format,\
         function,\
         file,\
         line,\
@@ -164,10 +189,191 @@ void _mem_free( void* memory ) {
     heap_free( header );
 }
 
+LD_API void* _mem_page_alloc( usize size, MemoryType type ) {
+    if( type == MEMTYPE_UNKNOWN ) {
+        LOG_WARN(
+            "Allocating memory of type unknown! "
+            "All memory allocations should be categorized!"
+        );
+    }
+
+    usize total_size = size + MEMORY_HEADER_SIZE;
+    u64*  block      = (u64*)platform_page_alloc( total_size );
+
+    block[MEMORY_FIELD_SIZE] = size;
+    block[MEMORY_FIELD_TYPE] = type;
+
+    USAGE.page_usage[type] += total_size;
+
+    return block + MEMORY_FIELD_COUNT;
+}
+LD_API void _mem_page_free( void* memory ) {
+    u64* header = ((u64*)memory) - MEMORY_FIELD_COUNT;
+
+    usize      size = header[MEMORY_FIELD_SIZE];
+    MemoryType type = (MemoryType)header[MEMORY_FIELD_TYPE];
+
+    USAGE.page_usage[type] -= size + MEMORY_HEADER_SIZE;
+
+    platform_page_free( header );
+}
+LD_API void* _mem_page_alloc_trace(
+    usize size, MemoryType type,
+    const char* function,
+    const char* file,
+    int line
+) {
+    void* result = _mem_page_alloc( size, type );
+    LOG_PAGE_ALLOC(
+        function,
+        file,
+        line,
+        "Type: %s | Size: %llu | Pointer: 0x%X",
+        to_string(type),
+        size,
+        (u64)result
+    );
+    return result;   
+}
+LD_API void _mem_page_free_trace(
+    void* memory,
+    const char* function,
+    const char* file,
+    int line
+) {
+    u64* header = ((u64*)memory) - MEMORY_FIELD_COUNT;
+    MemoryType type = (MemoryType)header[MEMORY_FIELD_TYPE];
+    usize size = header[MEMORY_FIELD_SIZE];
+
+    LOG_PAGE_FREE(
+        function,
+        file,
+        line,
+        "Type: %s | Size: %llu | Pointer: 0x%X",
+        to_string(type),
+        size,
+        (u64)memory
+    );
+
+    _mem_free( memory );
+}
+
+LD_API b32 _stack_arena_create( u32 size, MemoryType type, StackArena* out_arena ) {
+    void* buffer = _mem_page_alloc( size, type );
+    if( !buffer ) {
+        return false;
+    }
+
+    out_arena->arena         = buffer;
+    out_arena->arena_size    = size;
+    out_arena->stack_pointer = 0;
+
+    return true;
+}
+LD_API void _stack_arena_free( StackArena* arena ) {
+    if( arena->arena ) {
+        _mem_page_free( arena->arena );
+    }
+    *arena = {};
+}
+LD_API void* _stack_arena_push_item( StackArena* arena, u32 item_size ) {
+    u32 new_stack_pointer = arena->stack_pointer + item_size;
+    if( new_stack_pointer >= arena->arena_size ) {
+        LOG_ERROR(
+            "Stack Arena push failed! Stack Pointer: %u Item Size: %u",
+            arena->stack_pointer, item_size
+        );
+        return nullptr;
+    }
+
+    void* result = (u8*)arena->arena + arena->stack_pointer;
+    arena->stack_pointer = new_stack_pointer;
+
+    return result;
+}
+LD_API void _stack_arena_pop_item( StackArena* arena, u32 item_size ) {
+    LD_ASSERT( arena->stack_pointer );
+    LD_ASSERT( arena->stack_pointer >= item_size );
+    arena->stack_pointer -= item_size;
+}
+LD_API b32 _stack_arena_create_trace(
+    u32 size, MemoryType type,
+    StackArena* out_arena,
+    const char* function,
+    const char* file,
+    int line
+) {
+    b32 success = _stack_arena_create( size, type, out_arena );
+    log_formatted_locked(
+        LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
+        LOG_COLOR_GREEN,
+        LOG_FLAG_NEW_LINE,
+        "[STACK ARENA ALLOC | %s() | %s:%i] "
+        "Arena: 0x%X | Type: %s | Size: %u",
+        function, file, line,
+        out_arena->arena, to_string( type ), size
+    );
+    return success;
+}
+LD_API void _stack_arena_free_trace(
+    StackArena* arena,
+    const char* function,
+    const char* file,
+    int line
+) {
+    u64* header = ((u64*)arena->arena) - MEMORY_FIELD_COUNT;
+    MemoryType type = (MemoryType)header[MEMORY_FIELD_TYPE];
+    log_formatted_locked(
+        LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
+        LOG_COLOR_CYAN,
+        LOG_FLAG_NEW_LINE,
+        "[STACK ARENA FREE | %s() | %s:%i] "
+        "Arena: 0x%X | Type: %s | Size: %u",
+        function, file, line,
+        arena->arena, to_string( type ), arena->arena_size
+    );
+    _stack_arena_free( arena );
+}
+LD_API void* _stack_arena_push_item_trace(
+    StackArena* arena, u32 item_size,
+    const char* function,
+    const char* file,
+    int line
+) {
+    log_formatted_locked(
+        LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
+        LOG_COLOR_GREEN,
+        LOG_FLAG_NEW_LINE,
+        "[STACK ARENA PUSH | %s() | %s:%i] "
+        "Arena: 0x%X | Item Size: %u",
+        function, file, line,
+        arena->arena, item_size
+    );
+    return _stack_arena_push_item( arena, item_size );
+}
+LD_API void _stack_arena_pop_item_trace(
+    StackArena* arena, u32 item_size,
+    const char* function,
+    const char* file,
+    int line
+) {
+    log_formatted_locked(
+        LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
+        LOG_COLOR_CYAN,
+        LOG_FLAG_NEW_LINE,
+        "[STACK ARENA POP | %s() | %s:%i] "
+        "Arena: 0x%X | Item Size: %u",
+        function, file, line,
+        arena->arena, item_size
+    );
+    _stack_arena_pop_item( arena, item_size );
+}
+
 } // namespace impl
 
+
 usize query_memory_usage( MemoryType memtype ) {
-    return USAGE.usage[memtype];
+    return USAGE.usage[memtype] + USAGE.page_usage[memtype];
 }
 usize query_total_memory_usage() {\
     usize result = 0;

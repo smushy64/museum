@@ -132,6 +132,10 @@ void event_shutdown() {
 
 void event_fire( Event event ) {
 
+    if( !REGISTRY ) {
+        return;
+    }
+
     LOG_ASSERT( event.code < MAX_EVENT_CODE, "Invalid event code %u.", event.code );
 
     CallbackRegistry::EventCallbackList* list = &REGISTRY->lists[event.code];

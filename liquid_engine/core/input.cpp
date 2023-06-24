@@ -115,45 +115,18 @@ void input_set_pad_button(
     b32 is_down
 ) {
     INPUT_STATE.gamepads[gamepad_index].buttons[code] = is_down;
-    b32 was_down = input_was_pad_button_down( gamepad_index, code );
-    if( was_down != is_down ) {
-        Event event = {};
-        event.code  = EVENT_CODE_INPUT_GAMEPAD_BUTTON;
-        event.data.gamepad_button.code    = code;
-        event.data.gamepad_button.is_down = is_down;
-
-        event_fire( event );
-    }
 }
 void input_set_pad_trigger_left(
     u32 gamepad_index,
     f32 value
 ) {
     INPUT_STATE.gamepads[gamepad_index].trigger_left = value;
-    f32 last_value = input_pad_last_trigger_left( gamepad_index );
-    if( last_value != value ) {
-        Event event = {};
-        event.code  = EVENT_CODE_INPUT_GAMEPAD_TRIGGER_LEFT;
-        event.data.gamepad_trigger.value         = value;
-        event.data.gamepad_trigger.gamepad_index = gamepad_index;
-
-        event_fire( event );
-    }
 }
 void input_set_pad_trigger_right(
     u32 gamepad_index,
     f32 value
 ) {
     INPUT_STATE.gamepads[gamepad_index].trigger_right = value;
-    f32 last_value = input_pad_last_trigger_right( gamepad_index );
-    if( last_value != value ) {
-        Event event = {};
-        event.code  = EVENT_CODE_INPUT_GAMEPAD_TRIGGER_RIGHT;
-        event.data.gamepad_trigger.value         = value;
-        event.data.gamepad_trigger.gamepad_index = gamepad_index;
-
-        event_fire( event );
-    }
 }
 void input_set_pad_stick_left(
     u32 gamepad_index,

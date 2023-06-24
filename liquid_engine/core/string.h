@@ -32,15 +32,7 @@ LD_API b32 dstring_with_capacity( u32 capacity, String* out_string );
 /// Reallocate string with given capacity.
 /// Does nothing if given capacity is smaller than string's capacity.
 LD_API b32 dstring_reserve( String* string, u32 new_capacity );
-/// Format a dstring.
-/// Alloc determines if it will reallocate string to fit formatting.
-/// Returns false only if reallocation fails.
-LD_API b32 dstring_format(
-    String* string,
-    b32 alloc,
-    const char* format,
-    ...
-);
+
 /// Clear a string.
 /// All this does is set the length of a string to zero.
 /// It does not deallocate.
@@ -76,13 +68,6 @@ LD_API StringView dstring_view_capacity_bounds(
 LD_API StringView dstring_view_len_bounds(
     String* string, u32 offset
 );
-/// Make a string view into const char*.
-LD_API b32 str_view(
-    u32 str_len,
-    const char* str,
-    u32 offset, u32 len,
-    StringView* out_view
-);
 
 /// Free a dynamic string.
 LD_API void dstring_free( String* string );
@@ -113,6 +98,22 @@ LD_API void string_trim_trailing_whitespace( String* string );
 /// Trim trailing whitespace from view.
 LD_API void string_trim_trailing_whitespace( StringView string_view );
 
+/// Format a dstring.
+/// Alloc determines if it will reallocate string to fit formatting.
+/// Returns false only if reallocation fails.
+LD_API b32 dstring_format(
+    String* string,
+    b32 alloc,
+    const char* format,
+    ...
+);
+/// Format a string view.
+/// Returns required size if string view is empty.
+LD_API u32 string_view_format(
+    StringView string_view,
+    const char* format,
+    ...
+);
 
 /// Calculate the length of a null-terminated string.
 /// Result does not include null-terminator.
@@ -125,6 +126,17 @@ LD_API void str_ascii_to_wide(
     u32         max_dst_len,
     wchar_t*    dst_buffer
 );
+/// Make a string view into const char*.
+LD_API b32 str_view(
+    u32 str_len,
+    const char* str,
+    u32 offset, u32 len,
+    StringView* out_view
+);
+/// Fills a character buffer with given character
+/// and appends a null-terminator at the end.
+LD_API void str_buffer_fill( u32 buffer_size, char* buffer, char character );
+
 /// Check if character is a whitespace character
 inline b32 char_is_whitespace( char character ) {
     return
