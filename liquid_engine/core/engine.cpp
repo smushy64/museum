@@ -105,7 +105,7 @@ b32 engine_run(
     unused(argv);
 
     EngineContext ctx = {};
-    u32 stack_arena_size = MEGABYTES(1) / 2;
+    u32 stack_arena_size = KILOBYTES(10);
     if( !stack_arena_create( stack_arena_size, MEMTYPE_ENGINE, &ctx.arena ) ) {
         LOG_FATAL(
             "Subsystem Failure",
@@ -353,15 +353,15 @@ b32 engine_run(
         avx512 ? "AVX-512 " : ""
     );
 
-    LOG_NOTE("Memory: %6.3f GB",
-        MB_TO_GB( KB_TO_MB( BYTES_TO_KB( ctx.system_info.total_memory ) ) )
-    );
-
-    LOG_NOTE("Engine stack arena pointer: %u", ctx.arena.stack_pointer);
 #endif
 
 
-    if( !input_init( &ctx.platform ) ) {
+    u32 input_subsystem_buffer_size = input_subsystem_size();
+    void* input_subsystem_buffer = stack_arena_push_item(
+        &ctx.arena,
+        input_subsystem_buffer_size
+    );
+    if( !input_init( &ctx.platform, input_subsystem_buffer ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
             "Failed to initialize input subsystem!\n "
@@ -409,6 +409,9 @@ b32 engine_run(
     ctx.is_running = true;
 
 #if defined(LD_LOGGING) && defined(LD_PROFILING)
+    LOG_NOTE("Memory: %6.3f GB",
+        MB_TO_GB( KB_TO_MB( BYTES_TO_KB( ctx.system_info.total_memory ) ) )
+    );
     LOG_NOTE("Initial Memory Usage:");
     for( u64 i = 0; i < MEMTYPE_COUNT; ++i ) {
         MemoryType type = (MemoryType)i;
@@ -429,6 +432,7 @@ b32 engine_run(
         32
     );
     LOG_NOTE("    %-30s %s", "Total Memory Usage", usage_buffer);
+    LOG_NOTE("Engine stack arena pointer: %u", ctx.arena.stack_pointer);
 #endif
 
     ctx.cursor_style      = CURSOR_ARROW;

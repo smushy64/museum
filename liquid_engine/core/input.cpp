@@ -76,10 +76,14 @@ struct InputState {
     Platform* platform;
 };
 
-global InputState INPUT_STATE = {};
+global InputState* INPUT_STATE = nullptr;
 
-b32 input_init( Platform* platform ) {
-    INPUT_STATE.platform = platform;
+u32 input_subsystem_size() {
+    return sizeof(InputState);
+}
+b32 input_init( Platform* platform, void* buffer ) {
+    INPUT_STATE = (InputState*)buffer;
+    INPUT_STATE->platform = platform;
     LOG_INFO("Input subsystem successfully initialized.");
     return true;
 }
@@ -91,76 +95,76 @@ void input_set_key(
     KeyCode keycode,
     b8 is_down
 ) {
-    INPUT_STATE.keys[keycode] = is_down;
+    INPUT_STATE->keys[keycode] = is_down;
 }
 void input_set_mouse_button(
     MouseCode mousecode,
     b8 is_down
 ) {
-    INPUT_STATE.mouse_buttons[mousecode] = is_down;
+    INPUT_STATE->mouse_buttons[mousecode] = is_down;
 }
 void input_set_mouse_position( ivec2 position ) {
-    INPUT_STATE.mouse_position = position;
+    INPUT_STATE->mouse_position = position;
 }
 void input_set_mouse_wheel( i32 delta ) {
-    INPUT_STATE.mouse_wheel = delta;
+    INPUT_STATE->mouse_wheel = delta;
 }
 void input_set_horizontal_mouse_wheel( i32 delta ) {
-    INPUT_STATE.horizontal_mouse_wheel = delta;
+    INPUT_STATE->horizontal_mouse_wheel = delta;
 }
 void input_set_pad_button(
     u32 gamepad_index,
     PadCode code,
     b32 is_down
 ) {
-    INPUT_STATE.gamepads[gamepad_index].buttons[code] = is_down;
+    INPUT_STATE->gamepads[gamepad_index].buttons[code] = is_down;
 }
 void input_set_pad_trigger_left(
     u32 gamepad_index,
     f32 value
 ) {
-    INPUT_STATE.gamepads[gamepad_index].trigger_left = value;
+    INPUT_STATE->gamepads[gamepad_index].trigger_left = value;
 }
 void input_set_pad_trigger_right(
     u32 gamepad_index,
     f32 value
 ) {
-    INPUT_STATE.gamepads[gamepad_index].trigger_right = value;
+    INPUT_STATE->gamepads[gamepad_index].trigger_right = value;
 }
 void input_set_pad_stick_left(
     u32 gamepad_index,
     vec2 value
 ) {
-    INPUT_STATE.gamepads[gamepad_index].stick_left = value;
+    INPUT_STATE->gamepads[gamepad_index].stick_left = value;
 }
 void input_set_pad_stick_right(
     u32 gamepad_index,
     vec2 value
 ) {
-    INPUT_STATE.gamepads[gamepad_index].stick_right = value;
+    INPUT_STATE->gamepads[gamepad_index].stick_right = value;
 }
 void input_set_pad_active(
     u32 gamepad_index,
     b32 is_active
 ) {
-    INPUT_STATE.gamepads[gamepad_index].is_active = is_active;
+    INPUT_STATE->gamepads[gamepad_index].is_active = is_active;
 }
 
 void input_swap() {
     mem_copy(
-        INPUT_STATE.last_keys,
-        INPUT_STATE.keys,
+        INPUT_STATE->last_keys,
+        INPUT_STATE->keys,
         KEY_STATE_COUNT
     );
 
     mem_copy(
-        INPUT_STATE.last_mouse_buttons,
-        INPUT_STATE.mouse_buttons,
+        INPUT_STATE->last_mouse_buttons,
+        INPUT_STATE->mouse_buttons,
         MBC_COUNT
     );
 
     for( usize i = 0; i < MAX_GAMEPAD_INDEX; ++i ) {
-        GamepadState* gamepad = (GamepadState*)&INPUT_STATE.gamepads[i];
+        GamepadState* gamepad = (GamepadState*)&INPUT_STATE->gamepads[i];
         if( gamepad->is_active ) {
             mem_copy(
                 gamepad->last_buttons,
@@ -174,46 +178,46 @@ void input_swap() {
         }
     }
 
-    INPUT_STATE.last_mouse_position = INPUT_STATE.mouse_position;
+    INPUT_STATE->last_mouse_position = INPUT_STATE->mouse_position;
 
-    INPUT_STATE.last_mouse_wheel = INPUT_STATE.mouse_wheel;
-    INPUT_STATE.last_horizontal_mouse_wheel =
-        INPUT_STATE.horizontal_mouse_wheel;
+    INPUT_STATE->last_mouse_wheel = INPUT_STATE->mouse_wheel;
+    INPUT_STATE->last_horizontal_mouse_wheel =
+        INPUT_STATE->horizontal_mouse_wheel;
 }
 
 b32 input_is_key_down( KeyCode keycode ) {
-    return INPUT_STATE.keys[keycode];
+    return INPUT_STATE->keys[keycode];
 }
 b32 input_was_key_down( KeyCode keycode ) {
-    return INPUT_STATE.last_keys[keycode];
+    return INPUT_STATE->last_keys[keycode];
 }
 
 b32 input_is_mousebutton_down( MouseCode mousecode ) {
-    return INPUT_STATE.mouse_buttons[mousecode];
+    return INPUT_STATE->mouse_buttons[mousecode];
 }
 b32 input_was_mousebutton_down( MouseCode mousecode ) {
-    return INPUT_STATE.last_mouse_buttons[mousecode];
+    return INPUT_STATE->last_mouse_buttons[mousecode];
 }
 
 ivec2 input_mouse_position() {
-    return INPUT_STATE.mouse_position;
+    return INPUT_STATE->mouse_position;
 }
 ivec2 input_last_mouse_position() {
-    return INPUT_STATE.last_mouse_position;
+    return INPUT_STATE->last_mouse_position;
 }
 
 i32 input_mouse_wheel() {
-    return INPUT_STATE.mouse_wheel;
+    return INPUT_STATE->mouse_wheel;
 }
 i32 input_last_mouse_wheel() {
-    return INPUT_STATE.last_mouse_wheel;
+    return INPUT_STATE->last_mouse_wheel;
 }
 
 i32 input_horizontal_mouse_wheel() {
-    return INPUT_STATE.horizontal_mouse_wheel;
+    return INPUT_STATE->horizontal_mouse_wheel;
 }
 i32 input_last_horizontal_mouse_wheel() {
-    return INPUT_STATE.last_horizontal_mouse_wheel;
+    return INPUT_STATE->last_horizontal_mouse_wheel;
 }
 
 b32 input_is_pad_button_down(
@@ -224,7 +228,7 @@ b32 input_is_pad_button_down(
         MAX_GAMEPAD_INDEX > gamepad_index,
         "Gamepad index out of bounds!"
     );
-    return INPUT_STATE.gamepads[gamepad_index].buttons[code];
+    return INPUT_STATE->gamepads[gamepad_index].buttons[code];
 }
 b32 input_was_pad_button_down(
     u32 gamepad_index,
@@ -234,7 +238,7 @@ b32 input_was_pad_button_down(
         MAX_GAMEPAD_INDEX > gamepad_index,
         "Gamepad index out of bounds!"
     );
-    return INPUT_STATE.gamepads[gamepad_index].last_buttons[code];
+    return INPUT_STATE->gamepads[gamepad_index].last_buttons[code];
 }
 
 vec2 input_pad_stick_left( u32 gamepad_index ) {
@@ -242,14 +246,14 @@ vec2 input_pad_stick_left( u32 gamepad_index ) {
         MAX_GAMEPAD_INDEX > gamepad_index,
         "Gamepad index out of bounds!"
     );
-    return INPUT_STATE.gamepads[gamepad_index].stick_left;
+    return INPUT_STATE->gamepads[gamepad_index].stick_left;
 }
 vec2 input_pad_last_stick_left( u32 gamepad_index ) {
     LOG_ASSERT(
         MAX_GAMEPAD_INDEX > gamepad_index,
         "Gamepad index out of bounds!"
     );
-    return INPUT_STATE.gamepads[gamepad_index].last_stick_left;
+    return INPUT_STATE->gamepads[gamepad_index].last_stick_left;
 }
 
 vec2 input_pad_stick_right( u32 gamepad_index ) {
@@ -257,14 +261,14 @@ vec2 input_pad_stick_right( u32 gamepad_index ) {
         MAX_GAMEPAD_INDEX > gamepad_index,
         "Gamepad index out of bounds!"
     );
-    return INPUT_STATE.gamepads[gamepad_index].stick_right;
+    return INPUT_STATE->gamepads[gamepad_index].stick_right;
 }
 vec2 input_pad_last_stick_right( u32 gamepad_index ) {
     LOG_ASSERT(
         MAX_GAMEPAD_INDEX > gamepad_index,
         "Gamepad index out of bounds!"
     );
-    return INPUT_STATE.gamepads[gamepad_index].last_stick_right;
+    return INPUT_STATE->gamepads[gamepad_index].last_stick_right;
 }
 
 f32 input_pad_trigger_left( u32 gamepad_index ) {
@@ -272,35 +276,35 @@ f32 input_pad_trigger_left( u32 gamepad_index ) {
         MAX_GAMEPAD_INDEX > gamepad_index,
         "Gamepad index out of bounds!"
     );
-    return INPUT_STATE.gamepads[gamepad_index].trigger_left;
+    return INPUT_STATE->gamepads[gamepad_index].trigger_left;
 }
 f32 input_pad_last_trigger_left( u32 gamepad_index ) {
     LOG_ASSERT(
         MAX_GAMEPAD_INDEX > gamepad_index,
         "Gamepad index out of bounds!"
     );
-    return INPUT_STATE.gamepads[gamepad_index].last_trigger_left;
+    return INPUT_STATE->gamepads[gamepad_index].last_trigger_left;
 }
 f32 input_pad_trigger_right( u32 gamepad_index ) {
     LOG_ASSERT(
         MAX_GAMEPAD_INDEX > gamepad_index,
         "Gamepad index out of bounds!"
     );
-    return INPUT_STATE.gamepads[gamepad_index].trigger_right;
+    return INPUT_STATE->gamepads[gamepad_index].trigger_right;
 }
 f32 input_pad_last_trigger_right( u32 gamepad_index ) {
     LOG_ASSERT(
         MAX_GAMEPAD_INDEX > gamepad_index,
         "Gamepad index out of bounds!"
     );
-    return INPUT_STATE.gamepads[gamepad_index].last_trigger_right;
+    return INPUT_STATE->gamepads[gamepad_index].last_trigger_right;
 }
 b32 input_pad_is_active( u32 gamepad_index ) {
     LOG_ASSERT(
         MAX_GAMEPAD_INDEX > gamepad_index,
         "Gamepad index out of bounds!"
     );
-    return INPUT_STATE.gamepads[gamepad_index].is_active;
+    return INPUT_STATE->gamepads[gamepad_index].is_active;
 }
 
 f32 input_pad_read_motor_state( u32 gamepad_index, u32 motor ) {
@@ -312,7 +316,7 @@ f32 input_pad_read_motor_state( u32 gamepad_index, u32 motor ) {
         motor == 0 || motor == 1,
         "Motor index out of bounds!"
     );
-    return INPUT_STATE.gamepads[gamepad_index].motors[motor];
+    return INPUT_STATE->gamepads[gamepad_index].motors[motor];
 }
 
 void input_pad_write_motor_state(
@@ -321,7 +325,7 @@ void input_pad_write_motor_state(
     f32 value
 ) {
     platform_set_pad_motor_state(
-        INPUT_STATE.platform,
+        INPUT_STATE->platform,
         gamepad_index,
         motor,
         value
@@ -329,35 +333,35 @@ void input_pad_write_motor_state(
 }
 
 f32 input_pad_read_stick_left_deadzone( u32 gamepad_index ) {
-    return INPUT_STATE.gamepads[gamepad_index].stick_left_deadzone;
+    return INPUT_STATE->gamepads[gamepad_index].stick_left_deadzone;
 }
 f32 input_pad_read_stick_right_deadzone( u32 gamepad_index ) {
-    return INPUT_STATE.gamepads[gamepad_index].stick_right_deadzone;
+    return INPUT_STATE->gamepads[gamepad_index].stick_right_deadzone;
 }
 f32 input_pad_read_trigger_left_deadzone( u32 gamepad_index ) {
-    return INPUT_STATE.gamepads[gamepad_index].trigger_left_deadzone;
+    return INPUT_STATE->gamepads[gamepad_index].trigger_left_deadzone;
 }
 f32 input_pad_read_trigger_right_deadzone( u32 gamepad_index ) {
-    return INPUT_STATE.gamepads[gamepad_index].trigger_right_deadzone;
+    return INPUT_STATE->gamepads[gamepad_index].trigger_right_deadzone;
 }
 
 void input_pad_write_stick_left_deadzone( u32 gamepad_index, f32 deadzone ) {
-    INPUT_STATE.gamepads[gamepad_index].stick_left_deadzone = deadzone;
+    INPUT_STATE->gamepads[gamepad_index].stick_left_deadzone = deadzone;
 }
 void input_pad_write_stick_right_deadzone( u32 gamepad_index, f32 deadzone ) {
-    INPUT_STATE.gamepads[gamepad_index].stick_right_deadzone = deadzone;
+    INPUT_STATE->gamepads[gamepad_index].stick_right_deadzone = deadzone;
 }
 void input_pad_write_trigger_left_deadzone( u32 gamepad_index, f32 deadzone ) {
-    INPUT_STATE.gamepads[gamepad_index].trigger_left_deadzone = deadzone;
+    INPUT_STATE->gamepads[gamepad_index].trigger_left_deadzone = deadzone;
 }
 void input_pad_write_trigger_right_deadzone( u32 gamepad_index, f32 deadzone ) {
-    INPUT_STATE.gamepads[gamepad_index].trigger_right_deadzone = deadzone;
+    INPUT_STATE->gamepads[gamepad_index].trigger_right_deadzone = deadzone;
 }
 
 f32 input_pad_read_trigger_press_threshold( u32 gamepad_index ) {
-    return INPUT_STATE.gamepads[gamepad_index].trigger_press_threshold;
+    return INPUT_STATE->gamepads[gamepad_index].trigger_press_threshold;
 }
 
 void input_pad_write_trigger_press_threshold( u32 gamepad_index, f32 threshold ) {
-    INPUT_STATE.gamepads[gamepad_index].trigger_press_threshold = threshold;
+    INPUT_STATE->gamepads[gamepad_index].trigger_press_threshold = threshold;
 }

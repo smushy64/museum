@@ -20,11 +20,7 @@ enum MemoryType : u64 {
     MEMTYPE_UNKNOWN,
     MEMTYPE_ENGINE,
     MEMTYPE_DYNAMIC_LIST,
-    MEMTYPE_PLATFORM,
-    MEMTYPE_EVENT_LISTENER_REGISTRY,
     MEMTYPE_RENDERER,
-    MEMTYPE_LOGGING,
-    MEMTYPE_THREADING,
     MEMTYPE_STRING,
     MEMTYPE_USER,
 
@@ -35,11 +31,7 @@ inline const char* to_string(MemoryType memtype) {
         "Unknown Memory",
         "Engine Memory",
         "Dynamic List Memory",
-        "Platform Memory",
-        "Event Listener Registry Memory",
         "Renderer Memory",
-        "Logging Buffer Memory",
-        "Threading Memory",
         "String Memory",
         "User Memory"
     };

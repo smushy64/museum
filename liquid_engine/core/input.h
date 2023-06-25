@@ -344,7 +344,8 @@ inline const char* to_string( PadCode padcode ) {
 
 #if defined(LD_API_INTERNAL)
 
-    b32  input_init( struct Platform* platform );
+    u32  input_subsystem_size();
+    b32  input_init( struct Platform* platform, void* buffer );
     void input_shutdown();
 
     void input_set_key(

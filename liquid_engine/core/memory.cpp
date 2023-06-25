@@ -279,9 +279,10 @@ LD_API void _stack_arena_free( StackArena* arena ) {
 LD_API void* _stack_arena_push_item( StackArena* arena, u32 item_size ) {
     u32 new_stack_pointer = arena->stack_pointer + item_size;
     if( new_stack_pointer >= arena->arena_size ) {
+        u32 remaining_stack_size = arena->arena_size - arena->stack_pointer;
         LOG_ERROR(
-            "Stack Arena push failed! Stack Pointer: %u Item Size: %u",
-            arena->stack_pointer, item_size
+            "Stack Arena push failed! Item Size: %u | Remaining Stack: %u",
+            item_size, remaining_stack_size
         );
         return nullptr;
     }
