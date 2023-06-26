@@ -13,13 +13,13 @@ Build system: Windows 11 x64, mingw64, GNU Make, clang.
 - Travis Vroman (Kohi Game Engine)
 - RemedyBG 
 
-# Tools
-- IDE
-  - Visual Studio Code
-    - clangd LSP
-- Debugger
-  - RemedyBG (windows)
-  - Visual Studio Code + GDB (other platforms)
-- Compiler
-  - GNU Makefile
-  - clang++ with C++20 standard
+<!-- # Tools -->
+<!-- - IDE -->
+<!--   - Visual Studio Code -->
+<!--     - clangd LSP -->
+<!-- - Debugger -->
+<!--   - RemedyBG (windows) -->
+<!--   - Visual Studio Code + GDB (other platforms) -->
+<!-- - Compiler -->
+<!--   - GNU Makefile -->
+<!--   - clang++ with C++20 standard -->
