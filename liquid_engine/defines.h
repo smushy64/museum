@@ -40,10 +40,34 @@ typedef uint8_t  b8;
 /// 32-bit boolean
 typedef uint32_t b32;
 
+/// UTF-8 | 8-bit character
+typedef i8 c8;
+/// UTF-16 | 16-bit character
+typedef i16 c16;
+/// UTF-32 | 32-bit character
+typedef i32 c32;
+
 /// single precision IEEE-754 floating-point number
 typedef float f32;
 /// double precision IEEE-754 floating-point number
 typedef double f64;
+
+/// Tuple containing two single precision floats
+union tuplef32 {
+    struct {
+        f32 f0;
+        f32 f1;
+    };
+    f32 f[2];
+};
+/// Tuple containing two double precision floats
+union tuplef64 {
+    struct {
+        f64 f0;
+        f64 f1;
+    };
+    f64 f[2];
+};
 
 /// void* pointer alias, might come in handy at some point
 typedef void* pvoid;

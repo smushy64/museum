@@ -5,6 +5,8 @@
 
 MAKEFLAGS += -s
 
+# valid arch: x86_64, arm, wasm
+export TARGET_ARCH     := x86_64
 export IS_DEBUG        := true
 export BUILD_PATH      := build/$(if $(IS_DEBUG),debug,release)
 export PROJECT_VERSION_MAJOR := 0
@@ -46,18 +48,28 @@ export INCLUDE_PATHS := -I../liquid_engine
 
 RELEASE_C_FLAGS := -O2
 DEBUG_C_FLAGS   := -O0 -g -gcodeview -Wall -Wextra -Wno-missing-braces
-C_FLAGS         := -march=native -MMD -MP -fno-rtti -fno-exceptions -Werror=vla -ffast-math
+C_FLAGS         := -fno-rtti -fno-exceptions -Werror=vla -ffast-math
+C_FLAGS         += -MMD -MP 
+ifeq ($(TARGET_ARCH), x86_64)
+	C_FLAGS += -masm=intel -march=native
+endif
+ifeq ($(TARGET_ARCH), arm)
+	C_FLAGS += -target-arm64
+endif
+ifeq ($(TARGET_ARCH), wasm)
+	C_FLAGS += -target-wasm64
+endif
 
 RELEASE_CPP_FLAGS :=
-DEBUG_CPP_FLAGS   := -DDEBUG -DLD_LOGGING -DLD_ASSERTIONS -DLD_OUTPUT_DEBUG_STRING -DLD_PROFILING
-CPP_FLAGS         := -DLD_SIMD_WIDTH=4 -DUNICODE
+DEBUG_CPP_FLAGS   := -DDEBUG -DLD_LOGGING -DLD_ASSERTIONS 
+DEBUG_CPP_FLAGS   += -DLD_OUTPUT_DEBUG_STRING -DLD_PROFILING
+CPP_FLAGS         := -DLD_SIMD_WIDTH=4 
 CPP_FLAGS         += -DLIQUID_ENGINE_VERSION=\""$(ENGINE_NAME) $(PROJECT_VERSION)"\"
 CPP_FLAGS         += -DLIQUID_ENGINE_VERSION_MAJOR=$(PROJECT_VERSION_MAJOR)
 CPP_FLAGS         += -DLIQUID_ENGINE_VERSION_MINOR=$(PROJECT_VERSION_MINOR)
 
 RELEASE_LINKER_FLAGS :=
 DEBUG_LINKER_FLAGS   := -g -fuse-ld=lld -Wl,//debug
-# LINKER_FLAGS         := -static-libstdc++ -static-libgcc -lmingw32
 LINKER_FLAGS         := -nostdlib++ -static-libgcc -lmingw32
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
@@ -70,7 +82,11 @@ export obj_path           := ../$(BUILD_PATH)/obj
 
 export liquid_engine_dll := $(ENGINE_NAME)_$(project_version_underscore)$(if $(IS_DEBUG),_DEBUG,)$(dll_ext)
 
+# @echo "Make: Compiler flags: " $(compiler_flags)
+# @echo "Make: Pre-processor flags: " $(preprocessor_flags)
+# @echo "Make: Linker flags: " $(linker_flags)
 all:
+	@echo "Make: Target architecture:" $(TARGET_ARCH)
 	@$(MAKE) --directory=liquid_engine --no-print-directory
 	@$(MAKE) --directory=testbed --no-print-directory
 	@$(MAKE) --directory=shader --no-print-directory

@@ -519,7 +519,7 @@ inline i64 normalize_rangei64( f32 x ) {
 }
 
 /// square root
-inline f32 sqrt( f32 x ) {
+LD_ALWAYS_INLINE f32 sqrt( f32 x ) {
 #if defined(LD_ARCH_X86)
     f32 result;
     __asm__ inline (
@@ -536,7 +536,7 @@ inline f32 sqrt( f32 x ) {
 #endif
 }
 /// square root
-inline f64 sqrt( f64 x ) {
+LD_ALWAYS_INLINE f64 sqrt( f64 x ) {
 #if defined(LD_ARCH_X86)
     f64 result;
     __asm__ inline (
@@ -609,7 +609,7 @@ inline b32 is_zero( f64 x ) {
 }
 
 /// sine function
-inline f32 sin( f32 x ) {
+LD_ALWAYS_INLINE f32 sin( f32 x ) {
 #if defined(LD_ARCH_X86)
     f32 result;
     __asm__ inline (
@@ -626,7 +626,7 @@ inline f32 sin( f32 x ) {
 #endif
 }
 /// sine function
-inline f64 sin( f64 x ) {
+LD_ALWAYS_INLINE f64 sin( f64 x ) {
 #if defined(LD_ARCH_X86)
     f64 result;
     __asm__ inline (
@@ -661,7 +661,7 @@ inline f64 asin_real( f64 x ) {
 }
 
 /// cosine function
-inline f32 cos( f32 x ) {
+LD_ALWAYS_INLINE f32 cos( f32 x ) {
 #if defined(LD_ARCH_X86)
     f32 result;
     __asm__ inline (
@@ -678,7 +678,7 @@ inline f32 cos( f32 x ) {
 #endif
 }
 /// cosine function
-inline f64 cos( f64 x ) {
+LD_ALWAYS_INLINE f64 cos( f64 x ) {
 #if defined(LD_ARCH_X86)
     f64 result;
     __asm__ inline (
@@ -703,21 +703,55 @@ inline f64 acos( f64 x ) {
     return impl::_acos_( x );
 }
 
+// sin-cos function
+LD_ALWAYS_INLINE tuplef32 sincos( f32 x ) {
+    tuplef32 result;
+#if defined(LD_ARCH_X86)
+    __asm__ inline (
+        "fld dword ptr [%2]\n\t"
+        "fsincos\n\t"
+        "fstp dword ptr %0\n\t"
+        "fstp dword ptr %1\n\t"
+        : "=m" (result.f[1]), "=m" (result.f[0])
+        : "r" (&x)
+        : "cc"
+    );
+#else
+    result.f[0] = sin(x);
+    result.f[1] = cos(x);
+#endif
+    return result;
+}
+// sin-cos function
+LD_ALWAYS_INLINE tuplef64 sincos( f64 x ) {
+    tuplef64 result;
+#if defined(LD_ARCH_X86)
+    __asm__ inline (
+        "fld qword ptr [%2]\n\t"
+        "fsincos\n\t"
+        "fstp qword ptr %0\n\t"
+        "fstp qword ptr %1\n\t"
+        : "=m" (result.f[1]), "=m" (result.f[0])
+        : "r" (&x)
+        : "cc"
+    );
+#else
+    result.f[0] = sin(x);
+    result.f[1] = cos(x);
+#endif
+    return result;
+}
+
 /// tangent function
 inline f32 tan( f32 x ) {
     // TODO(alicia): FPTAN?
-    // TODO(alicia): FSINCOS
-    f32 s = sin(x);
-    f32 c = cos(x);
-
-    return is_zero(c) ? F32::NAN : s / c;
+    tuplef32 sc = sincos( x );
+    return is_zero(sc.f1) ? F32::NAN : sc.f0 / sc.f1;
 }
 /// tangent function
 inline f64 tan( f64 x ) {
-    f64 s = sin(x);
-    f64 c = cos(x);
-
-    return is_zero(c) ? F64::NAN : s / c;
+    tuplef64 sc = sincos( x );
+    return is_zero(sc.f1) ? F64::NAN : sc.f0 / sc.f1;
 }
 /// arc-tangent function
 inline f32 atan( f32 x ) {
