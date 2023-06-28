@@ -489,10 +489,69 @@ inline f64 normalize_range64( u64 x ) {
     return (f64)x / (f64)U64::MAX;
 }
 
+/// normalize float to i8 min-max.
+/// float must be in -1.0-1.0 range
+inline i8 normalize_rangei8( f32 x ) {
+    f32 x_sign = sign(x);
+    f32 x_abs  = x * x_sign;
+    return (i8)( x_abs * (f32)I8::MAX ) * (i8)x_sign;
+}
+/// normalize float to i16 min-max.
+/// float must be in -1.0-1.0 range
+inline i16 normalize_rangei16( f32 x ) {
+    f32 x_sign = sign(x);
+    f32 x_abs  = x * x_sign;
+    return (i16)( x_abs * (f32)I16::MAX ) * (i16)x_sign;
+}
+/// normalize float to i32 min-max.
+/// float must be in -1.0-1.0 range
+inline i32 normalize_rangei32( f32 x ) {
+    f32 x_sign = sign(x);
+    f32 x_abs  = x * x_sign;
+    return (i32)( x_abs * (f32)I32::MAX ) * (i32)x_sign;
+}
+/// normalize float to i64 min-max.
+/// float must be in -1.0-1.0 range
+inline i64 normalize_rangei64( f32 x ) {
+    f32 x_sign = sign(x);
+    f32 x_abs  = x * x_sign;
+    return (i64)( x_abs * (f32)I64::MAX ) * (i64)x_sign;
+}
+
 /// square root
-inline f64 sqrt( f64 x ) { return impl::_sqrt_(x); }
+inline f32 sqrt( f32 x ) {
+#if defined(LD_ARCH_X86)
+    f32 result;
+    __asm__ inline (
+        "fld dword ptr [%1]\n\t"
+        "fsqrt\n\t"
+        "fstp dword ptr %0"
+        : "=m" (result)
+        : "r" (&x)
+        : "cc"
+    );
+    return result;
+#else
+    return impl::_sqrtf_(x);
+#endif
+}
 /// square root
-inline f32 sqrt( f32 x ) { return impl::_sqrtf_(x); }
+inline f64 sqrt( f64 x ) {
+#if defined(LD_ARCH_X86)
+    f64 result;
+    __asm__ inline (
+        "fld qword ptr [%1]\n\t"
+        "fsqrt\n\t"
+        "fstp qword ptr %0"
+        : "=m" (result)
+        : "r" (&x)
+        : "cc"
+    );
+    return result;
+#else
+    return impl::_sqrt_(x);
+#endif
+}
 
 /// raise to the power, integer exponent
 inline f32 powi( f32 base, i32 exponent ) {
@@ -551,11 +610,37 @@ inline b32 is_zero( f64 x ) {
 
 /// sine function
 inline f32 sin( f32 x ) {
+#if defined(LD_ARCH_X86)
+    f32 result;
+    __asm__ inline (
+        "fld dword ptr [%1]\n\t"
+        "fsin\n\t"
+        "fstp dword ptr %0"
+        : "=m" (result)
+        : "r" (&x)
+        : "cc"
+    );
+    return result;
+#else
     return impl::_sinf_(x);
+#endif
 }
 /// sine function
 inline f64 sin( f64 x ) {
+#if defined(LD_ARCH_X86)
+    f64 result;
+    __asm__ inline (
+        "fld qword ptr [%1]\n\t"
+        "fsin\n\t"
+        "fstp qword ptr %0"
+        : "=m" (result)
+        : "r" (&x)
+        : "cc"
+    );
+    return result;
+#else
     return impl::_sin_(x);
+#endif
 }
 /// arc-sine function
 inline f32 asin( f32 x ) {
@@ -577,11 +662,37 @@ inline f64 asin_real( f64 x ) {
 
 /// cosine function
 inline f32 cos( f32 x ) {
+#if defined(LD_ARCH_X86)
+    f32 result;
+    __asm__ inline (
+        "fld dword ptr [%1]\n\t"
+        "fcos\n\t"
+        "fstp dword ptr %0"
+        : "=m" (result)
+        : "r" (&x)
+        : "cc"
+    );
+    return result;
+#else
     return impl::_cosf_(x);
+#endif
 }
 /// cosine function
 inline f64 cos( f64 x ) {
+#if defined(LD_ARCH_X86)
+    f64 result;
+    __asm__ inline (
+        "fld qword ptr [%1]\n\t"
+        "fcos\n\t"
+        "fstp qword ptr %0"
+        : "=m" (result)
+        : "r" (&x)
+        : "cc"
+    );
+    return result;
+#else
     return impl::_cos_(x);
+#endif
 }
 /// arc-cosine function
 inline f32 acos( f32 x ) {
@@ -594,6 +705,8 @@ inline f64 acos( f64 x ) {
 
 /// tangent function
 inline f32 tan( f32 x ) {
+    // TODO(alicia): FPTAN?
+    // TODO(alicia): FSINCOS
     f32 s = sin(x);
     f32 c = cos(x);
 

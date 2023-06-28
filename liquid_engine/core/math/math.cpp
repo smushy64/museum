@@ -6,8 +6,14 @@
 #include "types.h"
 #include "type_functions.h"
 
-#if defined(LD_ARCH_X86) && LD_SIMD_WIDTH != 1
-    #include <immintrin.h>
+#if LD_SIMD_WIDTH == 1
+    #include <math.h>
+#else
+    #if defined(LD_ARCH_X86)
+        #include <immintrin.h>
+    #endif
+
+// TODO(alicia): ARM NEON
 #endif
 
 #if LD_SIMD_WIDTH == 1
