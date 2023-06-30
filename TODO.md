@@ -6,15 +6,21 @@
 - [x] Hello Triangle (OpenGL)
   - [x] Shader compilation + linking (pipelines?)
   - [x] Vertex buffer + index buffer rendering
+- [x] Custom string formatting functions (snprintf, printf etc.)
+- [ ] Audio subsystem
+- [ ] Memory arena
+    - [x] Stack Arena
+    - [ ] Dynamic Arena
 - [ ] Materials system
 - [ ] Proper frametiming (using platform_sleep?)
 - [ ] Text rendering
-- [ ] Audio subsystem
 - [ ] ECS or something approximating it
 - [ ] Resource manager
-- [ ] Memory arena
 - [ ] Write logging to file (timestamps?)
-- [ ] Custom string formatting functions (snprintf, printf, fprintf etc.)
 - [ ] Customizable input actions + input processing
 - [ ] Platform agnostic SIMD wrapper?
+- [ ] Optimize string formatting functions
+- [ ] replace hardware trig functions with taylor series + simd
+    - on my machine, the hardware instructions are faster than stdlib
+        but that may not be the case on other machines
 

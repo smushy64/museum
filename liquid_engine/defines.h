@@ -403,6 +403,8 @@ namespace I8 {
     global const i8 MAX = 127;
     /// Smallest i8 value
     global const i8 MIN = -128;
+    /// Sign mask
+    global const u8 SIGN_MASK = (1 << 7);
 };
 
 /// 16-bit integer constants
@@ -411,6 +413,8 @@ namespace I16 {
     global const i16 MAX = 32767;
     /// Smallest i16 value
     global const i16 MIN = -32768;
+    /// Sign mask
+    global const u16 SIGN_MASK = (1 << 15);
 };
 
 /// 32-bit integer constants

@@ -23,6 +23,9 @@ struct StringView {
     StringView() : buffer(nullptr), len(0) {}
     StringView( const char* str ) : buffer((char*)str), len(str_length(str)) {}
     StringView( String& string ) : buffer(string.buffer), len(string.len) {}
+
+    char& operator[]( u32 i ) { return buffer[i]; }
+    char operator[]( u32 i ) const { return buffer[i]; }
 };
 
 /// Create new dynamic string from string view.
@@ -81,6 +84,11 @@ LD_API b32 string_cmp( StringView a, String* b );
 /// Compare if strings are equal.
 LD_API b32 string_cmp( StringView a, StringView b );
 
+/// Parse an int32 from string
+LD_API i32 string_parse_i32( StringView s );
+/// Parse a uint32 from string
+LD_API u32 string_parse_u32( StringView s );
+
 /// Find the first instance of a character in string.
 /// Returns -1 if character is not found.
 LD_API i64 string_find_first_char( String* string, char character );
@@ -118,14 +126,6 @@ LD_API u32 string_view_format(
 /// Calculate the length of a null-terminated string.
 /// Result does not include null-terminator.
 LD_API usize str_length( const char* string );
-/// Convert ASCII char* to wchar_t*.
-/// Writes up to dst length and appends a null-terminator
-LD_API void str_ascii_to_wide(
-    u32         str_len,
-    const char* str_buffer,
-    u32         max_dst_len,
-    wchar_t*    dst_buffer
-);
 /// Make a string view into const char*.
 LD_API b32 str_view(
     u32 str_len,
@@ -157,5 +157,79 @@ LD_API isize format_bytes(
     char* buffer,
     usize buffer_size
 );
+
+/// Format string into string view.
+/// Format Specifiers.
+/// * use {} to wrap a format specifier and use commas to separate parameters
+/// * c  - 8-bit ASCII character
+/// * cc - const char* ASCII null terminated string
+/// * s  - struct String
+/// * sv - struct String View
+/// * u or u8,u16,u32,u64 - unsigned int32 or sized uint
+/// * i or i8,i16,i32,i64 - signed int32 or sized int
+/// * b - boolean
+/// * f or f32,f64 - float or sized float
+/// * v2,v3,v4    - float vectors
+/// * iv2,iv3,iv4 - int vectors
+/// * q           - float quaternion
+/// * {{ - literal {    .
+/// Format parameters.
+/// * int, iv2/3/4
+///     - 0# | number of padding zeroes
+///     - #  | number of padding spaces
+///     - x  | hexadecimal format
+///     - b  | binary format
+/// * float, v2/3/4, m2/3/4, quaternion
+///     - 0#  | number of padding zeroes
+///     - #   | number of padding spaces
+///     - .#  | fractional precision
+/// * const char, string, string view
+///     - #  | number of padding spaces
+/// * boolean
+///     - b | use 0/1 instead of true/false
+/// * ex: format( buffer, "{f32,02.2} {i}", 1.235f, -10 )
+/// * output: "01.23 -10"
+LD_API u32 string_format( StringView buffer, const char* format, ... );
+/// Format buffer variadic.
+LD_API u32 string_format_va(
+    StringView buffer,
+    const char* format,
+    va_list variadic
+);
+/// Print to stdout.
+LD_API void print( const char* format, ... );
+/// Print to stderr.
+LD_API void printerr( const char* format, ... );
+/// Print to stdout variadic.
+LD_API void print_va( const char* format, va_list variadic );
+/// Print to stderr variadic.
+LD_API void printerr_va( const char* format, va_list variadic );
+
+/// Push character to stdout.
+LD_API void stdout_push( char character );
+/// Push character to stderr.
+LD_API void stderr_push( char character );
+
+/// Print to stdout with a new line at the end.
+#define println( format, ... )\
+    print( format, ##__VA_ARGS__ );\
+    stdout_push( '\n' )
+
+/// Print to stdout with a new line at the end.
+/// Variadic arguments come from va_list.
+#define println_va( format, variadic )\
+    print_va( format, variadic );\
+    stdout_push( '\n' )
+
+/// Print to stderr with a new line at the end.
+#define printlnerr( format, ... )\
+    printerr( format, ##__VA_ARGS__ );\
+    stderr_push( '\n' )
+
+/// Print to stderr with a new line at the end.
+/// Variadic arguments come from va_list.
+#define printlnerr_va( format, variadic )\
+    printerr_va( format, variadic );\
+    stderr_push( '\n' )
 
 #endif
