@@ -14,24 +14,16 @@
 
 #define MAX_PLATFORM_SURFACE_TITLE_SIZE 255
 
-/// Platform independent drawing surface
-struct Surface {
-    union {
-        ivec2 dimensions;
-        struct { i32 width, height; };
-    };
-    void* platform;
-};
-
 /// Platform state
 struct Platform {
-    Surface surface;
-    void*   platform;
-
+    union Surface {
+        ivec2  dimensions;
+        struct { i32 width, height; };
+    } surface;
     b32 is_active;
 };
 /// Returns how many bytes the current platform requires.
-u32 platform_context_size();
+u32 query_platform_subsystem_size();
 /// Initialize platform state. Returns true if successful.
 b32 platform_init(
     StringView opt_icon_path,
@@ -103,6 +95,13 @@ void* platform_gl_init( Platform* platform );
 void platform_gl_shutdown( Platform* platform, void* glrc );
 /// Platform exit program.
 void platform_exit();
+
+/// Initialize Audio backend.
+b32 platform_init_audio( Platform* platform );
+/// Shutdown Audio backend.
+void platform_shutdown_audio( Platform* platform );
+
+void platform_audio_test( Platform* platform, i16 volume );
 
 /// Types of message boxes
 enum MessageBoxType : u32 {

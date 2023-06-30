@@ -4,18 +4,11 @@
  * File Created: April 27, 2023
 */
 #include "logging.h"
+#include "string.h"
 #include "memory.h"
 
-// TODO(alicia): custom printf!
 // TODO(alicia): custom mutex!
-#include <stdio.h>
 #include <pthread.h>
-
-#if defined( LD_COMPILER_MSVC )
-    #define VA_LIST va_list
-#else
-    #define VA_LIST __builtin_va_list
-#endif
 
 #if defined(LD_PLATFORM_WINDOWS)
     #include <windows.h>
@@ -51,7 +44,7 @@ global const char* LOG_COLOR_CODES[LOG_COLOR_COUNT] = {
 
 internal void set_color( LogColor color ) {
     #if defined(LD_LOGGING)
-        printf("%s", LOG_COLOR_CODES[color]);
+        print("{cc}", LOG_COLOR_CODES[color]);
     #endif
 }
 
@@ -98,8 +91,7 @@ void log_shutdown() {
 #if defined(LD_LOGGING)
     set_color( LOG_COLOR_WHITE );
 
-    // TODO(alicia): custom printf!
-    printf( "[INFO  ] Logging subsystem shutdown.\n" );
+    println( "[INFO  ] Logging subsystem shutdown.\n" );
 
     set_color( LOG_COLOR_RESET );
 
@@ -119,7 +111,80 @@ inline b32 is_level_valid( LogLevel level ) {
 
 // this is for locking the logging function
 // so that multiple threads can't print over each other
-global pthread_mutex_t MUTEX = PTHREAD_MUTEX_INITIALIZER;
+global pthread_mutex_t MUTEX_0 = PTHREAD_MUTEX_INITIALIZER;
+
+void log_formatted_unlocked(
+    LogLevel    level,
+    LogColor    color,
+    LogFlags    flags,
+    const char* format,
+    ...
+) {
+    if( !is_log_initialized() ) {
+        return;
+    }
+#if defined(LD_LOGGING)
+
+    #if defined(LD_ASSERTIONS)
+        if( !LOGGING_BUFFER ) {
+            println(
+                "LOG INIT WAS NOT CALLED BEFORE THIS LOG MESSAGE!\n"
+            );
+            #if defined(LD_PLATFORM_WINDOWS) && defined(LD_OUTPUT_DEBUG_STRING)
+                OutputDebugStringA(
+                    "LOG INIT WAS NOT CALLED BEFORE THIS LOG MESSAGE!\n"
+                );
+            #endif
+            LD_PANIC();
+        }
+    #endif
+
+    b32 always_print =
+        (flags & LOG_FLAG_ALWAYS_PRINT) == LOG_FLAG_ALWAYS_PRINT;
+    b32 new_line =
+        (flags & LOG_FLAG_NEW_LINE) == LOG_FLAG_NEW_LINE;
+
+    if( !(always_print || is_level_valid( level )) ) {
+        return;
+    }
+
+
+    va_list args;
+    va_start( args, format );
+
+    StringView logging_buffer_view = {};
+    logging_buffer_view.buffer = LOGGING_BUFFER;
+    logging_buffer_view.len    = LOGGING_BUFFER_SIZE;
+    u32 write_size = string_format_va(
+        logging_buffer_view,
+        format,
+        args
+    );
+
+    va_end( args );
+
+    if(
+        (!write_size || write_size < 0) ||
+        (((usize)write_size) >= (LOGGING_BUFFER_SIZE - 1))
+    ) {
+        return;
+    }
+
+    if( new_line ) {
+        LOGGING_BUFFER[write_size] = '\n';
+        LOGGING_BUFFER[write_size + 1] = 0;
+    }
+
+    set_color( color );
+    print( "{sv}", logging_buffer_view );
+    set_color( LOG_COLOR_RESET );
+
+    #if defined(LD_PLATFORM_WINDOWS) && defined(LD_OUTPUT_DEBUG_STRING)
+        OutputDebugStringA( LOGGING_BUFFER );
+    #endif
+
+#endif
+}
 
 void log_formatted_locked(
     LogLevel    level,
@@ -135,7 +200,7 @@ void log_formatted_locked(
 
     #if defined(LD_ASSERTIONS)
         if( !LOGGING_BUFFER ) {
-            printf(
+            println(
                 "LOG INIT WAS NOT CALLED BEFORE THIS LOG MESSAGE!\n"
             );
             #if defined(LD_PLATFORM_WINDOWS) && defined(LD_OUTPUT_DEBUG_STRING)
@@ -147,7 +212,7 @@ void log_formatted_locked(
         }
     #endif
 
-    pthread_mutex_lock( &MUTEX );
+    pthread_mutex_lock( &MUTEX_0 );
 
     b32 always_print =
         (flags & LOG_FLAG_ALWAYS_PRINT) == LOG_FLAG_ALWAYS_PRINT;
@@ -155,17 +220,20 @@ void log_formatted_locked(
         (flags & LOG_FLAG_NEW_LINE) == LOG_FLAG_NEW_LINE;
 
     if( !(always_print || is_level_valid( level )) ) {
-        pthread_mutex_unlock( &MUTEX );
+        pthread_mutex_unlock( &MUTEX_0 );
         return;
     }
 
 
-    VA_LIST args;
+    va_list args;
     va_start( args, format );
 
-    int write_size = vsnprintf(
-        LOGGING_BUFFER,
-        LOGGING_BUFFER_SIZE,
+    StringView logging_buffer_view = {};
+    logging_buffer_view.buffer = LOGGING_BUFFER;
+    logging_buffer_view.len    = LOGGING_BUFFER_SIZE;
+
+    u32 write_size = string_format_va(
+        logging_buffer_view,
         format,
         args
     );
@@ -176,24 +244,26 @@ void log_formatted_locked(
         (!write_size || write_size < 0) ||
         (((usize)write_size) >= (LOGGING_BUFFER_SIZE - 1))
     ) {
-        pthread_mutex_unlock( &MUTEX );
+        pthread_mutex_unlock( &MUTEX_0 );
         return;
     }
 
     if( new_line ) {
         LOGGING_BUFFER[write_size] = '\n';
         LOGGING_BUFFER[write_size + 1] = 0;
+    } else {
+        LOGGING_BUFFER[write_size] = 0;
     }
 
     set_color( color );
-    printf( LOGGING_BUFFER );
+    print( LOGGING_BUFFER );
     set_color( LOG_COLOR_RESET );
 
     #if defined(LD_PLATFORM_WINDOWS) && defined(LD_OUTPUT_DEBUG_STRING)
         OutputDebugStringA( LOGGING_BUFFER );
     #endif
 
-    pthread_mutex_unlock( &MUTEX );
+    pthread_mutex_unlock( &MUTEX_0 );
 #endif
 }
 

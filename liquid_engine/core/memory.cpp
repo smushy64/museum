@@ -27,7 +27,7 @@ global MemoryUsage USAGE = {};
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
         LOG_COLOR_GREEN,\
         LOG_FLAG_NEW_LINE,\
-        "[ALLOC | %s() | %s:%i] " format,\
+        "[ALLOC | {cc}() | {cc}:{i}] " format,\
         function,\
         file,\
         line,\
@@ -39,7 +39,7 @@ global MemoryUsage USAGE = {};
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
         LOG_COLOR_CYAN,\
         LOG_FLAG_NEW_LINE,\
-        "[FREE  | %s() | %s:%i] " format,\
+        "[FREE  | {cc}() | {cc}:{i}] " format,\
         function,\
         file,\
         line,\
@@ -51,7 +51,7 @@ global MemoryUsage USAGE = {};
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
         LOG_COLOR_GREEN,\
         LOG_FLAG_NEW_LINE,\
-        "[PAGE ALLOC | %s() | %s:%i] " format,\
+        "[PAGE ALLOC | {cc}() | {cc}:{i}] " format,\
         function,\
         file,\
         line,\
@@ -63,7 +63,7 @@ global MemoryUsage USAGE = {};
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
         LOG_COLOR_CYAN,\
         LOG_FLAG_NEW_LINE,\
-        "[PAGE FREE  | %s() | %s:%i] " format,\
+        "[PAGE FREE  | {cc}() | {cc}:{i}] " format,\
         function,\
         file,\
         line,\
@@ -84,7 +84,7 @@ void* _mem_alloc_trace(
         function,
         file,
         line,
-        "Type: %s | Size: %llu | Pointer: 0x%X",
+        "Type: {cc} | Size: {u64} | Pointer: {i,x}",
         to_string(type),
         size,
         (u64)result
@@ -105,7 +105,7 @@ void* _mem_realloc_trace(
         function,
         file,
         line,
-        "Realloc | Type: %s | Size: %llu | Pointer: 0x%X",
+        "Realloc | Type: {cc} | Size: {u64} | Pointer: {i,x}",
         to_string(type),
         new_size,
         (u64)result
@@ -126,7 +126,7 @@ void _mem_free_trace(
         function,
         file,
         line,
-        "Type: %s | Size: %llu | Pointer: 0x%X",
+        "Type: {cc} | Size: {u64} | Pointer: {i,x}",
         to_string(type),
         size,
         (u64)memory
@@ -228,7 +228,7 @@ LD_API void* _mem_page_alloc_trace(
         function,
         file,
         line,
-        "Type: %s | Size: %llu | Pointer: 0x%X",
+        "Type: {cc} | Size: {u64} | Pointer: {i,x}",
         to_string(type),
         size,
         (u64)result
@@ -249,7 +249,7 @@ LD_API void _mem_page_free_trace(
         function,
         file,
         line,
-        "Type: %s | Size: %llu | Pointer: 0x%X",
+        "Type: {cc} | Size: {u64} | Pointer: {i,x}",
         to_string(type),
         size,
         (u64)memory
@@ -281,7 +281,7 @@ LD_API void* _stack_arena_push_item( StackArena* arena, u32 item_size ) {
     if( new_stack_pointer >= arena->arena_size ) {
         u32 remaining_stack_size = arena->arena_size - arena->stack_pointer;
         LOG_ERROR(
-            "Stack Arena push failed! Item Size: %u | Remaining Stack: %u",
+            "Stack Arena push failed! Item Size: {u} | Remaining Stack: {u}",
             item_size, remaining_stack_size
         );
         return nullptr;
@@ -309,8 +309,8 @@ LD_API b32 _stack_arena_create_trace(
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
         LOG_COLOR_GREEN,
         LOG_FLAG_NEW_LINE,
-        "[STACK ARENA ALLOC | %s() | %s:%i] "
-        "Arena: 0x%X | Type: %s | Size: %u",
+        "[STACK ARENA ALLOC | {cc}() | {cc}:{i}] "
+        "Arena: {i,x} | Type: {cc} | Size: {u}",
         function, file, line,
         out_arena->arena, to_string( type ), size
     );
@@ -328,8 +328,8 @@ LD_API void _stack_arena_free_trace(
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
         LOG_COLOR_CYAN,
         LOG_FLAG_NEW_LINE,
-        "[STACK ARENA FREE | %s() | %s:%i] "
-        "Arena: 0x%X | Type: %s | Size: %u",
+        "[STACK ARENA FREE | {cc}() | {cc}:{i}] "
+        "Arena: {i,x} | Type: {cc} | Size: {u}",
         function, file, line,
         arena->arena, to_string( type ), arena->arena_size
     );
@@ -345,8 +345,8 @@ LD_API void* _stack_arena_push_item_trace(
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
         LOG_COLOR_GREEN,
         LOG_FLAG_NEW_LINE,
-        "[STACK ARENA PUSH | %s() | %s:%i] "
-        "Arena: 0x%X | Item Size: %u",
+        "[STACK ARENA PUSH | {cc}() | {cc}:{i}] "
+        "Arena: {i,x} | Item Size: {u}",
         function, file, line,
         arena->arena, item_size
     );
@@ -362,8 +362,8 @@ LD_API void _stack_arena_pop_item_trace(
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
         LOG_COLOR_CYAN,
         LOG_FLAG_NEW_LINE,
-        "[STACK ARENA POP | %s() | %s:%i] "
-        "Arena: 0x%X | Item Size: %u",
+        "[STACK ARENA POP | {cc}() | {cc}:{i}] "
+        "Arena: {i,x} | Item Size: {u}",
         function, file, line,
         arena->arena, item_size
     );

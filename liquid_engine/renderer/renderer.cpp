@@ -7,7 +7,7 @@
 #include "opengl/gl_backend.h"
 #include "core/time.h"
 
-u32 renderer_backend_size( RendererBackend backend ) {
+u32 query_renderer_subsystem_size( RendererBackend backend ) {
     local const u32 sizes[] = {
         sizeof(OpenGLRendererContext),
         0, // Vulkan
@@ -44,7 +44,7 @@ b32 renderer_init(
         default: {
             unused(app_name);
             LOG_FATAL(
-                "Backend \"%s\" is not currently supported!",
+                "Backend \"{cc}\" is not currently supported!",
                 to_string(backend)
             );
             LD_PANIC();

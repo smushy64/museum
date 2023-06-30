@@ -7,6 +7,11 @@
   - [x] Shader compilation + linking (pipelines?)
   - [x] Vertex buffer + index buffer rendering
 - [x] Custom string formatting functions (snprintf, printf etc.)
+- [x] Properly document new formatting functions
+- [x] Replace all printf/snprintf with new formatting functions
+- [x] format: String left justify + padding
+    - maybe make this an option for all paddable types?
+- [ ] strip out string format assertions
 - [ ] Audio subsystem
 - [ ] Memory arena
     - [x] Stack Arena

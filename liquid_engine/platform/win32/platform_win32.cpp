@@ -26,13 +26,12 @@
 #include <intrin.h>
 
 // TODO(alicia): custom formatting and printing
-#include <stdio.h>
+// #include <stdio.h>
 
 global HANDLE* SEMAPHORE_STORAGE  = nullptr;
-global char* ERROR_MESSAGE_BUFFER = nullptr;
 global b32 IS_DPI_AWARE = false;
 
-u32 platform_context_size() {
+u32 query_platform_subsystem_size() {
     return sizeof(Win32Platform);
 }
 b32 platform_init(
@@ -42,18 +41,16 @@ b32 platform_init(
     Platform* out_platform
 ) {
 
-    LD_ASSERT( out_platform->platform );
-    Win32Platform* win32_platform = (Win32Platform*)out_platform->platform;
+    LD_ASSERT( out_platform );
+    Win32Platform* win32_platform = (Win32Platform*)out_platform;
 
     IS_DPI_AWARE = ARE_BITS_SET( flags, PLATFORM_DPI_AWARE );
 
     // load libraries
     if( !win32_load_user32( &win32_platform->lib_user32 ) ) {
-        mem_free( win32_platform );
         return false;
     }
     if( !win32_load_xinput( &win32_platform->lib_xinput ) ) {
-        mem_free( win32_platform );
         return false;
     }
     if( !library_load(
@@ -64,7 +61,6 @@ b32 platform_init(
             "Failed to load library!",
             "Failed to load gdi32.dll!"
         );
-        mem_free( win32_platform );
         return false;
     }
     GetStockObject = (::impl::GetStockObjectFN)library_load_function(
@@ -76,34 +72,23 @@ b32 platform_init(
             "Failed to load function!",
             "Failed to load GetStockObject!"
         );
-        mem_free( win32_platform );
         return false;
     }
 
     SEMAPHORE_STORAGE    = win32_platform->semaphore_handles;
-    ERROR_MESSAGE_BUFFER = win32_platform->error_message_buffer;
     win32_platform->instance = GetModuleHandle( nullptr );
 
     HICON window_icon = nullptr;
     if( opt_icon_path.buffer ) {
-
-        str_ascii_to_wide(
-            opt_icon_path.len,
-            opt_icon_path.buffer,
-            WIDE_CONVERSION_BUFFER_SIZE,
-            win32_platform->conversion_buffer
-        );
-
-        window_icon = (HICON)LoadImage(
+        window_icon = (HICON)LoadImageA(
             nullptr,
-            win32_platform->conversion_buffer,
+            opt_icon_path.buffer,
             IMAGE_ICON,
             0, 0,
             LR_DEFAULTSIZE | LR_LOADFROMFILE
         );
         if( !window_icon ) {
             win32_log_error(true);
-            mem_free( win32_platform );
             return false;
         }
     }
@@ -113,7 +98,7 @@ b32 platform_init(
     windowClass.cbSize        = sizeof(WNDCLASSEX);
     windowClass.lpfnWndProc   = win32_winproc;
     windowClass.hInstance     = win32_platform->instance;
-    windowClass.lpszClassName = L"LiquidEngineWindowClass";
+    windowClass.lpszClassName = "LiquidEngineWindowClass";
     windowClass.hbrBackground = (HBRUSH)GetStockBrush(BLACK_BRUSH);
     windowClass.hIcon         = window_icon;
     windowClass.hCursor       = LoadCursor(
@@ -123,7 +108,6 @@ b32 platform_init(
 
     if( !RegisterClassEx( &windowClass ) ) {
         win32_log_error( true );
-        mem_free( win32_platform );
         return false;
     }
 
@@ -157,7 +141,6 @@ b32 platform_init(
             dpi
         ) ) {
             win32_log_error( true );
-            mem_free( win32_platform );
             return false;
         }
     } else {
@@ -173,7 +156,6 @@ b32 platform_init(
             dwExStyle
         ) ) {
             win32_log_error( true );
-            mem_free( win32_platform );
             return false;
         }
     }
@@ -191,7 +173,7 @@ b32 platform_init(
     HWND hWnd = CreateWindowEx(
         dwExStyle,
         windowClass.lpszClassName,
-        L"Liquid Engine",
+        "Liquid Engine",
         dwStyle,
         x, y,
         window_rect.right - window_rect.left,
@@ -203,7 +185,6 @@ b32 platform_init(
     );
     if( !hWnd ) {
         win32_log_error( true );
-        mem_free( win32_platform );
         return false;
     }
     DestroyIcon( window_icon );
@@ -211,7 +192,6 @@ b32 platform_init(
     HDC dc = GetDC( hWnd );
     if( !dc ) {
         win32_log_error( true );
-        mem_free( win32_platform );
         return false;
     }
 
@@ -233,8 +213,6 @@ b32 platform_init(
     );
 
     out_platform->surface.dimensions = { width, height };
-    out_platform->surface.platform   = (void*)&win32_platform->window;
-    out_platform->platform  = (void*)win32_platform;
     out_platform->is_active = true;
 
     SetWindowLongPtr(
@@ -247,36 +225,35 @@ b32 platform_init(
     return true;
 }
 void platform_shutdown( Platform* platform ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+    Win32Platform* win32_platform = (Win32Platform*)platform;
 
-    u32 platform_module_count = STATIC_ARRAY_COUNT( win32_platform->modules );
-    for( u32 i = 0; i < platform_module_count; ++i ) {
+    for( u32 i = 0; i < MODULE_COUNT; ++i ) {
         if( win32_platform->modules[i] ) {
             library_free( win32_platform->modules[i] );
         }
     }
 
-    ERROR_MESSAGE_BUFFER = nullptr;
     DestroyWindow( win32_platform->window.handle );
 }
+
 void platform_exit() {
     ExitProcess( 0 );
 }
 u64 platform_read_absolute_time( Platform* platform ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+    Win32Platform* win32_platform = (Win32Platform*)platform;
 
     LARGE_INTEGER counter = {};
     QueryPerformanceCounter( &counter );
     return counter.QuadPart - win32_platform->performance_counter.QuadPart;
 }
 f64 platform_read_seconds_elapsed( Platform* platform ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+    Win32Platform* win32_platform = (Win32Platform*)platform;
     u64 counter = platform_read_absolute_time( platform );
     return (f64)counter /
         (f64)(win32_platform->performance_frequency.QuadPart);
 }
 b32 platform_pump_events( Platform* platform ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+    Win32Platform* win32_platform = (Win32Platform*)platform;
     MSG message = {};
     while( PeekMessage(
         &message,
@@ -294,7 +271,7 @@ void platform_surface_set_name(
     Platform* platform,
     StringView name
 ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+    Win32Platform* win32_platform = (Win32Platform*)platform;
     SetWindowTextA(
         win32_platform->window.handle,
         name.buffer
@@ -304,7 +281,7 @@ i32 platform_surface_read_name(
     Platform* platform,
     char* buffer, usize max_buffer_size
 ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+    Win32Platform* win32_platform = (Win32Platform*)platform;
     usize text_length = GetWindowTextLengthA(
         win32_platform->window.handle
     );
@@ -341,7 +318,7 @@ inline internal LPCTSTR cursor_style_to_win32_style(
 void platform_cursor_set_style(
     Platform* platform, CursorStyle cursor_style
 ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+    Win32Platform* win32_platform = (Win32Platform*)platform;
     win32_platform->cursor.style = cursor_style;
 
     LPCTSTR win32_style = cursor_style_to_win32_style( cursor_style );
@@ -350,12 +327,12 @@ void platform_cursor_set_style(
     );
 }
 void platform_cursor_set_visible( Platform* platform, b32 visible ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+    Win32Platform* win32_platform = (Win32Platform*)platform;
     ShowCursor( visible );
     win32_platform->cursor.is_visible = visible;
 }
 void platform_cursor_center( Platform* platform ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+    Win32Platform* win32_platform = (Win32Platform*)platform;
     POINT center = {};
     center.x = platform->surface.width  / 2;
     center.y = platform->surface.height / 2;
@@ -412,7 +389,7 @@ void platform_poll_gamepad( Platform* platform ) {
         DWORD is_active = XInputGetState(
             gamepad_index,
             &gamepad_state
-        );
+        ) == ERROR_SUCCESS;
         // if gamepad activated this frame, fire an event
         b32 was_active = input_pad_is_active( gamepad_index );
         if( was_active != is_active ) {
@@ -622,7 +599,7 @@ void platform_poll_gamepad( Platform* platform ) {
 //     Platform* platform,
 //     struct VulkanRendererContext* ctx
 // ) {
-//     Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+//     Win32Platform* win32_platform = (Win32Platform*)platform;
     
 //     VkWin32SurfaceCreateInfoKHR create_info = {};
 //     create_info.sType     = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
@@ -665,11 +642,11 @@ usize platform_vk_read_ext_names(
     return win32_ext_count;
 }
 void platform_gl_swap_buffers( Platform* platform ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+    Win32Platform* win32_platform = (Win32Platform*)platform;
     SwapBuffers( win32_platform->window.device_context );
 }
 internal HGLRC win32_gl_create_context( Platform* platform ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+    Win32Platform* win32_platform = (Win32Platform*)platform;
 
     PIXELFORMATDESCRIPTOR desired_pixel_format = {};
     u16 pixel_format_size = sizeof( PIXELFORMATDESCRIPTOR );
@@ -752,7 +729,7 @@ internal HGLRC win32_gl_create_context( Platform* platform ) {
 void* win32_gl_load_proc( const char* function_name ) {
     void* function = (void*)wglGetProcAddress( function_name );
     if( !function ) {
-        HMODULE lib_gl = GetModuleHandle( L"OPENGL32.DLL" );
+        HMODULE lib_gl = GetModuleHandle( "OPENGL32.DLL" );
         LOG_ASSERT( lib_gl, "OpenGL module was not loaded!" );
         function = (void*)GetProcAddress(
             lib_gl,
@@ -762,7 +739,7 @@ void* win32_gl_load_proc( const char* function_name ) {
 #if defined(LD_LOGGING)
         if( !function ) {
             WIN32_LOG_WARN(
-                "Failed to load GL function \"%s\"!",
+                "Failed to load GL function \"{cc}\"!",
                 function_name
             );
         }
@@ -772,7 +749,7 @@ void* win32_gl_load_proc( const char* function_name ) {
     return function;
 }
 void* platform_gl_init( Platform* platform ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+    Win32Platform* win32_platform = (Win32Platform*)platform;
 
     if( !win32_load_opengl( win32_platform ) ) {
         return nullptr;
@@ -787,15 +764,11 @@ void* platform_gl_init( Platform* platform ) {
         WIN32_LOG_FATAL( "Failed to load OpenGL functions!" );
         return nullptr;
     }
-    // if( !gladLoadGLLoader( win32_gl_load_proc ) ) {
-    //     GL_LOG_FATAL( "Failed to load OpenGL functions!" );
-    //     return nullptr;
-    // }
 
     return (void*)gl_context;
 }
 void platform_gl_shutdown( Platform* platform, void* glrc ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+    Win32Platform* win32_platform = (Win32Platform*)platform;
     wglMakeCurrent(
         win32_platform->window.device_context,
         nullptr
@@ -919,7 +892,7 @@ LRESULT win32_winproc(
     }
 
     [[maybe_unused]]
-    Win32Platform* win32_platform = (Win32Platform*)platform->platform;
+    Win32Platform* win32_platform = (Win32Platform*)platform;
 
     Event event = {};
     switch( Msg ) {
@@ -1226,7 +1199,11 @@ MessageBoxResult message_box(
     return result;
 }
 
-b32 platform_file_open( const char* path, FileOpenFlags flags, FileHandle* out_handle ) {
+b32 platform_file_open(
+    const char* path,
+    FileOpenFlags flags,
+    FileHandle* out_handle
+) {
     DWORD dwDesiredAccess = 0;
     if( ARE_BITS_SET( flags, PLATFORM_FILE_OPEN_READ ) ) {
         dwDesiredAccess |= GENERIC_READ;
@@ -1277,14 +1254,17 @@ b32 platform_file_read(
     usize buffer_size,
     void* buffer
 ) {
-    LOG_ASSERT( read_size < U32::MAX, "platform_file_read does not support reads over 4GB on Win32!" );
+    LOG_ASSERT(
+        read_size < U32::MAX,
+        "platform_file_read does not support reads over 4GB on Win32!"
+    );
 
     HANDLE win32_handle = (HANDLE)handle.platform;
 
     if( read_size > buffer_size ) {
         WIN32_LOG_ERROR(
             "Attempted to read a file into a buffer that isn't large enough! "
-            "Read size: %llu Buffer size: %llu",
+            "Read size: {u64} Buffer size: {u64}",
             read_size, buffer_size
         );
         return false;
@@ -1305,7 +1285,7 @@ b32 platform_file_read(
         if( bytes_read != bytes_to_read ) {
             WIN32_LOG_ERROR(
                 "Failed to read requested bytes! "
-                "Requested bytes: %u Bytes read: %u",
+                "Requested bytes: {u} Bytes read: {u}",
                 bytes_to_read, bytes_read
             );
             return false;
@@ -1354,6 +1334,223 @@ b32 platform_file_set_offset( FileHandle handle, usize offset ) {
     } else {
         return true;
     }
+}
+internal inline void fill_sound_buffer(
+    i16* sample_out,
+    DWORD sample_count,
+    Win32DirectSound* ds,
+    i16 volume
+) {
+    f32 wave_period = (f32)AUDIO_KHZ / (f32)256;
+    for(
+        DWORD sample_index = 0;
+        sample_index < sample_count;
+        ++sample_index
+    ) {
+        f32 t = F32::TAU * ((f32)ds->running_sample_index / wave_period);
+        f32 sine_value = sin(t);
+        i16 sample_value = (i16)(sine_value * volume);
+        *sample_out++ = sample_value;
+        *sample_out++ = sample_value;
+
+        ds->running_sample_index++;
+    }
+}
+b32 platform_init_audio( Platform* generic_platform ) {
+    Win32Platform* platform = (Win32Platform*)generic_platform;
+
+    if( !library_load(
+        "DSOUND.DLL",
+        (void**)&platform->lib_dsound
+    ) ) {
+        MESSAGE_BOX_FATAL(
+            "Failed to load library!",
+            "Failed to load user32.dll!"
+        );
+        return false;
+    }
+    DirectSoundCreate =
+    (::impl::DirectSoundCreateFN)library_load_function(
+        platform->lib_dsound,
+        "DirectSoundCreate"
+    );
+    if( !DirectSoundCreate ) {
+        return false;
+    }
+
+    LPDIRECTSOUND direct_sound = nullptr;
+    HRESULT hResult = DirectSoundCreate(
+        NULL, &direct_sound, NULL
+    );
+    if( !SUCCEEDED(hResult) ) {
+        win32_log_error( true );
+        return false;
+    }
+    
+    // Set cooperative level
+    hResult = direct_sound->SetCooperativeLevel(
+        platform->window.handle,
+        DSSCL_PRIORITY
+    );
+    if( !SUCCEEDED(hResult) ) {
+        win32_log_error( true );
+        return false;
+    }
+
+    /// Create primary buffer
+    DSBUFFERDESC buffer_description = {};
+    buffer_description.dwSize  = sizeof(buffer_description);
+    buffer_description.dwFlags = DSBCAPS_PRIMARYBUFFER;
+
+    LPDIRECTSOUNDBUFFER direct_sound_primary_buffer = {};
+    hResult = direct_sound->CreateSoundBuffer(
+        &buffer_description,
+        &direct_sound_primary_buffer,
+        NULL
+    );
+    if( !SUCCEEDED( hResult ) ) {
+        win32_log_error( true );
+        return false;
+    }
+
+    /// Set primary buffer format
+    WAVEFORMATEX wave_format = {};
+    wave_format.wFormatTag     = WAVE_FORMAT_PCM;
+    wave_format.nChannels      = AUDIO_CHANNEL_COUNT;
+    wave_format.wBitsPerSample = AUDIO_BITS_PER_SAMPLE;
+    wave_format.nSamplesPerSec = AUDIO_KHZ;
+    wave_format.nBlockAlign =
+        (wave_format.nChannels * wave_format.wBitsPerSample) / 8;
+    wave_format.nAvgBytesPerSec =
+        wave_format.nSamplesPerSec * wave_format.nBlockAlign;
+
+    hResult = direct_sound_primary_buffer->SetFormat( &wave_format );
+    if( !SUCCEEDED( hResult ) ) {
+        win32_log_error( true );
+        return false;
+    }
+
+    /// Create secondary buffer
+    buffer_description = {};
+    buffer_description.dwSize        = sizeof(buffer_description);
+    buffer_description.dwBufferBytes = AUDIO_BUFFER_SIZE;
+    buffer_description.lpwfxFormat   = &wave_format;
+    LPDIRECTSOUNDBUFFER direct_sound_secondary_buffer = {};
+    hResult = direct_sound->CreateSoundBuffer(
+        &buffer_description,
+        &direct_sound_secondary_buffer,
+        NULL
+    );
+
+    if( !SUCCEEDED(hResult) ) {
+        win32_log_error( true );
+        return false;
+    }
+
+    platform->direct_sound.handle          = direct_sound;
+    platform->direct_sound.hardware_handle = direct_sound_primary_buffer;
+    platform->direct_sound.buffer          = direct_sound_secondary_buffer;
+    platform->direct_sound.running_sample_index = 0;
+
+    void* audio_ptr[2];
+    DWORD audio_bytes[2];
+    hResult = direct_sound_secondary_buffer->Lock(
+        0, AUDIO_BUFFER_SIZE,
+        &audio_ptr[0], &audio_bytes[0],
+        &audio_ptr[1], &audio_bytes[1],
+        DSBLOCK_ENTIREBUFFER
+    );
+    LOG_ASSERT( SUCCEEDED(hResult), "Failed to lock" );
+    
+    if( audio_ptr[0] ) {
+        // NOTE(alicia): should probably clear to zero instead
+        fill_sound_buffer(
+            (i16*)audio_ptr[0],
+            audio_bytes[0] / AUDIO_BYTES_PER_SAMPLE,
+            &platform->direct_sound,
+            400
+        );
+    }
+
+    hResult = direct_sound_secondary_buffer->Unlock(
+        audio_ptr[0], audio_bytes[0],
+        audio_ptr[1], audio_bytes[1]
+    );
+    LOG_ASSERT( SUCCEEDED(hResult), "Failed to unlock" );
+
+    direct_sound_secondary_buffer->Play(
+        0, 0,
+        DSBPLAY_LOOPING
+    );
+
+
+    return true;
+}
+void platform_shutdown_audio( Platform* platform ) {
+    LPDIRECTSOUNDBUFFER buffer = ((Win32Platform*)platform)->direct_sound.buffer;
+    buffer->Stop();
+}
+
+void platform_audio_test( Platform* generic_platform, i16 volume ) {
+    Win32DirectSound* ds = &((Win32Platform*)generic_platform)->direct_sound;
+    LPDIRECTSOUNDBUFFER buffer = ds->buffer;
+
+    DWORD play_cursor  = 0;
+    DWORD write_cursor = 0;
+
+    HRESULT hResult = buffer->GetCurrentPosition(
+        &play_cursor,
+        &write_cursor
+    );
+    LOG_ASSERT( SUCCEEDED(hResult), "Failed to get play/write cursor!" );
+
+    DWORD byte_to_lock =
+        (ds->running_sample_index * AUDIO_BYTES_PER_SAMPLE) % AUDIO_BUFFER_SIZE;
+    DWORD bytes_to_write = 0;
+    if( ds->running_sample_index == 0 ) {
+        bytes_to_write = AUDIO_BUFFER_SIZE;
+    } else {
+        if( byte_to_lock == play_cursor ) {
+            return;
+        } else if( byte_to_lock > play_cursor ) {
+            bytes_to_write = ( AUDIO_BUFFER_SIZE - byte_to_lock );
+            bytes_to_write += play_cursor;
+        } else {
+            bytes_to_write = play_cursor - byte_to_lock;
+        }
+    }
+
+    void* audio_ptr[2];
+    DWORD audio_bytes[2];
+    hResult = buffer->Lock(
+        byte_to_lock, bytes_to_write,
+        &audio_ptr[0], &audio_bytes[0],
+        &audio_ptr[1], &audio_bytes[1],
+        0
+    );
+    LOG_ASSERT( SUCCEEDED(hResult), "Failed to lock" );
+
+    i16*  sample_out   = (i16*)(audio_ptr[0]);
+    DWORD sample_count = audio_bytes[0] / AUDIO_BYTES_PER_SAMPLE;
+
+    fill_sound_buffer(
+        sample_out,
+        sample_count,
+        ds, volume
+    );
+    sample_out   = (i16*)(audio_ptr[1]);
+    sample_count = audio_bytes[1] / AUDIO_BYTES_PER_SAMPLE;
+    fill_sound_buffer(
+        sample_out,
+        sample_count,
+        ds, volume
+    );
+
+    hResult = buffer->Unlock(
+        audio_ptr[0], audio_bytes[0],
+        audio_ptr[1], audio_bytes[1]
+    );
+    LOG_ASSERT( SUCCEEDED(hResult), "Failed to unlock" );
 }
 
 b32 win32_load_user32( HMODULE* out_module ) {
@@ -1548,7 +1745,7 @@ namespace impl {
         if( !module ) {
             return false;
         }
-        *out_library = (void*)module;
+        *out_library = (LibraryHandle)module;
         return true;
     }
     b32 _library_load_trace(
@@ -1559,12 +1756,11 @@ namespace impl {
         i32 line
     ) {
         LibraryHandle result = nullptr;
-        _library_load( library_name, &result );
         if( !_library_load( library_name, &result ) ) {
             log_formatted_locked(
                 LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,
                 LOG_COLOR_RED, 0,
-                "[ERROR WIN32  | %s | %s:%i] ",
+                "[ERROR WIN32  | {cc} | {cc}:{i}] ",
                 function,
                 file,
                 line
@@ -1573,7 +1769,7 @@ namespace impl {
                 LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,
                 LOG_COLOR_RED,
                 LOG_FLAG_NEW_LINE,
-                "Failed to load library \"%s\"!",
+                "Failed to load library \"{cc}\"!",
                 library_name
             );
             return false;
@@ -1583,7 +1779,7 @@ namespace impl {
         log_formatted_locked(
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
             LOG_COLOR_RESET, 0,
-            "[NOTE WIN32  | %s | %s:%i] ",
+            "[NOTE WIN32  | {cc} | {cc}:{i}] ",
             function,
             file,
             line
@@ -1592,7 +1788,7 @@ namespace impl {
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
             LOG_COLOR_RESET,
             LOG_FLAG_NEW_LINE,
-            "Library \"%s\" has been loaded successfully.",
+            "Library \"{cc}\" has been loaded successfully.",
             library_name
         );
 
@@ -1620,7 +1816,7 @@ namespace impl {
         log_formatted_locked(
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
             LOG_COLOR_RESET, 0,
-            "[NOTE WIN32  | %s | %s:%i] ",
+            "[NOTE WIN32  | {cc} | {cc}:{i}] ",
             function,
             file,
             line
@@ -1629,7 +1825,7 @@ namespace impl {
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
             LOG_COLOR_RESET,
             LOG_FLAG_NEW_LINE,
-            "Library \"%s\" has been freed.",
+            "Library \"{cc}\" has been freed.",
             library_name_buffer
         );
         _library_free( library );
@@ -1676,7 +1872,7 @@ namespace impl {
             level,
             color,
             flags,
-            "[NOTE WIN32  | %s | %s:%i] ",
+            "[NOTE WIN32  | {cc} | {cc}:{i}] ",
             function,
             file,
             line
@@ -1686,8 +1882,8 @@ namespace impl {
                 level,
                 color,
                 LOG_FLAG_NEW_LINE | flags,
-                "Function \"%s\" "
-                "loaded from library \"%s\" successfully.",
+                "Function \"{cc}\" "
+                "loaded from library \"{cc}\" successfully.",
                 function_name,
                 library_name_buffer
             );
@@ -1696,8 +1892,8 @@ namespace impl {
                 level,
                 color,
                 LOG_FLAG_NEW_LINE | flags,
-                "Unable to load function \"%s\" "
-                "from library \"%s\"!",
+                "Unable to load function \"{cc}\" "
+                "from library \"{cc}\"!",
                 function_name,
                 library_name_buffer
             );
@@ -1707,17 +1903,11 @@ namespace impl {
 
 } // namespace impl
 
+#define ERROR_MESSAGE_BUFFER_SIZE 512ULL
+global char ERROR_MESSAGE_BUFFER[ERROR_MESSAGE_BUFFER_SIZE] = {};
 DWORD win32_log_error( b32 present_message_box ) {
     DWORD error_code = GetLastError();
     if( error_code == ERROR_SUCCESS ) {
-        return error_code;
-    }
-
-    if( !ERROR_MESSAGE_BUFFER ) {
-        WIN32_LOG_WARN(
-            "Attempted to present error message box while "
-            "message buffer is null!"
-        );
         return error_code;
     }
 
@@ -1735,17 +1925,20 @@ DWORD win32_log_error( b32 present_message_box ) {
 
     if( message_length ) {
         WIN32_LOG_ERROR(
-            "%u: %s",
+            "{u}: {cc}",
             error_code,
             ERROR_MESSAGE_BUFFER
         );
 
         if( present_message_box ) {
-            snprintf(
-                ERROR_MESSAGE_BUFFER + message_length,
-                ERROR_MESSAGE_BUFFER_SIZE - (message_length + 1),
+            StringView error_message_buffer_view = {};
+            error_message_buffer_view.buffer = ERROR_MESSAGE_BUFFER + message_length;
+            error_message_buffer_view.len    = ERROR_MESSAGE_BUFFER_SIZE - (message_length + 1);
+            string_format(
+                error_message_buffer_view,
                 "Encountered a fatal Windows error!\n"
-                LD_CONTACT_MESSAGE "\n"
+                LD_CONTACT_MESSAGE "\n{c}",
+                0
             );
 
             MESSAGE_BOX_FATAL(

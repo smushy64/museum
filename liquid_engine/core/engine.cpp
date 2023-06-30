@@ -15,9 +15,7 @@
 #include "string.h"
 #include "time.h"
 #include "math.h"
-
-// TODO(alicia): custom string formatting!
-#include <stdio.h>
+#include "audio.h"
 
 #define THREAD_WORK_ENTRY_COUNT 256
 struct ThreadInfo {
@@ -46,9 +44,9 @@ char APPLICATION_NAME_BUFFER[APPLICATION_NAME_BUFFER_SIZE] = {};
 struct EngineContext {
     SystemInfo       system_info;       // 88 
     ThreadWorkQueue  thread_work_queue; // 48
-    Platform         platform;          // 32
     Time             time;              // 16
     StackArena       arena; // 16
+    Platform*        platform;          // 8
     RendererContext* renderer_context;  // 8
 
     StringView application_name_view;
@@ -105,11 +103,38 @@ b32 engine_run(
     unused(argv);
 
     EngineContext ctx = {};
-    u32 stack_arena_size = KILOBYTES(10);
+    ctx.system_info   = query_system_info();
+    u32 thread_count  = ctx.system_info.logical_processor_count;
+    thread_count = (thread_count == 1 ? thread_count : thread_count - 1);
+
+    u32 thread_info_buffer_size = sizeof(ThreadInfo) * thread_count;
+    u32 thread_work_entry_buffer_size =
+        sizeof(ThreadWorkEntry) * THREAD_WORK_ENTRY_COUNT;
+    u32 thread_handle_buffer_size = sizeof(ThreadHandle) * thread_count;
+
+    u32 event_subsystem_size    = query_event_subsystem_size();
+    u32 input_subsystem_size    = query_input_subsystem_size();
+    u32 platform_subsystem_size = query_platform_subsystem_size();
+    u32 renderer_subsystem_size = query_renderer_subsystem_size( config->renderer_backend );
+    
+    u32 logging_subsystem_size = DEFAULT_LOGGING_BUFFER_SIZE;
+
+    // calculate required stack arena size
+    u32 required_stack_arena_size =
+        event_subsystem_size +
+        input_subsystem_size +
+        platform_subsystem_size +
+        renderer_subsystem_size +
+        thread_info_buffer_size +
+        thread_work_entry_buffer_size +
+        thread_handle_buffer_size +
+        logging_subsystem_size;
+
+    u32 stack_arena_size = required_stack_arena_size;
     if( !stack_arena_create( stack_arena_size, MEMTYPE_ENGINE, &ctx.arena ) ) {
         LOG_FATAL(
             "Subsystem Failure",
-            "Failed to create stack arena! Requested size: %u",
+            "Failed to create stack arena! Requested size: {u}",
             stack_arena_size
         );
         return false;
@@ -119,9 +144,9 @@ b32 engine_run(
 
     if( !is_log_initialized() ) {
         StringView logging_buffer = {};
-        logging_buffer.len = KILOBYTES(1);
+        logging_buffer.len = logging_subsystem_size;
         logging_buffer.buffer =
-            (char*)stack_arena_push_item( &ctx.arena, logging_buffer.len );
+            (char*)stack_arena_push_item( &ctx.arena, logging_subsystem_size );
         if( !log_init( config->log_level, logging_buffer ) ) {
             MESSAGE_BOX_FATAL(
                 "Subsystem Failure",
@@ -135,7 +160,7 @@ b32 engine_run(
 #endif
 
     LD_ASSERT( application_run );
-    LOG_INFO("Liquid Engine Version: %i.%i",
+    LOG_INFO("Liquid Engine Version: {i}.{i}",
         LIQUID_ENGINE_VERSION_MAJOR,
         LIQUID_ENGINE_VERSION_MINOR
     );
@@ -143,10 +168,9 @@ b32 engine_run(
     ctx.application_name_view.len    = APPLICATION_NAME_BUFFER_SIZE;
     ctx.application_name_view.buffer = APPLICATION_NAME_BUFFER;
 
-    u32 event_subsystem_data_size = event_subsystem_size();
     void* event_subsystem_data    = stack_arena_push_item(
         &ctx.arena,
-        event_subsystem_data_size
+        event_subsystem_size
     );
     LD_ASSERT( event_subsystem_data );
 
@@ -159,11 +183,13 @@ b32 engine_run(
         return false;
     }
 
-    u32 platform_ctx_size = platform_context_size();
-    ctx.platform.platform = stack_arena_push_item( &ctx.arena, platform_ctx_size );
+    ctx.platform = (Platform*)stack_arena_push_item(
+        &ctx.arena,
+        platform_subsystem_size
+    );
     LOG_ASSERT(
-        ctx.platform.platform,
-        "Stack Arena of size %u is not enough to initialize engine!",
+        ctx.platform,
+        "Stack Arena of size {u} is not enough to initialize engine!",
         ctx.arena.arena_size
     );
 
@@ -171,7 +197,7 @@ b32 engine_run(
         config->opt_application_icon_path,
         { config->surface_dimensions.width, config->surface_dimensions.height },
         config->platform_flags,
-        &ctx.platform
+        ctx.platform
     ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
@@ -187,12 +213,12 @@ b32 engine_run(
         PLATFORM_PAUSE_ON_SURFACE_INACTIVE
     );
     ctx.renderer_backend = config->renderer_backend;
-    u32 renderer_ctx_size = renderer_backend_size( ctx.renderer_backend );
-    RendererContext* renderer_ctx_buffer =
-        (RendererContext*)stack_arena_push_item( &ctx.arena, renderer_ctx_size );
+    RendererContext* renderer_ctx_buffer = (RendererContext*)stack_arena_push_item(
+        &ctx.arena, renderer_subsystem_size
+    );
     LOG_ASSERT(
         renderer_ctx_buffer,
-        "Stack Arena of size %u is not enough to initialize engine!",
+        "Stack Arena of size {u} is not enough to initialize engine!",
         ctx.arena.arena_size
     );
 
@@ -201,8 +227,8 @@ b32 engine_run(
     if( !renderer_init(
         config->application_name,
         config->renderer_backend,
-        &ctx.platform,
-        renderer_ctx_size,
+        ctx.platform,
+        renderer_subsystem_size,
         ctx.renderer_context
     ) ) {
         MESSAGE_BOX_FATAL(
@@ -213,19 +239,14 @@ b32 engine_run(
         return false;
     }
 
-    ctx.system_info = query_system_info();
-
-    u32 thread_count = ctx.system_info.logical_processor_count;
-    thread_count = (thread_count == 1 ? thread_count : thread_count - 1);
-
     ctx.thread_work_queue.threads = (ThreadInfo*)stack_arena_push_item(
-        &ctx.arena, sizeof(ThreadInfo) * thread_count
+        &ctx.arena, thread_info_buffer_size
     );
     ctx.thread_work_queue.work_entries = (ThreadWorkEntry*)stack_arena_push_item(
-        &ctx.arena, sizeof(ThreadWorkEntry) * THREAD_WORK_ENTRY_COUNT
+        &ctx.arena, thread_work_entry_buffer_size
     );
     ctx.thread_handles = (ThreadHandle*)stack_arena_push_item(
-        &ctx.arena, sizeof(ThreadHandle) * thread_count
+        &ctx.arena, thread_handle_buffer_size
     );
     LD_ASSERT(
         ctx.thread_work_queue.threads &&
@@ -268,7 +289,7 @@ b32 engine_run(
         current_thread_info->thread_index  = i;
 
         if(!platform_thread_create(
-            &ctx.platform,
+            ctx.platform,
             thread_proc,
             current_thread_info,
             THREAD_STACK_SIZE_SAME_AS_MAIN,
@@ -292,7 +313,7 @@ b32 engine_run(
         );
         return false;
     }
-    LOG_NOTE( "Instantiated %u threads.", thread_count );
+    LOG_NOTE( "Instantiated {u} threads.", thread_count );
 
     read_write_fence();
 
@@ -305,8 +326,8 @@ b32 engine_run(
     ctx.thread_count                   = thread_count;
     ctx.thread_work_queue.thread_count = thread_count;
 
-    LOG_NOTE("CPU: %s", ctx.system_info.cpu_name_buffer);
-    LOG_NOTE("  Logical Processors: %llu",
+    LOG_NOTE("CPU: {cc}", ctx.system_info.cpu_name_buffer);
+    LOG_NOTE("  Logical Processors: {u64}",
         ctx.system_info.logical_processor_count
     );
 
@@ -319,11 +340,14 @@ b32 engine_run(
     if( LD_SIMD_WIDTH == 4 && !sse ) {
         #define ERROR_MESSAGE_SIZE 256
         char error_message_buffer[ERROR_MESSAGE_SIZE];
+        StringView error_message_buffer_view = {};
+        error_message_buffer_view.buffer = error_message_buffer;
+        error_message_buffer_view.len    = ERROR_MESSAGE_SIZE;
         str_buffer_fill( ERROR_MESSAGE_SIZE, error_message_buffer, ' ' );
-        string_view_format(
-            error_message_buffer,
+        string_format(
+            error_message_buffer_view,
             "Your CPU does not support SSE instructions!\n"
-            "Missing instructions: %s%s%s%s%s%s",
+            "Missing instructions: {cc}{cc}{cc}{cc}{cc}{cc}",
             ARE_BITS_SET(features, SSE_MASK)    ? "" : "SSE, ",
             ARE_BITS_SET(features, SSE2_MASK)   ? "" : "SSE2, ",
             ARE_BITS_SET(features, SSE3_MASK)   ? "" : "SSE3, ",
@@ -346,7 +370,7 @@ b32 engine_run(
 
 
     LOG_NOTE(
-        "  Features: %s%s%s%s",
+        "  Features: {cc}{cc}{cc}{cc}",
         sse    ? "SSE1-4 " : "",
         avx    ? "AVX " : "",
         avx2   ? "AVX2 " : "",
@@ -356,12 +380,11 @@ b32 engine_run(
 #endif
 
 
-    u32 input_subsystem_buffer_size = input_subsystem_size();
     void* input_subsystem_buffer = stack_arena_push_item(
         &ctx.arena,
-        input_subsystem_buffer_size
+        input_subsystem_size
     );
-    if( !input_init( &ctx.platform, input_subsystem_buffer ) ) {
+    if( !input_init( ctx.platform, input_subsystem_buffer ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
             "Failed to initialize input subsystem!\n "
@@ -406,33 +429,33 @@ b32 engine_run(
         );
         return false;
     }
-    ctx.is_running = true;
 
 #if defined(LD_LOGGING) && defined(LD_PROFILING)
-    LOG_NOTE("Memory: %6.3f GB",
+    LOG_NOTE("Memory: {f,02.3} GB",
         MB_TO_GB( KB_TO_MB( BYTES_TO_KB( ctx.system_info.total_memory ) ) )
     );
     LOG_NOTE("Initial Memory Usage:");
+    char usage_buffer[32];
+    StringView usage_buffer_view = {};
+    usage_buffer_view.buffer = usage_buffer;
+    usage_buffer_view.len    = 32;
+
     for( u64 i = 0; i < MEMTYPE_COUNT; ++i ) {
         MemoryType type = (MemoryType)i;
         usize memory_usage = query_memory_usage( type );
-        char usage_buffer[32];
         format_bytes(
-            memory_usage,
-            usage_buffer,
-            32
+            usage_buffer_view,
+            memory_usage
         );
-        LOG_NOTE("    %-30s %s", to_string(type), usage_buffer);
+        LOG_NOTE("    {cc,-25} {cc}", to_string(type), usage_buffer);
     }
     usize total_memory_usage = query_total_memory_usage();
-    char usage_buffer[32];
     format_bytes(
-        total_memory_usage,
-        usage_buffer,
-        32
+        usage_buffer_view,
+        total_memory_usage
     );
-    LOG_NOTE("    %-30s %s", "Total Memory Usage", usage_buffer);
-    LOG_NOTE("Engine stack arena pointer: %u", ctx.arena.stack_pointer);
+    LOG_NOTE("    {cc,-25} {cc}", "Total Memory Usage", usage_buffer);
+    LOG_NOTE("Engine stack arena pointer: {u}", ctx.arena.stack_pointer);
 #endif
 
     ctx.cursor_style      = CURSOR_ARROW;
@@ -440,13 +463,18 @@ b32 engine_run(
 
     #define UPDATE_FRAME_RATE_COUNTER_RATE 100
 
+    if( !audio_init( ctx.platform ) ) {
+        return false;
+    }
+
+    ctx.is_running = true;
     while( ctx.is_running ) {
         input_swap();
-        platform_poll_gamepad( &ctx.platform );
-        platform_pump_events( &ctx.platform );
+        platform_poll_gamepad( ctx.platform );
+        platform_pump_events( ctx.platform );
 
         if(
-            !ctx.platform.is_active &&
+            !ctx.platform->is_active &&
             ctx.pause_on_surface_inactive
         ) {
             continue;
@@ -463,12 +491,10 @@ b32 engine_run(
         }
 
         if( ctx.cursor_is_locked ) {
-            platform_cursor_center( &ctx.platform );
+            platform_cursor_center( ctx.platform );
         }
 
-        f64 seconds_elapsed = platform_read_seconds_elapsed(
-            &ctx.platform
-        );
+        f64 seconds_elapsed = platform_read_seconds_elapsed( ctx.platform );
         ctx.time.delta_seconds =
             seconds_elapsed - ctx.time.elapsed_seconds;
         ctx.time.elapsed_seconds = seconds_elapsed;
@@ -497,6 +523,10 @@ b32 engine_run(
             return false;
         }
 
+        audio_test( ctx.platform );
+
+        // TODO(alicia): frame timing  
+
         ctx.time.frame_count++;
         semaphore_increment(
             &ctx.thread_work_queue.on_frame_update_semaphore,
@@ -505,6 +535,8 @@ b32 engine_run(
     }
 
     ctx.is_running = false; 
+
+    audio_shutdown( ctx.platform );
 
     event_shutdown();
     input_shutdown();
@@ -517,7 +549,7 @@ b32 engine_run(
     );
 
     renderer_shutdown( ctx.renderer_context ); 
-    platform_shutdown( &ctx.platform ); 
+    platform_shutdown( ctx.platform ); 
     stack_arena_free( &ctx.arena );
 
     log_shutdown();
@@ -609,19 +641,19 @@ internal ThreadReturnCode thread_proc( void* user_params ) {
 void engine_set_cursor_style( struct EngineContext* ctx, u32 style ) {
     ctx->cursor_style = (CursorStyle)style;
     platform_cursor_set_style(
-        &ctx->platform,
+        ctx->platform,
         (CursorStyle)style
     );
 }
 void engine_set_cursor_visibility( struct EngineContext* ctx, b32 visible ) {
     ctx->cursor_is_visible = visible;
     platform_cursor_set_visible(
-        &ctx->platform,
+        ctx->platform,
         visible
     );
 }
 void engine_center_cursor( struct EngineContext* ctx ) {
-    platform_cursor_center( &ctx->platform );
+    platform_cursor_center( ctx->platform );
 }
 void engine_lock_cursor( struct EngineContext* ctx, b32 locked ) {
     ctx->cursor_is_locked = locked;
@@ -641,15 +673,14 @@ b32 engine_query_cursor_locked( struct EngineContext* ctx ) {
 void engine_set_application_name( struct EngineContext* ctx, StringView name ) {
     StringView renderer_backend_name = to_string( ctx->renderer_backend );
 
-    string_view_format(
+    string_format(
         ctx->application_name_view,
-        "%.*s | %.*s",
-        name.len, name.buffer,
-        renderer_backend_name.len, renderer_backend_name.buffer
+        "{sv} | {sv}",
+        name, renderer_backend_name
     );
 
     platform_surface_set_name(
-        &ctx->platform,
+        ctx->platform,
         ctx->application_name_view
     );
 }

@@ -8,21 +8,29 @@
 #include "defines.h"
 #if defined(LD_PLATFORM_WINDOWS)
 
+#include "core/audio.h"
 #include "core/logging.h"
 #include "platform/platform.h"
 #include "platform/io.h"
 #include "platform/threading.h"
 
-#define WIN32_LEAN_AND_MEAN
 #define NOGDI
 #include <windows.h>
 #include <windowsx.h>
 #include <psapi.h>
 #include <xinput.h>
+#include <dsound.h>
 
-#define ERROR_MESSAGE_BUFFER_SIZE 512ULL
-#define WIDE_CONVERSION_BUFFER_SIZE 512ULL
+struct Win32DirectSound {
+    LPDIRECTSOUND handle;
+    LPDIRECTSOUNDBUFFER hardware_handle;
+    LPDIRECTSOUNDBUFFER buffer;
+
+    u32 running_sample_index;
+};
+#define MODULE_COUNT 5
 struct Win32Platform {
+    Platform platform;
     struct Win32Window {
         HWND handle;
         HDC  device_context;
@@ -39,17 +47,17 @@ struct Win32Platform {
             HMODULE lib_xinput;
             HMODULE lib_gl;
             HMODULE lib_gdi32;
+            HMODULE lib_dsound;
         };
-        HMODULE modules[4];
+        HMODULE modules[MODULE_COUNT];
     };
+
+    Win32DirectSound direct_sound;
 
     HANDLE semaphore_handles[MAX_SEMAPHORE_HANDLES];
 
     LARGE_INTEGER performance_frequency;
     LARGE_INTEGER performance_counter;
-
-    char error_message_buffer[ERROR_MESSAGE_BUFFER_SIZE];
-    wchar_t conversion_buffer[WIDE_CONVERSION_BUFFER_SIZE];
 };
 
 struct Win32ThreadHandle {
@@ -114,7 +122,7 @@ LRESULT win32_winproc( HWND, UINT, WPARAM, LPARAM );
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,\
             LOG_COLOR_RESET,\
             LOG_FLAG_NEW_LINE,\
-            "[NOTE WIN32  | %s() | %s:%i] " format,\
+            "[NOTE WIN32  | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -126,7 +134,7 @@ LRESULT win32_winproc( HWND, UINT, WPARAM, LPARAM );
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
             LOG_COLOR_WHITE,\
             LOG_FLAG_NEW_LINE,\
-            "[INFO WIN32  | %s() | %s:%i] " format,\
+            "[INFO WIN32  | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -138,7 +146,7 @@ LRESULT win32_winproc( HWND, UINT, WPARAM, LPARAM );
             LOG_LEVEL_DEBUG | LOG_LEVEL_TRACE,\
             LOG_COLOR_BLUE,\
             LOG_FLAG_NEW_LINE,\
-            "[DEBUG WIN32 | %s() | %s:%i] " format,\
+            "[DEBUG WIN32 | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -150,7 +158,7 @@ LRESULT win32_winproc( HWND, UINT, WPARAM, LPARAM );
             LOG_LEVEL_WARN | LOG_LEVEL_TRACE,\
             LOG_COLOR_YELLOW,\
             LOG_FLAG_NEW_LINE,\
-            "[WARN WIN32  | %s() | %s:%i] " format,\
+            "[WARN WIN32  | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -162,7 +170,7 @@ LRESULT win32_winproc( HWND, UINT, WPARAM, LPARAM );
             LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
             LOG_COLOR_RED,\
             LOG_FLAG_NEW_LINE,\
-            "[ERROR WIN32 | %s() | %s:%i] " format,\
+            "[ERROR WIN32 | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -173,7 +181,7 @@ LRESULT win32_winproc( HWND, UINT, WPARAM, LPARAM );
             LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
             LOG_COLOR_RED,\
             LOG_FLAG_NEW_LINE | LOG_FLAG_ALWAYS_PRINT,\
-            "[FATAL WIN32 | %s() | %s:%i] " format,\
+            "[FATAL WIN32 | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -381,8 +389,13 @@ namespace impl {
     [[maybe_unused]]
     global XInputEnableFN in_XInputEnable = XInputEnableStub;
 
+    typedef HRESULT WINAPI (*DirectSoundCreateFN)( LPGUID, LPDIRECTSOUND*, LPUNKNOWN );
+    [[maybe_unused]]
+    global DirectSoundCreateFN in_DirectSoundCreate = nullptr;
+
 } // namespace impl
 
+#define DirectSoundCreate             ::impl::in_DirectSoundCreate
 #define SetProcessDpiAwarenessContext ::impl::in_SetProcessDpiAwarenessContext
 #define GetDpiForSystem               ::impl::in_GetDpiForSystem
 #define AdjustWindowRectExForDpi      ::impl::in_AdjustWindowRectExForDpi

@@ -37,8 +37,6 @@ struct RendererContext {
     RendererBackendOnResizeFn   backend_on_resize;
     RendererBackendBeginFrameFn backend_begin_frame;
     RendererBackendEndFrameFn   backend_end_frame;
-
-    void* backend;
 };
 
 struct RenderOrder {
@@ -48,7 +46,7 @@ struct RenderOrder {
     struct Time* time;
 };
 
-u32 renderer_backend_size( RendererBackend backend );
+u32 query_renderer_subsystem_size( RendererBackend backend );
 b32 renderer_init(
     StringView       app_name,
     RendererBackend  backend,

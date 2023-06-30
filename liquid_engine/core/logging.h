@@ -13,6 +13,8 @@
 #include "defines.h"
 #include "core/string.h"
 
+#define DEFAULT_LOGGING_BUFFER_SIZE KILOBYTES(1)
+
 enum LogColor : u32 {
     LOG_COLOR_BLACK,
     LOG_COLOR_RED,
@@ -89,6 +91,14 @@ LD_API void log_formatted_locked(
     const char* format,
     ...
 );
+/// log a formatted message, does not use a mutex.
+LD_API void log_formatted_unlocked(
+    LogLevel    level,
+    LogColor    color,
+    LogFlags    flags,
+    const char* format,
+    ...
+);
 
 #if defined(LD_LOGGING)
 
@@ -138,7 +148,7 @@ LD_API void log_formatted_locked(
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,\
             LOG_COLOR_RESET,\
             LOG_FLAG_NEW_LINE,\
-            "[NOTE  | %s() | %s:%i] " format,\
+            "[NOTE  | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -150,7 +160,7 @@ LD_API void log_formatted_locked(
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
             LOG_COLOR_WHITE,\
             LOG_FLAG_NEW_LINE,\
-            "[INFO  | %s() | %s:%i] " format,\
+            "[INFO  | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -162,7 +172,7 @@ LD_API void log_formatted_locked(
             LOG_LEVEL_DEBUG | LOG_LEVEL_TRACE,\
             LOG_COLOR_BLUE,\
             LOG_FLAG_NEW_LINE,\
-            "[DEBUG | %s() | %s:%i] " format,\
+            "[DEBUG | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -174,7 +184,7 @@ LD_API void log_formatted_locked(
             LOG_LEVEL_WARN | LOG_LEVEL_TRACE,\
             LOG_COLOR_YELLOW,\
             LOG_FLAG_NEW_LINE,\
-            "[WARN  | %s() | %s:%i] " format,\
+            "[WARN  | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -186,7 +196,7 @@ LD_API void log_formatted_locked(
             LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
             LOG_COLOR_RED,\
             LOG_FLAG_NEW_LINE,\
-            "[ERROR | %s() | %s:%i] " format,\
+            "[ERROR | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -198,7 +208,7 @@ LD_API void log_formatted_locked(
             LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
             LOG_COLOR_RED,\
             LOG_FLAG_ALWAYS_PRINT | LOG_FLAG_NEW_LINE,\
-            "[FATAL | %s() | %s:%i] " format,\
+            "[FATAL | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -224,15 +234,26 @@ LD_API void log_formatted_locked(
 #if defined(LD_ASSERTIONS)
 
     #if defined(LD_LOGGING)
-
+        #define LOG_PANIC( format, ... )\
+             log_formatted_unlocked(\
+                LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
+                LOG_COLOR_RED,\
+                LOG_FLAG_NEW_LINE | LOG_FLAG_ALWAYS_PRINT,\
+                "[PANIC | {cc}() | {cc}:{i}] " format,\
+                __FUNCTION__,\
+                __FILE__,\
+                __LINE__,\
+                ##__VA_ARGS__\
+            );\
+            LD_PANIC()
         #define LOG_ASSERT( condition, format, ... ) \
             do {\
                 if(!(condition)) {\
-                    log_formatted_locked(\
+                    log_formatted_unlocked(\
                         LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
                         LOG_COLOR_RED,\
                         LOG_FLAG_NEW_LINE | LOG_FLAG_ALWAYS_PRINT,\
-                        "[ASSERTION FAILED | %s() | %s:%i] (%s) " format,\
+                        "[ASSERTION FAILED | {cc}() | {cc}:{i}] ({cc}) " format,\
                         __FUNCTION__,\
                         __FILE__,\
                         __LINE__,\
@@ -245,11 +266,11 @@ LD_API void log_formatted_locked(
 
         #define DEBUG_UNIMPLEMENTED() \
             do {\
-                log_formatted_locked(\
+                log_formatted_unlocked(\
                     LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
                     LOG_COLOR_RED,\
                     LOG_FLAG_NEW_LINE | LOG_FLAG_ALWAYS_PRINT,\
-                    "[UNIMPLEMENTED | %s() | %s:%i] ",\
+                    "[UNIMPLEMENTED | {cc}() | {cc}:{i}] ",\
                     __FUNCTION__,\
                     __FILE__,\
                     __LINE__\
@@ -257,11 +278,13 @@ LD_API void log_formatted_locked(
                 LD_PANIC();\
             } while(0)
     #else
+        #define LOG_PANIC( format, ... ) LD_PANIC()
         #define LOG_ASSERT( condition, format, ... ) LD_ASSERT( condition )
         #define DEBUG_UNIMPLEMENTED() LD_PANIC()
     #endif
 
 #else
+    #define LOG_PANIC( format, ... )
     #define LOG_ASSERT( condition, format, ... )
     #define DEBUG_UNIMPLEMENTED()
 #endif

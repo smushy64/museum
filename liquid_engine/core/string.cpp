@@ -9,16 +9,8 @@
 
 #include "math.h"
 
-// TODO(alicia): custom format functions!
+// TODO(alicia): custom putc functions!
 #include <stdio.h>
-
-// TODO(alicia): make custom versions
-//
-// #define va_list __builtin_va_list
-typedef __builtin_va_list va_list;
-#define va_arg __builtin_va_arg
-#define va_start __builtin_va_start
-#define va_end __builtin_va_end
 
 inline internal b32 dstring_allocate( u32 capacity, String* out_string ) {
     void* buffer = mem_alloc( capacity, MEMTYPE_STRING );
@@ -99,66 +91,6 @@ LD_API void dstring_free( String* string ) {
     }
     *string = {};
 }
-LD_API b32 dstring_format(
-    String* string,
-    b32 alloc,
-    const char* format,
-    ...
-) {
-    va_list va;
-    va_start( va, format );
-    int required_size = vsnprintf(
-        0, 0,
-        format,
-        va
-    );
-    va_end(va);
-
-    if( alloc ) {
-        if( string->capacity < (u32)required_size ) {
-            if( !dstring_reallocate( string, (u32)required_size ) ) {
-                return false;
-            }
-        }
-    }
-
-    va_start( va, format );
-    vsnprintf(
-        string->buffer, string->capacity,
-        format, va
-    );
-    va_end( va );
-
-    string->len = str_length( string->buffer );
-
-    return true;
-}
-LD_API u32 string_view_format(
-    StringView string_view,
-    const char* format,
-    ...
-) {
-    va_list va;
-    va_start( va, format );
-    if( !string_view.len ) {
-        int required_size = vsnprintf(
-            0, 0,
-            format,
-            va
-        );
-        va_end(va);
-        return (u32)required_size;
-    } else {
-        int required_size = vsnprintf(
-            string_view.buffer,
-            string_view.len,
-            format,
-            va
-        );
-        va_end( va );
-        return (u32)required_size;
-    }
-}
 
 inline internal b32 string_cmp_internal(
     u32 a_len, const char* a_buffer,
@@ -168,7 +100,7 @@ inline internal b32 string_cmp_internal(
         return false;
     }
 
-    // TODO(alicia): traverse u64 instead
+    // TODO(alicia): traverse by u64 instead
     for( u32 i = 0; i < a_len; ++i ) {
         if( a_buffer[i] != b_buffer[i] ) {
             return false;
@@ -338,9 +270,8 @@ LD_API void str_buffer_fill(
 }
 
 isize format_bytes(
-    usize bytes,
-    char* buffer,
-    usize buffer_size
+    StringView buffer_view,
+    usize bytes
 ) {
     #define IS_BYTES 0
     #define IS_KB    1
@@ -362,15 +293,15 @@ isize format_bytes(
         }
     }
 
-    char format[] = "%10.3f XB";
+    char format[] = "{f,3.2} XB{c}";
     char sizes[] = { ' ', 'K', 'M', 'G' };
-    format[STATIC_ARRAY_COUNT(format) - 3] = sizes[type];
+    format[STATIC_ARRAY_COUNT(format) - 6] = sizes[type];
 
-    return snprintf(
-        buffer,
-        buffer_size,
+    return string_format(
+        buffer_view,
         format,
-        bytes_f32
+        bytes_f32,
+        0
     );
 }
 
@@ -421,28 +352,30 @@ internal LD_ALWAYS_INLINE u32 to_string(
     u64 base,
     char* digits,
     u32 padding,
+    b32 padding_is_negative,
     b32 use_zero_padding,
     b32 is_negative
 ) {
     if( !view.len ) {
         return 0;
     }
-    u32 write_count = 0;
     u32 view_index = 0;
 
     if( value == 0 ) {
         view.buffer[view_index++] = digits[0];
-        write_count++;
     }
 
     while( view_index < view.len && value ) {
         u64 digit = value % base;
         view.buffer[view_index++] = digits[digit];
         value /= base;
-        write_count++;
+    }
+    if( base == HEX_BASE && (view_index + 2) < view.len ) {
+        view.buffer[view_index++] = 'x';
+        view.buffer[view_index++] = '0';
     }
 
-    if( padding && padding >= view_index ) {
+    if( !padding_is_negative && padding && padding >= view_index ) {
         padding = padding - view_index;
         if( padding ) {
             padding -= is_negative;
@@ -452,16 +385,42 @@ internal LD_ALWAYS_INLINE u32 to_string(
         for( u32 i = 0; i < max_len; ++i ) {
             view.buffer[view_index++] =
                 use_zero_padding ? '0' : ' ';
-            write_count++;
         }
     }
-    return write_count;
+    return view_index;
+}
+
+#define FLOAT_BYTE_BYTES 0
+#define FLOAT_BYTE_KILO  1
+#define FLOAT_BYTE_MEGA  2
+#define FLOAT_BYTE_GIGA  3
+struct FloatByteFormatResult {
+    u32 format;
+    f64 f;
+};
+internal inline FloatByteFormatResult float_byte_format( f64 f ) {
+    FloatByteFormatResult result = {};
+    result.format = FLOAT_BYTE_BYTES;
+    if( f >= 1024.0 ) {
+        result.format = FLOAT_BYTE_KILO;
+        f /= 1024.0;
+        if( f >= 1024.0 ) {
+            result.format = FLOAT_BYTE_MEGA;
+            f /= 1024.0;
+            if( f >= 1024.0 ) {
+                result.format = FLOAT_BYTE_GIGA;
+                f /= 1024.0;
+            }
+        }
+    }
+    result.f = f;
+    return result;
 }
 
 internal inline u32 to_string(
     StringView view,
     f64 value,
-    u32 padding,
+    i32 padding,
     u32 precision,
     b32 use_zero_padding
 ) {
@@ -475,6 +434,8 @@ internal inline u32 to_string(
         view.buffer[2] = 'N';
         return 3;
     }
+
+    b32 padding_is_negative = padding < 0;
 
     u32 write_count = 0;
     u32 integer_write_count = 0;
@@ -522,13 +483,17 @@ internal inline u32 to_string(
             write_count++;
         }
     }
-    if( padding && padding >= integer_write_count) {
+    if(
+        !padding_is_negative &&
+        padding &&
+        padding >= (i32)integer_write_count
+    ) {
         padding = padding - integer_write_count;
         if( padding ) {
             padding -= value_is_negative;
         }
         u32 remaining_len = view.len - integer_write_count;
-        u32 max_len = padding > remaining_len ? remaining_len : padding;
+        u32 max_len = padding > (i32)remaining_len ? remaining_len : padding;
         for( u32 i = 0; i < max_len; ++i ) {
             view.buffer[view_index++] =
                 use_zero_padding ? '0' : ' ';
@@ -552,40 +517,39 @@ struct PODStringView {
     u32 len;
 };
 
-struct FormatDst {
-    char* at;
-    u32   size;
-};
+typedef b32 (*WriteCharFN)( struct StringView*, char );
 
-typedef b32 (*WriteCharFN)( struct FormatDst*, char );
-
-internal inline b32 write_char_dst( FormatDst* dst, char character ) {
-    if( dst->size ) {
-        --dst->size;
-        *dst->at++ = character;
+LD_NOINLINE
+internal b32 write_char_dst( StringView* dst, char character ) {
+    if( dst->len ) {
+        --dst->len;
+        *dst->buffer++ = character;
         return true;
     } else {
         return false;
     }
 }
-internal inline b32 write_char_stdout( FormatDst*, char character ) {
+LD_NOINLINE
+internal b32 write_char_stdout( StringView*, char character ) {
     stdout_push( character );
     return true;
 }
-internal inline b32 write_char_stderr( FormatDst*, char character ) {
+LD_NOINLINE
+internal b32 write_char_stderr( StringView*, char character ) {
     stderr_push( character );
     return true;
 }
 
-internal inline u32 format_internal(
+LD_NOINLINE LD_HOT_PATH
+internal u32 format_internal(
     StringView buffer,
     const char* format,
     WriteCharFN write_char_fn,
     va_list list
 ) {
-    FormatDst dst = { buffer.buffer, buffer.len };
-    if( !dst.size ) {
-        u32 result = dst.at - buffer.buffer;
+    StringView dst = buffer.clone();
+    if( !dst.len ) {
+        u32 result = dst.buffer - buffer.buffer;
         return result;
     }
 
@@ -597,13 +561,12 @@ internal inline u32 format_internal(
     temp_buffer_view.len = TEMP_BUFFER_SIZE;
 
     #define CHECK_FOR_CLOSING_BRACE()\
-        if( *at != '}' ) {\
-            LOG_PANIC(\
-                "Malformed format string \"%s\"! "\
-                "Missing closing brace }!",\
-                format\
-            );\
-        }
+        LOG_ASSERT(\
+            *at == '}',\
+            "Malformed format string \"{cc}\"! "\
+            "Missing closing brace!",\
+            format\
+        )
 
     #define write_char( dst, character ) do {\
         if( !write_char_fn( dst, character ) ) {\
@@ -629,20 +592,39 @@ internal inline u32 format_internal(
                     ++at;
                     int boolean = va_arg( list, int );
                     b32 use_binary = false;
-                    if( *at == ',') {
+                    b32 padding_is_negative = false;
+                    i32 padding = 0;
+                    while( *at == ',') {
                         ++at;
                         if( *at == 'b' || *at == 'B' ) {
                             use_binary = true;
-                        } else {
-                            LOG_PANIC(
-                                "Malformed format string \"%s\"!\n"
-                                "{b} only accepts \'b\'"
-                                "as a parameter!",
-                                format
-                            );   
+                            ++at;
+                            continue;
                         }
-                        ++at;
+                        if( *at == '-' ) {
+                            padding_is_negative = true;
+                            ++at;
+                        }
+                        if( char_is_digit( *at ) ) {
+                            padding = parse_i32_internal( &at );
+                            continue;
+                        }
+                        LD_PANIC();
                     }
+                    u32 write_count = 0;
+                    if( use_binary ) {
+                        write_count = 1;
+                    } else {
+                        write_count = boolean ? 4 : 5;
+                    }
+
+                    if( !padding_is_negative && padding ) {
+                        padding = padding - write_count;
+                        for( i32 i = 0; i < padding; ++i ) {
+                            write_char( &dst, ' ' );
+                        }
+                    }
+
                     if( use_binary ) {
                         write_char( &dst, boolean ? '1' : '0' );
                     } else {
@@ -659,6 +641,12 @@ internal inline u32 format_internal(
                             write_char( &dst, 'e' );
                         }
                     }
+                    if( padding_is_negative && padding ) {
+                        padding = padding - write_count;
+                        for( i32 i = 0; i < padding; ++i ) {
+                            write_char( &dst, ' ' );
+                        }
+                    }
                     CHECK_FOR_CLOSING_BRACE();
                 } break;
                 case 'C':
@@ -668,31 +656,20 @@ internal inline u32 format_internal(
                         // const char
                         ++at;
                         char* str = va_arg(list, char*);
+                        b32 padding_is_negative = false;
                         i32 padding = 0;
 
                         if( *at == ',' ) {
                             ++at;
-                            // leading spaces
-                            if( !char_is_digit( *at ) ) {
-                                if( *at == '-' ) {
-                                    LOG_PANIC(
-                                        "Malformed format string \"%s\"!\n"
-                                        "{cc} only accepts a positive int "
-                                        "as a parameter for padding!",
-                                        format
-                                    );   
-                                }
-                                LOG_PANIC(
-                                    "Malformed format string \"%s\"!\n"
-                                    "{cc} only accepts an int "
-                                    "as a parameter for padding!",
-                                    format
-                                );
+                            if( *at == '-' ) {
+                                ++at;
+                                padding_is_negative = true;
                             }
+                            LD_ASSERT( char_is_digit( *at ) );
                             padding = parse_i32_internal( &at );
                         }
-                        if( padding ) {
-                            i32 str_len = (i32)str_length( str );
+                        i32 str_len = (i32)str_length( str );
+                        if( padding && !padding_is_negative ) {
                             padding = padding - str_len;
                             for( i32 i = 0; i < padding; ++i ) {
                                 write_char( &dst, ' ' );
@@ -702,38 +679,81 @@ internal inline u32 format_internal(
                         for( char* src = str; *src; ++src ) {
                             write_char( &dst, *src );
                         }
+                        if( padding_is_negative && padding ) {
+                            padding = padding - str_len;
+                            for( i32 i = 0; i < padding; ++i ) {
+                                write_char(&dst, ' ');
+                            }
+                        }
                         CHECK_FOR_CLOSING_BRACE();
                     } else {
-                        // char
                         char character = (char)va_arg( list, int );
                         write_char( &dst, character );
 
                         CHECK_FOR_CLOSING_BRACE();
                     }
                 } break;
+                case 'S':
+                case 's': {
+                    const char* string_buffer = nullptr;
+                    u32         string_length = 0;
+                    ++at;
+                    if( *at == 'v' || *at == 'V' ) {
+                        PODStringView arg = va_arg(list, PODStringView);
+                        ++at;
+                        string_buffer = arg.buffer;
+                        string_length = arg.len;
+                    } else {
+                        String arg = va_arg( list, String );
+                        string_buffer = arg.buffer;
+                        string_length = arg.len;
+                    }
+                    b32 padding_is_negative = false;
+                    i32 padding = 0;
+
+                    if( *at == ',' ) {
+                        ++at;
+                        if( *at == '-' ) {
+                            padding_is_negative = true;
+                            ++at;
+                        }
+                        LD_ASSERT( char_is_digit( *at ) );
+                        padding = parse_i32_internal( &at );
+                    }
+                    if( padding && !padding_is_negative ) {
+                        padding = padding - string_length;
+                        for( i32 i = 0; i < padding; ++i ) {
+                            write_char( &dst, ' ' );
+                        }
+                    }
+
+                    for( u32 i = 0; i < string_length; ++i ) {
+                        if( string_buffer[i] ) {
+                            write_char( &dst, string_buffer[i] );
+                        }
+                    }
+
+                    if( padding && padding_is_negative ) {
+                        padding = padding - string_length;
+                        for( i32 i = 0; i < padding; ++i ) {
+                            write_char( &dst, ' ' );
+                        }
+                    }
+                    CHECK_FOR_CLOSING_BRACE();
+                } break;
+                case 'I':
                 case 'i':
                     is_unsigned = false;
+                case 'U':
                 case 'u': {
                     ++at;
                     b32 value_is_64bit = false;
                     u32 size = 32;
-                    if( *at == 'v' ) {
+                    if( *at == 'v' || *at == 'V' ) {
                         ++at;
-                        if( !char_is_digit( *at ) ) {
-                            LOG_PANIC(
-                                "Malformed format string \"%s\"!\n"
-                                "%c is not a valid vector size!",
-                                format, *at
-                            );
-                        }
+                        LD_ASSERT( char_is_digit( *at ) );
                         i32 parsed_count = parse_i32_internal( &at );
-                        if( !( parsed_count >= 2 && parsed_count <= 4 ) ) {
-                            LOG_PANIC(
-                                "Malformed format string \"%s\"!\n"
-                                "%i is not a valid vector size!",
-                                format, parsed_count
-                            );
-                        }
+                        LD_ASSERT( parsed_count >= 2 && parsed_count <= 4 );
                         vector_count = (u32)parsed_count;
                     } else {
                         if( char_is_digit( *at ) ) {
@@ -753,25 +773,17 @@ internal inline u32 format_internal(
                                     size = 64;
                                     break;
                                 default:
-                                    LOG_PANIC(
-                                        "Malformed format string \"%s\"!\n"
-                                        "Unknown integer size %i!",
-                                        format, parsed_size
-                                    );
-                                    break;
+                                    LD_PANIC();
                             }
-                        } else {
-                            LOG_PANIC(
-                                "Malformed format string \"%s\"!\n"
-                                "Unknown integer size!",
-                                format
-                            );
+                        } else if( !(*at == '}' || *at == ',') ) {
+                            LD_PANIC();
                         }
                     }
 
                     b32 format_hex    = false;
                     b32 format_binary = false;
                     b32 format_zero_padding = false;
+                    b32 padding_is_negative = false;
                     i32 padding = 0;
                     while( *at == ',' ) {
                         ++at;
@@ -780,6 +792,11 @@ internal inline u32 format_internal(
                         }
                         if( *at == '}' ) {
                             break;
+                        }
+
+                        if( *at == '-' ) {
+                            ++at;
+                            padding_is_negative = true;
                         }
 
                         if( *at == '0' ) {
@@ -805,23 +822,17 @@ internal inline u32 format_internal(
                                 break;
 
                             default:
-                                LOG_PANIC(
-                                    "Malformed format string \"%s\"!\n"
-                                    "Unrecognized int parameter \'%c\'!",
-                                    format, *at
-                                );
-                                break;
+                                LD_PANIC();
                         }
                     }
 
                     if( format_binary && format_hex ) {
-                        LOG_PANIC(
-                            "Malformed format string \"%s\"!\n"
-                            "Integer cannot be formatted as "
-                            "binary and hex simultaneously!",
-                            format
-                        );
+                        continue;
                     }
+                    if( format_zero_padding && format_hex ) {
+                        format_zero_padding = false;
+                    }
+
                     if( vector_count ) {
                         write_char( &dst, '{' );
                         write_char( &dst, ' ' );
@@ -892,7 +903,7 @@ internal inline u32 format_internal(
                                 temp_buffer[temp_buffer_index++] =
                                     is_negative ? '1' : '0';
                             }
-                            if( padding ) {
+                            if( !padding_is_negative && padding ) {
                                 padding = padding - temp_buffer_index;
                                 for( i32 i = 0; i < padding; ++i ) {
                                     temp_buffer[temp_buffer_index++] =
@@ -902,11 +913,14 @@ internal inline u32 format_internal(
                             for( i32 i = temp_buffer_index - 1; i >= 0; --i ) {
                                 write_char( &dst, temp_buffer[i] );
                             }
+                            if( padding_is_negative && padding ) {
+                                padding = padding - temp_buffer_index;
+                                for( i32 i = 0; i < padding; ++i ) {
+                                    write_char(&dst, format_zero_padding ? '0' : ' ');
+                                }
+                            }
                         } else {
-                            if( format_hex ) {
-                                write_char( &dst, '0' );
-                                write_char( &dst, 'x' );
-                            } else if( is_negative ) {
+                            if( is_negative && !format_hex ) {
                                 write_char( &dst, '-' );
                             }
                             u32 temp_buffer_index = to_string(
@@ -915,11 +929,18 @@ internal inline u32 format_internal(
                                 format_hex ? HEX_BASE : DECIMAL_BASE,
                                 format_hex ? HEX_DIGITS : DECIMAL_DIGITS,
                                 padding,
+                                padding_is_negative,
                                 format_zero_padding,
                                 is_negative
                             );
                             for( i32 i = temp_buffer_index - 1; i >= 0; --i ) {
                                 write_char( &dst, temp_buffer[i] );
+                            }
+                            if( padding_is_negative && padding ) {
+                                padding = padding - temp_buffer_index;
+                                for( i32 i = 0; i < padding; ++i ) {
+                                    write_char(&dst, format_zero_padding ? '0' : ' ');
+                                }
                             }
                         }
                         if( vector_count ) {
@@ -944,85 +965,25 @@ internal inline u32 format_internal(
 
                     CHECK_FOR_CLOSING_BRACE();
                 } break;
-                case 'S':
-                case 's': {
-                    const char* string_buffer = nullptr;
-                    u32         string_length = 0;
-                    ++at;
-                    if( *at == 'v' || *at == 'V' ) {
-                        PODStringView arg = va_arg(list, PODStringView);
-                        ++at;
-                        string_buffer = arg.buffer;
-                        string_length = arg.len;
-                    } else {
-                        String arg = va_arg( list, String );
-                        string_buffer = arg.buffer;
-                        string_length = arg.len;
-                    }
-                    i32 padding = 0;
-
-                    if( *at == ',' ) {
-                        ++at;
-                        // leading spaces
-                        if( !char_is_digit( *at ) ) {
-                            if( *at == '-' ) {
-                                LOG_PANIC(
-                                    "Malformed format string \"%s\"!\n"
-                                    "{s}/{sv} only accepts a positive int "
-                                    "as a parameter for padding!",
-                                    format
-                                );   
-                            }
-                            LOG_PANIC(
-                                "Malformed format string \"%s\"!\n"
-                                "{s}/{sv} only accepts an int "
-                                "as a parameter for padding!",
-                                format
-                            );
-                        }
-                        padding = parse_i32_internal( &at );
-                    }
-                    if( padding ) {
-                        padding = padding - string_length;
-                        for( i32 i = 0; i < padding; ++i ) {
-                            write_char( &dst, ' ' );
-                        }
-                    }
-
-                    for( u32 i = 0; i < string_length; ++i ) {
-                        if( string_buffer[i] ) {
-                            write_char( &dst, string_buffer[i] );
-                        }
-                    }
-                    CHECK_FOR_CLOSING_BRACE();
-                } break;
+                case 'Q':
                 case 'q':
                     is_quaternion = true;
+                case 'V':
                 case 'v':
                     vector_count = 1;
+                case 'F':
                 case 'f': {
                     ++at;
                     if( vector_count ) {
                         if( !is_quaternion ) {
-                            if( !char_is_digit( *at ) ) {
-                                LOG_PANIC(
-                                    "Malformed format string \"%s\"!\n"
-                                    "Invalid specifier \'%c\'!",
-                                    format, *at
-                                );
-                            }
-                            i32 parsed_vector_count = parse_i32_internal( &at );
-                            if( !(
+                            LD_ASSERT( char_is_digit( *at ) );
+                            i32 parsed_vector_count =
+                                parse_i32_internal( &at );
+                            LD_ASSERT(
                                 parsed_vector_count == 2 ||
                                 parsed_vector_count == 3 ||
                                 parsed_vector_count == 4
-                            ) ) {
-                                LOG_PANIC(
-                                    "Malformed format string \"%s\"!\n"
-                                    "Invalid vector count \'%i\'!",
-                                    format, parsed_vector_count
-                                );
-                            }
+                            );
 
                             vector_count = (u32)parsed_vector_count;
                         } else {
@@ -1030,47 +991,43 @@ internal inline u32 format_internal(
                         }
                     }
                     b32 use_zero_padding = false;
-                    u32 padding   = 0;
+                    b32 padding_is_negative = false;
+                    i32 padding   = 0;
                     u32 precision = 6;
-                    if( *at == ',' ) {
+                    b32 byte_format = false;
+                    u32 byte_formatter = FLOAT_BYTE_BYTES;
+                    while( *at == ',' ) {
                         ++at;
+                        if( *at == 'b' || *at == 'B' ) {
+                            byte_format = true;
+                            ++at;
+                            continue;
+                        }
                         if( *at == '0' ) {
                             ++at;
                             use_zero_padding = true;
                         }
-                        // leading spaces
-                        if( !char_is_digit( *at ) && *at != '.' ) {
-                            if( *at == '-' ) {
-                                LOG_PANIC(
-                                    "Malformed format string \"%s\"!\n"
-                                    "{f} only accepts a positive int "
-                                    "as a parameter for padding!",
-                                    format
-                                );   
-                            }
-                            LOG_PANIC(
-                                "Malformed format string \"%s\"!\n"
-                                "{f} only accepts an int "
-                                "as a parameter for padding!",
-                                format
-                            );
+                        if( *at == '-' ) {
+                            padding_is_negative = true;
+                            ++at;
                         }
+                        LD_ASSERT( char_is_digit( *at ) || *at == '.' );
                         padding = parse_i32_internal( &at );
                         if( *at == '.' ) {
                             ++at;
-                            if( !char_is_digit( *at ) ) {
-                                LOG_PANIC(
-                                    "Malformed format string \"%s\"!\n"
-                                    "{f} only accepts an int "
-                                    "as a parameter for precision!",
-                                    format
-                                );
-                            }
+                            LD_ASSERT( char_is_digit( *at ) );
                             precision = parse_i32_internal( &at );
                         }
                     }
+                    padding *= padding_is_negative ? -1 : 1;
                     if( !vector_count ) {
                         f64 f = va_arg( list, f64 );
+                        if( byte_format ) {
+                            FloatByteFormatResult format =
+                                float_byte_format( f );
+                            f = format.f;
+                            byte_formatter = format.format;
+                        }
                         u32 write_count = to_string(
                             temp_buffer_view,
                             f,
@@ -1080,6 +1037,31 @@ internal inline u32 format_internal(
                         );
                         for( i32 i = write_count - 1; i >= 0; --i ) {
                             write_char( &dst, temp_buffer[i] );
+                        }
+                        if( byte_format ) {
+                            write_char(&dst, ' ');
+                            switch( byte_formatter ) {
+                                case FLOAT_BYTE_BYTES:
+                                    write_char( &dst, ' ' );
+                                    break;
+                                case FLOAT_BYTE_KILO:
+                                    write_char(&dst, 'K');
+                                    break;
+                                case FLOAT_BYTE_MEGA:
+                                    write_char(&dst, 'M');
+                                    break;
+                                case FLOAT_BYTE_GIGA:
+                                    write_char(&dst, 'G');
+                                    break;
+                            }
+                            write_char(&dst, 'B');
+                            write_count += 3;
+                        }
+                        if( padding_is_negative ) {
+                            padding = -padding - (write_count - precision);
+                            for( i32 i = 0; i < padding; ++i ) {
+                                write_char( &dst, use_zero_padding ? '0' : ' ' );
+                            }
                         }
                     } else {
                         write_char( &dst, '{' );
@@ -1138,12 +1120,7 @@ internal inline u32 format_internal(
                 } break;
 
                 default:
-                    LOG_PANIC(
-                        "Malformed format string \"%s\"!\n"
-                        "Unrecognized format specifier \'%c\'!",
-                        format, *at
-                    );
-                    break;
+                    continue;
             }
 
             if( *at ) {
@@ -1154,7 +1131,7 @@ internal inline u32 format_internal(
         }
     }
 
-    u32 result = dst.at - buffer.buffer;
+    u32 result = dst.buffer - buffer.buffer;
     return result;
 }
 
@@ -1180,6 +1157,7 @@ LD_API void print( const char* format, ... ) {
     va_start( list, format );
     format_internal( buffer, format, write_char_stdout, list );
     va_end( list );
+    stdout_push(0);
 }
 LD_API void printerr( const char* format, ... ) {
     StringView buffer = {};
@@ -1188,6 +1166,7 @@ LD_API void printerr( const char* format, ... ) {
     va_start( list, format );
     format_internal( buffer, format, write_char_stderr, list );
     va_end( list );
+    stderr_push(0);
 }
 LD_API void print_va( const char* format, va_list variadic ) {
     StringView buffer = {};
@@ -1198,6 +1177,7 @@ LD_API void print_va( const char* format, va_list variadic ) {
         write_char_stdout,
         variadic
     );
+    stdout_push(0);
 }
 LD_API void printerr_va( const char* format, va_list variadic ) {
     StringView buffer = {};
@@ -1208,6 +1188,7 @@ LD_API void printerr_va( const char* format, va_list variadic ) {
         write_char_stderr,
         variadic
     );
+    stderr_push(0);
 }
 // TODO(alicia): handmade version!
 LD_API void stdout_push( char character ) {

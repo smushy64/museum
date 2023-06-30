@@ -1,6 +1,7 @@
 clang++
 -std=c++20
 -nostdinc++
+-fno-operator-names
 -D_CLANGD
 -DLD_EXPORT
 -DDEBUG

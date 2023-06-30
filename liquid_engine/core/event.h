@@ -115,7 +115,7 @@ LD_API void event_unsubscribe( EventListenerID id );
 #if defined(LD_API_INTERNAL)
 
     /// Size of event subsystem.
-    u32 event_subsystem_size();
+    u32 query_event_subsystem_size();
     /// Initialize Event Subsystem.
     b32 event_init( void* event_subsystem_buffer );
     /// Shutdown Event Subsystem.

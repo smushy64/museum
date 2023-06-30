@@ -81,7 +81,7 @@ LD_API void event_unsubscribe( EventListenerID event_listener_id ) {
     }
 
     if( listener_index < 0 ) {
-        LOG_ERROR("Could not find event listener %u!", event_listener_id);
+        LOG_ERROR("Could not find event listener {u}!", event_listener_id);
         return;
     }
 
@@ -93,7 +93,7 @@ LD_API void event_unsubscribe( EventListenerID event_listener_id ) {
 
 }
 
-u32 event_subsystem_size() {
+u32 query_event_subsystem_size() {
     return sizeof(ListenerRegistry);
 }
 b32 event_init( void* event_subsystem_buffer ) {

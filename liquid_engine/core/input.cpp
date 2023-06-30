@@ -78,7 +78,7 @@ struct InputState {
 
 global InputState* INPUT_STATE = nullptr;
 
-u32 input_subsystem_size() {
+u32 query_input_subsystem_size() {
     return sizeof(InputState);
 }
 b32 input_init( Platform* platform, void* buffer ) {
@@ -88,7 +88,7 @@ b32 input_init( Platform* platform, void* buffer ) {
     return true;
 }
 void input_shutdown() {
-    LOG_INFO("Input subsystem successfully shutdown.");
+    LOG_INFO("Input subsystem shutdown.");
 }
 
 void input_set_key(

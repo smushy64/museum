@@ -64,7 +64,7 @@ b32 gl_shader_compile(
             nullptr,
             info_log_buffer
         );
-        GL_LOG_ERROR( "Compilation Error:\n%s", info_log_buffer );
+        GL_LOG_ERROR( "Compilation Error:\n{cc}", info_log_buffer );
         mem_free( info_log_buffer );
         return false;
     }
@@ -111,7 +111,7 @@ b32 gl_shader_program_link(
             nullptr,
             info_log_buffer
         );
-        GL_LOG_ERROR( "Linking Error:\n%s", info_log_buffer );
+        GL_LOG_ERROR( "Linking Error:\n{cc}", info_log_buffer );
         mem_free( info_log_buffer );
         return false;
     }

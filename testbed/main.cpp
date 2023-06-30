@@ -7,7 +7,8 @@
 #include "entry.h"
 #include <core/string.h>
 #include <core/engine.h>
-#include <stdio.h>
+
+#include <core/math.h>
 
 global char TESTBED_LOGGING_BUFFER[KILOBYTES(1)];
 
@@ -31,8 +32,8 @@ int main( int argc, const char** argv ) {
             backend = RENDERER_BACKEND_DX12;
         } 
         if( !renderer_backend_is_supported( backend ) ) {
-            printf(
-                "Renderer Backend %s is not supported on this platform!",
+            print(
+                "Renderer Backend {cc} is not supported on this platform!",
                 to_string( backend )
             );
             return -1;
@@ -43,12 +44,15 @@ int main( int argc, const char** argv ) {
 
     #define NAME_BUFFER_SIZE 32
     char name_buffer[NAME_BUFFER_SIZE] = {};
-    snprintf(
-        name_buffer,
-        NAME_BUFFER_SIZE,
-        "Test Bed %i.%i",
+    StringView name_buffer_view = {};
+    name_buffer_view.buffer = name_buffer;
+    name_buffer_view.len    = NAME_BUFFER_SIZE;
+    string_format(
+        name_buffer_view,
+        "Test Bed {i}.{i}{c}",
         LIQUID_ENGINE_VERSION_MAJOR,
-        LIQUID_ENGINE_VERSION_MINOR
+        LIQUID_ENGINE_VERSION_MINOR,
+        0
     );
 
     config.opt_application_icon_path = "./resources/images/ui/testbed_icon_256x256.ico";

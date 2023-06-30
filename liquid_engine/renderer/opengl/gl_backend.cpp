@@ -56,10 +56,10 @@ b32 gl_renderer_backend_initialize( RendererContext* generic_ctx ) {
         GL_SHADING_LANGUAGE_VERSION
     );
 
-    GL_LOG_NOTE( "Device Vendor:         %s", device_vendor );
-    GL_LOG_NOTE( "Device Name:           %s", device_name );
-    GL_LOG_NOTE( "Device Driver Version: %s", device_version );
-    GL_LOG_NOTE( "Device GLSL Version:   %s", device_glsl_version );
+    GL_LOG_NOTE( "Device Vendor:         {cc}", device_vendor );
+    GL_LOG_NOTE( "Device Name:           {cc}", device_name );
+    GL_LOG_NOTE( "Device Driver Version: {cc}", device_version );
+    GL_LOG_NOTE( "Device GLSL Version:   {cc}", device_glsl_version );
 
     ctx->device_vendor       = device_vendor;
     ctx->device_name         = device_name;
@@ -68,7 +68,7 @@ b32 gl_renderer_backend_initialize( RendererContext* generic_ctx ) {
     
     i32 extension_count = 0;
     glGetIntegerv( GL_NUM_EXTENSIONS, &extension_count );
-    GL_LOG_NOTE( "Supported extensions count: %i", extension_count );
+    GL_LOG_NOTE( "Supported extensions count: {i}", extension_count );
 
     ctx->extension_count = extension_count;
 
@@ -373,7 +373,7 @@ void gl_debug_callback (
     const void*    // userParam
 ) {
     #define GL_DEBUG_MESSAGE_FORMAT \
-        "%i | Source [%s] Type [%s] %s", id,\
+        "{u} | Source [{cc}] Type [{cc}] {cc}", id,\
         to_string_source(source),\
         to_string_type(type), message
 

@@ -22,7 +22,7 @@
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
         LOG_COLOR_GREEN,\
         LOG_FLAG_NEW_LINE,\
-        "[LIST ALLOC   | %s() | %s:%i] " format,\
+        "[LIST ALLOC   | {cc}() | {cc}:{i}] " format,\
         function,\
         file,\
         line,\
@@ -34,7 +34,7 @@
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
         LOG_COLOR_GREEN,\
         LOG_FLAG_NEW_LINE,\
-        "[LIST REALLOC | %s() | %s:%i] " format,\
+        "[LIST REALLOC | {cc}() | {cc}:{i}] " format,\
         function,\
         file,\
         line,\
@@ -46,7 +46,7 @@
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
         LOG_COLOR_CYAN,\
         LOG_FLAG_NEW_LINE,\
-        "[LIST FREE    | %s() | %s:%i] " format,\
+        "[LIST FREE    | {cc}() | {cc}:{i}] " format,\
         function,\
         file,\
         line,\
@@ -68,7 +68,7 @@ LD_API void* _list_create_trace(
         function,
         file,
         line,
-        "Stride: %llu | Capacity: %llu | Size: %llu | Pointer: 0x%X",
+        "Stride: {u64} | Capacity: {u64} | Size: {u64} | Pointer: {u,x}",
         stride,
         capacity,
         stride * capacity,
@@ -94,9 +94,9 @@ LD_API void* _list_realloc_trace(
         function,
         file,
         line,
-        "Old Capacity: %llu | New Capacity: %llu | "
-        "Old Size: %llu | New Size: %llu | "
-        "Pointer: 0x%X",
+        "Old Capacity: {u64} | New Capacity: {u64} | "
+        "Old Size: {u64} | New Size: {u64} | "
+        "Pointer: {u,x}",
         old_capacity,
         new_capacity,
         stride * old_capacity,
@@ -120,7 +120,7 @@ LD_API void _list_free_trace(
         function,
         file,
         line,
-        "Capacity: %llu | Size: %llu | Pointer: 0x%X",
+        "Capacity: {u64} | Size: {u64} | Pointer: {u,x}",
         capacity,
         stride * capacity,
         list
@@ -334,7 +334,7 @@ LD_API void* _list_remove(
     usize total_size = capacity * stride;
 
     if( i >= capacity || i >= count ) {
-        LOG_FATAL("List remove out of bounds! index: %llu", i);
+        LOG_FATAL("List remove out of bounds! index: {u64}", i);
         LD_PANIC();
     }
 
@@ -370,7 +370,7 @@ LD_API void* _list_insert(
 
     if( index >= count ) {
         LOG_FATAL(
-            "Index outside the bounds of the list! index: %llu",
+            "Index outside the bounds of the list! index: {u64}",
             index
         );
         LD_PANIC();
@@ -421,7 +421,7 @@ LD_API void* _list_insert_trace(
 
     if( index >= count ) {
         LOG_FATAL(
-            "Index outside the bounds of the list! index: %llu",
+            "Index outside the bounds of the list! index: {u64}",
             index
         );
         LD_PANIC();

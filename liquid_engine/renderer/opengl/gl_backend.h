@@ -99,7 +99,7 @@ struct OpenGLRendererContext {
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,\
             LOG_COLOR_RESET,\
             LOG_FLAG_NEW_LINE,\
-            "[GL NOTE  | %s() | %s:%i] " format,\
+            "[GL NOTE  | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -111,7 +111,7 @@ struct OpenGLRendererContext {
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
             LOG_COLOR_WHITE,\
             LOG_FLAG_NEW_LINE,\
-            "[GL INFO  | %s() | %s:%i] " format,\
+            "[GL INFO  | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -123,7 +123,7 @@ struct OpenGLRendererContext {
             LOG_LEVEL_DEBUG | LOG_LEVEL_TRACE,\
             LOG_COLOR_BLUE,\
             LOG_FLAG_NEW_LINE,\
-            "[GL DEBUG | %s() | %s:%i] " format,\
+            "[GL DEBUG | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -135,7 +135,7 @@ struct OpenGLRendererContext {
             LOG_LEVEL_WARN | LOG_LEVEL_TRACE,\
             LOG_COLOR_YELLOW,\
             LOG_FLAG_NEW_LINE,\
-            "[GL WARN  | %s() | %s:%i] " format,\
+            "[GL WARN  | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -147,7 +147,7 @@ struct OpenGLRendererContext {
             LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
             LOG_COLOR_RED,\
             LOG_FLAG_NEW_LINE,\
-            "[GL ERROR | %s() | %s:%i] " format,\
+            "[GL ERROR | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -159,7 +159,7 @@ struct OpenGLRendererContext {
             LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
             LOG_COLOR_RED,\
             LOG_FLAG_NEW_LINE | LOG_FLAG_ALWAYS_PRINT,\
-            "[GL FATAL | %s() | %s:%i] " format,\
+            "[GL FATAL | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\

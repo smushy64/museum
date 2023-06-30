@@ -6,6 +6,7 @@
  * File Created: April 28, 2023
 */
 #include "defines.h"
+#include "variadic.h"
 
 LD_API usize str_length( const char* str );
 
@@ -26,6 +27,13 @@ struct StringView {
 
     char& operator[]( u32 i ) { return buffer[i]; }
     char operator[]( u32 i ) const { return buffer[i]; }
+
+    StringView clone() const {
+        StringView result;
+        result.buffer = buffer;
+        result.len    = len;
+        return result;
+    }
 };
 
 /// Create new dynamic string from string view.
@@ -106,23 +114,6 @@ LD_API void string_trim_trailing_whitespace( String* string );
 /// Trim trailing whitespace from view.
 LD_API void string_trim_trailing_whitespace( StringView string_view );
 
-/// Format a dstring.
-/// Alloc determines if it will reallocate string to fit formatting.
-/// Returns false only if reallocation fails.
-LD_API b32 dstring_format(
-    String* string,
-    b32 alloc,
-    const char* format,
-    ...
-);
-/// Format a string view.
-/// Returns required size if string view is empty.
-LD_API u32 string_view_format(
-    StringView string_view,
-    const char* format,
-    ...
-);
-
 /// Calculate the length of a null-terminated string.
 /// Result does not include null-terminator.
 LD_API usize str_length( const char* string );
@@ -153,56 +144,31 @@ inline b32 char_is_digit( char character ) {
 /// bytes, kilobytes, megabytes or gigabytes and
 /// format bytes into a string buffer
 LD_API isize format_bytes(
-    usize bytes,
-    char* buffer,
-    usize buffer_size
+    StringView buffer_view,
+    usize bytes
 );
 
 /// Format string into string view.
-/// Format Specifiers.
-/// * use {} to wrap a format specifier and use commas to separate parameters
-/// * c  - 8-bit ASCII character
-/// * cc - const char* ASCII null terminated string
-/// * s  - struct String
-/// * sv - struct String View
-/// * u or u8,u16,u32,u64 - unsigned int32 or sized uint
-/// * i or i8,i16,i32,i64 - signed int32 or sized int
-/// * b - boolean
-/// * f or f32,f64 - float or sized float
-/// * v2,v3,v4    - float vectors
-/// * iv2,iv3,iv4 - int vectors
-/// * q           - float quaternion
-/// * {{ - literal {    .
-/// Format parameters.
-/// * int, iv2/3/4
-///     - 0# | number of padding zeroes
-///     - #  | number of padding spaces
-///     - x  | hexadecimal format
-///     - b  | binary format
-/// * float, v2/3/4, m2/3/4, quaternion
-///     - 0#  | number of padding zeroes
-///     - #   | number of padding spaces
-///     - .#  | fractional precision
-/// * const char, string, string view
-///     - #  | number of padding spaces
-/// * boolean
-///     - b | use 0/1 instead of true/false
-/// * ex: format( buffer, "{f32,02.2} {i}", 1.235f, -10 )
-/// * output: "01.23 -10"
+/// Format specifiers are in docs/format.md
 LD_API u32 string_format( StringView buffer, const char* format, ... );
-/// Format buffer variadic.
+/// Format string into string view using variadic list.
+/// Format specifiers are in docs/format.md
 LD_API u32 string_format_va(
     StringView buffer,
     const char* format,
     va_list variadic
 );
 /// Print to stdout.
+/// Format specifiers are in docs/format.md
 LD_API void print( const char* format, ... );
 /// Print to stderr.
+/// Format specifiers are in docs/format.md
 LD_API void printerr( const char* format, ... );
-/// Print to stdout variadic.
+/// Print to stdout using variadic list.
+/// Format specifiers are in docs/format.md
 LD_API void print_va( const char* format, va_list variadic );
-/// Print to stderr variadic.
+/// Print to stderr using variadic list.
+/// Format specifiers are in docs/format.md
 LD_API void printerr_va( const char* format, va_list variadic );
 
 /// Push character to stdout.

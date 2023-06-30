@@ -47,9 +47,15 @@ export CL   := $(CXX)
 export INCLUDE_PATHS := -I../liquid_engine
 
 RELEASE_C_FLAGS := -O2
-DEBUG_C_FLAGS   := -O0 -g -gcodeview -Wall -Wextra -Wno-missing-braces
-C_FLAGS         := -fno-rtti -fno-exceptions -Werror=vla -ffast-math
-C_FLAGS         += -MMD -MP 
+
+DEBUG_C_FLAGS := -O0 -g -gcodeview -Wall -Wextra
+DEBUG_C_FLAGS += -Wno-missing-braces -pedantic -Werror
+DEBUG_C_FLAGS += -Wno-c11-extensions -Wno-gnu-zero-variadic-macro-arguments
+DEBUG_C_FLAGS += -Wno-gnu-anonymous-struct -Wno-nested-anon-types
+
+C_FLAGS := -fno-rtti -fno-exceptions -Werror=vla -ffast-math
+C_FLAGS += -fno-operator-names -fno-strict-enums
+C_FLAGS += -MMD -MP
 ifeq ($(TARGET_ARCH), x86_64)
 	C_FLAGS += -masm=intel -march=native
 endif
