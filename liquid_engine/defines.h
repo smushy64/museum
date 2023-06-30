@@ -171,7 +171,7 @@ typedef void* pvoid;
     #define LD_PANIC() __debugbreak()
 
     #define LD_STATIC_ASSERT static_assert
-    #define LD_NO_OPTIMIZE _Pragma( "optimize(\"\", off)" )
+    // TODO(alicia): HOTPATH/NOOPTIMIZE FOR MSVC
 
     #define LD_ALWAYS_INLINE __forceinline
     #define LD_NOINLINE __declspec(noinline)
@@ -189,11 +189,14 @@ typedef void* pvoid;
     #define LD_PANIC() __builtin_trap()
 
     #if defined(LD_COMPILER_GCC)
-        #define LD_STATIC_ASSERT _Static_assert
         #define LD_NO_OPTIMIZE __attribute__((optimize("O0")))
     #else // clang
-        #define LD_STATIC_ASSERT _Static_assert
         #define LD_NO_OPTIMIZE __attribute__((optnone))
+    #endif
+
+    #if defined(LD_COMPILER_GCC) || defined(LD_COMPILER_CLANG)
+        #define LD_STATIC_ASSERT _Static_assert
+        #define LD_HOT_PATH __attribute__((hot))
     #endif
 
     #define LD_ALWAYS_INLINE __attribute__((always_inline)) inline
