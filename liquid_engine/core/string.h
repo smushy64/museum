@@ -139,15 +139,6 @@ inline b32 char_is_digit( char character ) {
     return character >= '0' && character <= '9';
 }
 
-/// format bytes.
-/// determine if it should be represented as
-/// bytes, kilobytes, megabytes or gigabytes and
-/// format bytes into a string buffer
-LD_API isize format_bytes(
-    StringView buffer_view,
-    usize bytes
-);
-
 /// Format string into string view.
 /// Format specifiers are in docs/format.md
 LD_API u32 string_format( StringView buffer, const char* format, ... );

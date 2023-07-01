@@ -268,42 +268,6 @@ LD_API void str_buffer_fill(
     buffer[buffer_size - 1] = 0;
 }
 
-isize format_bytes(
-    StringView buffer_view,
-    usize bytes
-) {
-    #define IS_BYTES 0
-    #define IS_KB    1
-    #define IS_MB    2
-    #define IS_GB    3
-
-    f32 bytes_f32 = (f32)bytes;
-    int type = IS_BYTES;
-    if( bytes_f32 >= 1024.0f ) {
-        bytes_f32 = BYTES_TO_KB( bytes_f32 );
-        type = IS_KB;
-        if( bytes_f32 >= 1024.0f ) {
-            bytes_f32 = KB_TO_MB( bytes_f32 );
-            type = IS_MB;
-            if( bytes_f32 >= 1024.0f ) {
-                bytes_f32 = MB_TO_GB( bytes_f32 );
-                type = IS_GB;
-            }
-        }
-    }
-
-    char format[] = "{f,3.2} XB{c}";
-    char sizes[] = { ' ', 'K', 'M', 'G' };
-    format[STATIC_ARRAY_COUNT(format) - 6] = sizes[type];
-
-    return string_format(
-        buffer_view,
-        format,
-        bytes_f32,
-        0
-    );
-}
-
 internal inline i32 parse_i32_internal( char** at_init ) {
     b32 is_negative = false;
     i32 result = 0;

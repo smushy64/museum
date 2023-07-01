@@ -437,30 +437,17 @@ b32 engine_run(
     }
 
 #if defined(LD_LOGGING) && defined(LD_PROFILING)
-    LOG_NOTE("Memory: {f,02.3} GB",
-        MB_TO_GB( KB_TO_MB( BYTES_TO_KB( ctx.system_info.total_memory ) ) )
-    );
+    LOG_NOTE("System Memory: {f,b,02.3}", (f64)ctx.system_info.total_memory );
     LOG_NOTE("Initial Memory Usage:");
-    char usage_buffer[32];
-    StringView usage_buffer_view = {};
-    usage_buffer_view.buffer = usage_buffer;
-    usage_buffer_view.len    = 32;
 
+    f64 total_memory_usage = 0.0;
     for( u64 i = 0; i < MEMTYPE_COUNT; ++i ) {
         MemoryType type = (MemoryType)i;
-        usize memory_usage = query_memory_usage( type );
-        format_bytes(
-            usage_buffer_view,
-            memory_usage
-        );
-        LOG_NOTE("    {cc,-25} {cc}", to_string(type), usage_buffer);
+        f64 memory_usage_f64 = (f64)query_memory_usage( type );
+        LOG_NOTE( "    {cc,-25} {f,b,4.2}", to_string(type), memory_usage_f64 );
+        total_memory_usage += memory_usage_f64;
     }
-    usize total_memory_usage = query_total_memory_usage();
-    format_bytes(
-        usage_buffer_view,
-        total_memory_usage
-    );
-    LOG_NOTE("    {cc,-25} {cc}", "Total Memory Usage", usage_buffer);
+    LOG_NOTE("    {cc,-25} {f,b,4.2}", "Total Memory Usage", total_memory_usage);
     LOG_NOTE("Engine stack arena pointer: {u}", ctx.arena.stack_pointer);
 #endif
 
