@@ -12,6 +12,10 @@
 
 #if defined(LD_PLATFORM_WINDOWS)
     #include <windows.h>
+    global b32 OUTPUT_DEBUG_STRING_ENABLED = false;
+    void log_enable_output_debug_string( b32 enable ) {
+        OUTPUT_DEBUG_STRING_ENABLED = enable;
+    }
 #endif
 
 global LogLevel GLOBAL_LOG_LEVEL = LOG_LEVEL_NONE;
@@ -53,35 +57,30 @@ LD_API b32 is_log_initialized() {
 }
 
 b32 log_init( LogLevel level, StringView logging_buffer ) {
-    #if defined(LD_LOGGING)
+#if defined(LD_LOGGING)
 
-        LD_ASSERT(!is_log_initialized());
+    LD_ASSERT(!is_log_initialized());
 
-        LD_ASSERT( level <= MAX_LOG_LEVEL );
-        GLOBAL_LOG_LEVEL = level;
+    LD_ASSERT( level <= MAX_LOG_LEVEL );
+    GLOBAL_LOG_LEVEL = level;
 
-        LD_ASSERT( logging_buffer.buffer );
-        LOGGING_BUFFER_SIZE = logging_buffer.len;
-        LOGGING_BUFFER      = logging_buffer.buffer;
+    LD_ASSERT( logging_buffer.buffer );
+    LOGGING_BUFFER_SIZE = logging_buffer.len;
+    LOGGING_BUFFER      = logging_buffer.buffer;
 
-        #if defined(LD_PLATFORM_WINDOWS)
-            HANDLE console_handle = GetStdHandle( STD_OUTPUT_HANDLE );
-            if( console_handle == INVALID_HANDLE_VALUE ) {
-                return false;
-            }
-
-            DWORD dwMode = 0;
-            GetConsoleMode(
-                console_handle,
-                &dwMode
-            );
-            dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-            SetConsoleMode(
-                console_handle,
-                dwMode
-            );
-        #endif
-    #endif
+#if defined(LD_PLATFORM_WINDOWS)
+    DWORD dwMode = 0;
+    GetConsoleMode(
+        GetStdHandle( STD_OUTPUT_HANDLE ),
+        &dwMode
+    );
+    dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    SetConsoleMode(
+        GetStdHandle( STD_OUTPUT_HANDLE ),
+        dwMode
+    );
+#endif // if platform windows
+#endif // if logging enabled
 
     LOG_INFO("Logging subsystem successfully initialized.");
 
@@ -91,13 +90,15 @@ void log_shutdown() {
 #if defined(LD_LOGGING)
     set_color( LOG_COLOR_WHITE );
 
-    println( "[INFO  ] Logging subsystem shutdown.\n" );
+    println( "[INFO  ] Logging subsystem shutdown." );
 
     set_color( LOG_COLOR_RESET );
 
-    #if defined(LD_PLATFORM_WINDOWS) && defined(LD_OUTPUT_DEBUG_STRING)
-        OutputDebugStringA( "[INFO  ] Logging subsystem shutdown.\n" );
-    #endif
+#if defined(LD_PLATFORM_WINDOWS)
+    if( OUTPUT_DEBUG_STRING_ENABLED ) {
+        OutputDebugString( "[INFO ] Logging subsystem shutdown.\n" );
+    }
+#endif
 
 #endif
 }
@@ -113,31 +114,36 @@ inline b32 is_level_valid( LogLevel level ) {
 // so that multiple threads can't print over each other
 global pthread_mutex_t MUTEX_0 = PTHREAD_MUTEX_INITIALIZER;
 
-void log_formatted_unlocked(
-    LogLevel    level,
-    LogColor    color,
-    LogFlags    flags,
-    const char* format,
-    ...
+LD_HOT_PATH
+internal inline void log_formatted_internal(
+    LogLevel level, LogColor color, LogFlags flags,
+    b32 lock, const char* format,
+    va_list args
 ) {
     if( !is_log_initialized() ) {
         return;
     }
 #if defined(LD_LOGGING)
 
-    #if defined(LD_ASSERTIONS)
-        if( !LOGGING_BUFFER ) {
-            println(
+#if defined(LD_ASSERTIONS)
+    if( !LOGGING_BUFFER ) {
+        println(
+            "LOG INIT WAS NOT CALLED BEFORE THIS LOG MESSAGE!\n"
+        );
+#if defined(LD_PLATFORM_WINDOWS)
+        if( OUTPUT_DEBUG_STRING_ENABLED ) {
+            OutputDebugString(
                 "LOG INIT WAS NOT CALLED BEFORE THIS LOG MESSAGE!\n"
             );
-            #if defined(LD_PLATFORM_WINDOWS) && defined(LD_OUTPUT_DEBUG_STRING)
-                OutputDebugStringA(
-                    "LOG INIT WAS NOT CALLED BEFORE THIS LOG MESSAGE!\n"
-                );
-            #endif
-            LD_PANIC();
         }
-    #endif
+#endif // if platform windows
+        LD_PANIC();
+    }
+#endif // if assertions are enabled
+
+    if( lock ) {
+        pthread_mutex_lock( &MUTEX_0 );
+    }
 
     b32 always_print =
         (flags & LOG_FLAG_ALWAYS_PRINT) == LOG_FLAG_ALWAYS_PRINT;
@@ -145,88 +151,11 @@ void log_formatted_unlocked(
         (flags & LOG_FLAG_NEW_LINE) == LOG_FLAG_NEW_LINE;
 
     if( !(always_print || is_level_valid( level )) ) {
-        return;
-    }
-
-
-    va_list args;
-    va_start( args, format );
-
-    StringView logging_buffer_view = {};
-    logging_buffer_view.buffer = LOGGING_BUFFER;
-    logging_buffer_view.len    = LOGGING_BUFFER_SIZE;
-    u32 write_size = string_format_va(
-        logging_buffer_view,
-        format,
-        args
-    );
-
-    va_end( args );
-
-    if(
-        (!write_size || write_size < 0) ||
-        (((usize)write_size) >= (LOGGING_BUFFER_SIZE - 1))
-    ) {
-        return;
-    }
-
-    if( new_line ) {
-        LOGGING_BUFFER[write_size] = '\n';
-        LOGGING_BUFFER[write_size + 1] = 0;
-    }
-
-    set_color( color );
-    print( "{sv}", logging_buffer_view );
-    set_color( LOG_COLOR_RESET );
-
-    #if defined(LD_PLATFORM_WINDOWS) && defined(LD_OUTPUT_DEBUG_STRING)
-        OutputDebugStringA( LOGGING_BUFFER );
-    #endif
-
-#endif
-}
-
-void log_formatted_locked(
-    LogLevel    level,
-    LogColor    color,
-    LogFlags    flags,
-    const char* format,
-    ...
-) {
-    if( !is_log_initialized() ) {
-        return;
-    }
-#if defined(LD_LOGGING)
-
-    #if defined(LD_ASSERTIONS)
-        if( !LOGGING_BUFFER ) {
-            println(
-                "LOG INIT WAS NOT CALLED BEFORE THIS LOG MESSAGE!\n"
-            );
-            #if defined(LD_PLATFORM_WINDOWS) && defined(LD_OUTPUT_DEBUG_STRING)
-                OutputDebugStringA(
-                    "LOG INIT WAS NOT CALLED BEFORE THIS LOG MESSAGE!\n"
-                );
-            #endif
-            LD_PANIC();
+        if( lock ) {
+            pthread_mutex_unlock( &MUTEX_0 );
         }
-    #endif
-
-    pthread_mutex_lock( &MUTEX_0 );
-
-    b32 always_print =
-        (flags & LOG_FLAG_ALWAYS_PRINT) == LOG_FLAG_ALWAYS_PRINT;
-    b32 new_line =
-        (flags & LOG_FLAG_NEW_LINE) == LOG_FLAG_NEW_LINE;
-
-    if( !(always_print || is_level_valid( level )) ) {
-        pthread_mutex_unlock( &MUTEX_0 );
         return;
     }
-
-#if 0 
-    va_list args;
-    va_start( args, format );
 
     StringView logging_buffer_view = {};
     logging_buffer_view.buffer = LOGGING_BUFFER;
@@ -238,13 +167,13 @@ void log_formatted_locked(
         args
     );
 
-    va_end( args );
-
     if(
         (!write_size || write_size < 0) ||
         (((usize)write_size) >= (LOGGING_BUFFER_SIZE - 1))
     ) {
-        pthread_mutex_unlock( &MUTEX_0 );
+        if( lock ) {
+            pthread_mutex_unlock( &MUTEX_0 );
+        }
         return;
     }
 
@@ -256,30 +185,58 @@ void log_formatted_locked(
     }
 
     set_color( color );
-    print( LOGGING_BUFFER );
-    set_color( LOG_COLOR_RESET );
 
-    #if defined(LD_PLATFORM_WINDOWS) && defined(LD_OUTPUT_DEBUG_STRING)
-        OutputDebugStringA( LOGGING_BUFFER );
-    #endif
-
-    pthread_mutex_unlock( &MUTEX_0 );
-#endif
-    
-    va_list args;
-    va_start( args, format );
-    set_color( color );
-    print_va( format, args );
-    if( new_line ) {
-        print( "\n" );
+    b32 is_error = ARE_BITS_SET( level, LOG_LEVEL_ERROR );
+    if( is_error ) {
+        output_string_stderr( LOGGING_BUFFER );
+    } else {
+        output_string_stdout( LOGGING_BUFFER );
     }
     set_color( LOG_COLOR_RESET );
 
+#if defined(LD_PLATFORM_WINDOWS)
+    if( OUTPUT_DEBUG_STRING_ENABLED ) {
+        OutputDebugString( LOGGING_BUFFER );
+    }
+#endif // if platform windows
+
+    if( lock ) {
+        pthread_mutex_unlock( &MUTEX_0 );
+    }
+
+#endif // if logging enabled
+}
+
+void log_formatted_unlocked(
+    LogLevel    level,
+    LogColor    color,
+    LogFlags    flags,
+    const char* format,
+    ...
+) {
+    va_list args;
+    va_start( args, format );
+    log_formatted_internal(
+        level, color, flags,
+        false, format, args
+    );
     va_end( args );
-    pthread_mutex_unlock( &MUTEX_0 );
+}
 
-
-#endif
+void log_formatted_locked(
+    LogLevel    level,
+    LogColor    color,
+    LogFlags    flags,
+    const char* format,
+    ...
+) {
+    va_list args;
+    va_start( args, format );
+    log_formatted_internal(
+        level, color, flags,
+        true, format, args
+    );
+    va_end( args );
 }
 
 LogLevel query_log_level() {

@@ -98,9 +98,15 @@ b32 engine_run(
     void* application_run_user_params,
     EngineConfig* config
 ) {
-    // TODO(alicia): parse arguments!
-    unused(argc);
-    unused(argv);
+    for( i32 i = 0; i < argc; ++i ) {
+        StringView current_arg = argv[i];
+#if defined(LD_PLATFORM_WINDOWS)
+        if( string_cmp( current_arg, "--output-debug-string" ) ) {
+            log_enable_output_debug_string( true );
+        }
+#endif
+        unused( current_arg );
+    }
 
     EngineContext ctx = {};
     ctx.system_info   = query_system_info();

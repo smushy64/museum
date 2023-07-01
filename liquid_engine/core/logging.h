@@ -5,8 +5,6 @@
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: April 27, 2023
  * Notes:        define LD_LOGGING to enable logging
- *               define LD_OUTPUT_DEBUG_STRING to
- *                 use OutputDebugStringA on Win32
  *               always call "log_init" at the
  *                 very start of the program
 */
@@ -77,7 +75,12 @@ LD_API b32 log_init( LogLevel level, StringView logging_buffer );
 #if defined(LD_API_INTERNAL)
     /// shutdown logging subsystem
     void log_shutdown();
-#endif
+#if defined(LD_PLATFORM_WINDOWS)
+    /// enable output debug string [win32 only]
+    void log_enable_output_debug_string( b32 enable );
+#endif // if platform windows
+
+#endif // if api internal
 
 /// Get the current log level.
 LD_API LogLevel query_log_level();

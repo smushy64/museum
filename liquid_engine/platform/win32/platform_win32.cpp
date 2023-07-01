@@ -25,9 +25,6 @@
 
 #include <intrin.h>
 
-// TODO(alicia): custom formatting and printing
-// #include <stdio.h>
-
 global HANDLE* SEMAPHORE_STORAGE  = nullptr;
 global b32 IS_DPI_AWARE = false;
 
@@ -2148,6 +2145,25 @@ void write_fence() {
 #elif
     #error "write_fence: Platform is not supported!"
 #endif
+}
+
+void* platform_stdout_handle() {
+    return GetStdHandle( STD_OUTPUT_HANDLE );
+}
+void* platform_stderr_handle() {
+    return GetStdHandle( STD_ERROR_HANDLE );
+}
+void platform_write_console(
+    void* output_handle,
+    u32 write_count,
+    const char* buffer
+) {
+    WriteConsole(
+        output_handle,
+        buffer,
+        write_count,
+        0, 0
+    );
 }
 
 #endif // LD_PLATFORM_WINDOWS

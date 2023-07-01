@@ -3,6 +3,7 @@
 // * Description:  Variadic macros
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: June 29, 2023
+
 typedef __builtin_va_list va_list;
 #define va_arg __builtin_va_arg
 #define va_start __builtin_va_start

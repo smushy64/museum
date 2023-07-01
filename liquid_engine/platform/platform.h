@@ -103,6 +103,20 @@ void platform_shutdown_audio( Platform* platform );
 
 void platform_audio_test( Platform* platform, i16 volume );
 
+/// Get stdout handle.
+void* platform_stdout_handle();
+/// Get stderr handle.
+void* platform_stderr_handle();
+
+/// Write a null-terminated string to the console.
+/// Get console handle using platform_stdout_handle() or
+/// platform_stderr_handle().
+void platform_write_console(
+    void* output_handle,
+    u32 write_count,
+    const char* buffer
+);
+
 /// Types of message boxes
 enum MessageBoxType : u32 {
     MBTYPE_OK,

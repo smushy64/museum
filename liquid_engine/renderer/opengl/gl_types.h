@@ -7,8 +7,6 @@
 */
 #include "defines.h"
 
-// TODO(alicia): 
-
 typedef i8  GLbyte;
 typedef i16 GLshort;
 typedef i32 GLint;

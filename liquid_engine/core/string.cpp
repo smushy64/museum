@@ -9,8 +9,7 @@
 
 #include "math.h"
 
-// TODO(alicia): custom putc functions!
-#include <stdio.h>
+#include "platform/platform.h"
 
 inline internal b32 dstring_allocate( u32 capacity, String* out_string ) {
     void* buffer = mem_alloc( capacity, MEMTYPE_STRING );
@@ -1120,7 +1119,7 @@ internal u32 format_internal(
                 } break;
 
                 default:
-                    continue;
+                    LD_PANIC();
             }
 
             if( *at ) {
@@ -1190,11 +1189,73 @@ LD_API void printerr_va( const char* format, va_list variadic ) {
     );
     stderr_push(0);
 }
-// TODO(alicia): handmade version!
+
 LD_API void stdout_push( char character ) {
-    putc( character, stdout );
+    platform_write_console(
+        platform_stdout_handle(),
+        1, &character
+    );
 }
 LD_API void stderr_push( char character ) {
-    putc( character, stderr );
+    platform_write_console(
+        platform_stderr_handle(),
+        1, &character
+    );
+}
+
+LD_HOT_PATH
+LD_API void output_string_stdout( const char* str ) {
+    u32 str_len = (u32)str_length( str );
+    platform_write_console(
+        platform_stdout_handle(),
+        str_len, str
+    );
+    stdout_push( 0 );
+}
+
+LD_HOT_PATH
+LD_API void output_string_stdout( StringView string_view ) {
+    platform_write_console(
+        platform_stdout_handle(),
+        string_view.len, string_view.buffer
+    );
+    stdout_push( 0 );
+}
+
+LD_HOT_PATH
+LD_API void output_string_stdout( String* string ) {
+    platform_write_console(
+        platform_stdout_handle(),
+        string->len, string->buffer
+    );
+    stdout_push( 0 );
+}
+
+LD_HOT_PATH
+LD_API void output_string_stderr( const char* str ) {
+    u32 str_len = (u32)str_length( str );
+    platform_write_console(
+        platform_stderr_handle(),
+        str_len, str
+    );
+    stderr_push( 0 );
+}
+
+LD_HOT_PATH
+LD_API void output_string_stderr( StringView string_view ) {
+    platform_write_console(
+        platform_stderr_handle(),
+        string_view.len, string_view.buffer
+    );
+    stderr_push( 0 );
+}
+
+LD_HOT_PATH
+LD_API void output_string_stderr( String* string ) {
+    platform_write_console(
+        platform_stderr_handle(),
+        string->len, string->buffer
+    );
+    stderr_push( 0 );
 }
 

@@ -32,7 +32,7 @@ int main( int argc, const char** argv ) {
             backend = RENDERER_BACKEND_DX12;
         } 
         if( !renderer_backend_is_supported( backend ) ) {
-            print(
+            println(
                 "Renderer Backend {cc} is not supported on this platform!",
                 to_string( backend )
             );

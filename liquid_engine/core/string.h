@@ -171,6 +171,20 @@ LD_API void print_va( const char* format, va_list variadic );
 /// Format specifiers are in docs/format.md
 LD_API void printerr_va( const char* format, va_list variadic );
 
+/// Output a null-terminated string to the console without formatting.
+LD_API void output_string_stdout( const char* str );
+/// Output a string view to the console without formatting.
+LD_API void output_string_stdout( StringView string_view );
+/// Output a string to the console without formatting.
+LD_API void output_string_stdout( String* string );
+
+/// Output a null-terminated string to the console without formatting.
+LD_API void output_string_stderr( const char* str );
+/// Output a string view to the console without formatting.
+LD_API void output_string_stderr( StringView string_view );
+/// Output a string to the console without formatting.
+LD_API void output_string_stderr( String* string );
+
 /// Push character to stdout.
 LD_API void stdout_push( char character );
 /// Push character to stderr.
