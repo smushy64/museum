@@ -224,7 +224,7 @@ void log_formatted_locked(
         return;
     }
 
-
+#if 0 
     va_list args;
     va_start( args, format );
 
@@ -264,6 +264,21 @@ void log_formatted_locked(
     #endif
 
     pthread_mutex_unlock( &MUTEX_0 );
+#endif
+    
+    va_list args;
+    va_start( args, format );
+    set_color( color );
+    print_va( format, args );
+    if( new_line ) {
+        print( "\n" );
+    }
+    set_color( LOG_COLOR_RESET );
+
+    va_end( args );
+    pthread_mutex_unlock( &MUTEX_0 );
+
+
 #endif
 }
 

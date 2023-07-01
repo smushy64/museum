@@ -84,10 +84,10 @@ void* _mem_alloc_trace(
         function,
         file,
         line,
-        "Type: {cc} | Size: {u64} | Pointer: {i,x}",
+        "Type: {cc} | Size: {u64} | Pointer: {u64,x}",
         to_string(type),
         size,
-        (u64)result
+        (u64)(result)
     );
     return result;
 }
@@ -105,10 +105,10 @@ void* _mem_realloc_trace(
         function,
         file,
         line,
-        "Realloc | Type: {cc} | Size: {u64} | Pointer: {i,x}",
+        "Realloc | Type: {cc} | Size: {u64} | Pointer: {u64,x}",
         to_string(type),
         new_size,
-        (u64)result
+        (u64)(result)
     );
     return result;
 }
@@ -126,10 +126,10 @@ void _mem_free_trace(
         function,
         file,
         line,
-        "Type: {cc} | Size: {u64} | Pointer: {i,x}",
+        "Type: {cc} | Size: {u64} | Pointer: {u64,x}",
         to_string(type),
         size,
-        (u64)memory
+        (u64)(memory)
     );
 
     _mem_free( memory );
@@ -228,10 +228,10 @@ LD_API void* _mem_page_alloc_trace(
         function,
         file,
         line,
-        "Type: {cc} | Size: {u64} | Pointer: {i,x}",
+        "Type: {cc} | Size: {u64} | Pointer: {u64,x}",
         to_string(type),
         size,
-        (u64)result
+        (u64)(result)
     );
     return result;   
 }
@@ -249,10 +249,10 @@ LD_API void _mem_page_free_trace(
         function,
         file,
         line,
-        "Type: {cc} | Size: {u64} | Pointer: {i,x}",
+        "Type: {cc} | Size: {u64} | Pointer: {u64,x}",
         to_string(type),
         size,
-        (u64)memory
+        (u64)(memory)
     );
 
     _mem_free( memory );
@@ -310,9 +310,11 @@ LD_API b32 _stack_arena_create_trace(
         LOG_COLOR_GREEN,
         LOG_FLAG_NEW_LINE,
         "[STACK ARENA ALLOC | {cc}() | {cc}:{i}] "
-        "Arena: {i,x} | Type: {cc} | Size: {u}",
+        "Arena: {u64,x} | Type: {cc} | Size: {u}",
         function, file, line,
-        out_arena->arena, to_string( type ), size
+        (u64)(out_arena->arena),
+        to_string( type ),
+        size
     );
     return success;
 }
@@ -329,9 +331,11 @@ LD_API void _stack_arena_free_trace(
         LOG_COLOR_CYAN,
         LOG_FLAG_NEW_LINE,
         "[STACK ARENA FREE | {cc}() | {cc}:{i}] "
-        "Arena: {i,x} | Type: {cc} | Size: {u}",
+        "Arena: {u64,x} | Type: {cc} | Size: {u}",
         function, file, line,
-        arena->arena, to_string( type ), arena->arena_size
+        (u64)(arena->arena),
+        to_string( type ),
+        arena->arena_size
     );
     _stack_arena_free( arena );
 }
@@ -346,9 +350,10 @@ LD_API void* _stack_arena_push_item_trace(
         LOG_COLOR_GREEN,
         LOG_FLAG_NEW_LINE,
         "[STACK ARENA PUSH | {cc}() | {cc}:{i}] "
-        "Arena: {i,x} | Item Size: {u}",
+        "Arena: {u64,x} | Item Size: {u}",
         function, file, line,
-        arena->arena, item_size
+        (u64)(arena->arena),
+        item_size
     );
     return _stack_arena_push_item( arena, item_size );
 }
@@ -363,9 +368,10 @@ LD_API void _stack_arena_pop_item_trace(
         LOG_COLOR_CYAN,
         LOG_FLAG_NEW_LINE,
         "[STACK ARENA POP | {cc}() | {cc}:{i}] "
-        "Arena: {i,x} | Item Size: {u}",
+        "Arena: {u64,x} | Item Size: {u}",
         function, file, line,
-        arena->arena, item_size
+        (u64)(arena->arena),
+        item_size
     );
     _stack_arena_pop_item( arena, item_size );
 }

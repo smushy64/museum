@@ -373,9 +373,11 @@ void gl_debug_callback (
     const void*    // userParam
 ) {
     #define GL_DEBUG_MESSAGE_FORMAT \
-        "{u} | Source [{cc}] Type [{cc}] {cc}", id,\
+        "{u32} {cc} {cc} | {cc}",\
+        id,\
         to_string_source(source),\
-        to_string_type(type), message
+        to_string_type(type),\
+        message
 
     switch( severity ) {
         case GL_DEBUG_SEVERITY_HIGH: {

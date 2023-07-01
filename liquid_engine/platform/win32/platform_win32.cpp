@@ -891,15 +891,13 @@ LRESULT win32_winproc(
         );
     }
 
-    [[maybe_unused]]
-    Win32Platform* win32_platform = (Win32Platform*)platform;
-
     Event event = {};
     switch( Msg ) {
+        case WM_CLOSE:
         case WM_DESTROY: {
             event.code = EVENT_CODE_EXIT;
             event_fire( event );
-        } break;
+        } return 0;
 
         case WM_ACTIVATE: {
             b32 is_active = wParam == WA_ACTIVE ||
@@ -1227,7 +1225,7 @@ b32 platform_file_open(
         dwCreationDisposition |= OPEN_ALWAYS;
     }
 
-    HANDLE handle = CreateFileA(
+    HANDLE handle = CreateFile(
         path,
         dwDesiredAccess,
         dwShareMode,
@@ -1759,17 +1757,10 @@ namespace impl {
         if( !_library_load( library_name, &result ) ) {
             log_formatted_locked(
                 LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,
-                LOG_COLOR_RED, 0,
-                "[ERROR WIN32  | {cc} | {cc}:{i}] ",
-                function,
-                file,
-                line
-            );
-            log_formatted_locked(
-                LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,
-                LOG_COLOR_RED,
-                LOG_FLAG_NEW_LINE,
+                LOG_COLOR_RED, LOG_FLAG_NEW_LINE,
+                "[ERROR WIN32  | {cc}() | {cc}:{i}] "
                 "Failed to load library \"{cc}\"!",
+                function, file, line,
                 library_name
             );
             return false;
@@ -1778,17 +1769,10 @@ namespace impl {
         *out_library = result;
         log_formatted_locked(
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
-            LOG_COLOR_RESET, 0,
-            "[NOTE WIN32  | {cc} | {cc}:{i}] ",
-            function,
-            file,
-            line
-        );
-        log_formatted_locked(
-            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
-            LOG_COLOR_RESET,
-            LOG_FLAG_NEW_LINE,
+            LOG_COLOR_RESET, LOG_FLAG_NEW_LINE,
+            "[NOTE WIN32 | {cc}() | {cc}:{i}] "
             "Library \"{cc}\" has been loaded successfully.",
+            function, file, line,
             library_name
         );
 
@@ -1815,17 +1799,10 @@ namespace impl {
         );
         log_formatted_locked(
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
-            LOG_COLOR_RESET, 0,
-            "[NOTE WIN32  | {cc} | {cc}:{i}] ",
-            function,
-            file,
-            line
-        );
-        log_formatted_locked(
-            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,
-            LOG_COLOR_RESET,
-            LOG_FLAG_NEW_LINE,
+            LOG_COLOR_RESET, LOG_FLAG_NEW_LINE,
+            "[NOTE WIN32 | {cc}() | {cc}:{i}] "
             "Library \"{cc}\" has been freed.",
+            function, file, line,
             library_name_buffer
         );
         _library_free( library );
@@ -1867,35 +1844,24 @@ namespace impl {
         LogColor color = result ? LOG_COLOR_RESET : LOG_COLOR_RED;
 
         LogFlags flags = result ? 0 : LOG_FLAG_ALWAYS_PRINT;
+        flags |= LOG_FLAG_NEW_LINE;
+        const char* type = result ? "NOTE" : "ERROR";
 
-        log_formatted_locked(
-            level,
-            color,
-            flags,
-            "[NOTE WIN32  | {cc} | {cc}:{i}] ",
-            function,
-            file,
-            line
-        );
         if( result ) {
             log_formatted_locked(
-                level,
-                color,
-                LOG_FLAG_NEW_LINE | flags,
-                "Function \"{cc}\" "
-                "loaded from library \"{cc}\" successfully.",
-                function_name,
-                library_name_buffer
+                level, color, flags,
+                "[{cc} WIN32 | {cc}() | {cc}:{i}] "
+                "Function \"{cc}\" loaded from library \"{cc}\" successfully.",
+                type, function, file, line,
+                function_name, library_name_buffer
             );
         } else {
             log_formatted_locked(
-                level,
-                color,
-                LOG_FLAG_NEW_LINE | flags,
-                "Unable to load function \"{cc}\" "
-                "from library \"{cc}\"!",
-                function_name,
-                library_name_buffer
+                level, color, flags,
+                "[{cc} WIN32 | {cc}() | {cc}:{i}] "
+                "Unable to load function \"{cc}\" from library \"{cc}\"!",
+                type, function, file, line,
+                function_name, library_name_buffer
             );
         }
         return result;
