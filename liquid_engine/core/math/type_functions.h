@@ -9,111 +9,85 @@
 #include "functions.h"
 #include "types.h"
 
-// TODO(alicia): SUPER TEMPORARY!!!!!!!
-inline f32 asin( f32 ) {
-    return F32::NAN;
-}
-inline f32 asin_real( f32 ) {
-    return F32::NAN;
-}
-inline f32 acos( f32 ) {
-    return F32::NAN;
-}
-inline f32 atan2( f32, f32 ) {
-    return F32::NAN;
-}
-inline f32 pow( f32, f32 ) {
-    return F32::NAN;
-}
-inline f32 powi( f32, f32 ) {
-    return F32::NAN;
-}
-inline f32 degrees_overflow( f32 ) {
-    return F32::NAN;
-}
-inline f32 mod( f32, f32 ) {
-    return F32::NAN;
-}
-
 /// rotate components to the left. for vec2 it just swaps components
-inline vec2 rotate_left( vec2 x ) {
+FORCE_INLINE vec2 rotate_left( vec2 x ) {
     vec2 out = x;
     out.x = x.y;
     out.y = x.x;
     return out;
 }
 /// rotate components to the right. for vec2 it just swaps components
-inline vec2 rotate_right( vec2 x ) {
+FORCE_INLINE vec2 rotate_right( vec2 x ) {
     return rotate_left(x);
 }
 /// sum all components
-inline f32 horizontal_add( vec2 x ) {
+FORCE_INLINE f32 horizontal_add( vec2 x ) {
     return x.x + x.y;
 }
 /// multiply all components
-inline f32 horizontal_mul( vec2 x ) {
+FORCE_INLINE f32 horizontal_mul( vec2 x ) {
     return x.x * x.y;
 }
 /// component-wise multiplication
-inline vec2 hadamard( vec2 lhs, vec2 rhs ) {
+FORCE_INLINE vec2 hadamard( vec2 lhs, vec2 rhs ) {
     return {
         lhs.x * rhs.x,
         lhs.y * rhs.y
     };
 }
 /// inner product
-inline f32 dot( vec2 lhs, vec2 rhs ) {
+FORCE_INLINE f32 dot( vec2 lhs, vec2 rhs ) {
     vec2 result = hadamard( lhs, rhs );
     return horizontal_add( result );
 }
 /// calculate square magnitude of vector
-inline f32 sqrmag( vec2 x ) {
+FORCE_INLINE f32 sqrmag( vec2 x ) {
     return dot( x, x );
 }
 /// calculate the magnitude of vector
-inline f32 mag( vec2 x ) {
+FORCE_INLINE f32 mag( vec2 x ) {
     return sqrt( sqrmag( x ) );
 }
 /// normalize vector
-inline vec2 normalize( vec2 x ) {
+FORCE_INLINE vec2 normalize( vec2 x ) {
     f32 magnitude = mag( x );
     return magnitude < F32::EPSILON ? VEC2::ZERO : x / magnitude;
 }
 /// angle(radians) between two vectors
-inline f32 angle( vec2 a, vec2 b ) {
+FORCE_INLINE f32 angle( vec2 a, vec2 b ) {
     return acos( dot( a, b ) );
 }
 /// linear interpolation
-inline vec2 lerp( vec2 a, vec2 b, f32 t ) {
+FORCE_INLINE vec2 lerp( vec2 a, vec2 b, f32 t ) {
     return ( 1.0f - t ) * a + b * t;
 }
 /// linear interpolation, t clamped to 0-1
-inline vec2 lerp_clamped( vec2 a, vec2 b, f32 t ) {
+FORCE_INLINE vec2 lerp_clamped( vec2 a, vec2 b, f32 t ) {
     return lerp( a, b, clamp01(t) );
 }
 /// smooth step interpolation
-inline vec2 smooth_step( vec2 a, vec2 b, f32 t ) {
+FORCE_INLINE vec2 smooth_step( vec2 a, vec2 b, f32 t ) {
     return ( b - a ) * ( 3.0f - t * 2.0f ) * t * t + a;
 }
 /// smooth step interpolation, t clamped to 0-1
-inline vec2 smooth_step_clamped( vec2 a, vec2 b, f32 t ) {
+FORCE_INLINE vec2 smooth_step_clamped( vec2 a, vec2 b, f32 t ) {
     return smooth_step( a, b, clamp01(t) );
 }
 /// smoother step interpolation
-inline vec2 smoother_step(
+FORCE_INLINE vec2 smoother_step(
     vec2 a, vec2 b, f32 t
 ) {
     return ( b - a ) *
         ( ( t * ( t * 6.0f - 15.0f ) + 10.0f ) * t * t * t ) + a;
 }
 /// smoother step interpolation, t clamped to 0-1
-inline vec2 smoother_step_clamped(
+FORCE_INLINE vec2 smoother_step_clamped(
     vec2 a, vec2 b, f32 t
 ) {
     return smoother_step( a, b, clamp01(t) );
 }
 /// rotate vector by theta radians
-inline vec2 rotate( vec2 x, f32 theta ) {
+FORCE_INLINE vec2 rotate( vec2 x, f32 theta ) {
     f32 theta_sin = sin( theta );
     f32 theta_cos = cos( theta );
     vec2 a = {  theta_cos, theta_sin };
@@ -121,7 +95,7 @@ inline vec2 rotate( vec2 x, f32 theta ) {
     return ( x.x * a ) + ( x.y * b );
 }
 /// clamp a vector's magnitude
-inline vec2 clamp_mag( vec2 x, f32 max_magnitude ) {
+FORCE_INLINE vec2 clamp_mag( vec2 x, f32 max_magnitude ) {
     f32 max       = absolute( max_magnitude );
     f32 magnitude = mag( x );
     if( magnitude > max ) {
@@ -131,66 +105,66 @@ inline vec2 clamp_mag( vec2 x, f32 max_magnitude ) {
     return x;
 }
 /// compare two vectors for equality
-inline b32 cmp_eq( vec2 a, vec2 b ) {
+FORCE_INLINE b32 cmp_eq( vec2 a, vec2 b ) {
     return sqrmag( a - b ) < F32::EPSILON;
 }
 
 
 /// rotate components to the left. for ivec2 it just swaps components
-inline ivec2 rotate_left( ivec2 x ) {
+FORCE_INLINE ivec2 rotate_left( ivec2 x ) {
     ivec2 out = x;
     out.x = x.y;
     out.y = x.x;
     return out;
 }
 /// rotate components to the right. for ivec2 it just swaps components
-inline ivec2 rotate_right( ivec2 x ) {
+FORCE_INLINE ivec2 rotate_right( ivec2 x ) {
     return rotate_left(x);
 }
 /// sum all components
-inline i32 horizontal_add( ivec2 x ) {
+FORCE_INLINE i32 horizontal_add( ivec2 x ) {
     return x.x + x.y;
 }
 /// multiply all components
-inline i32 horizontal_mul( ivec2 x ) {
+FORCE_INLINE i32 horizontal_mul( ivec2 x ) {
     return x.x * x.y;
 }
 /// component-wise multiplication
-inline ivec2 hadamard( ivec2 lhs, ivec2 rhs ) {
+FORCE_INLINE ivec2 hadamard( ivec2 lhs, ivec2 rhs ) {
     return {
         lhs.x * rhs.x,
         lhs.y * rhs.y
     };
 }
 /// inner product
-inline f32 dot( ivec2 lhs, ivec2 rhs ) {
+FORCE_INLINE f32 dot( ivec2 lhs, ivec2 rhs ) {
     ivec2 result = hadamard( lhs, rhs );
     return horizontal_add( result );
 }
 /// calculate square magnitude of vector
-inline f32 sqrmag( ivec2 x ) {
+FORCE_INLINE f32 sqrmag( ivec2 x ) {
     return dot( x, x );
 }
 /// calculate the magnitude of vector
-inline f32 mag( ivec2 x ) {
+FORCE_INLINE f32 mag( ivec2 x ) {
     return sqrt( sqrmag( x ) );
 }
 /// normalize vector
-inline ivec2 normalize( ivec2 x ) {
+FORCE_INLINE ivec2 normalize( ivec2 x ) {
     f32 magnitude = mag( x );
     return magnitude < F32::EPSILON ? IVEC2::ZERO : x / magnitude;
 }
 /// angle(radians) between two vectors
-inline f32 angle( ivec2 a, ivec2 b ) {
+FORCE_INLINE f32 angle( ivec2 a, ivec2 b ) {
     return acos( dot( a, b ) );
 }
 /// compare two vectors for equality
-inline b32 cmp_eq( ivec2 a, ivec2 b ) {
+FORCE_INLINE b32 cmp_eq( ivec2 a, ivec2 b ) {
     return a.x == b.x && a.y == b.y;
 }
 
 /// Create HSV from hue, saturation and value.
-inline hsv v3_hsv( f32 hue, f32 saturation, f32 value ) {
+FORCE_INLINE hsv v3_hsv( f32 hue, f32 saturation, f32 value ) {
     return {
         degrees_overflow( hue ),
         clamp01( saturation ),
@@ -199,7 +173,7 @@ inline hsv v3_hsv( f32 hue, f32 saturation, f32 value ) {
 }
 
 /// convert rgb color to hsv color
-inline hsv rgb_to_hsv( rgb col ) {
+FORCE_INLINE hsv rgb_to_hsv( rgb col ) {
     f32 x_max = col.r > col.g ?
         ( col.r > col.b ? col.r : col.b ) :
         ( col.g > col.b ? col.g : col.b );
@@ -224,7 +198,7 @@ inline hsv rgb_to_hsv( rgb col ) {
     return v3_hsv( hue, saturation, x_max );
 }
 /// convert hsv color to rgb color
-inline rgb hsv_to_rgb( hsv col ) {
+FORCE_INLINE rgb hsv_to_rgb( hsv col ) {
     
     f32 chroma    = col.value * col.saturation;
     f32 hue       = col.hue / 60.0f;
@@ -259,7 +233,7 @@ inline rgb hsv_to_rgb( hsv col ) {
     };
 }
 /// convert linear color space to srgb color space
-inline rgb linear_to_srgb( rgb linear ) {
+FORCE_INLINE rgb linear_to_srgb( rgb linear ) {
     static const f32 power = 1.0f / 2.2f;
     return {
         pow( linear.r, power ),
@@ -268,7 +242,7 @@ inline rgb linear_to_srgb( rgb linear ) {
     };
 }
 /// convert srgb color space to linear color space
-inline rgb srgb_to_linear( rgb srgb ) {
+FORCE_INLINE rgb srgb_to_linear( rgb srgb ) {
     return {
         pow( srgb.r, 2.2f ),
         pow( srgb.g, 2.2f ),
@@ -277,7 +251,7 @@ inline rgb srgb_to_linear( rgb srgb ) {
 }
 
 /// rotate components to the left
-inline vec3 rotate_left( vec3 x ) {
+FORCE_INLINE vec3 rotate_left( vec3 x ) {
     vec3 result;
     result.x = x.y;
     result.y = x.z;
@@ -285,7 +259,7 @@ inline vec3 rotate_left( vec3 x ) {
     return result;
 }
 /// rotate components to the right
-inline vec3 rotate_right( vec3 x ) {
+FORCE_INLINE vec3 rotate_right( vec3 x ) {
     vec3 result;
     result.x = x.z;
     result.y = x.x;
@@ -293,15 +267,15 @@ inline vec3 rotate_right( vec3 x ) {
     return result;
 }
 /// sum components
-inline f32 horizontal_add( vec3 x ) {
+FORCE_INLINE f32 horizontal_add( vec3 x ) {
     return x.x + x.y + x.z;
 }
 /// multiply components
-inline f32 horizontal_mul( vec3 x ) {
+FORCE_INLINE f32 horizontal_mul( vec3 x ) {
     return x.x * x.y * x.z;
 }
 /// component-wise multiplication
-inline vec3 hadamard( vec3 lhs, vec3 rhs ) {
+FORCE_INLINE vec3 hadamard( vec3 lhs, vec3 rhs ) {
     return {
         lhs.x * rhs.x,
         lhs.y * rhs.y,
@@ -309,23 +283,23 @@ inline vec3 hadamard( vec3 lhs, vec3 rhs ) {
     };
 }
 /// calculate square magnitude of vector
-inline f32 sqrmag( vec3 x ) {
+FORCE_INLINE f32 sqrmag( vec3 x ) {
     return horizontal_add( hadamard( x, x ) );
 }
 /// calculate magnitude of vector
-inline f32 mag( vec3 x ) {
+FORCE_INLINE f32 mag( vec3 x ) {
     return sqrt( sqrmag( x ) );
 }
 /// inner product
-inline f32 dot( vec3 lhs, vec3 rhs ) {
+FORCE_INLINE f32 dot( vec3 lhs, vec3 rhs ) {
     return horizontal_add( hadamard( lhs, rhs ) );
 }
-inline vec3 normalize( vec3 x ) {
+FORCE_INLINE vec3 normalize( vec3 x ) {
     f32 magnitude = mag( x );
     return magnitude < F32::EPSILON ? VEC3::ZERO : x / magnitude;
 }
 /// cross product
-inline vec3 cross( vec3 lhs, vec3 rhs ) {
+FORCE_INLINE vec3 cross( vec3 lhs, vec3 rhs ) {
     return {
         ( lhs.y * rhs.z ) - ( lhs.z * rhs.y ),
         ( lhs.z * rhs.x ) - ( lhs.x * rhs.z ),
@@ -333,46 +307,46 @@ inline vec3 cross( vec3 lhs, vec3 rhs ) {
     };
 }
 /// reflect direction across axis of given normal
-inline vec3 reflect( vec3 direction, vec3 normal ) {
+FORCE_INLINE vec3 reflect( vec3 direction, vec3 normal ) {
     return ( normal - direction ) * (
         2.0f *  dot( direction, normal )
     );
 }
 /// calculate the angle(radians) between two vectors
-inline f32 angle( vec3 a, vec3 b ) {
+FORCE_INLINE f32 angle( vec3 a, vec3 b ) {
     return acos( dot( a, b ) );
 }
 /// linear interpolation
-inline vec3 lerp( vec3 a, vec3 b, f32 t ) {
+FORCE_INLINE vec3 lerp( vec3 a, vec3 b, f32 t ) {
     return ( 1.0f - t ) * a + b * t;
 }
 /// linear interpolation, t clamped to 0-1
-inline vec3 lerp_clamped( vec3 a, vec3 b, f32 t ) {
+FORCE_INLINE vec3 lerp_clamped( vec3 a, vec3 b, f32 t ) {
     return lerp( a, b, clamp01( t ) );
 }
 /// smooth step interpolation
-inline vec3 smooth_step( vec3 a, vec3 b, f32 t ) {
+FORCE_INLINE vec3 smooth_step( vec3 a, vec3 b, f32 t ) {
     return ( b - a ) * ( 3.0f - t * 2.0f ) * t * t + a;
 }
 /// smooth step interpolation, t clamped to 0-1
-inline vec3 smooth_step_clamped( vec3 a, vec3 b, f32 t ) {
+FORCE_INLINE vec3 smooth_step_clamped( vec3 a, vec3 b, f32 t ) {
     return smooth_step( a, b, clamp01( t ) );
 }
 /// smoother step interpolation
-inline vec3 smoother_step(
+FORCE_INLINE vec3 smoother_step(
     vec3 a, vec3 b, f32 t
 ) {
     return ( b - a ) *
         ( ( t * ( t * 6.0f - 15.0f ) + 10.0f ) * t * t * t ) + a;
 }
 /// smoother step interpolation, t clamped to 0-1
-inline vec3 smoother_step_clamped(
+FORCE_INLINE vec3 smoother_step_clamped(
     vec3 a, vec3 b, f32 t
 ) {
     return smoother_step( a, b, clamp01( t ) );
 }
 /// clamp a vector's magnitude
-inline vec3 clamp_mag( vec3 x, f32 max_magnitude ) {
+FORCE_INLINE vec3 clamp_mag( vec3 x, f32 max_magnitude ) {
     f32 max = absolute( max_magnitude );
     f32 mag = ::mag( x );
     if( mag > max ) {
@@ -384,12 +358,12 @@ inline vec3 clamp_mag( vec3 x, f32 max_magnitude ) {
     return x;
 }
 /// compare two vectors for equality
-inline b32 cmp_eq( vec3 a, vec3 b ) {
+FORCE_INLINE b32 cmp_eq( vec3 a, vec3 b ) {
     return sqrmag( a - b ) < F32::EPSILON;
 }
 
 /// rotate components to the left
-inline ivec3 rotate_left( ivec3 x ) {
+FORCE_INLINE ivec3 rotate_left( ivec3 x ) {
     ivec3 out = x;
     out.x = x.z;
     out.y = x.x;
@@ -397,7 +371,7 @@ inline ivec3 rotate_left( ivec3 x ) {
     return out;
 }
 /// rotate components to the right
-inline ivec3 rotate_right( ivec3 x ) {
+FORCE_INLINE ivec3 rotate_right( ivec3 x ) {
     ivec3 out = x;
     out.x = x.y;
     out.y = x.z;
@@ -405,15 +379,15 @@ inline ivec3 rotate_right( ivec3 x ) {
     return out;
 }
 /// sum all components
-inline i32 horizontal_add( ivec3 x ) {
+FORCE_INLINE i32 horizontal_add( ivec3 x ) {
     return x.x + x.y + x.z;
 }
 /// multiply all components
-inline i32 horizontal_mul( ivec3 x ) {
+FORCE_INLINE i32 horizontal_mul( ivec3 x ) {
     return x.x * x.y * x.z;
 }
 /// component-wise multiplication
-inline ivec3 hadamard( ivec3 lhs, ivec3 rhs ) {
+FORCE_INLINE ivec3 hadamard( ivec3 lhs, ivec3 rhs ) {
     return {
         lhs.x * rhs.x,
         lhs.y * rhs.y,
@@ -421,48 +395,48 @@ inline ivec3 hadamard( ivec3 lhs, ivec3 rhs ) {
     };
 }
 /// inner product
-inline f32 dot( ivec3 lhs, ivec3 rhs ) {
+FORCE_INLINE f32 dot( ivec3 lhs, ivec3 rhs ) {
     ivec3 result = hadamard( lhs, rhs );
     return horizontal_add( result );
 }
 /// calculate square magnitude of vector
-inline f32 sqrmag( ivec3 x ) {
+FORCE_INLINE f32 sqrmag( ivec3 x ) {
     return dot( x, x );
 }
 /// calculate the magnitude of vector
-inline f32 mag( ivec3 x ) {
+FORCE_INLINE f32 mag( ivec3 x ) {
     return sqrt( sqrmag( x ) );
 }
 /// normalize vector
-inline ivec3 normalize( ivec3 x ) {
+FORCE_INLINE ivec3 normalize( ivec3 x ) {
     f32 magnitude = mag( x );
     return magnitude < F32::EPSILON ? IVEC3::ZERO : x / magnitude;
 }
 /// angle(radians) between two vectors
-inline f32 angle( ivec3 a, ivec3 b ) {
+FORCE_INLINE f32 angle( ivec3 a, ivec3 b ) {
     return acos( dot( a, b ) );
 }
 /// compare two vectors for equality
-inline b32 cmp_eq( ivec3 a, ivec3 b ) {
+FORCE_INLINE b32 cmp_eq( ivec3 a, ivec3 b ) {
     return a.x == b.x && a.y == b.y && a.z == b.z;
 }
 
 /// convert linear color space to srgb color space
-inline rgba linear_to_srgb( rgba linear ) {
+FORCE_INLINE rgba linear_to_srgb( rgba linear ) {
     rgba result;
     result.rgb = linear_to_srgb( linear.rgb );
     result.a = linear.a;
     return result;
 }
 /// convert srgb color space to linear color space
-inline rgba srgb_to_linear( rgba srgb ) {
+FORCE_INLINE rgba srgb_to_linear( rgba srgb ) {
     rgba result;
     result.rgb = srgb_to_linear( srgb.rgb );
     result.a   = srgb.a;
     return result;
 }
 /// rotate components to the left
-inline vec4 rotate_left( vec4 x ) {
+FORCE_INLINE vec4 rotate_left( vec4 x ) {
     vec4 result;
     result.x = x.y;
     result.y = x.z;
@@ -471,7 +445,7 @@ inline vec4 rotate_left( vec4 x ) {
     return result;
 }
 /// rotate components to the right
-inline vec4 rotate_right( vec4 x ) {
+FORCE_INLINE vec4 rotate_right( vec4 x ) {
     vec4 result;
     result.x = x.w;
     result.y = x.x;
@@ -480,15 +454,15 @@ inline vec4 rotate_right( vec4 x ) {
     return result;
 }
 /// sum components
-inline f32 horizontal_add( vec4 x ) {
+FORCE_INLINE f32 horizontal_add( vec4 x ) {
     return x.x + x.y + x.z + x.w;
 }
 /// multiply components
-inline f32 horizontal_mul( vec4 x ) {
+FORCE_INLINE f32 horizontal_mul( vec4 x ) {
     return x.x * x.y * x.z * x.w;
 }
 /// component-wise multiplication
-inline vec4 hadamard( vec4 lhs, vec4 rhs ) {
+FORCE_INLINE vec4 hadamard( vec4 lhs, vec4 rhs ) {
     return {
         lhs.x * rhs.x,
         lhs.y * rhs.y,
@@ -497,53 +471,53 @@ inline vec4 hadamard( vec4 lhs, vec4 rhs ) {
     };
 }
 /// calculate square magnitude of vector
-inline f32 sqrmag( vec4 x ) {
+FORCE_INLINE f32 sqrmag( vec4 x ) {
     return horizontal_add( hadamard( x, x ) );
 }
 /// calculate magnitude of vector
-inline f32 mag( vec4 x ) {
+FORCE_INLINE f32 mag( vec4 x ) {
     return sqrt( sqrmag( x ) );
 }
 /// normalize vector
-inline vec4 normalize( vec4 x ) {
+FORCE_INLINE vec4 normalize( vec4 x ) {
     f32 magnitude = mag( x );
     return magnitude < F32::EPSILON ? VEC4::ZERO : x / magnitude;
 }
 /// inner product
-inline f32 dot( vec4 lhs, vec4 rhs ) {
+FORCE_INLINE f32 dot( vec4 lhs, vec4 rhs ) {
     return horizontal_add( hadamard( lhs, rhs ) );
 }
 /// linear interpolation
-inline vec4 lerp( vec4 a, vec4 b, f32 t ) {
+FORCE_INLINE vec4 lerp( vec4 a, vec4 b, f32 t ) {
     return ( 1.0f - t ) * a + b * t;
 }
 /// linear interpolation, t clamped to 0-1
-inline vec4 lerp_clamped( vec4 a, vec4 b, f32 t ) {
+FORCE_INLINE vec4 lerp_clamped( vec4 a, vec4 b, f32 t ) {
     return lerp( a, b, clamp01( t ) );
 }
 /// smooth step interpolation
-inline vec4 smooth_step( vec4 a, vec4 b, f32 t ) {
+FORCE_INLINE vec4 smooth_step( vec4 a, vec4 b, f32 t ) {
     return ( b - a ) * ( 3.0f - t * 2.0f ) * t * t + a;
 }
 /// smooth step interpolation, t clamped to 0-1
-inline vec4 smooth_step_clamped( vec4 a, vec4 b, f32 t ) {
+FORCE_INLINE vec4 smooth_step_clamped( vec4 a, vec4 b, f32 t ) {
     return smooth_step( a, b, clamp01( t ) );
 }
 /// smoother step interpolation
-inline vec4 smoother_step(
+FORCE_INLINE vec4 smoother_step(
     vec4 a, vec4 b, f32 t
 ) {
     return ( b - a ) *
         ( ( t * ( t * 6.0f - 15.0f ) + 10.0f ) * t * t * t ) + a;
 }
 /// smoother step interpolation, t clamped to 0-1
-inline vec4 smoother_step_clamped(
+FORCE_INLINE vec4 smoother_step_clamped(
     vec4 a, vec4 b, f32 t
 ) {
     return smoother_step( a, b, clamp01( t ) );
 }
 /// clamp a vector's magnitude
-inline vec4 clamp_mag( vec4 x, f32 max_magnitude ) {
+FORCE_INLINE vec4 clamp_mag( vec4 x, f32 max_magnitude ) {
     f32 max = absolute( max_magnitude );
     f32 mag = ::mag( x );
     if( mag > max ) {
@@ -555,12 +529,12 @@ inline vec4 clamp_mag( vec4 x, f32 max_magnitude ) {
     return x;
 }
 /// compare two vectors for equality
-inline b32 cmp_eq( vec4 a, vec4 b ) {
+FORCE_INLINE b32 cmp_eq( vec4 a, vec4 b ) {
     return sqrmag( a - b ) < F32::EPSILON;
 }
 
 /// rotate components to the left
-inline ivec4 rotate_left( ivec4 x ) {
+FORCE_INLINE ivec4 rotate_left( ivec4 x ) {
     ivec4 out = x;
     out.x = x.w;
     out.y = x.x;
@@ -569,7 +543,7 @@ inline ivec4 rotate_left( ivec4 x ) {
     return out;
 }
 /// rotate components to the right
-inline ivec4 rotate_right( ivec4 x ) {
+FORCE_INLINE ivec4 rotate_right( ivec4 x ) {
     ivec4 out = x;
     out.x = x.y;
     out.y = x.z;
@@ -578,15 +552,15 @@ inline ivec4 rotate_right( ivec4 x ) {
     return out;
 }
 /// sum all components
-inline i32 horizontal_add( ivec4 x ) {
+FORCE_INLINE i32 horizontal_add( ivec4 x ) {
     return x.x + x.y + x.z + x.w;
 }
 /// multiply all components
-inline i32 horizontal_mul( ivec4 x ) {
+FORCE_INLINE i32 horizontal_mul( ivec4 x ) {
     return x.x * x.y * x.z * x.w;
 }
 /// component-wise multiplication
-inline ivec4 hadamard( ivec4 lhs, ivec4 rhs ) {
+FORCE_INLINE ivec4 hadamard( ivec4 lhs, ivec4 rhs ) {
     return {
         lhs.x * rhs.x,
         lhs.y * rhs.y,
@@ -595,34 +569,34 @@ inline ivec4 hadamard( ivec4 lhs, ivec4 rhs ) {
     };
 }
 /// inner product
-inline f32 dot( ivec4 lhs, ivec4 rhs ) {
+FORCE_INLINE f32 dot( ivec4 lhs, ivec4 rhs ) {
     ivec4 result = hadamard( lhs, rhs );
     return horizontal_add( result );
 }
 /// calculate square magnitude of vector
-inline f32 sqrmag( ivec4 x ) {
+FORCE_INLINE f32 sqrmag( ivec4 x ) {
     return dot( x, x );
 }
 /// calculate the magnitude of vector
-inline f32 mag( ivec4 x ) {
+FORCE_INLINE f32 mag( ivec4 x ) {
     return sqrt( sqrmag( x ) );
 }
 /// normalize vector
-inline ivec4 normalize( ivec4 x ) {
+FORCE_INLINE ivec4 normalize( ivec4 x ) {
     f32 magnitude = mag( x );
     return magnitude < F32::EPSILON ? IVEC4::ZERO : x / magnitude;
 }
 /// angle(radians) between two vectors
-inline f32 angle( ivec4 a, ivec4 b ) {
+FORCE_INLINE f32 angle( ivec4 a, ivec4 b ) {
     return acos( dot( a, b ) );
 }
 /// compare two vectors for equality
-inline b32 cmp_eq( ivec4 a, ivec4 b ) {
+FORCE_INLINE b32 cmp_eq( ivec4 a, ivec4 b ) {
     return a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w;
 }
 
 /// Create quaternion from angle and axis.
-inline quat q( f32 theta, vec3 axis ) {
+FORCE_INLINE quat q( f32 theta, vec3 axis ) {
     f32 half_theta = theta / 2.0f;
     f32 sine = sin( half_theta );
     return {
@@ -633,11 +607,11 @@ inline quat q( f32 theta, vec3 axis ) {
     };
 }
 /// Create quaternion from angle axis.
-inline quat q( angle_axis aa ) {
+FORCE_INLINE quat q( angle_axis aa ) {
     return q( aa.theta_radians, aa.axis );
 }
 /// Create quaternion from euler angles.
-inline quat q( f32 pitch, f32 yaw, f32 roll ) {
+FORCE_INLINE quat q( f32 pitch, f32 yaw, f32 roll ) {
     // TODO(alicia): SIMD ?
     f32 half_x = pitch / 2.0f;
     f32 half_y = yaw   / 2.0f;
@@ -662,57 +636,57 @@ inline quat q( f32 pitch, f32 yaw, f32 roll ) {
     };
 }
 /// Create quaternion from euler angles.
-inline quat q( euler_angles euler ) {
+FORCE_INLINE quat q( euler_angles euler ) {
     return q( euler.pitch, euler.yaw, euler.roll );
 }
-inline vec3 operator*( quat lhs, vec3 rhs ) {
+FORCE_INLINE vec3 operator*( quat lhs, vec3 rhs ) {
     vec3 t = 2.0f * cross( lhs.xyz, rhs );
     return rhs + t * lhs.w + cross( lhs.xyz, t );
 }
 
 /// calculate square magnitude of quaternion
-inline f32 sqrmag( quat q ) {
+FORCE_INLINE f32 sqrmag( quat q ) {
     vec4 result = { q.w, q.x, q.y, q.z };
     return horizontal_add( hadamard( result, result ) );
 }
 /// calculate magnitude of quaternion
-inline f32 mag( quat q ) {
+FORCE_INLINE f32 mag( quat q ) {
     return sqrt( sqrmag( q ) );
 }
 /// normalize quaternion
-inline quat normalize( quat q ) {
+FORCE_INLINE quat normalize( quat q ) {
     f32 magnitude = mag( q );
     return magnitude < F32::EPSILON ? QUAT::IDENTITY : q / magnitude;
 }
 /// conjugate of quaternion
-inline quat conjugate( quat q ) {
+FORCE_INLINE quat conjugate( quat q ) {
     return { q.w, -q.x, -q.y, -q.z };
 }
 /// calculate inverse quaternion
-inline quat inverse( quat q ) {
+FORCE_INLINE quat inverse( quat q ) {
     return conjugate( q ) / sqrmag( q );
 }
 /// angle between quaternions
-inline f32 angle( quat a, quat b ) {
+FORCE_INLINE f32 angle( quat a, quat b ) {
     quat qd = inverse( a ) * b;
     return 2.0f * atan2( mag( qd.xyz ), qd.w );
 }
 /// inner product
-inline f32 dot( quat lhs, quat rhs ) {
+FORCE_INLINE f32 dot( quat lhs, quat rhs ) {
     vec4 l = { lhs.w, lhs.x, lhs.y, lhs.z };
     vec4 r = { rhs.w, rhs.x, rhs.y, rhs.z };
     return horizontal_add( hadamard( l, r ) );
 }
 /// linear interpolation
-inline quat lerp( quat a, quat b, f32 t ) {
+FORCE_INLINE quat lerp( quat a, quat b, f32 t ) {
     return normalize( ( 1.0f - t ) * a + b * t );
 }
 /// linear interpolation, t is clamped 0-1
-inline quat lerp_clamped( quat a, quat b, f32 t ) {
+FORCE_INLINE quat lerp_clamped( quat a, quat b, f32 t ) {
     return lerp( a, b, clamp01( t ) );
 }
 /// spherical linear interpolation
-inline quat slerp( quat a, quat b, f32 t ) {
+FORCE_INLINE quat slerp( quat a, quat b, f32 t ) {
     quat _b = b;
     f32 theta = dot(a, b);
     f32 cos_theta = cos( theta );
@@ -731,24 +705,24 @@ inline quat slerp( quat a, quat b, f32 t ) {
     }
 }
 /// compare quaternions for equality
-inline b32 cmp_eq( quat a, quat b ) {
+FORCE_INLINE b32 cmp_eq( quat a, quat b ) {
     return sqrmag( a - b ) < F32::EPSILON;
 }
 
 /// transpose matrix
-inline mat2 transpose( mat2 m ) {
+FORCE_INLINE mat2 transpose( mat2 m ) {
     return {
         m.c[0], m.c[2],
         m.c[1], m.c[3]
     };
 }
 /// calculate determinant
-inline f32 determinant( mat2 m ) {
+FORCE_INLINE f32 determinant( mat2 m ) {
     return ( m.c[0] * m.c[3] ) - ( m.c[2] * m.c[1] );
 }
 
 /// transpose matrix
-inline mat3 transpose( const mat3& m ) {
+FORCE_INLINE mat3 transpose( const mat3& m ) {
     return {
         m.c[0], m.c[3], m.c[6],
         m.c[1], m.c[4], m.c[7],
@@ -756,14 +730,14 @@ inline mat3 transpose( const mat3& m ) {
     };
 }
 /// calculate determinant
-inline f32 determinant( const mat3& m ) {
+FORCE_INLINE f32 determinant( const mat3& m ) {
     return
      ( m.c[0] * ( ( m.c[4] * m.c[8] ) - ( m.c[7] * m.c[5] ) ) ) +
     -( m.c[3] * ( ( m.c[1] * m.c[8] ) - ( m.c[7] * m.c[2] ) ) ) +
      ( m.c[6] * ( ( m.c[1] * m.c[5] ) - ( m.c[4] * m.c[2] ) ) );
 }
 /// create new look at matrix
-inline mat4 lookat(
+FORCE_INLINE mat4 lookat(
     vec3 position,
     vec3 target,
     vec3 up
@@ -785,7 +759,7 @@ inline mat4 lookat(
     };
 }
 /// create new orthographic projection matrix
-inline mat4 ortho(
+FORCE_INLINE mat4 ortho(
     f32 left, f32 right,
     f32 bottom, f32 top,
     f32 near_, f32 far_
@@ -804,14 +778,14 @@ inline mat4 ortho(
     return result;
 }
 /// create new orthographic projection matrix
-inline mat4 ortho(
+FORCE_INLINE mat4 ortho(
     f32 left, f32 right,
     f32 bottom, f32 top
 ) {
     return ortho( left, right, bottom, top, -1.0f, 1.0f );
 }
 /// create orthographic matrix for 2D rendering
-inline mat4 projection2d( f32 aspect_ratio, f32 scale ) {
+FORCE_INLINE mat4 projection2d( f32 aspect_ratio, f32 scale ) {
     f32 scaled_aspect = aspect_ratio * scale;
     return ortho(
         -scaled_aspect, scaled_aspect,
@@ -819,7 +793,7 @@ inline mat4 projection2d( f32 aspect_ratio, f32 scale ) {
     );
 }
 /// create perspective matrix
-inline mat4 perspective(
+FORCE_INLINE mat4 perspective(
     f32 fov, f32 aspect_ratio,
     f32 near_, f32 far_
 ) {
@@ -837,7 +811,7 @@ inline mat4 perspective(
     return result;
 }
 /// create new translation matrix
-inline mat4 translate( f32 x, f32 y, f32 z ) {
+FORCE_INLINE mat4 translate( f32 x, f32 y, f32 z ) {
     return {
         1.0f, 0.0f, 0.0f, 0.0f,
         0.0f, 1.0f, 0.0f, 0.0f,
@@ -846,7 +820,7 @@ inline mat4 translate( f32 x, f32 y, f32 z ) {
     };
 }
 /// create new translation matrix
-inline mat4 translate( vec3 translation ) {
+FORCE_INLINE mat4 translate( vec3 translation ) {
     return translate(
         translation.x,
         translation.y,
@@ -854,15 +828,15 @@ inline mat4 translate( vec3 translation ) {
     );
 }
 /// create new 2d translation matrix
-inline mat4 translate( f32 x, f32 y ) {
+FORCE_INLINE mat4 translate( f32 x, f32 y ) {
     return translate( x, y, 0.0f );
 }
 /// create new 2d translation matrix
-inline mat4 translate( vec2 translation ) {
+FORCE_INLINE mat4 translate( vec2 translation ) {
     return translate( translation.x, translation.y );
 }
 /// create rotation matrix around x axis
-inline mat4 rotate_pitch( f32 pitch ) {
+FORCE_INLINE mat4 rotate_pitch( f32 pitch ) {
     f32 cosine = cos( pitch );
     f32 sine   = sin( pitch );
 
@@ -874,7 +848,7 @@ inline mat4 rotate_pitch( f32 pitch ) {
     };
 }
 /// create rotation matrix around y axis
-inline mat4 rotate_yaw( f32 yaw ) {
+FORCE_INLINE mat4 rotate_yaw( f32 yaw ) {
     f32 cosine = cos( yaw );
     f32 sine   = sin( yaw );
 
@@ -886,7 +860,7 @@ inline mat4 rotate_yaw( f32 yaw ) {
     };
 }
 /// create rotation matrix around z axis
-inline mat4 rotate_roll( f32 roll ) {
+FORCE_INLINE mat4 rotate_roll( f32 roll ) {
     f32 cosine = cos( roll );
     f32 sine   = sin( roll );
 
@@ -898,13 +872,13 @@ inline mat4 rotate_roll( f32 roll ) {
     };
 }
 /// create rotation matrix from euler angles (radians)
-inline mat4 rotate( euler_angles r ) {
+FORCE_INLINE mat4 rotate( euler_angles r ) {
     return rotate_pitch( r.pitch ) *
         rotate_yaw( r.yaw ) *
         rotate_roll( r.roll );
 }
 /// create rotation matrix from quaternion
-inline mat4 rotate( quat q ) {
+FORCE_INLINE mat4 rotate( quat q ) {
     // TODO(alicia): SIMD?
     mat4 result = MAT4::IDENTITY;
 
@@ -934,11 +908,11 @@ inline mat4 rotate( quat q ) {
     return result;
 }
 /// create rotation matrix for 2D
-inline mat4 rotate( f32 theta ) {
+FORCE_INLINE mat4 rotate( f32 theta ) {
     return rotate_roll( theta );
 }
 /// create scale matrix
-inline mat4 scale( f32 width, f32 height, f32 length ) {
+FORCE_INLINE mat4 scale( f32 width, f32 height, f32 length ) {
     return {
         width,   0.0f,   0.0f, 0.0f,
          0.0f, height,   0.0f, 0.0f,
@@ -947,7 +921,7 @@ inline mat4 scale( f32 width, f32 height, f32 length ) {
     };
 }
 /// create scale matrix
-inline mat4 scale( vec3 scale ) {
+FORCE_INLINE mat4 scale( vec3 scale ) {
     return ::scale(
         scale.width,
         scale.height,
@@ -955,15 +929,15 @@ inline mat4 scale( vec3 scale ) {
     );
 }
 /// create scale matrix for 2D
-inline mat4 scale( f32 width, f32 height ) {
+FORCE_INLINE mat4 scale( f32 width, f32 height ) {
     return scale( width, height, 1.0f );
 }
 /// create scale matrix for 2D
-inline mat4 scale( vec2 scale ) {
+FORCE_INLINE mat4 scale( vec2 scale ) {
     return ::scale( scale.width, scale.height );
 }
 /// create transform matrix
-inline mat4 transform(
+FORCE_INLINE mat4 transform(
     vec3         translation,
     euler_angles rotation,
     vec3         scale
@@ -973,7 +947,7 @@ inline mat4 transform(
         ::scale( scale );
 }
 /// create transform matrix
-inline mat4 transform(
+FORCE_INLINE mat4 transform(
     vec3 translation,
     quat rotation,
     vec3 scale
@@ -983,7 +957,7 @@ inline mat4 transform(
         ::scale( scale );
 }
 /// create transform matrix for 2D
-inline mat4 transform(
+FORCE_INLINE mat4 transform(
     vec2 translation,
     f32  rotation,
     vec2 scale
@@ -993,7 +967,7 @@ inline mat4 transform(
         ::scale( scale );
 }
 /// transpose matrix
-inline mat4 transpose( const mat4& m ) {
+FORCE_INLINE mat4 transpose( const mat4& m ) {
     return {
         m.c[0], m.c[4], m.c[ 8], m.c[12],
         m.c[1], m.c[5], m.c[ 9], m.c[13],
@@ -1002,7 +976,7 @@ inline mat4 transpose( const mat4& m ) {
     };
 }
 /// get submatrix at given coordinates
-inline mat3 submatrix( const mat4& m, u32 row, u32 col ) {
+FORCE_INLINE mat3 submatrix( const mat4& m, u32 row, u32 col ) {
     mat3 result;
     u32 i = 0;
     for( u32 c = 0; c < 4; ++c ) {
@@ -1017,11 +991,11 @@ inline mat3 submatrix( const mat4& m, u32 row, u32 col ) {
     return result;
 }
 /// calculate determinant of submatrix at given coordinates
-inline f32 minor( const mat4& m, u32 row, u32 col ) {
+FORCE_INLINE f32 minor( const mat4& m, u32 row, u32 col ) {
     return determinant( submatrix( m, row, col ) );
 }
 /// calculate the cofactor of minor at given coordinates
-inline f32 cofactor( const mat4& m, u32 row, u32 col ) {
+FORCE_INLINE f32 cofactor( const mat4& m, u32 row, u32 col ) {
     f32 minor = ::minor( m, row, col );
     return minor * powi(
         -1.0f,
@@ -1029,7 +1003,7 @@ inline f32 cofactor( const mat4& m, u32 row, u32 col ) {
     );
 }
 /// construct matrix from cofactors
-inline mat4 cofactor_matrix( const mat4& m ) {
+FORCE_INLINE mat4 cofactor_matrix( const mat4& m ) {
     return {
         cofactor( m, 0, 0 ),
             cofactor( m, 0, 1 ),
@@ -1050,11 +1024,11 @@ inline mat4 cofactor_matrix( const mat4& m ) {
     };
 }
 /// calculate the adjoint matrix of given matrix
-inline mat4 adjoint( const mat4& m ) {
+FORCE_INLINE mat4 adjoint( const mat4& m ) {
     return transpose( cofactor_matrix( m ) );
 }
 /// calculate the determinant
-inline f32 determinant( const mat4& m ) {
+FORCE_INLINE f32 determinant( const mat4& m ) {
     return
         ( m.c[ 0] * determinant( submatrix( m, 0, 0 ) ) ) -
         ( m.c[ 4] * determinant( submatrix( m, 0, 1 ) ) ) +
@@ -1065,7 +1039,7 @@ inline f32 determinant( const mat4& m ) {
 /// @out_matrix pointer to result,
 /// set to identity if inversion is not possible
 /// @return true if inversion is possible
-inline b32 inverse( const mat4& m, mat4* out_matrix ) {
+FORCE_INLINE b32 inverse( const mat4& m, mat4* out_matrix ) {
     f32 det = determinant( m );
     if( det == 0.0f ) {
         *out_matrix = MAT4::IDENTITY;
@@ -1076,12 +1050,12 @@ inline b32 inverse( const mat4& m, mat4* out_matrix ) {
     }
 }
 /// invert matrix whether determinant is 0 or not
-inline mat4 inverse_unchecked( const mat4& m ) {
+FORCE_INLINE mat4 inverse_unchecked( const mat4& m ) {
     return adjoint( m ) / determinant( m );
 }
 
 /// convert rgb to rgba
-inline rgba to_rgba( rgb rgb ) {
+FORCE_INLINE rgba to_rgba( rgb rgb ) {
     rgba result;
     result.rgb = rgb;
     result.a   = 1.0f;
@@ -1089,7 +1063,7 @@ inline rgba to_rgba( rgb rgb ) {
 }
 
 /// convert quaternion to euler angles
-inline euler_angles to_euler( quat q ) {
+FORCE_INLINE euler_angles to_euler( quat q ) {
     return {
         atan2(
             2.0f * (( q.w * q.x ) + ( q.y * q.z )),
@@ -1103,7 +1077,7 @@ inline euler_angles to_euler( quat q ) {
     };
 }
 /// convert quaternion to angle axis
-inline angle_axis to_angle_axis( quat q ) {
+FORCE_INLINE angle_axis to_angle_axis( quat q ) {
     f32 inv_w2_sqrt = sqrt( 1.0f - ( q.w * q.w ) );
     return {
         q.xyz / inv_w2_sqrt,
@@ -1111,83 +1085,83 @@ inline angle_axis to_angle_axis( quat q ) {
     };
 }
 
-inline vec2 v2( vec3 v ) { return v.xy; }
-inline vec2 v2( vec4 v ) { return v.xy; }
-inline vec2 v2( ivec2 v ) {
+FORCE_INLINE vec2 v2( vec3 v ) { return v.xy; }
+FORCE_INLINE vec2 v2( vec4 v ) { return v.xy; }
+FORCE_INLINE vec2 v2( ivec2 v ) {
     return { (f32)v.x, (f32)v.y };
 }
 
-inline ivec2 trunc32( vec2 v ) {
+FORCE_INLINE ivec2 trunc32( vec2 v ) {
     return { trunc32(v.x), trunc32(v.y) };
 }
-inline ivec2 floor32( vec2 v ) {
+FORCE_INLINE ivec2 floor32( vec2 v ) {
     return { floor32(v.x), floor32(v.y) };
 }
-inline ivec2 ceil32( vec2 v ) {
+FORCE_INLINE ivec2 ceil32( vec2 v ) {
     return { ceil32(v.x), ceil32(v.y) };
 }
-inline ivec2 round32( vec2 v ) {
+FORCE_INLINE ivec2 round32( vec2 v ) {
     return { round32(v.x), round32(v.y) };
 }
 
-inline ivec2 iv2( ivec3 v ) { return v.xy; }
-inline ivec2 iv2( ivec4 v ) { return v.xy; }
-inline ivec2 iv2( vec2 v )  { return trunc32( v ); }
+FORCE_INLINE ivec2 iv2( ivec3 v ) { return v.xy; }
+FORCE_INLINE ivec2 iv2( ivec4 v ) { return v.xy; }
+FORCE_INLINE ivec2 iv2( vec2 v )  { return trunc32( v ); }
 
-inline vec3 v3( vec2 v ) { return { v.x, v.y, 0.0f }; }
-inline vec3 v3( vec4 v ) { return v.xyz; }
-inline vec3 v3( ivec3 v ) {
+FORCE_INLINE vec3 v3( vec2 v ) { return { v.x, v.y, 0.0f }; }
+FORCE_INLINE vec3 v3( vec4 v ) { return v.xyz; }
+FORCE_INLINE vec3 v3( ivec3 v ) {
     return { (f32)v.x, (f32)v.y, (f32)v.z };
 }
 
-inline ivec3 trunc32( vec3 v ) {
+FORCE_INLINE ivec3 trunc32( vec3 v ) {
     return { trunc32(v.x), trunc32(v.y), trunc32(v.z) };
 }
-inline ivec3 floor32( vec3 v ) {
+FORCE_INLINE ivec3 floor32( vec3 v ) {
     return { floor32(v.x), floor32(v.y), floor32(v.z) };
 }
-inline ivec3 ceil32( vec3 v ) {
+FORCE_INLINE ivec3 ceil32( vec3 v ) {
     return { ceil32(v.x), ceil32(v.y), ceil32(v.z) };
 }
-inline ivec3 round32( vec3 v ) {
+FORCE_INLINE ivec3 round32( vec3 v ) {
     return { round32(v.x), round32(v.y), round32(v.z) };
 }
 
-inline ivec3 iv3( ivec2 v ) { return { v.x, v.y, 0 }; }
-inline ivec3 iv3( ivec4 v ) { return v.xyz; }
-inline ivec3 iv3( vec3 v )  { return trunc32( v ); }
+FORCE_INLINE ivec3 iv3( ivec2 v ) { return { v.x, v.y, 0 }; }
+FORCE_INLINE ivec3 iv3( ivec4 v ) { return v.xyz; }
+FORCE_INLINE ivec3 iv3( vec3 v )  { return trunc32( v ); }
 
-inline vec4 v4( vec2 v ) { return { v.x, v.y, 0.0f, 0.0f }; }
-inline vec4 v4( vec3 v ) { return { v.x, v.y,  v.z, 0.0f }; }
-inline vec4 v4( ivec4 v ) {
+FORCE_INLINE vec4 v4( vec2 v ) { return { v.x, v.y, 0.0f, 0.0f }; }
+FORCE_INLINE vec4 v4( vec3 v ) { return { v.x, v.y,  v.z, 0.0f }; }
+FORCE_INLINE vec4 v4( ivec4 v ) {
     return { (f32)v.x, (f32)v.y, (f32)v.z, (f32)v.w };
 }
 
-inline ivec4 trunc32( vec4 v ) {
+FORCE_INLINE ivec4 trunc32( vec4 v ) {
     return { trunc32(v.x), trunc32(v.y), trunc32(v.z), trunc32(v.w) };
 }
-inline ivec4 floor32( vec4 v ) {
+FORCE_INLINE ivec4 floor32( vec4 v ) {
     return { floor32(v.x), floor32(v.y), floor32(v.z), floor32(v.w) };
 }
-inline ivec4 ceil32( vec4 v ) {
+FORCE_INLINE ivec4 ceil32( vec4 v ) {
     return { ceil32(v.x), ceil32(v.y), ceil32(v.z), ceil32(v.w) };
 }
-inline ivec4 round32( vec4 v ) {
+FORCE_INLINE ivec4 round32( vec4 v ) {
     return { round32(v.x), round32(v.y), round32(v.z), round32(v.w) };
 }
 
-inline ivec4 iv4( ivec2 v ) { return { v.x, v.y,   0, 0 }; }
-inline ivec4 iv4( ivec3 v ) { return { v.x, v.y, v.z, 0 }; }
-inline ivec4 iv4( vec4 v )  { return trunc32( v ); }
+FORCE_INLINE ivec4 iv4( ivec2 v ) { return { v.x, v.y,   0, 0 }; }
+FORCE_INLINE ivec4 iv4( ivec3 v ) { return { v.x, v.y, v.z, 0 }; }
+FORCE_INLINE ivec4 iv4( vec4 v )  { return trunc32( v ); }
 
-inline mat3 m3( mat2 m ) {
+FORCE_INLINE mat3 m3( mat2 m ) {
     return {
         m.c[0], m.c[1], 0.0f,
         m.c[2], m.c[3], 0.0f,
           0.0f,   0.0f, 0.0f
     };
 }
-inline mat3 m3( const mat4& m ) {
+FORCE_INLINE mat3 m3( const mat4& m ) {
     return {
         m.c[0], m.c[1], m.c[ 2],
         m.c[4], m.c[5], m.c[ 6],
@@ -1195,7 +1169,7 @@ inline mat3 m3( const mat4& m ) {
     };
 }
 
-inline mat4 m4( mat2 m ) {
+FORCE_INLINE mat4 m4( mat2 m ) {
     return {
         m.c[0], m.c[1], 0.0f, 0.0f,
         m.c[2], m.c[3], 0.0f, 0.0f,
@@ -1203,7 +1177,7 @@ inline mat4 m4( mat2 m ) {
           0.0f,   0.0f, 0.0f, 0.0f,
     };
 }
-inline mat4 m4( const mat3& m ) {
+FORCE_INLINE mat4 m4( const mat3& m ) {
     return {
         m.c[0], m.c[1], m.c[2], 0.0f,
         m.c[3], m.c[4], m.c[5], 0.0f,
@@ -1215,7 +1189,7 @@ inline mat4 m4( const mat3& m ) {
 // VEC2/MAT4 ----------------------------------------------------
 
 /// create look at matrix for 2D rendering
-inline mat4 lookat( vec2 position ) {
+FORCE_INLINE mat4 lookat( vec2 position ) {
     return lookat(
         v3(position) + VEC3::FORWARD,
         v3(position),
@@ -1229,7 +1203,7 @@ inline mat4 lookat( vec2 position ) {
 /// @out_matrix pointer to result,
 /// set to identity if not possible
 /// @return true if determinant is not 0
-inline b32 normal_matrix( const mat4& m, mat3* out_matrix ) {
+FORCE_INLINE b32 normal_matrix( const mat4& m, mat3* out_matrix ) {
     mat4 inv;
     if( inverse( m, &inv ) ) {
         *out_matrix = m3( transpose( inv ) );
@@ -1241,8 +1215,386 @@ inline b32 normal_matrix( const mat4& m, mat3* out_matrix ) {
 }
 /// calculate the normal matrix of transform matrix
 /// whether the determinant is 0 or not
-inline mat3 normal_matrix_unchecked( const mat4& m ) {
+FORCE_INLINE mat3 normal_matrix_unchecked( const mat4& m ) {
     return m3( transpose( inverse_unchecked( m ) ) );
 }
+
+#if LD_SIMD_WIDTH == 1
+
+FORCE_INLINE
+quat operator*( quat lhs, quat rhs ) {
+    return {
+        ( lhs[0] * rhs[0] ) -
+            ( lhs[1] * rhs[1] + lhs[2] * rhs[2] + lhs[3] * rhs[3] ),
+        ( lhs[0] * rhs[1] ) +
+            ( lhs[1] * rhs[0] ) +
+            ( ( lhs[2] * rhs[3] ) -
+            ( lhs[3] * rhs[2] ) ),
+        ( lhs[0] * rhs[2] ) +
+            ( lhs[2] * rhs[0] ) +
+            ( ( lhs[3] * rhs[1] ) -
+            ( lhs[1] * rhs[3] ) ),
+        ( lhs[0] * rhs[3] ) +
+            ( lhs[3] * rhs[0] ) +
+            ( ( lhs[1] * rhs[2] ) -
+            ( lhs[2] * rhs[1] ) ),
+    };
+}
+
+FORCE_INLINE
+mat4 operator+( const mat4& lhs, const mat4& rhs ) {
+    mat4 result;
+    result.col0 = lhs.col0 + rhs.col0;
+    result.col1 = lhs.col1 + rhs.col1;
+    result.col2 = lhs.col2 + rhs.col2;
+    result.col3 = lhs.col3 + rhs.col3;
+    return result;
+}
+FORCE_INLINE
+mat4 operator-( const mat4& lhs, const mat4& rhs ) {
+    mat4 result;
+    result.col0 = lhs.col0 - rhs.col0;
+    result.col1 = lhs.col1 - rhs.col1;
+    result.col2 = lhs.col2 - rhs.col2;
+    result.col3 = lhs.col3 - rhs.col3;
+    return result;
+}
+FORCE_INLINE
+mat4 operator*( const mat4& lhs, f32 rhs ) {
+    mat4 result;
+    result.col0 = lhs.col0 * rhs;
+    result.col1 = lhs.col1 * rhs;
+    result.col2 = lhs.col2 * rhs;
+    result.col3 = lhs.col3 * rhs;
+    return result;
+}
+FORCE_INLINE
+mat4 operator/( const mat4& lhs, f32 rhs ) {
+    mat4 result;
+    result.col0 = lhs.col0 / rhs;
+    result.col1 = lhs.col1 / rhs;
+    result.col2 = lhs.col2 / rhs;
+    result.col3 = lhs.col3 / rhs;
+    return result;
+}
+FORCE_INLINE
+mat4 operator*( const mat4& lhs, const mat4& rhs ) {
+    return {
+        // column - 0
+        ( lhs.c[0] * rhs.c[0] )      +
+            ( lhs.c[4]  * rhs.c[1] ) +
+            ( lhs.c[8]  * rhs.c[2] ) +
+            ( lhs.c[12] * rhs.c[3] ),
+        ( lhs.c[1] * rhs.c[0] )      +
+            ( lhs.c[5]  * rhs.c[1] ) +
+            ( lhs.c[9]  * rhs.c[2] ) +
+            ( lhs.c[13] * rhs.c[3] ),
+        ( lhs.c[2] * rhs.c[0] )      +
+            ( lhs.c[6]  * rhs.c[1] ) +
+            ( lhs.c[10] * rhs.c[2] ) +
+            ( lhs.c[14] * rhs.c[3] ),
+        ( lhs.c[3] * rhs.c[0] )      +
+            ( lhs.c[7]  * rhs.c[1] ) +
+            ( lhs.c[11] * rhs.c[2] ) +
+            ( lhs.c[15] * rhs.c[3] ),
+        // column - 1
+        ( lhs.c[0] * rhs.c[4] )      +
+            ( lhs.c[4]  * rhs.c[5] ) +
+            ( lhs.c[8]  * rhs.c[6] ) +
+            ( lhs.c[12] * rhs.c[7] ),
+        ( lhs.c[1] * rhs.c[4] )      +
+            ( lhs.c[5]  * rhs.c[5] ) +
+            ( lhs.c[9]  * rhs.c[6] ) +
+            ( lhs.c[13] * rhs.c[7] ),
+        ( lhs.c[2] * rhs.c[4] )      +
+            ( lhs.c[6]  * rhs.c[5] ) +
+            ( lhs.c[10] * rhs.c[6] ) +
+            ( lhs.c[14] * rhs.c[7] ),
+        ( lhs.c[3] * rhs.c[4] )      +
+            ( lhs.c[7]  * rhs.c[5] ) +
+            ( lhs.c[11] * rhs.c[6] ) +
+            ( lhs.c[15] * rhs.c[7] ),
+        // column - 2
+        ( lhs.c[0] * rhs.c[8] )       +
+            ( lhs.c[4]  * rhs.c[9] )  +
+            ( lhs.c[8]  * rhs.c[10] ) +
+            ( lhs.c[12] * rhs.c[11] ),
+        ( lhs.c[1] * rhs.c[8] )       +
+            ( lhs.c[5]  * rhs.c[9] )  +
+            ( lhs.c[9]  * rhs.c[10] ) +
+            ( lhs.c[13] * rhs.c[11] ),
+        ( lhs.c[2] * rhs.c[8] )       +
+            ( lhs.c[6]  * rhs.c[9] )  +
+            ( lhs.c[10] * rhs.c[10] ) +
+            ( lhs.c[14] * rhs.c[11] ),
+        ( lhs.c[3] * rhs.c[8] )       +
+            ( lhs.c[7]  * rhs.c[9] )  +
+            ( lhs.c[11] * rhs.c[10] ) +
+            ( lhs.c[15] * rhs.c[11] ),
+        // column - 3
+        ( lhs.c[0] * rhs.c[12] )      +
+            ( lhs.c[4]  * rhs.c[13] ) +
+            ( lhs.c[8]  * rhs.c[14] ) +
+            ( lhs.c[12] * rhs.c[15] ),
+        ( lhs.c[1] * rhs.c[12] )      +
+            ( lhs.c[5]  * rhs.c[13] ) +
+            ( lhs.c[9]  * rhs.c[14] ) +
+            ( lhs.c[13] * rhs.c[15] ),
+        ( lhs.c[2] * rhs.c[12] )      +
+            ( lhs.c[6]  * rhs.c[13] ) +
+            ( lhs.c[10] * rhs.c[14] ) +
+            ( lhs.c[14] * rhs.c[15] ),
+        ( lhs.c[3] * rhs.c[12] )      +
+            ( lhs.c[7]  * rhs.c[13] ) +
+            ( lhs.c[11] * rhs.c[14] ) +
+            ( lhs.c[15] * rhs.c[15] ),
+    };
+}
+
+#endif // scalar
+
+#if LD_SIMD_WIDTH >= 4
+
+#if defined( LD_ARCH_X86 )
+
+global inline const __m128 negate_first128 = _mm_setr_ps(
+    -1.0f,
+    1.0f,
+    1.0f,
+    1.0f
+);
+
+FORCE_INLINE
+quat operator*( quat lhs, quat rhs ) {
+    __m128 a = _mm_setr_ps( lhs.x, lhs.x, lhs.y, lhs.z );
+    __m128 b = _mm_setr_ps( rhs.x, rhs.w, rhs.w, rhs.w );
+    a = _mm_mul_ps( a, b );
+
+    b = _mm_setr_ps( lhs.y, lhs.y, lhs.z, lhs.x );
+    __m128 c = _mm_setr_ps( rhs.y, rhs.z, rhs.x, rhs.y );
+    b = _mm_mul_ps( b, c );
+    
+    c = _mm_setr_ps( lhs.z, lhs.z, lhs.x, lhs.y );
+    __m128 d = _mm_setr_ps( rhs.z, rhs.y, rhs.z, rhs.x );
+    c = _mm_mul_ps( c, d );
+
+    c = _mm_mul_ps( negate_first128, c );
+
+    d = _mm_sub_ps( b, c );
+    a = _mm_add_ps( a, d );
+
+    a = _mm_mul_ps( negate_first128, a );
+
+    __m128 w = _mm_set1_ps( lhs.w );
+    b = _mm_setr_ps( rhs.w, rhs.x, rhs.y, rhs.z );
+    w = _mm_mul_ps( w, b );
+
+    quat result;
+    _mm_storeu_ps( value_pointer(result), _mm_add_ps( w, a ) );
+    return result;
+}
+
+FORCE_INLINE
+mat4 operator+( const mat4& lhs, const mat4& rhs ) {
+    __m128 lhs0, lhs1, lhs2, lhs3;
+    __m128 rhs0, rhs1, rhs2, rhs3;
+
+    lhs0 = _mm_loadu_ps( value_pointer( lhs.col0 ) );
+    lhs1 = _mm_loadu_ps( value_pointer( lhs.col1 ) );
+    lhs2 = _mm_loadu_ps( value_pointer( lhs.col2 ) );
+    lhs3 = _mm_loadu_ps( value_pointer( lhs.col3 ) );
+
+    rhs0 = _mm_loadu_ps( value_pointer( rhs.col0 ) );
+    rhs1 = _mm_loadu_ps( value_pointer( rhs.col1 ) );
+    rhs2 = _mm_loadu_ps( value_pointer( rhs.col2 ) );
+    rhs3 = _mm_loadu_ps( value_pointer( rhs.col3 ) );
+
+    mat4 result;
+
+    _mm_storeu_ps( value_pointer(result.col0), _mm_add_ps( lhs0, rhs0 ) );
+    _mm_storeu_ps( value_pointer(result.col1), _mm_add_ps( lhs1, rhs1 ) );
+    _mm_storeu_ps( value_pointer(result.col2), _mm_add_ps( lhs2, rhs2 ) );
+    _mm_storeu_ps( value_pointer(result.col3), _mm_add_ps( lhs3, rhs3 ) );
+
+    return result;
+}
+FORCE_INLINE
+mat4 operator-( const mat4& lhs, const mat4& rhs ) {
+    __m128 lhs0, lhs1, lhs2, lhs3;
+    __m128 rhs0, rhs1, rhs2, rhs3;
+
+    lhs0 = _mm_loadu_ps( value_pointer( lhs.col0 ) );
+    lhs1 = _mm_loadu_ps( value_pointer( lhs.col1 ) );
+    lhs2 = _mm_loadu_ps( value_pointer( lhs.col2 ) );
+    lhs3 = _mm_loadu_ps( value_pointer( lhs.col3 ) );
+
+    rhs0 = _mm_loadu_ps( value_pointer( rhs.col0 ) );
+    rhs1 = _mm_loadu_ps( value_pointer( rhs.col1 ) );
+    rhs2 = _mm_loadu_ps( value_pointer( rhs.col2 ) );
+    rhs3 = _mm_loadu_ps( value_pointer( rhs.col3 ) );
+
+    mat4 result;
+
+    _mm_storeu_ps( value_pointer(result.col0), _mm_sub_ps( lhs0, rhs0 ) );
+    _mm_storeu_ps( value_pointer(result.col1), _mm_sub_ps( lhs1, rhs1 ) );
+    _mm_storeu_ps( value_pointer(result.col2), _mm_sub_ps( lhs2, rhs2 ) );
+    _mm_storeu_ps( value_pointer(result.col3), _mm_sub_ps( lhs3, rhs3 ) );
+
+    return result;
+}
+FORCE_INLINE
+mat4 operator*( const mat4& lhs, f32 rhs ) {
+    __m128 lhs0, lhs1, lhs2, lhs3;
+    __m128 rhs_;
+
+    lhs0 = _mm_loadu_ps( value_pointer( lhs.col0 ) );
+    lhs1 = _mm_loadu_ps( value_pointer( lhs.col1 ) );
+    lhs2 = _mm_loadu_ps( value_pointer( lhs.col2 ) );
+    lhs3 = _mm_loadu_ps( value_pointer( lhs.col3 ) );
+
+    rhs_ = _mm_set1_ps( rhs );
+
+    mat4 result;
+
+    _mm_storeu_ps( value_pointer(result.col0), _mm_mul_ps( lhs0, rhs_ ) );
+    _mm_storeu_ps( value_pointer(result.col1), _mm_mul_ps( lhs1, rhs_ ) );
+    _mm_storeu_ps( value_pointer(result.col2), _mm_mul_ps( lhs2, rhs_ ) );
+    _mm_storeu_ps( value_pointer(result.col3), _mm_mul_ps( lhs3, rhs_ ) );
+
+    return result;
+}
+FORCE_INLINE
+mat4 operator/( const mat4& lhs, f32 rhs ) {
+    __m128 lhs0, lhs1, lhs2, lhs3;
+    __m128 rhs_;
+
+    lhs0 = _mm_loadu_ps( value_pointer( lhs.col0 ) );
+    lhs1 = _mm_loadu_ps( value_pointer( lhs.col1 ) );
+    lhs2 = _mm_loadu_ps( value_pointer( lhs.col2 ) );
+    lhs3 = _mm_loadu_ps( value_pointer( lhs.col3 ) );
+
+    rhs_ = _mm_set1_ps( rhs );
+
+    mat4 result;
+
+    _mm_storeu_ps( value_pointer(result.col0), _mm_div_ps( lhs0, rhs_ ) );
+    _mm_storeu_ps( value_pointer(result.col1), _mm_div_ps( lhs1, rhs_ ) );
+    _mm_storeu_ps( value_pointer(result.col2), _mm_div_ps( lhs2, rhs_ ) );
+    _mm_storeu_ps( value_pointer(result.col3), _mm_div_ps( lhs3, rhs_ ) );
+
+    return result;
+}
+FORCE_INLINE
+mat4 operator*( const mat4& lhs, const mat4& rhs ) {
+    mat4 result = {};
+
+    __m128 a, b, c;
+
+    u32 col = 0;
+    u32 row = 0;
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
+
+    row = 1;
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
+
+    row = 2;
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
+
+    row = 3;
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
+
+    col = 1;
+    row = 0;
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
+
+    row = 1;
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
+
+    row = 2;
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
+
+    row = 3;
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
+
+    col = 2;
+    row = 0;
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
+
+    row = 1;
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
+
+    row = 2;
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
+
+    row = 3;
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
+
+    col = 3;
+    row = 0;
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
+
+    row = 1;
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
+
+    row = 2;
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
+
+    row = 3;
+    a = _mm_loadu_ps( &lhs.c[row * MAT4::COLUMN_COUNT] );
+    b = _mm_mul_ps( a, _mm_set1_ps( rhs.c[(col * MAT4::COLUMN_COUNT) + row] ) );
+    c = _mm_loadu_ps( &result.c[ col * MAT4::COLUMN_COUNT ] );
+    _mm_storeu_ps( &result.c[col * MAT4::COLUMN_COUNT], _mm_add_ps( b, c ) );
+
+    return result;
+}
+
+#endif // x86 SSE 
+
+#endif // 4-wide SIMD
 
 #endif // header guard
