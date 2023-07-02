@@ -2,3 +2,4 @@ temp
 build
 .vscode
 resources/shaders/*.spv
+*.rdbg
