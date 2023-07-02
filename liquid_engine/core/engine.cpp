@@ -487,7 +487,7 @@ b32 engine_run(
             platform_cursor_center( ctx.platform );
         }
 
-        f64 seconds_elapsed = platform_read_seconds_elapsed( ctx.platform );
+        f64 seconds_elapsed = platform_s_elapsed( ctx.platform );
         ctx.time.delta_seconds =
             seconds_elapsed - ctx.time.elapsed_seconds;
         ctx.time.elapsed_seconds = seconds_elapsed;
@@ -522,7 +522,7 @@ b32 engine_run(
 
         ctx.time.frame_count++;
         semaphore_increment(
-            &ctx.thread_work_queue.on_frame_update_semaphore,
+            ctx.thread_work_queue.on_frame_update_semaphore,
             1, nullptr
         );
     }
@@ -535,10 +535,10 @@ b32 engine_run(
     input_shutdown();
 
     semaphore_destroy(
-        &ctx.thread_work_queue.wake_semaphore 
+        ctx.thread_work_queue.wake_semaphore 
     );
     semaphore_destroy(
-        &ctx.thread_work_queue.on_frame_update_semaphore
+        ctx.thread_work_queue.on_frame_update_semaphore
     );
 
     renderer_shutdown( ctx.renderer_context ); 
@@ -573,7 +573,7 @@ void thread_work_queue_push(
     );
 
     semaphore_increment(
-        &work_queue->wake_semaphore,
+        work_queue->wake_semaphore,
         1, nullptr
     );
 }
@@ -604,7 +604,7 @@ internal ThreadReturnCode thread_proc( void* user_params ) {
     ThreadWorkEntry entry = {};
     loop {
         semaphore_wait(
-            &thread_info->work_queue->wake_semaphore,
+            thread_info->work_queue->wake_semaphore,
             true, 0
         );
 

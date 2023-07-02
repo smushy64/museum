@@ -5,6 +5,7 @@
 #include <core/collections.h>
 #include <core/event.h>
 #include <core/input.h>
+#include <core/time.h>
 
 b32 entry(
     struct EngineContext*   engine_ctx,
@@ -24,6 +25,7 @@ b32 entry(
         event.code  = EVENT_CODE_EXIT;
         event_fire( event );
     }
+
     return true;
 }
 

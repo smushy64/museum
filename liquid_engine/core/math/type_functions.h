@@ -9,10 +9,31 @@
 #include "functions.h"
 #include "types.h"
 
-#if defined(LD_COMPILER_CLANG)
-    #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Wmissing-braces"
-#endif
+// TODO(alicia): SUPER TEMPORARY!!!!!!!
+inline f32 asin( f32 ) {
+    return F32::NAN;
+}
+inline f32 asin_real( f32 ) {
+    return F32::NAN;
+}
+inline f32 acos( f32 ) {
+    return F32::NAN;
+}
+inline f32 atan2( f32, f32 ) {
+    return F32::NAN;
+}
+inline f32 pow( f32, f32 ) {
+    return F32::NAN;
+}
+inline f32 powi( f32, f32 ) {
+    return F32::NAN;
+}
+inline f32 degrees_overflow( f32 ) {
+    return F32::NAN;
+}
+inline f32 mod( f32, f32 ) {
+    return F32::NAN;
+}
 
 /// rotate components to the left. for vec2 it just swaps components
 inline vec2 rotate_left( vec2 x ) {
@@ -1223,9 +1244,5 @@ inline b32 normal_matrix( const mat4& m, mat3* out_matrix ) {
 inline mat3 normal_matrix_unchecked( const mat4& m ) {
     return m3( transpose( inverse_unchecked( m ) ) );
 }
-
-#if defined(LD_COMPILER_CLANG) && !defined(_CLANGD)
-    #pragma clang diagnostic pop
-#endif
 
 #endif // header guard

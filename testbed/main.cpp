@@ -7,13 +7,18 @@
 #include "entry.h"
 #include <core/string.h>
 #include <core/engine.h>
-
+#include <core/time.h>
 #include <core/math.h>
+#include <core/memory.h>
 
 global char TESTBED_LOGGING_BUFFER[KILOBYTES(1)];
 
+int init( int argc, const char** argv );
 int main( int argc, const char** argv ) {
+    return init( argc, argv );
+}
 
+int init( int argc, const char** argv ) {
     StringView logging_buffer = {};
     logging_buffer.buffer = TESTBED_LOGGING_BUFFER;
     logging_buffer.len    = KILOBYTES(1);

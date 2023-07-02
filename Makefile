@@ -21,11 +21,14 @@ export GL_VERSION_MAJOR := 4
 export GL_VERSION_MINOR := 5
 
 export project_version_underscore := $(subst .,_,$(PROJECT_VERSION))
+
 ifeq ($(OS), Windows_NT)
 	export dll_ext := .dll
 	export exe_ext := .exe
 	export windows := true
 	export win_res := $(BUILD_PATH)/obj/resources.o
+
+	export HOST_OS_NAME := Windows
 else
 	export dll_ext := .so
 	export exe_ext :=
@@ -51,7 +54,7 @@ RELEASE_C_FLAGS := -O2
 DEBUG_C_FLAGS := -O0 -g -gcodeview -Wall -Wextra
 DEBUG_C_FLAGS += -Wno-missing-braces -pedantic -Werror
 DEBUG_C_FLAGS += -Wno-c11-extensions -Wno-gnu-zero-variadic-macro-arguments
-DEBUG_C_FLAGS += -Wno-gnu-anonymous-struct -Wno-nested-anon-types
+DEBUG_C_FLAGS += -Wno-gnu-anonymous-struct -Wno-nested-anon-types -Wno-unused-variable
 
 C_FLAGS := -fno-rtti -fno-exceptions -Werror=vla -ffast-math
 C_FLAGS += -fno-operator-names -fno-strict-enums
@@ -74,15 +77,21 @@ CPP_FLAGS         += -DLIQUID_ENGINE_VERSION_MAJOR=$(PROJECT_VERSION_MAJOR)
 CPP_FLAGS         += -DLIQUID_ENGINE_VERSION_MINOR=$(PROJECT_VERSION_MINOR)
 
 RELEASE_LINKER_FLAGS :=
-DEBUG_LINKER_FLAGS   := -g -fuse-ld=lld -Wl,//debug
-LINKER_FLAGS         := -nostdlib++ -static-libgcc -lmingw32
+DEBUG_LINKER_FLAGS   := -g -fuse-ld=lld -Wl,//debug 
+LINKER_FLAGS         := -nostdlib++ -nostdlib -lkernel32
+# tell the linker to allocate a megabyte for the stack
+LINKER_FLAGS += -Wl,//stack:0x100000
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
 export preprocessor_flags := $(if $(IS_DEBUG),$(DEBUG_CPP_FLAGS),$(RELEASE_CPP_FLAGS)) $(CPP_FLAGS)
+export release_compiler_flags := $(RELEASE_C_FLAGS)
+export debug_compiler_flags   := $(DEBUG_C_FLAGS)
+export common_compiler_flags  := $(C_FLAGS)
 export compiler_flags     := $(if $(IS_DEBUG),$(DEBUG_C_FLAGS),$(RELEASE_C_FLAGS)) $(C_FLAGS)
 export pch_flags          := -x c++-header
-export linker_flags       := $(if $(IS_DEBUG),$(DEBUG_LINKER_FLAGS),$(RELEASE_LINKER_FLAGS)) $(LINKER_FLAGS)
+export linker_debug_flags := $(if $(IS_DEBUG),$(DEBUG_LINKER_FLAGS),$(RELEASE_LINKER_FLAGS))
+export linker_flags       := $(linker_debug_flags) $(LINKER_FLAGS)
 export obj_path           := ../$(BUILD_PATH)/obj
 
 export liquid_engine_dll := $(ENGINE_NAME)_$(project_version_underscore)$(if $(IS_DEBUG),_DEBUG,)$(dll_ext)
@@ -91,7 +100,7 @@ export liquid_engine_dll := $(ENGINE_NAME)_$(project_version_underscore)$(if $(I
 # @echo "Make: Pre-processor flags: " $(preprocessor_flags)
 # @echo "Make: Linker flags: " $(linker_flags)
 all:
-	@echo "Make: Target architecture:" $(TARGET_ARCH)
+	@echo "Make: Target architecture:" $(HOST_OS_NAME)-$(TARGET_ARCH)
 	@$(MAKE) --directory=liquid_engine --no-print-directory
 	@$(MAKE) --directory=testbed --no-print-directory
 	@$(MAKE) --directory=shader --no-print-directory
@@ -123,7 +132,7 @@ clean:
 
 # for debugging variables
 spit:
-	@echo $(subst \,/,$(VULKAN_SDK))
+	@echo $(LINKER_FLAGS)
 
 help:
 	@echo Help for Project Museum Makefile

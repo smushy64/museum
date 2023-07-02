@@ -7,11 +7,8 @@
 */
 #include "defines.h"
 
-#define MAX_SEMAPHORE_HANDLES 32
-/// Handle to a semaphore object.
-struct SemaphoreHandle {
-    void* platform;
-};
+/// Opaque handle to a semaphore object.
+typedef void* SemaphoreHandle;
 
 /// Opaque pointer to thread info.
 typedef struct ThreadInfo* pThreadInfo;
@@ -40,14 +37,14 @@ LD_API b32 semaphore_create(
 /// Increment a semaphore.
 /// Optional: read the semaphore count before incrementing.
 LD_API void semaphore_increment(
-    SemaphoreHandle* semaphore_handle,
+    SemaphoreHandle semaphore_handle,
     u32 increment, u32* out_opt_previous_count
 );
 /// Wait for semaphore to be incremented.
 /// Semaphore is decremented when it is signaled.
 /// If infinite timeout is true, timeout ms is ignored.
 LD_API void semaphore_wait(
-    SemaphoreHandle* semaphore_handle,
+    SemaphoreHandle semaphore_handle,
     b32 infinite_timeout, u32 opt_timeout_ms
 );
 /// Wait for any/all semaphores to be incremented.
@@ -60,7 +57,7 @@ LD_API void semaphore_wait_multiple(
     u32 opt_timeout_ms
 );
 /// Destroy a semaphore handle.
-LD_API void semaphore_destroy( SemaphoreHandle* semaphore_handle );
+LD_API void semaphore_destroy( SemaphoreHandle semaphore_handle );
 
 /// Complete all reads/writes before this fence.
 LD_NO_OPTIMIZE LD_API void read_write_fence();

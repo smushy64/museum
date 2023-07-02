@@ -169,12 +169,20 @@ LD_API void output_string_stdout( StringView string_view );
 /// Output a string to the console without formatting.
 LD_API void output_string_stdout( String* string );
 
+/// Output a string view to the console without formatting and without
+/// a null-terminator.
+LD_API void output_string_view_stdout( StringView string_view );
+
 /// Output a null-terminated string to the console without formatting.
 LD_API void output_string_stderr( const char* str );
 /// Output a string view to the console without formatting.
 LD_API void output_string_stderr( StringView string_view );
 /// Output a string to the console without formatting.
 LD_API void output_string_stderr( String* string );
+
+/// Output a string view to the console without formatting and without
+/// a null-terminator.
+LD_API void output_string_view_stderr( StringView string_view );
 
 /// Push character to stdout.
 LD_API void stdout_push( char character );

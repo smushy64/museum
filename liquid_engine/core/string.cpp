@@ -1187,6 +1187,14 @@ LD_API void output_string_stdout( StringView string_view ) {
 }
 
 LD_HOT_PATH
+LD_API void output_string_view_stdout( StringView string_view ) {
+    platform_write_console(
+        platform_stdout_handle(),
+        string_view.len, string_view.buffer
+    );
+}
+
+LD_HOT_PATH
 LD_API void output_string_stdout( String* string ) {
     platform_write_console(
         platform_stdout_handle(),
@@ -1212,6 +1220,14 @@ LD_API void output_string_stderr( StringView string_view ) {
         string_view.len, string_view.buffer
     );
     stderr_push( 0 );
+}
+
+LD_HOT_PATH
+LD_API void output_string_view_stderr( StringView string_view ) {
+    platform_write_console(
+        platform_stderr_handle(),
+        string_view.len, string_view.buffer
+    );
 }
 
 LD_HOT_PATH

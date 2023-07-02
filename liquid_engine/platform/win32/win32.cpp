@@ -3,7 +3,7 @@
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: April 27, 2023
 */
-#include "platform_win32.h"
+#include "win32.h"
 
 #if defined(LD_PLATFORM_WINDOWS)
 
@@ -25,8 +25,49 @@
 
 #include <intrin.h>
 
-global HANDLE* SEMAPHORE_STORAGE  = nullptr;
 global b32 IS_DPI_AWARE = false;
+
+extern "C" {
+
+#if defined(LD_COMPILER_MSVC)
+    #pragma function(memset)
+    int _fltused{0x9875}
+#endif
+void* memset( void* ptr, int value, size_t num ) {
+    u8 value_8 = *(u8*)&value;
+    for( size_t i = 0; i < num; ++i ) {
+        *((u8*)ptr + i) = value_8;
+    }
+    return ptr;
+}
+
+#if defined(LD_COMPILER_MSVC)
+    #pragma function(memcpy)
+#endif
+void* memcpy( void* destination, const void* source, size_t num ) {
+    mem_copy( destination, source, num );
+    return destination;
+}
+BOOL WINAPI DllMainCRTStartup(
+    [[maybe_unused]]
+    HINSTANCE const instance,
+    [[maybe_unused]]
+    DWORD     const reason,
+    [[maybe_unused]]
+    LPVOID    const reserved
+) {
+    switch( reason ) {
+        case DLL_PROCESS_ATTACH:
+        case DLL_THREAD_ATTACH:
+            break;
+        case DLL_PROCESS_DETACH:
+        case DLL_THREAD_DETACH:
+            break;
+    }
+    return TRUE;
+}
+
+}
 
 u32 query_platform_subsystem_size() {
     return sizeof(Win32Platform);
@@ -72,7 +113,6 @@ b32 platform_init(
         return false;
     }
 
-    SEMAPHORE_STORAGE    = win32_platform->semaphore_handles;
     win32_platform->instance = GetModuleHandle( nullptr );
 
     HICON window_icon = nullptr;
@@ -236,18 +276,42 @@ void platform_shutdown( Platform* platform ) {
 void platform_exit() {
     ExitProcess( 0 );
 }
-u64 platform_read_absolute_time( Platform* platform ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform;
-
-    LARGE_INTEGER counter = {};
-    QueryPerformanceCounter( &counter );
-    return counter.QuadPart - win32_platform->performance_counter.QuadPart;
+u64 platform_ticks() {
+    LARGE_INTEGER result = {};
+    QueryPerformanceCounter( &result );
+    return (u64)result.QuadPart;
 }
-f64 platform_read_seconds_elapsed( Platform* platform ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform;
-    u64 counter = platform_read_absolute_time( platform );
-    return (f64)counter /
-        (f64)(win32_platform->performance_frequency.QuadPart);
+u64 platform_ticks_per_second() {
+    LARGE_INTEGER result = {};
+    QueryPerformanceFrequency( &result );
+    return result.QuadPart;
+}
+u64 platform_ticks_elapsed( Platform* generic_platform ) {
+    Win32Platform* platform = (Win32Platform*)generic_platform;
+    u64 ticks = platform_ticks();
+    u64 start_ticks = platform->performance_counter.QuadPart;
+    return ticks - start_ticks;
+}
+f64 platform_us_elapsed( Platform* generic_platform ) {
+    Win32Platform* platform = (Win32Platform*)generic_platform;
+    u64 frequency = platform->performance_frequency.QuadPart;
+    u64 ticks_elapsed = platform_ticks_elapsed( generic_platform );
+
+    return (f64)(ticks_elapsed * 1000000) / (f64)frequency;
+}
+f64 platform_ms_elapsed( Platform* generic_platform ) {
+    Win32Platform* platform = (Win32Platform*)generic_platform;
+    u64 frequency = platform->performance_frequency.QuadPart;
+    u64 ticks_elapsed = platform_ticks_elapsed( generic_platform );
+
+    return (f64)(ticks_elapsed * 1000) / (f64)frequency;
+}
+f64 platform_s_elapsed( Platform* generic_platform ) {
+    Win32Platform* platform = (Win32Platform*)generic_platform;
+    u64 frequency = platform->performance_frequency.QuadPart;
+    u64 ticks_elapsed = platform_ticks_elapsed( generic_platform );
+
+    return (f64)(ticks_elapsed) / (f64)frequency;
 }
 b32 platform_pump_events( Platform* platform ) {
     Win32Platform* win32_platform = (Win32Platform*)platform;
@@ -841,19 +905,19 @@ SystemInfo query_system_info() {
 
     int cpu_info[4] = {};
     __cpuid( cpu_info, 0x80000002 );
-    memcpy(
+    mem_copy(
         result.cpu_name_buffer,
         cpu_info,
         sizeof(cpu_info)
     );
     __cpuid( cpu_info, 0x80000003 );
-    memcpy(
+    mem_copy(
         result.cpu_name_buffer + 16,
         cpu_info,
         sizeof(cpu_info)
     );
     __cpuid( cpu_info, 0x80000004 );
-    memcpy(
+    mem_copy(
         result.cpu_name_buffer + 32,
         cpu_info,
         sizeof(cpu_info)
@@ -1562,32 +1626,41 @@ b32 win32_load_user32( HMODULE* out_module ) {
         return false;
     }
 
-    SetProcessDpiAwarenessContext =
-    (::impl::SetProcessDpiAwarenessContextFN)library_load_function(
-        lib_user32,
-        "SetProcessDpiAwarenessContext"
-    );
-    if( !SetProcessDpiAwarenessContext ) {
-        return false;
-    }
+    #define LOAD_FUNCTION(function_name)do {\
+        function_name = ( ::impl:: function_name##FN )\
+        library_load_function( lib_user32, #function_name );\
+        LD_ASSERT( function_name );\
+    } while(0)
 
-    GetDpiForSystem =
-    (::impl::GetDpiForSystemFN)library_load_function(
-        lib_user32,
-        "GetDpiForSystem"
-    );
-    if( !GetDpiForSystem ) {
-        return false;
-    }
-
-    AdjustWindowRectExForDpi =
-    (::impl::AdjustWindowRectExForDpiFN)library_load_function(
-        lib_user32,
-        "AdjustWindowRectExForDpi"
-    );
-    if( !AdjustWindowRectExForDpi ) {
-        return false;
-    }
+    LOAD_FUNCTION(CreateWindowExA);
+    LOAD_FUNCTION(RegisterClassExA);
+    LOAD_FUNCTION(AdjustWindowRectEx);
+    LOAD_FUNCTION(LoadImageA);
+    LOAD_FUNCTION(GetWindowLongPtrA);
+    LOAD_FUNCTION(DefWindowProcA);
+    LOAD_FUNCTION(GetClientRect);
+    LOAD_FUNCTION(MapVirtualKeyA);
+    LOAD_FUNCTION(DestroyWindow);
+    LOAD_FUNCTION(PeekMessageA);
+    LOAD_FUNCTION(TranslateMessage);
+    LOAD_FUNCTION(DestroyIcon);
+    LOAD_FUNCTION(GetDC);
+    LOAD_FUNCTION(ShowWindow);
+    LOAD_FUNCTION(SetWindowLongPtrA);
+    LOAD_FUNCTION(MessageBoxA);
+    LOAD_FUNCTION(DispatchMessageA);
+    LOAD_FUNCTION(SetWindowTextA);
+    LOAD_FUNCTION(GetWindowTextLengthA);
+    LOAD_FUNCTION(GetWindowTextA);
+    LOAD_FUNCTION(SetCursorPos);
+    LOAD_FUNCTION(ClientToScreen);
+    LOAD_FUNCTION(ShowCursor);
+    LOAD_FUNCTION(SetCursor);
+    LOAD_FUNCTION(LoadCursorA);
+    LOAD_FUNCTION(GetSystemMetrics);
+    LOAD_FUNCTION(SetProcessDpiAwarenessContext);
+    LOAD_FUNCTION(GetDpiForSystem);
+    LOAD_FUNCTION(AdjustWindowRectExForDpi);
 
     *out_module = lib_user32;
     return true;
@@ -2015,15 +2088,10 @@ b32 platform_thread_resume( ThreadHandle* thread_handle ) {
         return true;
     }
 }
-global usize SEMAPHORE_COUNT = 0;
 b32 semaphore_create(
     u32 initial_count, u32 maximum_count,
     SemaphoreHandle* out_semaphore_handle
 ) {
-    if( SEMAPHORE_COUNT >= MAX_SEMAPHORE_HANDLES ) {
-        WIN32_LOG_ERROR( "Exceeded maximum number of semaphore handles!" );
-        return false;
-    }
 
     HANDLE result = CreateSemaphoreEx(
         nullptr,
@@ -2038,15 +2106,14 @@ b32 semaphore_create(
         return false;
     }
 
-    SEMAPHORE_COUNT++;
-    out_semaphore_handle->platform = (void*)result;
+    *out_semaphore_handle = (void*)result;
     return true;
 }
 void semaphore_increment(
-    SemaphoreHandle* semaphore_handle,
+    SemaphoreHandle semaphore_handle,
     u32 increment, u32* out_opt_previous_count
 ) {
-    HANDLE win32_semaphore_handle = (HANDLE)semaphore_handle->platform;
+    HANDLE win32_semaphore_handle = (HANDLE)semaphore_handle;
     ReleaseSemaphore(
         win32_semaphore_handle,
         increment,
@@ -2054,10 +2121,10 @@ void semaphore_increment(
     );
 }
 void semaphore_wait(
-    SemaphoreHandle* semaphore_handle,
+    SemaphoreHandle semaphore_handle,
     b32 infinite_timeout, u32 opt_timeout_ms
 ) {
-    HANDLE win32_semaphore_handle = (HANDLE)semaphore_handle->platform;
+    HANDLE win32_semaphore_handle = (HANDLE)semaphore_handle;
     WaitForSingleObjectEx(
         win32_semaphore_handle,
         infinite_timeout ?
@@ -2071,26 +2138,16 @@ void semaphore_wait_multiple(
     b32 wait_for_all, b32 infinite_timeout,
     u32 opt_timeout_ms
 ) {
-    LOG_ASSERT(
-        semaphore_handle_count < MAX_SEMAPHORE_HANDLES,
-        "Exceeded maximum number of semaphore handles!"
-    );
-
-    for( usize i = 0; i < semaphore_handle_count; ++i ) {
-        SEMAPHORE_STORAGE[i] = (HANDLE)semaphore_handles[i].platform;
-    }
-
     WaitForMultipleObjects(
         semaphore_handle_count,
-        SEMAPHORE_STORAGE,
+        (HANDLE*)semaphore_handles,
         wait_for_all ? TRUE : FALSE,
         infinite_timeout ? INFINITE : opt_timeout_ms
     );
 }
-void semaphore_destroy( SemaphoreHandle* semaphore_handle ) {
+void semaphore_destroy( SemaphoreHandle semaphore_handle ) {
     HANDLE win32_semaphore_handle = (HANDLE)semaphore_handle;
     CloseHandle( win32_semaphore_handle );
-    SEMAPHORE_COUNT--;
 }
 u32 platform_interlocked_increment( volatile u32* addend ) {
     return InterlockedIncrement( addend );

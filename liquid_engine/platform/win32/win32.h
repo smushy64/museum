@@ -54,8 +54,6 @@ struct Win32Platform {
 
     Win32DirectSound direct_sound;
 
-    HANDLE semaphore_handles[MAX_SEMAPHORE_HANDLES];
-
     LARGE_INTEGER performance_frequency;
     LARGE_INTEGER performance_counter;
 };
@@ -322,79 +320,91 @@ typedef struct tagPIXELFORMATDESCRIPTOR {
 #define PFD_OVERLAY_PLANE  1
 #define PFD_UNDERLAY_PLANE (-1)
 
+#define DEFFUNC_( return_name, function_name, ... )\
+    typedef return_name ( * function_name##FN )( __VA_ARGS__ );\
+    [[maybe_unused]]\
+    global function_name##FN in_##function_name = nullptr
+
+#define DEFFUNC_STUB( return_name, function_name, return_value, ... )\
+    typedef return_name ( * function_name##FN )( __VA_ARGS__ );\
+    internal return_name function_name##_stub( __VA_ARGS__ ) { return return_value; }\
+    [[maybe_unused]]\
+    global function_name##FN in_##function_name = function_name##_stub
+
 namespace impl {
-
-    typedef BOOL (*SetProcessDpiAwarenessContextFN)( DPI_AWARENESS_CONTEXT );
-    [[maybe_unused]]
-    global SetProcessDpiAwarenessContextFN in_SetProcessDpiAwarenessContext = nullptr;
-
-    typedef UINT (*GetDpiForSystemFN)();
-    [[maybe_unused]]
-    global GetDpiForSystemFN in_GetDpiForSystem = nullptr;
-
-    typedef BOOL (*AdjustWindowRectExForDpiFN)( LPRECT, DWORD, BOOL, DWORD, UINT );
-    [[maybe_unused]]
-    global AdjustWindowRectExForDpiFN in_AdjustWindowRectExForDpi = nullptr;
-
-    typedef DWORD (*XInputGetStateFN)( DWORD, XINPUT_STATE* );
-    [[maybe_unused]]
-    global XInputGetStateFN in_XInputGetState = nullptr;
-
-    typedef DWORD (*XInputSetStateFN)( DWORD, XINPUT_VIBRATION* );
-    [[maybe_unused]]
-    global XInputSetStateFN in_XInputSetState = nullptr;
-
-    typedef HGDIOBJ (*GetStockObjectFN)( int );
-    [[maybe_unused]]
-    global GetStockObjectFN in_GetStockObject = nullptr;
-
-    typedef HGLRC (*wglCreateContextFN)(HDC);
-    [[maybe_unused]]
-    global wglCreateContextFN in_wglCreateContext = nullptr;
-
-    typedef BOOL (*wglMakeCurrentFN)(HDC, HGLRC);
-    [[maybe_unused]]
-    global wglMakeCurrentFN in_wglMakeCurrent = nullptr;
-
-    typedef BOOL (*wglDeleteContextFN)(HGLRC);
-    [[maybe_unused]]
-    global wglDeleteContextFN in_wglDeleteContext = nullptr;
-
-    typedef PROC (*wglGetProcAddressFN)(LPCSTR);
-    [[maybe_unused]]
-    global wglGetProcAddressFN in_wglGetProcAddress = nullptr;
-
-    typedef HGLRC (*wglCreateContextAttribsARBFN)(HDC, HGLRC, const int*);
-    [[maybe_unused]]
-    global wglCreateContextAttribsARBFN in_wglCreateContextAttribsARB = nullptr;
-
-    typedef int (*DescribePixelFormatFN)(HDC, int, UINT, LPPIXELFORMATDESCRIPTOR);
-    [[maybe_unused]]
-    global DescribePixelFormatFN in_DescribePixelFormat = nullptr;
-
-    typedef int (*ChoosePixelFormatFN)(HDC, const PIXELFORMATDESCRIPTOR*);
-    [[maybe_unused]]
-    global ChoosePixelFormatFN in_ChoosePixelFormat = nullptr;
-
-    typedef BOOL (*SetPixelFormatFN)(HDC, int, const PIXELFORMATDESCRIPTOR*);
-    [[maybe_unused]]
-    global SetPixelFormatFN in_SetPixelFormat = nullptr;
-
-    typedef BOOL (*SwapBuffersFN)(HDC);
-    [[maybe_unused]]
-    global SwapBuffersFN in_SwapBuffers = nullptr;
-
-    typedef void (*XInputEnableFN)( BOOL );
-    internal void XInputEnableStub( BOOL enable ) { unused( enable ); }
-    [[maybe_unused]]
-    global XInputEnableFN in_XInputEnable = XInputEnableStub;
-
-    typedef HRESULT WINAPI (*DirectSoundCreateFN)( LPGUID, LPDIRECTSOUND*, LPUNKNOWN );
-    [[maybe_unused]]
-    global DirectSoundCreateFN in_DirectSoundCreate = nullptr;
+    
+    DEFFUNC_( BOOL, SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT );
+    DEFFUNC_( UINT, GetDpiForSystem );
+    DEFFUNC_( BOOL, AdjustWindowRectExForDpi, LPRECT, DWORD, BOOL, DWORD, UINT );
+    DEFFUNC_( DWORD, XInputGetState, DWORD, XINPUT_STATE* );
+    DEFFUNC_( DWORD, XInputSetState, DWORD, XINPUT_VIBRATION* );
+    DEFFUNC_( HGDIOBJ, GetStockObject, int );
+    DEFFUNC_( HGLRC, wglCreateContext, HDC );
+    DEFFUNC_( BOOL, wglMakeCurrent, HDC, HGLRC );
+    DEFFUNC_( BOOL, wglDeleteContext, HGLRC );
+    DEFFUNC_( PROC, wglGetProcAddress, LPCSTR );
+    DEFFUNC_( HGLRC, wglCreateContextAttribsARB, HDC, HGLRC, const int* );
+    DEFFUNC_( int, DescribePixelFormat, HDC, int, UINT, LPPIXELFORMATDESCRIPTOR );
+    DEFFUNC_( int, ChoosePixelFormat, HDC, const PIXELFORMATDESCRIPTOR* );
+    DEFFUNC_( BOOL, SetPixelFormat, HDC, int, const PIXELFORMATDESCRIPTOR* );
+    DEFFUNC_( BOOL, SwapBuffers, HDC );
+    DEFFUNC_STUB( void, XInputEnable, , BOOL );
+    DEFFUNC_( HRESULT WINAPI, DirectSoundCreate, LPGUID, LPDIRECTSOUND*, LPUNKNOWN );
+    DEFFUNC_( HANDLE, LoadImageA, HINSTANCE, LPCSTR, UINT, int, int, UINT );
+    DEFFUNC_( LONG_PTR, GetWindowLongPtrA, HWND, int );
+    DEFFUNC_( LRESULT, DefWindowProcA, HWND, UINT, WPARAM, LPARAM );
+    DEFFUNC_( BOOL, GetClientRect, HWND, LPRECT );
+    DEFFUNC_( UINT, MapVirtualKeyA, UINT, UINT );
+    DEFFUNC_( BOOL, DestroyWindow, HWND );
+    DEFFUNC_( BOOL, PeekMessageA, LPMSG, HWND, UINT, UINT, UINT );
+    DEFFUNC_( BOOL, TranslateMessage, const MSG* );
+    DEFFUNC_( BOOL, DestroyIcon, HICON );
+    DEFFUNC_( HDC, GetDC, HWND );
+    DEFFUNC_( BOOL, ShowWindow, HWND, int );
+    DEFFUNC_( LONG_PTR, SetWindowLongPtrA, HWND, int, LONG_PTR );
+    DEFFUNC_( int, MessageBoxA, HWND, LPCSTR, LPCSTR, UINT );
+    DEFFUNC_( LRESULT, DispatchMessageA, const MSG* );
+    DEFFUNC_( BOOL, SetWindowTextA, HWND, LPCSTR );
+    DEFFUNC_( int, GetWindowTextLengthA, HWND );
+    DEFFUNC_( int, GetWindowTextA, HWND, LPSTR, int );
+    DEFFUNC_( BOOL, SetCursorPos, int, int );
+    DEFFUNC_( BOOL, ClientToScreen, HWND, LPPOINT );
+    DEFFUNC_( int, ShowCursor, BOOL );
+    DEFFUNC_( HCURSOR, SetCursor, HCURSOR );
+    DEFFUNC_( HWND, CreateWindowExA, DWORD, LPCSTR, LPCSTR, DWORD, int, int, int, int, HWND, HMENU, HINSTANCE, LPVOID );
+    DEFFUNC_( HCURSOR, LoadCursorA, HINSTANCE, LPCSTR );
+    DEFFUNC_( ATOM, RegisterClassExA, const WNDCLASSEXA* );
+    DEFFUNC_( BOOL, AdjustWindowRectEx, LPRECT, DWORD, BOOL, DWORD );
+    DEFFUNC_( int, GetSystemMetrics, int );
 
 } // namespace impl
 
+#define GetSystemMetrics              ::impl::in_GetSystemMetrics
+#define AdjustWindowRectEx            ::impl::in_AdjustWindowRectEx
+#define RegisterClassExA              ::impl::in_RegisterClassExA
+#define LoadCursorA                   ::impl::in_LoadCursorA
+#define CreateWindowExA               ::impl::in_CreateWindowExA
+#define SetCursor                     ::impl::in_SetCursor
+#define ShowCursor                    ::impl::in_ShowCursor
+#define ClientToScreen                ::impl::in_ClientToScreen
+#define SetCursorPos                  ::impl::in_SetCursorPos
+#define GetWindowTextA                ::impl::in_GetWindowTextA
+#define GetWindowTextLengthA          ::impl::in_GetWindowTextLengthA
+#define SetWindowTextA                ::impl::in_SetWindowTextA
+#define DispatchMessageA              ::impl::in_DispatchMessageA
+#define MessageBoxA                   ::impl::in_MessageBoxA
+#define SetWindowLongPtrA             ::impl::in_SetWindowLongPtrA
+#define ShowWindow                    ::impl::in_ShowWindow
+#define GetDC                         ::impl::in_GetDC
+#define DestroyIcon                   ::impl::in_DestroyIcon
+#define TranslateMessage              ::impl::in_TranslateMessage
+#define PeekMessageA                  ::impl::in_PeekMessageA
+#define DestroyWindow                 ::impl::in_DestroyWindow
+#define MapVirtualKeyA                ::impl::in_MapVirtualKeyA
+#define GetClientRect                 ::impl::in_GetClientRect
+#define DefWindowProcA                ::impl::in_DefWindowProcA
+#define GetWindowLongPtrA             ::impl::in_GetWindowLongPtrA
+#define LoadImageA                    ::impl::in_LoadImageA
 #define DirectSoundCreate             ::impl::in_DirectSoundCreate
 #define SetProcessDpiAwarenessContext ::impl::in_SetProcessDpiAwarenessContext
 #define GetDpiForSystem               ::impl::in_GetDpiForSystem

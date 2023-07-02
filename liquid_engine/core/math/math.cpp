@@ -7,7 +7,6 @@
 #include "type_functions.h"
 
 #if LD_SIMD_WIDTH == 1
-    #include <math.h>
 #else
     #if defined(LD_ARCH_X86)
         #include <immintrin.h>

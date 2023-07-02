@@ -10,8 +10,112 @@
 #if !defined(DEFINES_HPP)
 #define DEFINES_HPP
 
-#include <stdint.h>
+/// compiler defines
+#if defined(__GNUC__) || defined(__GNUG__)
+    #define LD_COMPILER_GCC
+#endif
 
+#if defined(__clang__)
+    #if defined(LD_COMPILER_GCC)
+        #undef LD_COMPILER_GCC
+    #endif
+    #define LD_COMPILER_CLANG
+#endif
+
+#if defined(_MSC_VER)
+    #if defined(LD_COMPILER_GCC)
+        #undef LD_COMPILER_GCC
+    #endif
+    #if defined(LD_COMPILER_CLANG)
+        #undef LD_COMPILER_CLANG
+    #endif
+    #define LD_COMPILER_MSVC
+#endif
+
+#if !defined(LD_COMPILER_GCC) && !defined(LD_COMPILER_CLANG) && !defined(LD_COMPILER_MSVC)
+    #define LD_COMPILER_UNKNOWN
+#endif
+
+// platform defines
+#if defined(_WIN32) || defined(__WIN32__) || defined(_WIN64) || defined(__WIN64__)
+    #define LD_PLATFORM_WINDOWS
+#elif defined(__linux__) || defined(__gnu_linux__)
+    #define LD_PLATFORM_LINUX
+#elif defined(__ANDROID__)
+    #define LD_PLATFORM_ANDROID
+#elif defined(__APPLE__)
+    #include <TargetConditionals.h>
+    #if defined(TARGET_IPHONE_SIMULATION) || defined(TARGET_OS_IPHONE)
+        #define LD_PLATFORM_IOS
+    #elif defined(TARGET_OS_MAC)
+        #define LD_PLATFORM_MACOS
+    #endif
+#else
+    #define LD_PLATFORM_UNKNOWN
+#endif
+
+// platform cpu defines
+#if defined(_M_IX86) || defined(__i386__)
+    #define LD_ARCH_X86
+    #define LD_ARCH_32_BIT
+#endif
+
+#if defined(__x86_64__) || defined(_M_X64_)
+    #if !defined(LD_ARCH_X86)
+        #define LD_ARCH_X86
+    #endif
+    #if defined(LD_ARCH_32_BIT)
+        #undef LD_ARCH_32_BIT
+    #endif
+    #define LD_ARCH_64_BIT
+#endif // if x86
+
+#if defined(__arm__) || defined(_M_ARM_)
+    #define LD_ARCH_ARM
+    #define LD_ARCH_32_BIT
+#endif // if arm
+
+#if defined(__aarch64__)
+    #if !defined(LD_ARCH_ARM)
+        #define LD_ARCH_ARM
+    #endif
+    #if defined(LD_ARCH_32_BIT)
+        #undef LD_ARCH_32_BIT
+    #endif
+    #define LD_ARCH_64_BIT
+#endif // if arm64
+
+
+#if !defined(LD_SIMD_WIDTH)
+    #define LD_SIMD_WIDTH 1
+#else
+    #if !(LD_SIMD_WIDTH == 1 || LD_SIMD_WIDTH == 4 || LD_SIMD_WIDTH == 8)
+        #error "LD_SIMD_WIDTH can only be 1, 4 or 8!!!"
+    #endif
+#endif // simd
+
+#if defined(LD_ARCH_X86)
+
+typedef unsigned char       u8;
+typedef unsigned short     u16;
+typedef unsigned int       u32;
+typedef unsigned long long u64;
+
+typedef signed char       i8;
+typedef signed short     i16;
+typedef signed int       i32;
+typedef signed long long i64;
+
+#if defined(LD_ARCH_64_BIT)
+    typedef u64 usize;
+    typedef i64 isize;
+#else // if x86_64
+    typedef u32 usize;
+    typedef i32 isize;
+#endif // if x86_32
+
+#else // other
+#include <stdint.h>
 /// pointer-sized unsigned integer
 typedef uintptr_t usize;
 /// pointer-sized integer
@@ -35,10 +139,14 @@ typedef int32_t i32;
 /// 64-bit integer
 typedef int64_t i64;
 
+#endif // if other architecture
+
+typedef usize size_t;
+
 /// 8-bit boolean
-typedef uint8_t  b8;
+typedef u8  b8;
 /// 32-bit boolean
-typedef uint32_t b32;
+typedef u32 b32;
 
 /// UTF-8 | 8-bit character
 typedef i8 c8;
@@ -134,32 +242,6 @@ typedef void* pvoid;
     }\
 } while(0)
 
-/// compiler defines
-#if defined(__GNUC__) || defined(__GNUG__)
-    #define LD_COMPILER_GCC
-#endif
-
-#if defined(__clang__)
-    #if defined(LD_COMPILER_GCC)
-        #undef LD_COMPILER_GCC
-    #endif
-    #define LD_COMPILER_CLANG
-#endif
-
-#if defined(_MSC_VER)
-    #if defined(LD_COMPILER_GCC)
-        #undef LD_COMPILER_GCC
-    #endif
-    #if defined(LD_COMPILER_CLANG)
-        #undef LD_COMPILER_CLANG
-    #endif
-    #define LD_COMPILER_MSVC
-#endif
-
-#if !defined(LD_COMPILER_GCC) && !defined(LD_COMPILER_CLANG) && !defined(LD_COMPILER_MSVC)
-    #define LD_COMPILER_UNKNOWN
-#endif
-
 // panic
 // export/import definitions 
 // static assertions
@@ -228,70 +310,11 @@ LD_STATIC_ASSERT(sizeof(i64) == 8, "Expected i64 to be 8 bytes!");
 LD_STATIC_ASSERT(sizeof(f32) == 4, "Expected f32 to be 4 bytes!");
 LD_STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes!");
 
-// platform defines
-#if defined(_WIN32) || defined(__WIN32__) || defined(_WIN64) || defined(__WIN64__)
-    #define LD_PLATFORM_WINDOWS
-#elif defined(__linux__) || defined(__gnu_linux__)
-    #define LD_PLATFORM_LINUX
-#elif defined(__ANDROID__)
-    #define LD_PLATFORM_ANDROID
-#elif defined(__APPLE__)
-    #include <TargetConditionals.h>
-    #if defined(TARGET_IPHONE_SIMULATION) || defined(TARGET_OS_IPHONE)
-        #define LD_PLATFORM_IOS
-    #elif defined(TARGET_OS_MAC)
-        #define LD_PLATFORM_MACOS
-    #endif
-#else
-    #define LD_PLATFORM_UNKNOWN
-#endif
-
-// platform cpu defines
-#if defined(_M_IX86) || defined(__i386__)
-    #define LD_ARCH_X86
-    #define LD_ARCH_32_BIT
-#endif
-
-#if defined(__x86_64__) || defined(_M_X64_)
-    #if !defined(LD_ARCH_X86)
-        #define LD_ARCH_X86
-    #endif
-    #if defined(LD_ARCH_32_BIT)
-        #undef LD_ARCH_32_BIT
-    #endif
-    #define LD_ARCH_64_BIT
-#endif
-
-#if defined(__arm__) || defined(_M_ARM_)
-    #define LD_ARCH_ARM
-    #define LD_ARCH_32_BIT
-#endif
-
-#if defined(__aarch64__)
-    #if !defined(LD_ARCH_ARM)
-        #define LD_ARCH_ARM
-    #endif
-    #if defined(LD_ARCH_32_BIT)
-        #undef LD_ARCH_32_BIT
-    #endif
-    #define LD_ARCH_64_BIT
-#endif
-
 #if defined(LD_ARCH_32_BIT)
     LD_STATIC_ASSERT(sizeof(usize) == sizeof(u32), "Expected to be running on 32 bit architecture!");
 #elif defined(LD_ARCH_64_BIT)
     LD_STATIC_ASSERT(sizeof(usize) == sizeof(u64), "Expected to be running on 64 bit architecture!");
-#endif
-
-#if !defined(LD_SIMD_WIDTH)
-    #define LD_SIMD_WIDTH 1
-#else
-    #if !(LD_SIMD_WIDTH == 1 || LD_SIMD_WIDTH == 4 || LD_SIMD_WIDTH == 8)
-        #error "LD_SIMD_WIDTH can only be 1, 4 or 8!!!"
-    #endif
-#endif
-
-
+#endif // if arch64/32
 
 /// debug assertions
 #if defined(LD_ASSERTIONS)

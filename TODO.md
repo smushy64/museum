@@ -15,6 +15,9 @@
 - [x] format: String left justify + padding
 - [x] custom putc stdout/stderr
     - Win32: WriteConsole()
+- [x] Remove dependency on stdint.h on x86
+- [x] Debug auto scope timer
+- [x] Remove dependency on the C runtime library in liquid engine library code
 - [ ] Proper frametiming (using platform_sleep?)
 - [ ] Audio subsystem
 - [ ] Memory arena
@@ -26,8 +29,15 @@
 - [ ] Resource manager
 - [ ] Write logging to file (timestamps?)
 - [ ] Customizable input actions + input processing
-- [ ] Platform agnostic SIMD wrapper?
 - [ ] custom variadic macro implementations
+- [ ] format: more accurate float print out
+- [ ] Remove dependency on the C runtime library in testbed code
+- [ ] Implement custom math functions
+    - asin, acos, atan, atan2
+    - pow, log, mod
+
+## Bug Fixes
+- [ ] format: integer binary format should only print necessary bits
 
 ## Optimzations
 - [ ] Optimize string formatting functions

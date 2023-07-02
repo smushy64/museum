@@ -7,8 +7,22 @@
 #include "string.h"
 #include "memory.h"
 
-// TODO(alicia): custom mutex!
-#include <pthread.h>
+// TODO(alicia): SUPER TEMPORARY!!!!!
+
+typedef void* pthread_mutex_t;
+
+global pthread_mutex_t MUTEX_0 = nullptr;
+
+#define pthread_mutex_lock( foo )   
+#define pthread_mutex_unlock( foo ) 
+
+// // TODO(alicia): custom mutex!
+// #include <pthread.h>
+// // this is for locking the logging function
+// // so that multiple threads can't print over each other
+// global pthread_mutex_t MUTEX_0 = PTHREAD_MUTEX_INITIALIZER;
+//
+// // pthread_mutex_unlock
 
 #if defined(LD_PLATFORM_WINDOWS)
     #include <windows.h>
@@ -110,9 +124,7 @@ inline b32 is_level_valid( LogLevel level ) {
     return false;
 }
 
-// this is for locking the logging function
-// so that multiple threads can't print over each other
-global pthread_mutex_t MUTEX_0 = PTHREAD_MUTEX_INITIALIZER;
+
 
 LD_HOT_PATH
 internal inline void log_formatted_internal(

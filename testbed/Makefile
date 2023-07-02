@@ -5,6 +5,8 @@
 
 MAKEFLAGS += -j4
 
+IS_DEBUG = 
+
 target  := ../$(BUILD_PATH)/$(testbed_name)
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
@@ -21,8 +23,9 @@ deps := $(call recurse,$(obj_path),*.d)
 
 test_bed_cpp_flags := $(preprocessor_flags)
 
-test_bed_debug_linker_flags := -Wl,--pdb=$(subst $(exe_ext),.pdb,$(target))
-test_bed_linker_flags := $(linker_flags) $(if $(IS_DEBUG),$(test_bed_debug_linker_flags),)
+test_bed_debug_linker_flags := -Wl,--pdb=$(subst $(exe_ext),.pdb,$(target)) $(linker_debug_flags) 
+test_bed_linker_flags := $(if $(IS_DEBUG),$(test_bed_debug_linker_flags),)
+test_bed_linker_flags += -nostdlib++ -static-libgcc -lmingw32
 
 test_bed_win_res := ../$(win_res)
 

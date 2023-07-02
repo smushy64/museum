@@ -33,10 +33,18 @@ b32 platform_init(
 );
 /// Shutdown platform subsystem.
 void platform_shutdown( Platform* platform );
-/// Read absolute time since program start.
-u64 platform_read_absolute_time( Platform* platform );
-/// Read seconds elapsed since program start.
-f64 platform_read_seconds_elapsed( Platform* platform );
+/// Get current tick count.
+u64 platform_ticks();
+/// Get how many ticks are in a second (frequency).
+u64 platform_ticks_per_second();
+/// Get ticks elapsed since start of the program.
+u64 platform_ticks_elapsed( Platform* platform );
+/// Get microseconds (μs) elapsed since start of the program.
+f64 platform_us_elapsed( Platform* platform );
+/// Get milliseconds elapsed since start of the program.
+f64 platform_ms_elapsed( Platform* platform );
+/// Get seconds elapsed since start of the program.
+f64 platform_s_elapsed( Platform* platform );
 /// Pump platform events.
 b32 platform_pump_events( Platform* platform );
 /// Set platform surface name.
