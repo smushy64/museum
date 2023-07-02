@@ -79,7 +79,7 @@ b32 platform_init(
     Platform* out_platform
 ) {
 
-    LD_ASSERT( out_platform );
+    ASSERT( out_platform );
     Win32Platform* win32_platform = (Win32Platform*)out_platform;
 
     IS_DPI_AWARE = ARE_BITS_SET( flags, PLATFORM_DPI_AWARE );
@@ -1629,7 +1629,7 @@ b32 win32_load_user32( HMODULE* out_module ) {
     #define LOAD_FUNCTION(function_name)do {\
         function_name = ( ::impl:: function_name##FN )\
         library_load_function( lib_user32, #function_name );\
-        LD_ASSERT( function_name );\
+        ASSERT( function_name );\
     } while(0)
 
     LOAD_FUNCTION(CreateWindowExA);

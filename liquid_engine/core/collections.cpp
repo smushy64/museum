@@ -335,7 +335,7 @@ LD_API void* _list_remove(
 
     if( i >= capacity || i >= count ) {
         LOG_FATAL("List remove out of bounds! index: {u64}", i);
-        LD_PANIC();
+        PANIC();
     }
 
     u8*   bytes = (u8*)list;
@@ -373,7 +373,7 @@ LD_API void* _list_insert(
             "Index outside the bounds of the list! index: {u64}",
             index
         );
-        LD_PANIC();
+        PANIC();
         return nullptr;
     }
     
@@ -424,7 +424,7 @@ LD_API void* _list_insert_trace(
             "Index outside the bounds of the list! index: {u64}",
             index
         );
-        LD_PANIC();
+        PANIC();
         return nullptr;
     }
     

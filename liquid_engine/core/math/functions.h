@@ -494,7 +494,7 @@ inline i64 normalize_rangei64( f32 x ) {
 }
 
 /// square root
-LD_ALWAYS_INLINE f32 sqrt( f32 x ) {
+FORCE_INLINE f32 sqrt( f32 x ) {
 #if defined(LD_ARCH_X86)
     f32 result;
     __asm__ inline (
@@ -511,7 +511,7 @@ LD_ALWAYS_INLINE f32 sqrt( f32 x ) {
 #endif
 }
 /// square root
-LD_ALWAYS_INLINE f64 sqrt( f64 x ) {
+FORCE_INLINE f64 sqrt( f64 x ) {
 #if defined(LD_ARCH_X86)
     f64 result;
     __asm__ inline (
@@ -584,7 +584,7 @@ inline b32 is_zero( f64 x ) {
 }
 
 /// sine function
-LD_ALWAYS_INLINE f32 sin( f32 x ) {
+FORCE_INLINE f32 sin( f32 x ) {
 #if defined(LD_ARCH_X86)
     f32 result;
     __asm__ inline (
@@ -601,7 +601,7 @@ LD_ALWAYS_INLINE f32 sin( f32 x ) {
 #endif
 }
 /// sine function
-LD_ALWAYS_INLINE f64 sin( f64 x ) {
+FORCE_INLINE f64 sin( f64 x ) {
 #if defined(LD_ARCH_X86)
     f64 result;
     __asm__ inline (
@@ -636,7 +636,7 @@ LD_ALWAYS_INLINE f64 sin( f64 x ) {
 // }
 
 /// cosine function
-LD_ALWAYS_INLINE f32 cos( f32 x ) {
+FORCE_INLINE f32 cos( f32 x ) {
 #if defined(LD_ARCH_X86)
     f32 result;
     __asm__ inline (
@@ -653,7 +653,7 @@ LD_ALWAYS_INLINE f32 cos( f32 x ) {
 #endif
 }
 /// cosine function
-LD_ALWAYS_INLINE f64 cos( f64 x ) {
+FORCE_INLINE f64 cos( f64 x ) {
 #if defined(LD_ARCH_X86)
     f64 result;
     __asm__ inline (
@@ -679,7 +679,7 @@ LD_ALWAYS_INLINE f64 cos( f64 x ) {
 // }
 
 // sin-cos function
-LD_ALWAYS_INLINE tuplef32 sincos( f32 x ) {
+FORCE_INLINE tuplef32 sincos( f32 x ) {
     tuplef32 result;
 #if defined(LD_ARCH_X86)
     __asm__ inline (
@@ -698,7 +698,7 @@ LD_ALWAYS_INLINE tuplef32 sincos( f32 x ) {
     return result;
 }
 // sin-cos function
-LD_ALWAYS_INLINE tuplef64 sincos( f64 x ) {
+FORCE_INLINE tuplef64 sincos( f64 x ) {
     tuplef64 result;
 #if defined(LD_ARCH_X86)
     __asm__ inline (

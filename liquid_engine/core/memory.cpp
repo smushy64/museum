@@ -293,8 +293,8 @@ LD_API void* _stack_arena_push_item( StackArena* arena, u32 item_size ) {
     return result;
 }
 LD_API void _stack_arena_pop_item( StackArena* arena, u32 item_size ) {
-    LD_ASSERT( arena->stack_pointer );
-    LD_ASSERT( arena->stack_pointer >= item_size );
+    ASSERT( arena->stack_pointer );
+    ASSERT( arena->stack_pointer >= item_size );
     arena->stack_pointer -= item_size;
 }
 LD_API b32 _stack_arena_create_trace(

@@ -98,17 +98,38 @@ b32 engine_run(
     void* application_run_user_params,
     EngineConfig* config
 ) {
+
+    EngineContext ctx = {};
+
     for( i32 i = 0; i < argc; ++i ) {
         StringView current_arg = argv[i];
 #if defined(LD_PLATFORM_WINDOWS)
         if( string_cmp( current_arg, "--output-debug-string" ) ) {
             log_enable_output_debug_string( true );
+            continue;
         }
 #endif
-        unused( current_arg );
+        if( string_cmp( current_arg, "--gl" ) ) {
+            config->renderer_backend = RENDERER_BACKEND_OPENGL;
+        } else if( string_cmp( current_arg, "--vk" ) ) {
+            config->renderer_backend = RENDERER_BACKEND_VULKAN;
+        } else if( string_cmp( current_arg, "--dx11" ) ) {
+#if defined(LD_PLATFORM_WINDOWS)
+            config->renderer_backend = RENDERER_BACKEND_DX11;
+#else
+            printlnerr( "DirectX11 is not available on non-windows platforms!" );
+            return false;
+#endif
+        } else if( string_cmp( current_arg, "--dx12" ) ) {
+#if defined(LD_PLATFORM_WINDOWS)
+            config->renderer_backend = RENDERER_BACKEND_DX12;
+#else
+            printlnerr( "DirectX12 is not available on non-windows platforms!" );
+            return false;
+#endif
+        }
     }
 
-    EngineContext ctx = {};
     ctx.system_info   = query_system_info();
     u32 thread_count  = ctx.system_info.logical_processor_count;
     thread_count = (thread_count == 1 ? thread_count : thread_count - 1);
@@ -125,6 +146,7 @@ b32 engine_run(
     
     u32 logging_subsystem_size = DEFAULT_LOGGING_BUFFER_SIZE;
 
+    #define STACK_ARENA_SAFETY_BYTES 16
     // calculate required stack arena size
     u32 required_stack_arena_size =
         event_subsystem_size +
@@ -134,7 +156,8 @@ b32 engine_run(
         thread_info_buffer_size +
         thread_work_entry_buffer_size +
         thread_handle_buffer_size +
-        logging_subsystem_size;
+        logging_subsystem_size +
+        STACK_ARENA_SAFETY_BYTES;
 
     u32 stack_arena_size = required_stack_arena_size;
     if( !stack_arena_create( stack_arena_size, MEMTYPE_ENGINE, &ctx.arena ) ) {
@@ -165,7 +188,7 @@ b32 engine_run(
 
 #endif
 
-    LD_ASSERT( application_run );
+    ASSERT( application_run );
     LOG_INFO("Liquid Engine Version: {i}.{i}",
         LIQUID_ENGINE_VERSION_MAJOR,
         LIQUID_ENGINE_VERSION_MINOR
@@ -178,7 +201,7 @@ b32 engine_run(
         &ctx.arena,
         event_subsystem_size
     );
-    LD_ASSERT( event_subsystem_data );
+    ASSERT( event_subsystem_data );
 
     if( !event_init( event_subsystem_data ) ) {
         MESSAGE_BOX_FATAL(
@@ -254,7 +277,7 @@ b32 engine_run(
     ctx.thread_handles = (ThreadHandle*)stack_arena_push_item(
         &ctx.arena, thread_handle_buffer_size
     );
-    LD_ASSERT(
+    ASSERT(
         ctx.thread_work_queue.threads &&
         ctx.thread_work_queue.work_entries &&
         ctx.thread_handles
@@ -298,7 +321,7 @@ b32 engine_run(
             ctx.platform,
             thread_proc,
             current_thread_info,
-            THREAD_STACK_SIZE_SAME_AS_MAIN,
+            STACK_SIZE,
             false,
             &ctx.thread_handles[i]
         )) {

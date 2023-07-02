@@ -219,6 +219,7 @@ typedef void* pvoid;
 #define KILOBYTES(num) ( num * 1024ULL )
 #define MEGABYTES(num) ( KILOBYTES( num ) * 1024ULL )
 #define GIGABYTES(num) ( MEGABYTES( num ) * 1024ULL )
+#define STACK_SIZE (MEGABYTES(1))
 
 #define BYTES_TO_KB(bytes) ((f32)bytes / 1024.0f)
 #define KB_TO_MB(kb)       ((f32)kb / 1024.0f)
@@ -250,15 +251,15 @@ typedef void* pvoid;
 // packed struct declaration
 #if defined(LD_COMPILER_MSVC)
     #include <intrin.h>
-    #define LD_PANIC() __debugbreak()
+    #define PANIC() __debugbreak()
 
-    #define LD_STATIC_ASSERT static_assert
+    #define STATIC_ASSERT static_assert
     // TODO(alicia): HOTPATH/NOOPTIMIZE FOR MSVC
 
-    #define LD_ALWAYS_INLINE __forceinline
-    #define LD_NOINLINE __declspec(noinline)
+    #define FORCE_INLINE __forceinline
+    #define NO_INLINE __declspec(noinline)
 
-    #define LD_PACKED( declaration ) __pragma( pack(push, 1) ) declaration __pragma( pack(pop) )
+    #define MAKE_PACKED( declaration ) __pragma( pack(push, 1) ) declaration __pragma( pack(pop) )
 
     #if defined(LD_EXPORT)
         #define LD_API __declspec(dllexport)
@@ -268,22 +269,22 @@ typedef void* pvoid;
 
 
 #else // not MSVC
-    #define LD_PANIC() __builtin_trap()
+    #define PANIC() __builtin_trap()
 
     #if defined(LD_COMPILER_GCC)
-        #define LD_NO_OPTIMIZE __attribute__((optimize("O0")))
+        #define NO_OPTIMIZE __attribute__((optimize("O0")))
     #else // clang
-        #define LD_NO_OPTIMIZE __attribute__((optnone))
+        #define NO_OPTIMIZE __attribute__((optnone))
     #endif
 
     #if defined(LD_COMPILER_GCC) || defined(LD_COMPILER_CLANG)
-        #define LD_STATIC_ASSERT _Static_assert
-        #define LD_HOT_PATH __attribute__((hot))
+        #define STATIC_ASSERT _Static_assert
+        #define HOT_PATH __attribute__((hot))
     #endif
 
-    #define LD_ALWAYS_INLINE __attribute__((always_inline)) inline
-    #define LD_NOINLINE      __attribute__((noinline))
-    #define LD_PACKED( declaration ) declaration __attribute__((__packed__))
+    #define FORCE_INLINE __attribute__((always_inline)) inline
+    #define NO_INLINE      __attribute__((noinline))
+    #define MAKE_PACKED( declaration ) declaration __attribute__((__packed__))
 
     #if defined(LD_EXPORT)
         #define LD_API __attribute__((visibility("default")))
@@ -299,32 +300,32 @@ typedef void* pvoid;
 #endif
 
 // assert that type sizes are correct
-LD_STATIC_ASSERT(sizeof(u8)  == 1, "Expected u8 to be 1 byte!");
-LD_STATIC_ASSERT(sizeof(u16) == 2, "Expected u16 to be 2 bytes!");
-LD_STATIC_ASSERT(sizeof(u32) == 4, "Expected u32 to be 4 bytes!");
-LD_STATIC_ASSERT(sizeof(u64) == 8, "Expected u64 to be 8 bytes!");
-LD_STATIC_ASSERT(sizeof(i8)  == 1, "Expected i8 to be 1 byte!");
-LD_STATIC_ASSERT(sizeof(i16) == 2, "Expected i16 to be 2 bytes!");
-LD_STATIC_ASSERT(sizeof(i32) == 4, "Expected i32 to be 4 bytes!");
-LD_STATIC_ASSERT(sizeof(i64) == 8, "Expected i64 to be 8 bytes!");
-LD_STATIC_ASSERT(sizeof(f32) == 4, "Expected f32 to be 4 bytes!");
-LD_STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes!");
+STATIC_ASSERT(sizeof(u8)  == 1, "Expected u8 to be 1 byte!");
+STATIC_ASSERT(sizeof(u16) == 2, "Expected u16 to be 2 bytes!");
+STATIC_ASSERT(sizeof(u32) == 4, "Expected u32 to be 4 bytes!");
+STATIC_ASSERT(sizeof(u64) == 8, "Expected u64 to be 8 bytes!");
+STATIC_ASSERT(sizeof(i8)  == 1, "Expected i8 to be 1 byte!");
+STATIC_ASSERT(sizeof(i16) == 2, "Expected i16 to be 2 bytes!");
+STATIC_ASSERT(sizeof(i32) == 4, "Expected i32 to be 4 bytes!");
+STATIC_ASSERT(sizeof(i64) == 8, "Expected i64 to be 8 bytes!");
+STATIC_ASSERT(sizeof(f32) == 4, "Expected f32 to be 4 bytes!");
+STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes!");
 
 #if defined(LD_ARCH_32_BIT)
-    LD_STATIC_ASSERT(sizeof(usize) == sizeof(u32), "Expected to be running on 32 bit architecture!");
+    STATIC_ASSERT(sizeof(usize) == sizeof(u32), "Expected to be running on 32 bit architecture!");
 #elif defined(LD_ARCH_64_BIT)
-    LD_STATIC_ASSERT(sizeof(usize) == sizeof(u64), "Expected to be running on 64 bit architecture!");
+    STATIC_ASSERT(sizeof(usize) == sizeof(u64), "Expected to be running on 64 bit architecture!");
 #endif // if arch64/32
 
 /// debug assertions
 #if defined(LD_ASSERTIONS)
-    #define LD_ASSERT(condition) do {\
+    #define ASSERT(condition) do {\
         if(!(condition)) {\
-            LD_PANIC();\
+            PANIC();\
         }\
     } while(0)
 #else
-    #define LD_ASSERT(condition)
+    #define ASSERT(condition)
 #endif
 
 /// 32-bit floating point constants
@@ -388,7 +389,7 @@ namespace F64 {
     /// bitmask of double precision float exponent
     global const u64 EXPONENT_MASK = (0x7FFULL << 52);
     /// bitmask of double precision float mantissa 
-    global const u64 MANTISSA_MASK = (1ULL << 52) - 1;
+    global const u64 MANTISSA_MASK = ((1ULL << 52) - 1);
 };
 
 /// 8-bit unsigned integer constants

@@ -27,8 +27,8 @@ b32 renderer_init(
     u32 storage_size,
     RendererContext* storage
 ) {
-    LD_ASSERT( platform );
-    LD_ASSERT( storage );
+    ASSERT( platform );
+    ASSERT( storage );
 
     storage->platform = platform;
     switch( backend ) {
@@ -47,7 +47,7 @@ b32 renderer_init(
                 "Backend \"{cc}\" is not currently supported!",
                 to_string(backend)
             );
-            LD_PANIC();
+            PANIC();
         } return false;
     }
 
@@ -100,7 +100,7 @@ const char* to_string( RendererBackend backend ) {
         "DirectX 11",
         "DirectX 12"
     };
-    LD_ASSERT( backend < RENDERER_BACKEND_COUNT );
+    ASSERT( backend < RENDERER_BACKEND_COUNT );
     return strings[backend];
 }
 

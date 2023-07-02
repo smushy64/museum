@@ -46,7 +46,7 @@ LD_API EventListenerID event_subscribe(
     EventCallbackFN callback,
     void*           callback_params
 ) {
-    LD_ASSERT( REGISTRY );
+    ASSERT( REGISTRY );
 
     EventListenerID result = (event_code << 16) | ID;
     ID++;
@@ -63,7 +63,7 @@ LD_API EventListenerID event_subscribe(
     return result;
 }
 LD_API void event_unsubscribe( EventListenerID event_listener_id ) {
-    LD_ASSERT( REGISTRY );
+    ASSERT( REGISTRY );
 
     EventCode event_code = event_listener_id >> 16;
     u16 listener_id      = event_listener_id & 0x0000FFFF;

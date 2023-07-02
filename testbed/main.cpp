@@ -11,40 +11,14 @@
 #include <core/math.h>
 #include <core/memory.h>
 
-global char TESTBED_LOGGING_BUFFER[KILOBYTES(1)];
-
 int init( int argc, const char** argv );
 int main( int argc, const char** argv ) {
     return init( argc, argv );
 }
 
 int init( int argc, const char** argv ) {
-    StringView logging_buffer = {};
-    logging_buffer.buffer = TESTBED_LOGGING_BUFFER;
-    logging_buffer.len    = KILOBYTES(1);
-    LD_ASSERT(log_init( LOG_LEVEL_ALL_VERBOSE, logging_buffer ));
 
     RendererBackend backend = RENDERER_BACKEND_OPENGL;
-
-    for( int i = 1; i < argc; ++i ) {
-        if( string_cmp( "--gl", argv[i] ) ) {
-            backend = RENDERER_BACKEND_OPENGL;
-        } else if( string_cmp( "--vk", argv[i] ) ) {
-            backend = RENDERER_BACKEND_VULKAN;
-        } else if( string_cmp( "--dx11", argv[i] ) ) {
-            backend = RENDERER_BACKEND_DX11;
-        }  else if( string_cmp( "--dx12", argv[i] ) ) {
-            backend = RENDERER_BACKEND_DX12;
-        } 
-        if( !renderer_backend_is_supported( backend ) ) {
-            println(
-                "Renderer Backend {cc} is not supported on this platform!",
-                to_string( backend )
-            );
-            return -1;
-        }
-    }
-
     EngineConfig config = {};
 
     #define NAME_BUFFER_SIZE 32

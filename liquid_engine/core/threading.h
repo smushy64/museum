@@ -60,10 +60,10 @@ LD_API void semaphore_wait_multiple(
 LD_API void semaphore_destroy( SemaphoreHandle semaphore_handle );
 
 /// Complete all reads/writes before this fence.
-LD_NO_OPTIMIZE LD_API void read_write_fence();
+NO_OPTIMIZE LD_API void read_write_fence();
 /// Complete all reads before this fence.
-LD_NO_OPTIMIZE LD_API void read_fence();
+NO_OPTIMIZE LD_API void read_fence();
 /// Complete all writes before this fence.
-LD_NO_OPTIMIZE LD_API void write_fence();
+NO_OPTIMIZE LD_API void write_fence();
 
 #endif // header guard

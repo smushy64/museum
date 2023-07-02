@@ -26,9 +26,8 @@ struct ThreadHandle {
     typedef int ThreadReturnCode;
 #endif
 
+/// Thread Proc definition.
 typedef ThreadReturnCode (*ThreadProcFN)( void* user_params );
-
-#define THREAD_STACK_SIZE_SAME_AS_MAIN 0
 
 /// Create a thread.
 b32 platform_thread_create(

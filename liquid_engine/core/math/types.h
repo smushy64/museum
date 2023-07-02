@@ -1173,13 +1173,13 @@ namespace MAT4 {
     };
 } // namespace MAT4
 /// Pointer to matrix value.
-LD_ALWAYS_INLINE f32* value_pointer( const mat4& m ) {
+FORCE_INLINE f32* value_pointer( const mat4& m ) {
     return (f32*)&m.m00;
 }
 /// Create a zero matrix.
-LD_ALWAYS_INLINE mat4 m4() { return {}; }
+FORCE_INLINE mat4 m4() { return {}; }
 /// Create a matrix from given values.
-LD_ALWAYS_INLINE mat4 m4(
+FORCE_INLINE mat4 m4(
     f32 m00, f32 m01, f32 m02, f32 m03,
     f32 m10, f32 m11, f32 m12, f32 m13,
     f32 m20, f32 m21, f32 m22, f32 m23,

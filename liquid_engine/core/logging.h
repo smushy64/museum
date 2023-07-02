@@ -248,7 +248,7 @@ LD_API void log_formatted_unlocked(
                 __LINE__,\
                 ##__VA_ARGS__\
             );\
-            LD_PANIC()
+            PANIC()
         #define LOG_ASSERT( condition, format, ... ) \
             do {\
                 if(!(condition)) {\
@@ -263,7 +263,7 @@ LD_API void log_formatted_unlocked(
                         #condition,\
                         ##__VA_ARGS__\
                     );\
-                    LD_PANIC();\
+                    PANIC();\
                 }\
             } while(0)
 
@@ -278,12 +278,12 @@ LD_API void log_formatted_unlocked(
                     __FILE__,\
                     __LINE__\
                 );\
-                LD_PANIC();\
+                PANIC();\
             } while(0)
     #else
-        #define LOG_PANIC( format, ... ) LD_PANIC()
-        #define LOG_ASSERT( condition, format, ... ) LD_ASSERT( condition )
-        #define DEBUG_UNIMPLEMENTED() LD_PANIC()
+        #define LOG_PANIC( format, ... ) PANIC()
+        #define LOG_ASSERT( condition, format, ... ) ASSERT( condition )
+        #define DEBUG_UNIMPLEMENTED() PANIC()
     #endif
 
 #else

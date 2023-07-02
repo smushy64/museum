@@ -221,7 +221,7 @@ LD_API StringView dstring_view_capacity_bounds(
     StringView result = {};
     if( offset >= string->capacity ) {
         LOG_FATAL("Attempted to create dstring view with invalid offset!");
-        LD_PANIC();
+        PANIC();
     }
     result.buffer = string->buffer + offset;
     result.len    = string->capacity;
@@ -234,7 +234,7 @@ LD_API StringView dstring_view_len_bounds(
     StringView result = {};
     if( offset >= string->len ) {
         LOG_FATAL("Attempted to create dstring view with invalid offset!");
-        LD_PANIC();
+        PANIC();
     }
     result.buffer = string->buffer + offset;
     result.len    = string->len - offset;
@@ -309,7 +309,7 @@ global char HEX_DIGITS[16] = {
 };
 #define DECIMAL_BASE 10
 #define HEX_BASE 16
-internal LD_ALWAYS_INLINE u32 to_string(
+internal FORCE_INLINE u32 to_string(
     StringView view,
     u64 value,
     u64 base,
@@ -482,7 +482,7 @@ struct PODStringView {
 
 typedef b32 (*WriteCharFN)( struct StringView*, char );
 
-LD_NOINLINE
+NO_INLINE
 internal b32 write_char_dst( StringView* dst, char character ) {
     if( dst->len ) {
         --dst->len;
@@ -492,18 +492,18 @@ internal b32 write_char_dst( StringView* dst, char character ) {
         return false;
     }
 }
-LD_NOINLINE
+NO_INLINE
 internal b32 write_char_stdout( StringView*, char character ) {
     stdout_push( character );
     return true;
 }
-LD_NOINLINE
+NO_INLINE
 internal b32 write_char_stderr( StringView*, char character ) {
     stderr_push( character );
     return true;
 }
 
-LD_NOINLINE LD_HOT_PATH
+NO_INLINE HOT_PATH
 internal u32 format_internal(
     StringView buffer,
     const char* format,
@@ -572,7 +572,7 @@ internal u32 format_internal(
                             padding = parse_i32_internal( &at );
                             continue;
                         }
-                        LD_PANIC();
+                        PANIC();
                     }
                     u32 write_count = 0;
                     if( use_binary ) {
@@ -628,7 +628,7 @@ internal u32 format_internal(
                                 ++at;
                                 padding_is_negative = true;
                             }
-                            LD_ASSERT( char_is_digit( *at ) );
+                            ASSERT( char_is_digit( *at ) );
                             padding = parse_i32_internal( &at );
                         }
                         i32 str_len = (i32)str_length( str );
@@ -680,7 +680,7 @@ internal u32 format_internal(
                             padding_is_negative = true;
                             ++at;
                         }
-                        LD_ASSERT( char_is_digit( *at ) );
+                        ASSERT( char_is_digit( *at ) );
                         padding = parse_i32_internal( &at );
                     }
                     if( padding && !padding_is_negative ) {
@@ -714,9 +714,9 @@ internal u32 format_internal(
                     u32 size = 32;
                     if( *at == 'v' || *at == 'V' ) {
                         ++at;
-                        LD_ASSERT( char_is_digit( *at ) );
+                        ASSERT( char_is_digit( *at ) );
                         i32 parsed_count = parse_i32_internal( &at );
-                        LD_ASSERT( parsed_count >= 2 && parsed_count <= 4 );
+                        ASSERT( parsed_count >= 2 && parsed_count <= 4 );
                         vector_count = (u32)parsed_count;
                     } else {
                         if( char_is_digit( *at ) ) {
@@ -736,10 +736,10 @@ internal u32 format_internal(
                                     size = 64;
                                     break;
                                 default:
-                                    LD_PANIC();
+                                    PANIC();
                             }
                         } else if( !(*at == '}' || *at == ',') ) {
-                            LD_PANIC();
+                            PANIC();
                         }
                     }
 
@@ -785,7 +785,7 @@ internal u32 format_internal(
                                 break;
 
                             default:
-                                LD_PANIC();
+                                PANIC();
                         }
                     }
 
@@ -939,10 +939,10 @@ internal u32 format_internal(
                     ++at;
                     if( vector_count ) {
                         if( !is_quaternion ) {
-                            LD_ASSERT( char_is_digit( *at ) );
+                            ASSERT( char_is_digit( *at ) );
                             i32 parsed_vector_count =
                                 parse_i32_internal( &at );
-                            LD_ASSERT(
+                            ASSERT(
                                 parsed_vector_count == 2 ||
                                 parsed_vector_count == 3 ||
                                 parsed_vector_count == 4
@@ -974,11 +974,11 @@ internal u32 format_internal(
                             padding_is_negative = true;
                             ++at;
                         }
-                        LD_ASSERT( char_is_digit( *at ) || *at == '.' );
+                        ASSERT( char_is_digit( *at ) || *at == '.' );
                         padding = parse_i32_internal( &at );
                         if( *at == '.' ) {
                             ++at;
-                            LD_ASSERT( char_is_digit( *at ) );
+                            ASSERT( char_is_digit( *at ) );
                             precision = parse_i32_internal( &at );
                         }
                     }
@@ -1054,7 +1054,7 @@ internal u32 format_internal(
                                 values[2] = v.z;
                                 values[3] = v.w;
                             } else {
-                                LD_PANIC();
+                                PANIC();
                             }
                         }
 
@@ -1083,7 +1083,7 @@ internal u32 format_internal(
                 } break;
 
                 default:
-                    LD_PANIC();
+                    PANIC();
             }
 
             if( *at ) {
@@ -1167,7 +1167,7 @@ LD_API void stderr_push( char character ) {
     );
 }
 
-LD_HOT_PATH
+HOT_PATH
 LD_API void output_string_stdout( const char* str ) {
     u32 str_len = (u32)str_length( str );
     platform_write_console(
@@ -1177,7 +1177,7 @@ LD_API void output_string_stdout( const char* str ) {
     stdout_push( 0 );
 }
 
-LD_HOT_PATH
+HOT_PATH
 LD_API void output_string_stdout( StringView string_view ) {
     platform_write_console(
         platform_stdout_handle(),
@@ -1186,7 +1186,7 @@ LD_API void output_string_stdout( StringView string_view ) {
     stdout_push( 0 );
 }
 
-LD_HOT_PATH
+HOT_PATH
 LD_API void output_string_view_stdout( StringView string_view ) {
     platform_write_console(
         platform_stdout_handle(),
@@ -1194,7 +1194,7 @@ LD_API void output_string_view_stdout( StringView string_view ) {
     );
 }
 
-LD_HOT_PATH
+HOT_PATH
 LD_API void output_string_stdout( String* string ) {
     platform_write_console(
         platform_stdout_handle(),
@@ -1203,7 +1203,7 @@ LD_API void output_string_stdout( String* string ) {
     stdout_push( 0 );
 }
 
-LD_HOT_PATH
+HOT_PATH
 LD_API void output_string_stderr( const char* str ) {
     u32 str_len = (u32)str_length( str );
     platform_write_console(
@@ -1213,7 +1213,7 @@ LD_API void output_string_stderr( const char* str ) {
     stderr_push( 0 );
 }
 
-LD_HOT_PATH
+HOT_PATH
 LD_API void output_string_stderr( StringView string_view ) {
     platform_write_console(
         platform_stderr_handle(),
@@ -1222,7 +1222,7 @@ LD_API void output_string_stderr( StringView string_view ) {
     stderr_push( 0 );
 }
 
-LD_HOT_PATH
+HOT_PATH
 LD_API void output_string_view_stderr( StringView string_view ) {
     platform_write_console(
         platform_stderr_handle(),
@@ -1230,7 +1230,7 @@ LD_API void output_string_view_stderr( StringView string_view ) {
     );
 }
 
-LD_HOT_PATH
+HOT_PATH
 LD_API void output_string_stderr( String* string ) {
     platform_write_console(
         platform_stderr_handle(),

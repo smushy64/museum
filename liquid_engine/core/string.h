@@ -47,7 +47,7 @@ LD_API b32 dstring_reserve( String* string, u32 new_capacity );
 /// Clear a string.
 /// All this does is set the length of a string to zero.
 /// It does not deallocate.
-LD_ALWAYS_INLINE void dstring_clear( String* string ) {
+FORCE_INLINE void dstring_clear( String* string ) {
     string->len = 0;
 }
 

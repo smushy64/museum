@@ -11,6 +11,7 @@
 
 typedef void* pthread_mutex_t;
 
+[[maybe_unused]]
 global pthread_mutex_t MUTEX_0 = nullptr;
 
 #define pthread_mutex_lock( foo )   
@@ -73,12 +74,12 @@ LD_API b32 is_log_initialized() {
 b32 log_init( LogLevel level, StringView logging_buffer ) {
 #if defined(LD_LOGGING)
 
-    LD_ASSERT(!is_log_initialized());
+    ASSERT(!is_log_initialized());
 
-    LD_ASSERT( level <= MAX_LOG_LEVEL );
+    ASSERT( level <= MAX_LOG_LEVEL );
     GLOBAL_LOG_LEVEL = level;
 
-    LD_ASSERT( logging_buffer.buffer );
+    ASSERT( logging_buffer.buffer );
     LOGGING_BUFFER_SIZE = logging_buffer.len;
     LOGGING_BUFFER      = logging_buffer.buffer;
 
@@ -126,7 +127,7 @@ inline b32 is_level_valid( LogLevel level ) {
 
 
 
-LD_HOT_PATH
+HOT_PATH
 internal inline void log_formatted_internal(
     LogLevel level, LogColor color, LogFlags flags,
     b32 lock, const char* format,
@@ -149,7 +150,7 @@ internal inline void log_formatted_internal(
             );
         }
 #endif // if platform windows
-        LD_PANIC();
+        PANIC();
     }
 #endif // if assertions are enabled
 
