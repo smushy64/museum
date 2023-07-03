@@ -18,6 +18,8 @@
 - [x] Remove dependency on stdint.h on x86
 - [x] Debug auto scope timer
 - [x] Remove dependency on the C runtime library in liquid engine library code
+- [x] Macros that hide specfic intrinsics when using SIMD
+- [x] Implement mutex
 - [ ] Proper frametiming (using platform_sleep?)
 - [ ] Audio subsystem
 - [ ] Memory arena
@@ -40,6 +42,10 @@
 - [ ] format: integer binary format should only print necessary bits
 
 ## Optimzations
+- [x] Poll XInputGetState on a separate thread
+    so that the main thread doesn't stall
+    when a controller isn't connected. This is a known bug with
+    XInputGetState so I gotta work around it.
 - [ ] Optimize string formatting functions
 - [ ] replace hardware trig functions with taylor series + simd
     - on my machine, the hardware instructions are faster than stdlib

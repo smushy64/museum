@@ -69,6 +69,29 @@ BOOL WINAPI DllMainCRTStartup(
 
 }
 
+/// Every x number of frames, check if xinput gamepad is active
+#define POLL_FOR_NEW_XINPUT_GAMEPAD_RATE (20000)
+internal DWORD WINAPI win32_xinput_polling_thread( void* params ) {
+    SemaphoreHandle semaphore = (SemaphoreHandle)params;
+    loop {
+        semaphore_wait( semaphore, true, 0 );
+
+        Event event = {};
+        event.data.bool32[1] = true;
+        XINPUT_STATE unused_gamepad_state = {};
+        for( u32 i = 0; i < MAX_GAMEPAD_INDEX; ++i ) {
+            if( !input_pad_is_active( i ) ) {
+                if( SUCCEEDED(XInputGetState( i, &unused_gamepad_state )) ) {
+                    input_set_pad_active( i, true );
+                    event.data.uint32[0] = i;
+                    event_fire( event );
+                }
+            }
+        }
+    }
+    return 0;
+}
+
 u32 query_platform_subsystem_size() {
     return sizeof(Win32Platform);
 }
@@ -91,6 +114,37 @@ b32 platform_init(
     if( !win32_load_xinput( &win32_platform->lib_xinput ) ) {
         return false;
     }
+
+    read_write_fence();
+    
+    /// create a thread to poll for new xinput devices because
+    /// of XInputGetState stall. Thanks Microsoft!
+    SemaphoreHandle xinput_polling_thread_semaphore = {};
+    if( !semaphore_create( 0, 1, &xinput_polling_thread_semaphore ) ) {
+        return false;
+    }
+
+    Win32ThreadHandle xinput_polling_thread_handle = {};
+    xinput_polling_thread_handle.thread_handle = CreateThread(
+        nullptr,
+        STACK_SIZE,
+        win32_xinput_polling_thread,
+        nullptr,
+        0,
+        &xinput_polling_thread_handle.thread_id
+    );
+    if( !xinput_polling_thread_handle.thread_handle ) {
+        win32_log_error( true );
+        return false;
+    }
+
+    win32_platform->xinput_polling_thread = xinput_polling_thread_handle;
+    win32_platform->xinput_polling_thread_semaphore = xinput_polling_thread_semaphore;
+    WIN32_LOG_NOTE(
+        "Created XInput polling thread. ID: {u}",
+        win32_platform->xinput_polling_thread.thread_id
+    );
+
     if( !library_load(
         "GDI32.DLL",
         (void**)&win32_platform->lib_gdi32
@@ -264,6 +318,8 @@ b32 platform_init(
 void platform_shutdown( Platform* platform ) {
     Win32Platform* win32_platform = (Win32Platform*)platform;
 
+    semaphore_destroy( win32_platform->xinput_polling_thread_semaphore );
+
     for( u32 i = 0; i < MODULE_COUNT; ++i ) {
         if( win32_platform->modules[i] ) {
             library_free( win32_platform->modules[i] );
@@ -325,6 +381,17 @@ b32 platform_pump_events( Platform* platform ) {
         TranslateMessage( &message );
         DispatchMessage( &message );
     }
+
+    if( ( win32_platform->event_pump_count %
+        POLL_FOR_NEW_XINPUT_GAMEPAD_RATE
+    ) == 0 ) {
+        semaphore_increment(
+            win32_platform->xinput_polling_thread_semaphore,
+            1, 0
+        );
+    }
+
+    win32_platform->event_pump_count++;
 
     return true;
 }
@@ -447,21 +514,22 @@ void platform_poll_gamepad( Platform* platform ) {
         ++gamepad_index
     ) {
 
-        DWORD is_active = XInputGetState(
+        b32 is_active = input_pad_is_active( gamepad_index );
+        if( !is_active ) {
+            continue;
+        }
+        b32 xinput_get_state_success = XInputGetState(
             gamepad_index,
             &gamepad_state
         ) == ERROR_SUCCESS;
-        // if gamepad activated this frame, fire an event
-        b32 was_active = input_pad_is_active( gamepad_index );
-        if( was_active != is_active ) {
+
+        // if failed to get xinput state, fire an event
+        if( !xinput_get_state_success ) {
             event.code = EVENT_CODE_GAMEPAD_ACTIVE;
             event.data.uint32[0] = gamepad_index;
-            event.data.bool32[1] = is_active;
+            event.data.bool32[1] = false;
             event_fire( event );
-        }
-        input_set_pad_active( gamepad_index, is_active );
-
-        if( is_active != ERROR_SUCCESS ) {
+            input_set_pad_active( gamepad_index, false );
             continue;
         }
 
@@ -2076,6 +2144,7 @@ b32 platform_thread_create(
         }
     }
 
+    WIN32_LOG_NOTE("New thread created. ID: {u}", win32_thread_handle->thread_id);
     return true;
 }
 b32 platform_thread_resume( ThreadHandle* thread_handle ) {
@@ -2148,6 +2217,32 @@ void semaphore_wait_multiple(
 void semaphore_destroy( SemaphoreHandle semaphore_handle ) {
     HANDLE win32_semaphore_handle = (HANDLE)semaphore_handle;
     CloseHandle( win32_semaphore_handle );
+}
+LD_API b32 mutex_create( MutexHandle* out_mutex ) {
+    HANDLE result = CreateMutexA(
+        nullptr,
+        false,
+        nullptr
+    );
+    if( !result ) {
+        return false;
+    }
+
+    *out_mutex = (MutexHandle)result;
+
+    return true;
+}
+LD_API void mutex_lock( MutexHandle mutex ) {
+    WaitForSingleObject(
+        (HANDLE)mutex,
+        INFINITE
+    );
+}
+LD_API void mutex_unlock( MutexHandle mutex ) {
+    ReleaseMutex( (HANDLE)mutex );
+}
+LD_API void mutex_destroy( MutexHandle mutex ) {
+    CloseHandle( (HANDLE)mutex );
 }
 u32 platform_interlocked_increment( volatile u32* addend ) {
     return InterlockedIncrement( addend );

@@ -6,24 +6,7 @@
 #include "logging.h"
 #include "string.h"
 #include "memory.h"
-
-// TODO(alicia): SUPER TEMPORARY!!!!!
-
-typedef void* pthread_mutex_t;
-
-[[maybe_unused]]
-global pthread_mutex_t MUTEX_0 = nullptr;
-
-#define pthread_mutex_lock( foo )   
-#define pthread_mutex_unlock( foo ) 
-
-// // TODO(alicia): custom mutex!
-// #include <pthread.h>
-// // this is for locking the logging function
-// // so that multiple threads can't print over each other
-// global pthread_mutex_t MUTEX_0 = PTHREAD_MUTEX_INITIALIZER;
-//
-// // pthread_mutex_unlock
+#include "threading.h"
 
 #if defined(LD_PLATFORM_WINDOWS)
     #include <windows.h>
@@ -34,6 +17,7 @@ global pthread_mutex_t MUTEX_0 = nullptr;
 #endif
 
 global LogLevel GLOBAL_LOG_LEVEL = LOG_LEVEL_NONE;
+global MutexHandle MUTEX = {};
 
 #define MAX_LOG_LEVEL (\
     LOG_LEVEL_NONE    |\
@@ -83,6 +67,8 @@ b32 log_init( LogLevel level, StringView logging_buffer ) {
     LOGGING_BUFFER_SIZE = logging_buffer.len;
     LOGGING_BUFFER      = logging_buffer.buffer;
 
+    ASSERT( mutex_create( &MUTEX ) );
+
 #if defined(LD_PLATFORM_WINDOWS)
     DWORD dwMode = 0;
     GetConsoleMode(
@@ -114,6 +100,8 @@ void log_shutdown() {
         OutputDebugString( "[INFO ] Logging subsystem shutdown.\n" );
     }
 #endif
+
+    mutex_destroy( MUTEX );
 
 #endif
 }
@@ -155,7 +143,7 @@ internal inline void log_formatted_internal(
 #endif // if assertions are enabled
 
     if( lock ) {
-        pthread_mutex_lock( &MUTEX_0 );
+        mutex_lock( MUTEX );
     }
 
     b32 always_print =
@@ -165,7 +153,7 @@ internal inline void log_formatted_internal(
 
     if( !(always_print || is_level_valid( level )) ) {
         if( lock ) {
-            pthread_mutex_unlock( &MUTEX_0 );
+            mutex_unlock( MUTEX );
         }
         return;
     }
@@ -185,7 +173,7 @@ internal inline void log_formatted_internal(
         (((usize)write_size) >= (LOGGING_BUFFER_SIZE - 1))
     ) {
         if( lock ) {
-            pthread_mutex_unlock( &MUTEX_0 );
+            mutex_unlock( MUTEX );
         }
         return;
     }
@@ -214,7 +202,7 @@ internal inline void log_formatted_internal(
 #endif // if platform windows
 
     if( lock ) {
-        pthread_mutex_unlock( &MUTEX_0 );
+        mutex_unlock( MUTEX );
     }
 
 #endif // if logging enabled

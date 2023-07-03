@@ -22,7 +22,7 @@ struct RandLCG {
         b( 235 ),
         m( 21446837 )
     {}
-    explicit RandLCG( i32 seed ) :
+    RandLCG( i32 seed ) :
         seed( seed ),
         current( seed ),
         a( 166463 ),

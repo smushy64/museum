@@ -10,6 +10,9 @@
 /// Opaque handle to a semaphore object.
 typedef void* SemaphoreHandle;
 
+/// Opaque handle to a mutex object.
+typedef void* MutexHandle;
+
 /// Opaque pointer to thread info.
 typedef struct ThreadInfo* pThreadInfo;
 /// Thread work function.
@@ -58,6 +61,16 @@ LD_API void semaphore_wait_multiple(
 );
 /// Destroy a semaphore handle.
 LD_API void semaphore_destroy( SemaphoreHandle semaphore_handle );
+
+/// Create a mutex.
+LD_API b32 mutex_create( MutexHandle* out_mutex );
+/// Lock a mutex. Stalls until the mutex is available if another
+/// thread already has ownership of it.
+LD_API void mutex_lock( MutexHandle mutex );
+/// Unlock a mutex.
+LD_API void mutex_unlock( MutexHandle mutex );
+/// Destroy a mutex handle.
+LD_API void mutex_destroy( MutexHandle mutex );
 
 /// Complete all reads/writes before this fence.
 NO_OPTIMIZE LD_API void read_write_fence();

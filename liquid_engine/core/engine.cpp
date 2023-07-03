@@ -222,6 +222,19 @@ b32 engine_run(
         ctx.arena.arena_size
     );
 
+    void* input_subsystem_buffer = stack_arena_push_item(
+        &ctx.arena,
+        input_subsystem_size
+    );
+    if( !input_init( ctx.platform, input_subsystem_buffer ) ) {
+        MESSAGE_BOX_FATAL(
+            "Subsystem Failure",
+            "Failed to initialize input subsystem!\n "
+            LD_CONTACT_MESSAGE
+        );
+        return false;
+    }
+
     if( !platform_init(
         config->opt_application_icon_path,
         { config->surface_dimensions.width, config->surface_dimensions.height },
@@ -407,20 +420,6 @@ b32 engine_run(
     );
 
 #endif
-
-
-    void* input_subsystem_buffer = stack_arena_push_item(
-        &ctx.arena,
-        input_subsystem_size
-    );
-    if( !input_init( ctx.platform, input_subsystem_buffer ) ) {
-        MESSAGE_BOX_FATAL(
-            "Subsystem Failure",
-            "Failed to initialize input subsystem!\n "
-            LD_CONTACT_MESSAGE
-        );
-        return false;
-    }
 
     if(!event_subscribe(
         EVENT_CODE_EXIT,

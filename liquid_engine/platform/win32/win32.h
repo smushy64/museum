@@ -21,6 +21,13 @@
 #include <xinput.h>
 #include <dsound.h>
 
+struct Win32ThreadHandle {
+    HANDLE       thread_handle;
+    ThreadProcFN thread_proc;
+    void*        thread_proc_user_params;
+    DWORD        thread_id;
+};
+
 struct Win32DirectSound {
     LPDIRECTSOUND handle;
     LPDIRECTSOUNDBUFFER hardware_handle;
@@ -56,14 +63,12 @@ struct Win32Platform {
 
     LARGE_INTEGER performance_frequency;
     LARGE_INTEGER performance_counter;
+
+    Win32ThreadHandle xinput_polling_thread;
+    SemaphoreHandle xinput_polling_thread_semaphore;
+    u32 event_pump_count;
 };
 
-struct Win32ThreadHandle {
-    HANDLE       thread_handle;
-    ThreadProcFN thread_proc;
-    void*        thread_proc_user_params;
-    DWORD        thread_id;
-};
 
 global const char* WIN32_VULKAN_EXTENSIONS[] = {
     "VK_KHR_win32_surface"
