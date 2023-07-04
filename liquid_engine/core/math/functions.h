@@ -372,11 +372,29 @@ FORCE_INLINE f64 sqrt( f64 x ) {
 
 /// raise to the power, integer exponent
 inline f32 powi( f32 base, i32 exponent ) {
-    return impl::_powif_( base, exponent );
+    u32 exponent_abs = absolute( exponent );
+    f32 result = base;
+    for( u32 i = 1; i < exponent_abs; ++i ) {
+        result *= base;
+    }
+    if( exponent < 0 ) {
+        return 1.0f / result;
+    } else {
+        return result;
+    }
 }
 /// raise to the power, integer exponent
 inline f64 powi( f64 base, i32 exponent ) {
-    return impl::_powi_( base, exponent );
+    u32 exponent_abs = absolute( exponent );
+    f64 result = base;
+    for( u32 i = 1; i < exponent_abs; ++i ) {
+        result *= base;
+    }
+    if( exponent < 0 ) {
+        return 1.0 / result;
+    } else {
+        return result;
+    }
 }
 /// raise to the power, float exponent
 inline f32 pow( f32 base, f32 exponent ) {
@@ -388,12 +406,74 @@ inline f64 pow( f64 base, f64 exponent ) {
 }
 
 /// float modulus
-inline f32 mod( f32 lhs, f32 rhs ) {
-    return impl::_modf_( lhs, rhs );
+FORCE_INLINE f32 mod( f32 lhs, f32 rhs ) {
+    if(0.0f == rhs) {
+        return lhs;
+    }
+
+    f32 m = lhs - ( rhs * (f32)floor32( lhs / rhs ) );
+
+    if( rhs > 0.0f ) {
+        if( m >= rhs ) {
+            return 0.0f;
+        }
+
+        if( m < 0.0f ) {
+            if( (rhs + m) == rhs ) {
+                return 0.0f;
+            } else {
+                return rhs + m;
+            }
+        }
+    } else {
+        if( m <= rhs ) {
+            return 0.0f;
+        }
+        if( m > 0.0f ) {
+            if( (rhs + m) == rhs ) {
+                return 0.0f;
+            } else {
+                return rhs + m;
+            }
+        }
+    }
+
+    return m;
 }
 /// float modulus
-inline f64 mod( f64 lhs, f64 rhs ) {
-    return impl::_mod_( lhs, rhs );
+FORCE_INLINE f64 mod( f64 lhs, f64 rhs ) {
+    if(0.0 == rhs) {
+        return lhs;
+    }
+
+    f64 m = lhs - ( rhs * (f64)floor64( lhs / rhs ) );
+
+    if( rhs > 0.0 ) {
+        if( m >= rhs ) {
+            return 0.0;
+        }
+
+        if( m < 0.0 ) {
+            if( rhs + m == rhs ) {
+                return 0.0;
+            } else {
+                return rhs + m;
+            }
+        }
+    } else {
+        if( m <= rhs ) {
+            return 0.0;
+        }
+        if( m > 0.0 ) {
+            if( rhs + m == rhs ) {
+                return 0.0;
+            } else {
+                return rhs + m;
+            }
+        }
+    }
+
+    return m;
 }
 
 /// check if single-precision is not a number
@@ -425,193 +505,216 @@ inline b32 is_zero( f64 x ) {
     return (bitpattern & 0x7FFFFFFFFFFFFFFF) == 0 || (bitpattern == 0x8000000000000000);
 }
 
+/// Wrap a degree value into 0.0 -> 360.0 range
+FORCE_INLINE f32 wrap_degrees( f32 degrees ) {
+    f32 result = mod( degrees, 360.0f );
+    if( result < 0.0f ) {
+        result += 360.0f;
+    }
+    return result;
+}
+/// Wrap a degree value into 0.0 -> 360.0 range
+FORCE_INLINE f64 wrap_degrees( f64 degrees ) {
+    f64 result = mod( degrees, 360.0 );
+    if( result < 0.0 ) {
+        result += 360.0;
+    }
+    return result;
+}
+/// Wrap a radians value into -Pi -> Pi range
+FORCE_INLINE f32 wrap_pi( f32 radians ) {
+    return mod( radians + F32::PI, F32::TAU ) - F32::PI;
+}
+/// Wrap a radians value into -Pi -> Pi range
+FORCE_INLINE f64 wrap_pi( f64 radians ) {
+    return mod( radians + F64::PI, F64::TAU ) - F64::PI;
+}
+
 /// sine function
 FORCE_INLINE f32 sin( f32 x ) {
-#if defined(LD_ARCH_X86)
-    f32 result;
-    __asm__ inline (
-        "fld dword ptr [%1]\n\t"
-        "fsin\n\t"
-        "fstp dword ptr %0"
-        : "=m" (result)
-        : "r" (&x)
-        : "cc"
-    );
-    return result;
-#else
-    return impl::_sinf_(x);
-#endif
+    x = wrap_pi(x);
+    return x -
+        ( powi( x, 3 ) / F32::THREE_FACTORIAL ) +
+        ( powi( x, 5 ) / F32::FIVE_FACTORIAL  ) -
+        ( powi( x, 7 ) / F32::SEVEN_FACTORIAL ) +
+        ( powi( x, 9 ) / F32::NINE_FACTORIAL  );
+        // - ( powi( x, 11 ) / F32::ELEVEN_FACTORIAL )
 }
 /// sine function
 FORCE_INLINE f64 sin( f64 x ) {
-#if defined(LD_ARCH_X86)
-    f64 result;
-    __asm__ inline (
-        "fld qword ptr [%1]\n\t"
-        "fsin\n\t"
-        "fstp qword ptr %0"
-        : "=m" (result)
-        : "r" (&x)
-        : "cc"
+    x = wrap_pi(x);
+    return x -
+        ( powi( x, 3 ) / F64::THREE_FACTORIAL ) +
+        ( powi( x, 5 ) / F64::FIVE_FACTORIAL )  -
+        ( powi( x, 7 ) / F64::SEVEN_FACTORIAL ) +
+        ( powi( x, 9 ) / F64::NINE_FACTORIAL );
+        // - ( powi( x, 11 ) / F64::ELEVEN_FACTORIAL )
+}
+/// arc-sine function
+FORCE_INLINE f32 asin( f32 x ) {
+    // don't ask me how i figured this shit out
+    // i don't even know
+    f32 sign_of_x = sign( x );
+    f32 x_abs = x * sign_of_x;
+    f32 x_sqr = x_abs * x_abs;
+
+    const f32 magic_0 =  1.5707288f;
+    const f32 magic_1 = -0.2121144f;
+    const f32 magic_2 =  0.0742610f;
+    const f32 magic_3 = -0.0187293f;
+
+    f32 result = F32::HALF_PI - sqrt( 1.0f - x_abs ) * (
+        magic_0 +
+        ( magic_1 * x_abs ) +
+        ( magic_2 * x_sqr ) +
+        ( magic_3 * ( x_sqr * x_abs ) )
     );
-    return result;
-#else
-    return impl::_sin_(x);
-#endif
+
+    return result * sign_of_x;
 }
 /// arc-sine function
-inline f32 asin( f32 x ) {
-    return impl::_asinf_( x );
-}
-/// arc-sine function
-inline f64 asin( f64 x ) {
-    return impl::_asin_( x );
+FORCE_INLINE f64 asin( f64 x ) {
+    f64 sign_of_x = sign( x );
+    f64 x_abs = x * sign_of_x;
+    f64 x_sqr = x_abs * x_abs;
+
+    const f64 magic_0 =  1.5707288;
+    const f64 magic_1 = -0.2121144;
+    const f64 magic_2 =  0.0742610;
+    const f64 magic_3 = -0.0187293;
+
+    f64 result = F64::HALF_PI - sqrt( 1.0 - x_abs ) * (
+        magic_0 +
+        ( magic_1 * x_abs ) +
+        ( magic_2 * x_sqr ) +
+        ( magic_3 * ( x_sqr * x_abs ) )
+    );
+
+    return result * sign_of_x;
 }
 
 /// arc-sine function, does not return NAN
-inline f32 asin_real( f32 x ) {
+FORCE_INLINE f32 asin_real( f32 x ) {
     return absolute(x) >= 1.0f ? F32::HALF_PI * sign(x) : asin(x);
 }
 /// arc-sine function, does not return NAN
-inline f64 asin_real( f64 x ) {
+FORCE_INLINE f64 asin_real( f64 x ) {
     return absolute(x) >= 1.0 ? F64::HALF_PI * sign(x) : asin(x);
 }
 
 /// cosine function
 FORCE_INLINE f32 cos( f32 x ) {
-#if defined(LD_ARCH_X86)
-    f32 result;
-    __asm__ inline (
-        "fld dword ptr [%1]\n\t"
-        "fcos\n\t"
-        "fstp dword ptr %0"
-        : "=m" (result)
-        : "r" (&x)
-        : "cc"
-    );
-    return result;
-#else
-    return impl::_cosf_(x);
-#endif
+    x = wrap_pi(x);
+    return 1.0f -
+        ( powi( x, 2 ) / F32::TWO_FACTORIAL ) +
+        ( powi( x, 4 ) / F32::FOUR_FACTORIAL )  -
+        ( powi( x, 6 ) / F32::SIX_FACTORIAL ) +
+        ( powi( x, 8 ) / F32::EIGHT_FACTORIAL );
+        // - ( pow( x, 10 ) / F32::TEN_FACTORIAL )
 }
 /// cosine function
 FORCE_INLINE f64 cos( f64 x ) {
-#if defined(LD_ARCH_X86)
-    f64 result;
-    __asm__ inline (
-        "fld qword ptr [%1]\n\t"
-        "fcos\n\t"
-        "fstp qword ptr %0"
-        : "=m" (result)
-        : "r" (&x)
-        : "cc"
-    );
-    return result;
-#else
-    return impl::_cos_(x);
-#endif
+    x = wrap_pi(x);
+    return 1.0 -
+        ( powi( x, 2 ) / F64::TWO_FACTORIAL ) +
+        ( powi( x, 4 ) / F64::FOUR_FACTORIAL )  -
+        ( powi( x, 6 ) / F64::SIX_FACTORIAL ) +
+        ( powi( x, 8 ) / F64::EIGHT_FACTORIAL );
+        // - ( powi( x, 10) / F64::TEN_FACTORIAL )
 }
 /// arc-cosine function
-inline f32 acos( f32 x ) {
-    return impl::_acosf_( x );
+FORCE_INLINE f32 acos( f32 x ) {
+    return -asin(x) + F32::HALF_PI;
 }
 /// arc-cosine function
-inline f64 acos( f64 x ) {
-    return impl::_acos_( x );
+FORCE_INLINE f64 acos( f64 x ) {
+    return -asin(x) + F64::HALF_PI;
 }
 
 // sin-cos function
 FORCE_INLINE tuplef32 sincos( f32 x ) {
-    tuplef32 result;
-#if defined(LD_ARCH_X86)
-    __asm__ inline (
-        "fld dword ptr [%2]\n\t"
-        "fsincos\n\t"
-        "fstp dword ptr %0\n\t"
-        "fstp dword ptr %1\n\t"
-        : "=m" (result.f[1]), "=m" (result.f[0])
-        : "r" (&x)
-        : "cc"
-    );
-#else
-    result.f[0] = sin(x);
-    result.f[1] = cos(x);
-#endif
-    return result;
+    return { sin(x), cos(x) };
 }
 // sin-cos function
 FORCE_INLINE tuplef64 sincos( f64 x ) {
-    tuplef64 result;
-#if defined(LD_ARCH_X86)
-    __asm__ inline (
-        "fld qword ptr [%2]\n\t"
-        "fsincos\n\t"
-        "fstp qword ptr %0\n\t"
-        "fstp qword ptr %1\n\t"
-        : "=m" (result.f[1]), "=m" (result.f[0])
-        : "r" (&x)
-        : "cc"
-    );
-#else
-    result.f[0] = sin(x);
-    result.f[1] = cos(x);
-#endif
-    return result;
+    return { sin(x), cos(x) };
 }
 
 /// tangent function
-inline f32 tan( f32 x ) {
-    // TODO(alicia): FPTAN?
+FORCE_INLINE f32 tan( f32 x ) {
     tuplef32 sc = sincos( x );
     return is_zero(sc.f1) ? F32::NAN : sc.f0 / sc.f1;
 }
 /// tangent function
-inline f64 tan( f64 x ) {
+FORCE_INLINE f64 tan( f64 x ) {
     tuplef64 sc = sincos( x );
     return is_zero(sc.f1) ? F64::NAN : sc.f0 / sc.f1;
 }
 /// arc-tangent function
 inline f32 atan( f32 x ) {
-    return impl::_atanf_( x );
+    return x -
+        ( powi( x, 3 )  / 3.0f ) +
+        ( powi( x, 5 )  / 5.0f ) -
+        ( powi( x, 7 )  / 7.0f ) +
+        ( powi( x, 9 )  / 9.0f ) -
+        ( powi( x, 11 ) / 11.0f ) +
+        ( powi( x, 13 ) / 13.0f );
 }
 /// arc-tangent function
 inline f64 atan( f64 x ) {
-    return impl::_atan_( x );
+    return x -
+        ( powi( x, 3 )  / 3.0 ) +
+        ( powi( x, 5 )  / 5.0 ) -
+        ( powi( x, 7 )  / 7.0 ) +
+        ( powi( x, 9 )  / 9.0 ) -
+        ( powi( x, 11 ) / 11.0 ) +
+        ( powi( x, 13 ) / 13.0 );
 }
 
 /// two argument arc-tangent function
-inline f32 atan2( f32 y, f32 x ) {
-    return impl::_atan2f_( y, x );
+FORCE_INLINE f32 atan2( f32 y, f32 x ) {
+    if( y == 0.0f ) {
+        if( x < 0.0f ) {
+            return F32::PI;
+        } else if( x == 0.0f ) {
+            return F32::NAN;
+        }
+    }
+
+    f32 x_sqr = x * x;
+    f32 y_sqr = y * y;
+    return 2.0f * atan( y / ( sqrt( x_sqr + y_sqr ) + x ) );
 }
 /// two argument arc-tangent function
-inline f64 atan2( f64 y, f64 x ) {
-    return impl::_atan2_( y, x );
+FORCE_INLINE f64 atan2( f64 y, f64 x ) {
+    if( y == 0.0 ) {
+        if( x < 0.0 ) {
+            return F64::PI;
+        } else if( x == 0.0 ) {
+            return F64::NAN;
+        }
+    }
+
+    f64 x_sqr = x * x;
+    f64 y_sqr = y * y;
+    return 2.0 * atan( y / ( sqrt( x_sqr + y_sqr ) + x ) );
 }
 
 /// convert degrees to radians
-inline f32 to_rad( f32 theta ) {
+FORCE_INLINE f32 to_rad( f32 theta ) {
     return theta * ( F32::PI / 180.0f );
 }
 /// convert degrees to radians
-inline f64 to_rad( f64 theta ) {
+FORCE_INLINE f64 to_rad( f64 theta ) {
     return theta * ( F64::PI / 180.0 );
 }
 /// convert radians to degrees 
-inline f32 to_deg( f32 theta ) {
+FORCE_INLINE f32 to_deg( f32 theta ) {
     return theta * ( 180.0f / F32::PI );
 }
 /// convert radians to degrees 
-inline f64 to_deg( f64 theta ) {
+FORCE_INLINE f64 to_deg( f64 theta ) {
     return theta * ( 180.0 / F64::PI );
-}
-
-/// keep degrees in 0.0-360 range
-inline f32 degrees_overflow( f32 deg ) {
-    f32 result = mod( deg, 360.0f );
-    if( result < 0.0f ) {
-        result += 360.0f;
-    }
-    return result;
 }
 
 /// natural logarithm

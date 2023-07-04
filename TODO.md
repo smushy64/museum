@@ -5,6 +5,9 @@
 -->
 # TODO 
 
+## Motivation mini-projects
+- [ ] Make an asteroids clone using liquid engine :)
+
 ## Features
 - [x] Hello Triangle (OpenGL)
   - [x] Shader compilation + linking (pipelines?)
@@ -20,6 +23,7 @@
 - [x] Remove dependency on the C runtime library in liquid engine library code
 - [x] Macros that hide specfic intrinsics when using SIMD
 - [x] Implement mutex
+- [x] Implement math functions: asin, acos, atan, atan2, powi, modf
 - [ ] Proper frametiming (using platform_sleep?)
 - [ ] Audio subsystem
 - [ ] Memory arena
@@ -35,19 +39,24 @@
 - [ ] format: more accurate float print out
 - [ ] Remove dependency on the C runtime library in testbed code
 - [ ] Implement custom math functions
-    - asin, acos, atan, atan2
-    - pow, log, mod
+    - log, powf
 
 ## Bug Fixes
 - [ ] format: integer binary format should only print necessary bits
+- [ ] replace all __builtin_ functions throughout math library
+    - clangd doesn't complain about them but during compilation,
+    any function that uses them will cause a linker error
+- [ ] make sure that atan actually produces good results.
+    outside the -1 -> 1 range, it diverges heavily.
+    it may not actually be that big of a problem but still.
 
 ## Optimzations
 - [x] Poll XInputGetState on a separate thread
     so that the main thread doesn't stall
     when a controller isn't connected. This is a known bug with
     XInputGetState so I gotta work around it.
-- [ ] Optimize string formatting functions
-- [ ] replace hardware trig functions with taylor series + simd
+- [x] replace hardware trig functions with taylor series + simd
     - on my machine, the hardware instructions are faster than stdlib
         but that may not be the case on other machines
+- [ ] Optimize string formatting functions
 

@@ -358,6 +358,20 @@ namespace F32 {
     global const u32 EXPONENT_MASK = ~(0xFFFFFFFF << 8) << 23;
     /// bitmask of single precision float mantissa
     global const u32 MANTISSA_MASK = (1 << 23) - 1;
+
+
+    global const f32 ONE_FACTORIAL    = 1.0f;
+    global const f32 TWO_FACTORIAL    = 2.0f  * ONE_FACTORIAL;
+    global const f32 THREE_FACTORIAL  = 3.0f  * TWO_FACTORIAL;
+    global const f32 FOUR_FACTORIAL   = 4.0f  * THREE_FACTORIAL;
+    global const f32 FIVE_FACTORIAL   = 5.0f  * FOUR_FACTORIAL;
+    global const f32 SIX_FACTORIAL    = 6.0f  * FIVE_FACTORIAL;
+    global const f32 SEVEN_FACTORIAL  = 7.0f  * SIX_FACTORIAL;
+    global const f32 EIGHT_FACTORIAL  = 8.0f  * SEVEN_FACTORIAL;
+    global const f32 NINE_FACTORIAL   = 9.0f  * EIGHT_FACTORIAL;
+    global const f32 TEN_FACTORIAL    = 10.0f * NINE_FACTORIAL;
+    global const f32 ELEVEN_FACTORIAL = 11.0f * TEN_FACTORIAL;
+    global const f32 TWELVE_FACTORIAL = 12.0f * ELEVEN_FACTORIAL;
 };
 
 /// 64-bit floating point constants
@@ -390,6 +404,19 @@ namespace F64 {
     global const u64 EXPONENT_MASK = (0x7FFULL << 52);
     /// bitmask of double precision float mantissa 
     global const u64 MANTISSA_MASK = ((1ULL << 52) - 1);
+
+    global const f64 ONE_FACTORIAL    = 1.0;
+    global const f64 TWO_FACTORIAL    = 2.0  * ONE_FACTORIAL;
+    global const f64 THREE_FACTORIAL  = 3.0  * TWO_FACTORIAL;
+    global const f64 FOUR_FACTORIAL   = 4.0  * THREE_FACTORIAL;
+    global const f64 FIVE_FACTORIAL   = 5.0  * FOUR_FACTORIAL;
+    global const f64 SIX_FACTORIAL    = 6.0  * FIVE_FACTORIAL;
+    global const f64 SEVEN_FACTORIAL  = 7.0  * SIX_FACTORIAL;
+    global const f64 EIGHT_FACTORIAL  = 8.0  * SEVEN_FACTORIAL;
+    global const f64 NINE_FACTORIAL   = 9.0  * EIGHT_FACTORIAL;
+    global const f64 TEN_FACTORIAL    = 10.0 * NINE_FACTORIAL;
+    global const f64 ELEVEN_FACTORIAL = 11.0 * TEN_FACTORIAL;
+    global const f64 TWELVE_FACTORIAL = 12.0 * ELEVEN_FACTORIAL;
 };
 
 /// 8-bit unsigned integer constants

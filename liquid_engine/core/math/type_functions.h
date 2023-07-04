@@ -167,7 +167,7 @@ FORCE_INLINE b32 cmp_eq( ivec2 a, ivec2 b ) {
 /// Create HSV from hue, saturation and value.
 FORCE_INLINE hsv v3_hsv( f32 hue, f32 saturation, f32 value ) {
     return {
-        degrees_overflow( hue ),
+        wrap_degrees( hue ),
         clamp01( saturation ),
         clamp01( value )
     };
