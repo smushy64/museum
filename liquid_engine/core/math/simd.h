@@ -7,9 +7,9 @@
 
 #if LD_SIMD_WIDTH == 1
 
-#include "builtins.h"
+#include "functions.h"
 
-#define lane1f_sqrt( x ) ::impl::_sqrtf_( x )
+#define lane1f_sqrt( x ) sqrt( x )
 
 namespace impl {
     union four_wide { f32 f[4]; struct { f32 f0, f1, f2, f3; }; };
@@ -67,6 +67,7 @@ typedef ::impl::four_wide Lane4f;
 #include "simd_sse.h"
 
 #define lane1f_sqrt( x ) _mm_cvtss_f32( _mm_sqrt_ss( _mm_set_ss( x ) ) )
+#define lane1f_inv_sqrt( x ) _mm_cvtss_f32( _mm_rsqrt_ss( _mm_set_ss( x ) ) )
 
 typedef __m128  Lane4f;
 typedef __m128i Lane4i;
@@ -77,12 +78,36 @@ typedef __m128i Lane4i;
 #define lane4f_load( f ) _mm_loadu_ps( f )
 #define lane4f_store( f, l ) _mm_storeu_ps( f, l )
 
-#define lane4f_index( a, i ) ((*(f32*)&a)[i])
+#define lane4f_index( a, i ) (((f32*)&a)[i])
 #define lane4f_add( a, b ) _mm_add_ps( a, b )
 #define lane4f_sub( a, b ) _mm_sub_ps( a, b )
 #define lane4f_mul( a, b ) _mm_mul_ps( a, b )
 #define lane4f_div( a, b ) _mm_div_ps( a, b )
 #define lane4f_sqrt( a ) _mm_sqrt_ps( a )
+
+#define lane4i_set1( i ) _mm_set1_epi32( i )
+#define lane4i_set0()    _mm_setzero_si128()
+#define lane4i_set( i0, i1, i2, i3 ) _mm_setr_epi32( i0, i1, i2, i3 )
+#define lane4i_load( i ) _mm_loadu_si128( i )
+#define lane4i_store( i, l ) do {\
+    Lane4i lane = l;\
+    i[0] = lane4i_index( lane, 0 );\
+    i[1] = lane4i_index( lane, 1 );\
+    i[2] = lane4i_index( lane, 2 );\
+    i[3] = lane4i_index( lane, 3 );\
+} while(0)
+
+#define lane4i_index( a, i ) (((i32*)&a)[i])
+#define lane4i_add( a, b ) _mm_add_epi32( a, b )
+#define lane4i_sub( a, b ) _mm_sub_epi32( a, b )
+#define lane4i_mul( a, b ) _mm_mullo_epi32( a, b )
+#define lane4i_div( a, b )\
+    _mm_cvtps_epi32( \
+        _mm_div_ps(\
+            _mm_cvtepi32_ps( a ),\
+            _mm_cvtepi32_ps( b )\
+        )\
+    )
 
 #endif // ARCH_X86
 

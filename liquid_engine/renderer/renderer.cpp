@@ -63,11 +63,11 @@ void renderer_on_resize(
 ) {
     ctx->backend_on_resize( ctx, width, height );
 }
-b32 renderer_begin_frame( RendererContext* ctx, Time* time ) {
-    return ctx->backend_begin_frame( ctx, time );
+b32 renderer_begin_frame( RendererContext* ctx, RenderOrder* order ) {
+    return ctx->backend_begin_frame( ctx, order );
 }
-b32 renderer_end_frame( RendererContext* ctx, Time* time ) {
-    b32 result = ctx->backend_end_frame( ctx, time );
+b32 renderer_end_frame( RendererContext* ctx, RenderOrder* order ) {
+    b32 result = ctx->backend_end_frame( ctx, order );
     return result;
 }
 b32 renderer_draw_frame(
@@ -75,10 +75,10 @@ b32 renderer_draw_frame(
     RenderOrder* order
 ) {
     if( renderer_begin_frame(
-        ctx, order->time
+        ctx, order
     ) ) {
         if( !renderer_end_frame(
-            ctx, order->time
+            ctx, order
         ) ) {
             LOG_FATAL( "Renderer end frame failed!" );
             return false;

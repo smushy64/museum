@@ -42,6 +42,9 @@ public:
 
 #define ______EXPANSION_1( a, b ) ______EXPANSION_2( a, b )
 
+/// Create a timer for the current scope.
+/// Prints to the console how long it took for the
+/// current scope to execute ( in milliseconds ).
 #define AUTO_TIMER\
     ______EXPANSION_1(_AUTO_TIMER_, __LINE__)
 

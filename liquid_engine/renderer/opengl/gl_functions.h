@@ -476,6 +476,15 @@ IMPL_GL_FUNCTION( void, glProgramUniform3uiv, GLuint program, GLint location, GL
 IMPL_GL_FUNCTION( void, glProgramUniform4uiv, GLuint program, GLint location, GLsizei count, const GLuint* value ) {
     return impl::in_glProgramUniform4uiv( program, location, count, value );
 }
+IMPL_GL_FUNCTION( void, glProgramUniformMatrix2fv, GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value ) {
+    return impl::in_glProgramUniformMatrix2fv( program, location, count, transpose, value );
+}
+IMPL_GL_FUNCTION( void, glProgramUniformMatrix3fv, GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value ) {
+    return impl::in_glProgramUniformMatrix3fv( program, location, count, transpose, value );
+}
+IMPL_GL_FUNCTION( void, glProgramUniformMatrix4fv, GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value ) {
+    return impl::in_glProgramUniformMatrix4fv( program, location, count, transpose, value );
+}
 IMPL_GL_FUNCTION( void, glProgramUniformMatrix2x3fv, GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value ) {
     return impl::in_glProgramUniformMatrix2x3fv( program, location, count, transpose, value );
 }

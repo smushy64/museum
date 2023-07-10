@@ -5,9 +5,21 @@
 // * File Created: June 18, 2023
 #include "defines.h"
 #include "core/string.h"
+#include "core/math/types.h"
 
 typedef u32 LogLevel;
 typedef u32 PlatformFlags;
+
+LD_API struct ThreadWorkQueue* engine_get_thread_work_queue(
+    struct EngineContext* engine_ctx
+);
+LD_API struct EntityStorage* engine_get_entity_storage(
+    struct EngineContext* engine_ctx
+);
+LD_API struct Time* engine_get_time( struct EngineContext* engine_ctx );
+LD_API struct RenderOrder* engine_get_render_order(
+    struct EngineContext* engine_ctx
+);
 
 /// Supported renderer backends
 enum RendererBackend : u32 {
@@ -39,9 +51,6 @@ struct EngineConfig {
 /// Application function
 typedef b32 (*ApplicationRunFN)(
     struct EngineContext*   engine_ctx,
-    struct ThreadWorkQueue* thread_work_queue,
-    struct RenderOrder* render_order,
-    struct Time* time,
     void* user_params
 );
 
@@ -118,6 +127,8 @@ LD_API b32 engine_query_is_avx_available( struct EngineContext* ctx );
 LD_API b32 engine_query_is_avx2_available( struct EngineContext* ctx );
 /// Query if AVX-512 instructions are available.
 LD_API b32 engine_query_is_avx512_available( struct EngineContext* ctx );
+/// Query engine surface size
+LD_API ivec2 engine_query_surface_size( struct EngineContext* ctx );
 
 /// Handle to opaque library object.
 typedef void* LibraryHandle;

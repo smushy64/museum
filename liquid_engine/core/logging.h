@@ -5,8 +5,6 @@
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: April 27, 2023
  * Notes:        define LD_LOGGING to enable logging
- *               always call "log_init" at the
- *                 very start of the program
 */
 #include "defines.h"
 #include "core/string.h"

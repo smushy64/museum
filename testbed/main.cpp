@@ -38,7 +38,8 @@ int init( int argc, const char** argv ) {
     config.application_name          = name_buffer;
     config.surface_dimensions        = { 800, 600 };
     config.log_level        = LOG_LEVEL_ALL_VERBOSE;
-    config.platform_flags   = (1 << 0);
+    // TODO(alicia): expose these flags somewhere
+    config.platform_flags   = (1 << 0) | (1 << 1);
     config.renderer_backend = backend;
 
     b32 result = engine_run(

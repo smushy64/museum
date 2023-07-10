@@ -10,12 +10,15 @@
 */
 #include "defines.h"
 
+/// Memory arena that works like a stack.
+/// Push new items and pop old items off the top of the stack.
 struct StackArena {
     void* arena;
     u32 stack_pointer;
     u32 arena_size;
 };
 
+/// Types of memory allocations
 enum MemoryType : u64 {
     MEMTYPE_UNKNOWN,
     MEMTYPE_ENGINE,

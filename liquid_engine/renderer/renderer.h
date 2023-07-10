@@ -22,12 +22,12 @@ typedef void (*RendererBackendOnResizeFn)(
 
 typedef b32 (*RendererBackendBeginFrameFn)(
     struct RendererContext* ctx,
-    struct Time* time
+    struct RenderOrder* order
 );
 
 typedef b32 (*RendererBackendEndFrameFn)(
     struct RendererContext* ctx,
-    struct Time* time
+    struct RenderOrder* order
 );
 
 struct RendererContext {
@@ -39,9 +39,17 @@ struct RendererContext {
     RendererBackendEndFrameFn   backend_end_frame;
 };
 
+struct DrawBinding {
+    mat4 transform;
+    u32  mesh_index;
+};
+
 struct RenderOrder {
     Mesh* meshes;
     u32   mesh_count;
+
+    DrawBinding* draw_bindings;
+    u32 draw_binding_count;
 
     struct Time* time;
 };

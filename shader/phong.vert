@@ -7,14 +7,16 @@
 #include "matrix.include"
 
 in layout(location = 0) vec2 v_position;
-in layout(location = 1) vec3 v_color;
+in layout(location = 1) vec2 v_uv;
+
+uniform layout(location = 0) mat4 u_transform = mat4(1.0);
 
 out layout( location = 0 ) struct Vert2Frag {
-    vec3 color;
+    vec2 uv;
 } v2f;
 
 void main() {
-    gl_Position = VIEW_PROJECTION * vec4(v_position, 0.0, 1.0);
-    v2f.color   = v_color;
+    gl_Position = VIEW_PROJECTION * u_transform * vec4(v_position, 0.0, 1.0);
+    v2f.uv      = v_uv;
 }
 

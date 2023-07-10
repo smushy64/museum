@@ -8,7 +8,24 @@
 #include "defines.h"
 #include "math/types.h"
 
-typedef u32 RendererID;
+/// Renderer ID.
+/// Some C++ shenanigans to get it to
+/// be uninitialized if 0.
+struct RendererID {
+private:
+    union {
+        [[maybe_unused]]
+        u8  ___unused[3];
+        b8  initialized;
+        u32 id_value;
+    };
+public:
+    RendererID() : id_value(0) {}
+    RendererID( u32 x ) { id_value = 0x1 | (x << 1); }
+
+    b32 is_valid() const { return initialized; }
+    u32 id() const { return id_value >> 1; }
+};
 
 /// Vertex definition
 struct Vertex {
@@ -18,28 +35,47 @@ struct Vertex {
     vec3 normal;
 };
 
+/// 2D-Vertex definition
+struct Vertex2D {
+    vec2 position;
+    vec2 uv;
+};
+
+enum VertexType : u8 {
+    VERTEX_TYPE_3D,
+    VERTEX_TYPE_2D
+};
+
+enum IndexType : u8 {
+    INDEX_TYPE_U32,
+    INDEX_TYPE_U16,
+    INDEX_TYPE_U8
+};
+
+typedef u32 MeshFlags;
+
 /// Mesh definition
 struct Mesh {
-    Vertex* vertices;
-    u32*    indices;
+    union {
+        Vertex*   vertices_3d;
+        Vertex2D* vertices_2d;
+        void*     vertices;
+    };
+    union {
+        u32* indices32;
+        u16* indices16;
+        u8*  indices8;
+        void* indices;
+    };
+
+    VertexType vertex_type;
+    IndexType  index_type;
+    b8         is_static_mesh;
 
     u32 vertex_count;
     u32 index_count;
 
     RendererID id;
 };
-LD_API Mesh mesh_create(
-    u32 vertex_count,
-    u32 index_count,
-    Vertex* vertices,
-    u32* indices
-);
-
-/// Basic mesh upload
-LD_API void upload_mesh_list(
-    struct RenderOrder* order,
-    Mesh* list,
-    u32 mesh_count
-);
 
 #endif // header guard

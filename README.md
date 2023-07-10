@@ -4,22 +4,15 @@ Project Museum is a 3D Action RPG. Liquid Engine is the custom engine that will 
 
 # Details
 
-Compiled using clang, C++20 standard. No libraries are used with the exception of system libraries ( Win32, OpenGL etc. ).
+Compiled using clang, C++20 standard.
+
+No libraries are used with the exception of system libraries ( Win32, OpenGL etc. )
+
 Build system: Windows 11 x64, mingw64, GNU Make, clang.
 
 # Special Thanks
 
 - Casey Muratori (Handmade Hero)
 - Travis Vroman (Kohi Game Engine)
-- RemedyBG 
+- [RemedyBG](https://remedybg.itch.io/remedybg)
 
-<!-- # Tools -->
-<!-- - IDE -->
-<!--   - Visual Studio Code -->
-<!--     - clangd LSP -->
-<!-- - Debugger -->
-<!--   - RemedyBG (windows) -->
-<!--   - Visual Studio Code + GDB (other platforms) -->
-<!-- - Compiler -->
-<!--   - GNU Makefile -->
-<!--   - clang++ with C++20 standard -->

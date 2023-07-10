@@ -39,7 +39,7 @@
 - [ ] format: more accurate float print out
 - [ ] Remove dependency on the C runtime library in testbed code
 - [ ] Implement custom math functions
-    - log, powf
+    - log, powf, no simd sqrtf
 
 ## Bug Fixes
 - [ ] format: integer binary format should only print necessary bits

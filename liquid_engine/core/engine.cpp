@@ -16,6 +16,7 @@
 #include "time.h"
 #include "math.h"
 #include "audio.h"
+#include "ecs.h"
 
 #define THREAD_WORK_ENTRY_COUNT 256
 struct ThreadInfo {
@@ -44,10 +45,12 @@ char APPLICATION_NAME_BUFFER[APPLICATION_NAME_BUFFER_SIZE] = {};
 struct EngineContext {
     SystemInfo       system_info;       // 88 
     ThreadWorkQueue  thread_work_queue; // 48
+    RenderOrder      render_order;      // 40
     Time             time;              // 16
-    StackArena       arena; // 16
+    StackArena       arena;             // 16
     Platform*        platform;          // 8
     RendererContext* renderer_context;  // 8
+    EntityStorage*   entity_storage;    // 8
 
     StringView application_name_view;
     StringView application_name_writable_view;
@@ -98,7 +101,7 @@ b32 engine_run(
     void* application_run_user_params,
     EngineConfig* config
 ) {
-
+    ASSERT( application_run );
     EngineContext ctx = {};
 
     for( i32 i = 0; i < argc; ++i ) {
@@ -157,21 +160,28 @@ b32 engine_run(
         thread_work_entry_buffer_size +
         thread_handle_buffer_size +
         logging_subsystem_size +
+        sizeof( EntityStorage ) +
         STACK_ARENA_SAFETY_BYTES;
 
-    u32 stack_arena_size = required_stack_arena_size;
-    if( !stack_arena_create( stack_arena_size, MEMTYPE_ENGINE, &ctx.arena ) ) {
+    if( !stack_arena_create(
+        required_stack_arena_size,
+        MEMTYPE_ENGINE,
+        &ctx.arena
+    ) ) {
         LOG_FATAL(
             "Subsystem Failure",
             "Failed to create stack arena! Requested size: {u}",
-            stack_arena_size
+            required_stack_arena_size
         );
         return false;
     }
 
+    ctx.entity_storage = stack_arena_push( ctx.arena, EntityStorage );
+
 #if defined(LD_LOGGING)
 
     if( !is_log_initialized() ) {
+        println( "Stack Arena size: {u}", required_stack_arena_size );
         StringView logging_buffer = {};
         logging_buffer.len = logging_subsystem_size;
         logging_buffer.buffer =
@@ -188,7 +198,6 @@ b32 engine_run(
 
 #endif
 
-    ASSERT( application_run );
     LOG_INFO("Liquid Engine Version: {i}.{i}",
         LIQUID_ENGINE_VERSION_MAJOR,
         LIQUID_ENGINE_VERSION_MINOR
@@ -197,11 +206,10 @@ b32 engine_run(
     ctx.application_name_view.len    = APPLICATION_NAME_BUFFER_SIZE;
     ctx.application_name_view.buffer = APPLICATION_NAME_BUFFER;
 
-    void* event_subsystem_data    = stack_arena_push_item(
+    void* event_subsystem_data = stack_arena_push_item(
         &ctx.arena,
         event_subsystem_size
     );
-    ASSERT( event_subsystem_data );
 
     if( !event_init( event_subsystem_data ) ) {
         MESSAGE_BOX_FATAL(
@@ -215,11 +223,6 @@ b32 engine_run(
     ctx.platform = (Platform*)stack_arena_push_item(
         &ctx.arena,
         platform_subsystem_size
-    );
-    LOG_ASSERT(
-        ctx.platform,
-        "Stack Arena of size {u} is not enough to initialize engine!",
-        ctx.arena.arena_size
     );
 
     void* input_subsystem_buffer = stack_arena_push_item(
@@ -482,6 +485,27 @@ b32 engine_run(
         return false;
     }
 
+    // TODO(alicia): TEST CODE ONLY
+    Vertex2D vertices[] = {
+        { {  1.0f,  1.0f }, { 1.0f, 1.0f } },
+        { { -1.0f,  1.0f }, { 0.0f, 1.0f } },
+        { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
+        { {  1.0f, -1.0f }, { 1.0f, 0.0f } }
+    };
+    u8 indices[] = {
+        0, 1, 2,
+        2, 3, 0
+    };
+
+    Mesh mesh = {};
+    mesh.vertices_2d  = vertices;
+    mesh.vertex_count = STATIC_ARRAY_COUNT( vertices );
+    mesh.indices8     = indices;
+    mesh.index_count  = STATIC_ARRAY_COUNT( indices );
+    mesh.vertex_type    = VERTEX_TYPE_2D;
+    mesh.index_type     = INDEX_TYPE_U8;
+    mesh.is_static_mesh = true;
+
     ctx.is_running = true;
     while( ctx.is_running ) {
         input_swap();
@@ -509,26 +533,17 @@ b32 engine_run(
             platform_cursor_center( ctx.platform );
         }
 
-        f64 seconds_elapsed = platform_s_elapsed( ctx.platform );
-        ctx.time.delta_seconds =
-            seconds_elapsed - ctx.time.elapsed_seconds;
-        ctx.time.elapsed_seconds = seconds_elapsed;
-
-        RenderOrder draw_order = {};
-        draw_order.time  = &ctx.time;
-        if( !application_run(
-            &ctx,
-            &ctx.thread_work_queue,
-            &draw_order,
-            &ctx.time,
-            application_run_user_params
-        ) ) {
+        ctx.render_order = {};
+        ctx.render_order.meshes     = &mesh;
+        ctx.render_order.mesh_count = 1;
+        ctx.render_order.time       = &ctx.time;
+        if( !application_run( &ctx, application_run_user_params ) ) {
             return false;
         }
         
         if( !renderer_draw_frame(
             ctx.renderer_context,
-            &draw_order
+            &ctx.render_order
         ) ) {
             MESSAGE_BOX_FATAL(
                 "Renderer Failure",
@@ -540,13 +555,17 @@ b32 engine_run(
 
         audio_test( ctx.platform );
 
-        // TODO(alicia): frame timing  
-
         ctx.time.frame_count++;
         semaphore_increment(
             ctx.thread_work_queue.on_frame_update_semaphore,
             1, nullptr
         );
+
+        f64 seconds_elapsed = platform_s_elapsed( ctx.platform );
+        ctx.time.delta_seconds =
+            seconds_elapsed - ctx.time.elapsed_seconds;
+        ctx.time.elapsed_seconds = seconds_elapsed;
+
     }
 
     ctx.is_running = false; 
@@ -726,6 +745,9 @@ b32 engine_query_is_avx2_available( struct EngineContext* ctx ) {
 b32 engine_query_is_avx512_available( struct EngineContext* ctx ) {
     return ARE_BITS_SET( ctx->system_info.features, AVX512_MASK );
 }
+ivec2 engine_query_surface_size( struct EngineContext* ctx ) {
+    return ctx->platform->surface.dimensions;
+}
 
 u32 thread_info_read_index( struct ThreadInfo* thread_info ) {
     return thread_info->thread_index;
@@ -733,5 +755,27 @@ u32 thread_info_read_index( struct ThreadInfo* thread_info ) {
 
 SemaphoreHandle* thread_info_on_frame_update_semaphore( struct ThreadInfo* thread_info ) {
     return &thread_info->work_queue->on_frame_update_semaphore;
+}
+
+LD_API struct ThreadWorkQueue* engine_get_thread_work_queue(
+    struct EngineContext* engine_ctx
+) {
+    return &engine_ctx->thread_work_queue;
+}
+
+LD_API struct EntityStorage* engine_get_entity_storage(
+    struct EngineContext* engine_ctx
+) {
+    return engine_ctx->entity_storage;
+}
+
+LD_API struct Time* engine_get_time( struct EngineContext* engine_ctx ) {
+    return &engine_ctx->time;
+}
+
+LD_API struct RenderOrder* engine_get_render_order(
+    struct EngineContext* engine_ctx
+) {
+    return &engine_ctx->render_order;
 }
 

@@ -5,8 +5,6 @@
 
 MAKEFLAGS += -j4
 
-IS_DEBUG = 
-
 target  := ../$(BUILD_PATH)/$(testbed_name)
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 

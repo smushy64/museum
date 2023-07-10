@@ -13,8 +13,11 @@
 #include "core/collections.h"
 #include "core/time.h"
 #include "core/math.h"
+#include "core/graphics.h"
 
 #define GL_DEFAULT_CLEAR_COLOR 0.0f, 0.0f, 0.0f, 1.0f
+
+global GLuint NULL_TEXTURE = 0;
 
 void gl_debug_callback (
     GLenum ,       // source
@@ -91,7 +94,28 @@ b32 gl_renderer_backend_initialize( RendererContext* generic_ctx ) {
     );
 
     // TODO(alicia): TEST CODE!!!!!
-    glCreateBuffers( 3, ctx->buffer_handles );
+    glCreateTextures( GL_TEXTURE_2D, 1, &NULL_TEXTURE );
+    glTextureParameteri( NULL_TEXTURE, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
+    glTextureParameteri( NULL_TEXTURE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
+    glTextureParameteri( NULL_TEXTURE, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+    glTextureParameteri( NULL_TEXTURE, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+    glTextureStorage2D(
+        NULL_TEXTURE,
+        1, GL_RGBA8,
+        1, 1
+    );
+    u32 null_texture_pixel = U32::MAX;
+    glTextureSubImage2D(
+        NULL_TEXTURE,
+        0,
+        0, 0,
+        1, 1,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        &null_texture_pixel
+    );
+
+    glCreateBuffers( 1, &ctx->u_matrices );
     f32 aspect_ratio =
         (f32)dimensions.width /
         (f32)dimensions.height;
@@ -208,66 +232,7 @@ b32 gl_renderer_backend_initialize( RendererContext* generic_ctx ) {
         return false;
     }
 
-    glCreateVertexArrays( 1, &ctx->vao_triangle );
-    local f32 TRIANGLE_VERTICES[] = {
-        -1.0f, -1.0f, /* color */  1.0f,  0.0f,  0.0f,
-         1.0f, -1.0f, /* color */  0.0f,  1.0f,  0.0f,
-        0.0f,1.0f, /* color */ 0.0f, 0.0f, 1.0f,
-    };
-    local u32 TRIANGLE_INDICES[] = {
-        0, 1, 2
-    };
-    glNamedBufferData(
-        ctx->vbo_triangle,
-        STATIC_ARRAY_SIZE( TRIANGLE_VERTICES ),
-        TRIANGLE_VERTICES,
-        GL_STATIC_DRAW
-    );
-    glVertexArrayVertexBuffer(
-        ctx->vao_triangle,
-        0,
-        ctx->vbo_triangle,
-        0, sizeof(f32) * 5
-    );
-    glEnableVertexArrayAttrib( ctx->vao_triangle, 0 );
-    glEnableVertexArrayAttrib( ctx->vao_triangle, 1 );
-    glVertexArrayAttribFormat(
-        ctx->vao_triangle,
-        0,
-        2,
-        GL_FLOAT,
-        GL_FALSE,
-        0
-    );
-    glVertexArrayAttribFormat(
-        ctx->vao_triangle,
-        1,
-        3,
-        GL_FLOAT,
-        GL_FALSE,
-        sizeof(f32) * 2
-    );
-    glVertexArrayAttribBinding(
-        ctx->vao_triangle,
-        0,
-        0
-    );
-    glVertexArrayAttribBinding(
-        ctx->vao_triangle,
-        1,
-        0
-    );
 
-    glNamedBufferData(
-        ctx->ebo_triangle,
-        STATIC_ARRAY_SIZE( TRIANGLE_INDICES ),
-        TRIANGLE_INDICES,
-        GL_STATIC_DRAW
-    );
-    glVertexArrayElementBuffer(
-        ctx->vao_triangle,
-        ctx->ebo_triangle
-    );
 
     GL_LOG_INFO("OpenGL backend initialized successfully.");
     return true;
@@ -277,9 +242,10 @@ void gl_renderer_backend_shutdown( RendererContext* generic_ctx ) {
 
     // TODO(alicia): TEST CODE ONLY
 
-    glDeleteBuffers( 3, ctx->buffer_handles );
+    glDeleteTextures( 1, &NULL_TEXTURE );
+
+    glDeleteBuffers( 1, &ctx->u_matrices );
     gl_shader_program_delete( &ctx->phong );
-    glDeleteVertexArrays( 1, &ctx->vao_triangle );
 
     // TODO(alicia): END TEST CODE ONLY
 
@@ -314,28 +280,180 @@ void gl_renderer_backend_on_resize(
         value_pointer( view_projection )
     );
 }
-b32 gl_renderer_backend_begin_frame( RendererContext* generic_ctx, Time* time ) {
+
+internal void gl_make_mesh( Mesh* mesh ) {
+    if( mesh->id.is_valid() ) {
+        return;
+    }
+    GLuint vao = 0;
+    glCreateVertexArrays( 1, &vao );
+    mesh->id = vao;
+    GLuint buffers[2];
+    glCreateBuffers( 2, buffers );
+    GLuint vbo = buffers[0];
+    GLuint ebo = buffers[1];
+
+    u32 vertex_size = sizeof(Vertex);
+    if( mesh->vertex_type == VERTEX_TYPE_2D ) {
+        vertex_size = sizeof(Vertex2D);
+    }
+
+    GLenum usage = GL_DYNAMIC_DRAW;
+    if( mesh->is_static_mesh ) {
+        usage = GL_STATIC_DRAW;
+    }
+
+    glNamedBufferData(
+        vbo,
+        mesh->vertex_count * vertex_size,
+        mesh->vertices,
+        usage
+    );
+    glVertexArrayVertexBuffer(
+        vao, 0,
+        vbo, 0,
+        vertex_size
+    );
+    switch( mesh->vertex_type ) {
+        case VERTEX_TYPE_2D: {
+            glEnableVertexArrayAttrib( vao, 0 );
+            glEnableVertexArrayAttrib( vao, 1 );
+            glVertexArrayAttribFormat(
+                vao, 0,
+                2, GL_FLOAT,
+                GL_FALSE,
+                0
+            );
+            glVertexArrayAttribFormat(
+                vao, 1,
+                2, GL_FLOAT,
+                GL_FALSE,
+                sizeof(vec2)
+            );
+            glVertexArrayAttribBinding( vao, 0, 0 );
+            glVertexArrayAttribBinding( vao, 1, 0 );
+        } break;
+        case VERTEX_TYPE_3D: {
+            glEnableVertexArrayAttrib( vao, 0 );
+            glEnableVertexArrayAttrib( vao, 1 );
+            glEnableVertexArrayAttrib( vao, 2 );
+            glEnableVertexArrayAttrib( vao, 3 );
+            glVertexArrayAttribFormat(
+                vao, 0,
+                4, GL_FLOAT,
+                GL_FALSE,
+                0
+            );
+            glVertexArrayAttribFormat(
+                vao, 1,
+                3, GL_FLOAT,
+                GL_FALSE,
+                sizeof(vec4)
+            );
+            glVertexArrayAttribFormat(
+                vao, 2,
+                2, GL_FLOAT,
+                GL_FALSE,
+                sizeof(vec4) + sizeof(vec3)
+            );
+            glVertexArrayAttribFormat(
+                vao, 3,
+                3, GL_FLOAT,
+                GL_FALSE,
+                sizeof(vec4) + sizeof(vec3) + sizeof(vec2)
+            );
+            glVertexArrayAttribBinding( vao, 0, 0 );
+            glVertexArrayAttribBinding( vao, 1, 0 );
+            glVertexArrayAttribBinding( vao, 2, 0 );
+            glVertexArrayAttribBinding( vao, 3, 0 );
+        } break;
+        default: PANIC();
+    }
+    u32 index_size = 0;
+    switch( mesh->index_type ) {
+        case INDEX_TYPE_U32: {
+            index_size = sizeof(u32);
+        } break;
+        case INDEX_TYPE_U16: {
+            index_size = sizeof(u16);
+        } break;
+        case INDEX_TYPE_U8: {
+            index_size = sizeof(u8);
+        } break;
+        default: PANIC();
+    }
+    glNamedBufferData(
+        ebo,
+        index_size * mesh->index_count,
+        mesh->indices,
+        usage
+    );
+    glVertexArrayElementBuffer( vao, ebo );
+}
+
+b32 gl_renderer_backend_begin_frame(
+    RendererContext* generic_ctx,
+    RenderOrder* order
+) {
     OpenGLRendererContext* ctx = (OpenGLRendererContext*)generic_ctx;
+    for( u32 i = 0; i < order->mesh_count; ++i ) {
+        gl_make_mesh( &order->meshes[i] );
+    }
+
     // TODO(alicia): 
-    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT );
+    glClear(
+        GL_COLOR_BUFFER_BIT |
+        GL_DEPTH_BUFFER_BIT |
+        GL_STENCIL_BUFFER_BIT
+    );
+    glBindTextureUnit( 0, NULL_TEXTURE );
 
     glUseProgram( ctx->phong.handle );
-    glBindVertexArray( ctx->vao_triangle );
-    glDrawElements(
-        GL_TRIANGLES,
-        3,
-        GL_UNSIGNED_INT,
-        nullptr
-    );
+    GLint transform_location = glGetUniformLocation( ctx->phong.handle, "u_transform" );
+    ASSERT( transform_location >= 0 );
+    for( u32 i = 0; i < order->draw_binding_count; ++i ) {
+        DrawBinding* current_binding = &order->draw_bindings[i];
+        Mesh* mesh = &order->meshes[current_binding->mesh_index];
 
-    unused(time);
+        if( !mesh->id.is_valid() ) {
+            continue;
+        }
+
+        glProgramUniformMatrix4fv(
+            ctx->phong.handle,
+            transform_location,
+            1, GL_FALSE,
+            value_pointer( current_binding->transform )
+        );
+        glBindVertexArray( mesh->id.id() );
+        GLenum index_type = GL_UNSIGNED_INT;
+        switch( mesh->index_type ) {
+            case INDEX_TYPE_U16:
+                index_type = GL_UNSIGNED_SHORT;
+                break;
+            case INDEX_TYPE_U8:
+                index_type = GL_UNSIGNED_BYTE;
+                break;
+            default: break;
+        }
+        glDrawElements(
+            GL_TRIANGLES,
+            mesh->index_count,
+            index_type,
+            nullptr
+        );
+    }
+
     return true;
 }
-b32 gl_renderer_backend_end_frame( RendererContext* ctx, Time* time ) {
+b32 gl_renderer_backend_end_frame(
+    RendererContext* ctx,
+    RenderOrder* order
+) {
     // TODO(alicia): 
-    unused(time);
     
     platform_gl_swap_buffers( ctx->platform );
+    unused(order);
     return true;
 }
 

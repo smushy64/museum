@@ -113,8 +113,6 @@ inline b32 is_level_valid( LogLevel level ) {
     return false;
 }
 
-
-
 HOT_PATH
 internal inline void log_formatted_internal(
     LogLevel level, LogColor color, LogFlags flags,
@@ -208,7 +206,7 @@ internal inline void log_formatted_internal(
 #endif // if logging enabled
 }
 
-void log_formatted_unlocked(
+LD_API void log_formatted_unlocked(
     LogLevel    level,
     LogColor    color,
     LogFlags    flags,
@@ -224,7 +222,7 @@ void log_formatted_unlocked(
     va_end( args );
 }
 
-void log_formatted_locked(
+LD_API void log_formatted_locked(
     LogLevel    level,
     LogColor    color,
     LogFlags    flags,
@@ -240,6 +238,6 @@ void log_formatted_locked(
     va_end( args );
 }
 
-LogLevel query_log_level() {
+LD_API LogLevel query_log_level() {
     return GLOBAL_LOG_LEVEL;
 }

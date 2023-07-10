@@ -20,25 +20,17 @@ void gl_renderer_backend_on_resize(
 );
 b32 gl_renderer_backend_begin_frame(
     RendererContext* ctx,
-    struct Time* time
+    struct RenderOrder* order
 );
 b32 gl_renderer_backend_end_frame(
     RendererContext* ctx,
-    struct Time* time
+    struct RenderOrder* order
 );
 
 struct OpenGLRendererContext {
     RendererContext ctx;
 
-    union {
-        struct {
-            GLuint u_matrices;
-            GLuint vbo_triangle;
-            GLuint ebo_triangle;
-        };
-        GLuint buffer_handles[3];
-    };
-    GLuint vao_triangle;
+    GLuint u_matrices;
 
     ShaderProgram phong;
 

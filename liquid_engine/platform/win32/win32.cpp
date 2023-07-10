@@ -353,14 +353,14 @@ f64 platform_us_elapsed( Platform* generic_platform ) {
     u64 frequency = platform->performance_frequency.QuadPart;
     u64 ticks_elapsed = platform_ticks_elapsed( generic_platform );
 
-    return (f64)(ticks_elapsed * 1000000) / (f64)frequency;
+    return (f64)(ticks_elapsed * 1000000.0) / (f64)frequency;
 }
 f64 platform_ms_elapsed( Platform* generic_platform ) {
     Win32Platform* platform = (Win32Platform*)generic_platform;
     u64 frequency = platform->performance_frequency.QuadPart;
     u64 ticks_elapsed = platform_ticks_elapsed( generic_platform );
 
-    return (f64)(ticks_elapsed * 1000) / (f64)frequency;
+    return (f64)(ticks_elapsed * 1000.0) / (f64)frequency;
 }
 f64 platform_s_elapsed( Platform* generic_platform ) {
     Win32Platform* platform = (Win32Platform*)generic_platform;

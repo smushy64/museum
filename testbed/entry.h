@@ -7,9 +7,6 @@
 
 b32 entry(
     struct EngineContext*   engine_ctx,
-    struct ThreadWorkQueue* thread_work_queue,
-    struct RenderOrder*     render_order,
-    struct Time* time,
     void*  user_params
 );
 

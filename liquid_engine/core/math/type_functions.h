@@ -613,7 +613,6 @@ FORCE_INLINE quat q( angle_axis aa ) {
 }
 /// Create quaternion from euler angles.
 FORCE_INLINE quat q( f32 pitch, f32 yaw, f32 roll ) {
-    // TODO(alicia): SIMD ?
     f32 half_x = pitch / 2.0f;
     f32 half_y = yaw   / 2.0f;
     f32 half_z = roll  / 2.0f;
@@ -838,14 +837,13 @@ FORCE_INLINE mat4 translate( vec2 translation ) {
 }
 /// create rotation matrix around x axis
 FORCE_INLINE mat4 rotate_pitch( f32 pitch ) {
-    f32 cosine = cos( pitch );
-    f32 sine   = sin( pitch );
+    tuplef32 sin_cos = sincos( pitch );
 
     return {
-        1.0f,   0.0f,   0.0f, 0.0f,
-        0.0f, cosine,   sine, 0.0f,
-        0.0f,  -sine, cosine, 0.0f,
-        0.0f,   0.0f,   0.0f, 1.0f
+        1.0f,        0.0f,       0.0f, 0.0f,
+        0.0f,  sin_cos.f1, sin_cos.f0, 0.0f,
+        0.0f, -sin_cos.f0, sin_cos.f1, 0.0f,
+        0.0f,        0.0f,       0.0f, 1.0f
     };
 }
 /// create rotation matrix around y axis
@@ -880,7 +878,7 @@ FORCE_INLINE mat4 rotate( euler_angles r ) {
 }
 /// create rotation matrix from quaternion
 FORCE_INLINE mat4 rotate( quat q ) {
-    // TODO(alicia): SIMD?
+    // TODO(alicia): SIMD
     mat4 result = MAT4::IDENTITY;
 
     f32 _2x2 = 2.0f * (q.x * q.x);
