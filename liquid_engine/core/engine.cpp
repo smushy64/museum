@@ -51,6 +51,10 @@ struct EngineContext {
     Platform*        platform;          // 8
     RendererContext* renderer_context;  // 8
     EntityStorage*   entity_storage;    // 8
+    
+    ApplicationConfigFN application_config; // 8
+    ApplicationInitFN   application_init;   // 8
+    ApplicationRunFN    application_run;    // 8
 
     StringView application_name_view;
     StringView application_name_writable_view;
@@ -95,17 +99,29 @@ EventCallbackReturn on_resize( Event* event, void* void_ctx ) {
 
 internal ThreadReturnCode thread_proc( void* user_params );
 
-b32 engine_run(
-    int argc, char** argv,
-    ApplicationRunFN application_run,
-    void* application_run_user_params,
-    EngineConfig* config
-) {
-    ASSERT( application_run );
-    EngineContext ctx = {};
+struct ArgParseResult {
+    b32 success;
+    b32 backend_parsed;
+    RendererBackend backend;
+    char library_path_buffer[32];
+    StringView library_path;
+};
+
+ArgParseResult parse_args( int argc, char** argv ) {
+    ArgParseResult result = {};
+
+    const char* default_library_path = DEFAULT_LIBRARY_PATH;
+    result.library_path.buffer = result.library_path_buffer;
+    result.library_path.len    = str_length( default_library_path );
+    mem_copy(
+        result.library_path.buffer,
+        default_library_path,
+        result.library_path.len + 1
+    );
 
     for( i32 i = 0; i < argc; ++i ) {
         StringView current_arg = argv[i];
+
 #if defined(LD_PLATFORM_WINDOWS)
         if( string_cmp( current_arg, "--output-debug-string" ) ) {
             log_enable_output_debug_string( true );
@@ -113,24 +129,81 @@ b32 engine_run(
         }
 #endif
         if( string_cmp( current_arg, "--gl" ) ) {
-            config->renderer_backend = RENDERER_BACKEND_OPENGL;
+            result.backend = RENDERER_BACKEND_OPENGL;
+            result.backend_parsed = true;
         } else if( string_cmp( current_arg, "--vk" ) ) {
-            config->renderer_backend = RENDERER_BACKEND_VULKAN;
+            result.backend = RENDERER_BACKEND_VULKAN;
+            result.backend_parsed = true;
         } else if( string_cmp( current_arg, "--dx11" ) ) {
 #if defined(LD_PLATFORM_WINDOWS)
-            config->renderer_backend = RENDERER_BACKEND_DX11;
+            result.backend = RENDERER_BACKEND_DX11;
+            result.backend_parsed = true;
 #else
             printlnerr( "DirectX11 is not available on non-windows platforms!" );
             return false;
 #endif
         } else if( string_cmp( current_arg, "--dx12" ) ) {
 #if defined(LD_PLATFORM_WINDOWS)
-            config->renderer_backend = RENDERER_BACKEND_DX12;
+            result.backend = RENDERER_BACKEND_DX12;
+            result.backend_parsed = true;
 #else
             printlnerr( "DirectX12 is not available on non-windows platforms!" );
             return false;
 #endif
+        } else if( string_contains( current_arg, "--load=" ) ) {
+            u32 load_string_len = str_length( "--load=" );
+            result.library_path.buffer = &current_arg.buffer[load_string_len];
+            result.library_path.len    = str_length(
+                result.library_path.buffer
+            );
         }
+    }
+
+    return result;
+}
+
+b32 engine_entry( int argc, char** argv ) {
+
+    EngineContext ctx = {};
+
+    ArgParseResult arg_parse = parse_args( argc, argv );
+
+    LibraryHandle application_lib = nullptr;
+
+    if( !library_load( arg_parse.library_path.buffer, &application_lib ) ) {
+        return false;
+    }
+    ctx.application_config = (ApplicationConfigFN)library_load_function(
+        application_lib,
+        APPLICATION_CONFIG_NAME
+    );
+    if( !ctx.application_config ) {
+        return false;
+    }
+    ctx.application_init = (ApplicationInitFN)library_load_function(
+        application_lib,
+        APPLICATION_INIT_NAME
+    );
+    if( !ctx.application_init ) {
+        return false;
+    }
+    ctx.application_run = (ApplicationRunFN)library_load_function(
+        application_lib,
+        APPLICATION_RUN_NAME
+    );
+    if( !ctx.application_run ) {
+        return false;
+    }
+
+    EngineConfig config = {};
+    config.application_name.buffer = APPLICATION_NAME_BUFFER;
+    config.application_name.len    = APPLICATION_NAME_BUFFER_SIZE;
+    ctx.application_config( &config );
+
+    if( arg_parse.backend_parsed ) {
+        ctx.renderer_backend = arg_parse.backend;
+    } else {
+        ctx.renderer_backend = config.renderer_backend;
     }
 
     ctx.system_info   = query_system_info();
@@ -145,9 +218,11 @@ b32 engine_run(
     u32 event_subsystem_size    = query_event_subsystem_size();
     u32 input_subsystem_size    = query_input_subsystem_size();
     u32 platform_subsystem_size = query_platform_subsystem_size();
-    u32 renderer_subsystem_size = query_renderer_subsystem_size( config->renderer_backend );
+    u32 renderer_subsystem_size = query_renderer_subsystem_size( ctx.renderer_backend );
     
     u32 logging_subsystem_size = DEFAULT_LOGGING_BUFFER_SIZE;
+
+    u32 application_memory_size = config.memory_size;
 
     #define STACK_ARENA_SAFETY_BYTES 16
     // calculate required stack arena size
@@ -161,14 +236,15 @@ b32 engine_run(
         thread_handle_buffer_size +
         logging_subsystem_size +
         sizeof( EntityStorage ) +
-        STACK_ARENA_SAFETY_BYTES;
+        STACK_ARENA_SAFETY_BYTES +
+        application_memory_size;
 
     if( !stack_arena_create(
         required_stack_arena_size,
         MEMTYPE_ENGINE,
         &ctx.arena
     ) ) {
-        LOG_FATAL(
+        printlnerr(
             "Subsystem Failure",
             "Failed to create stack arena! Requested size: {u}",
             required_stack_arena_size
@@ -186,7 +262,7 @@ b32 engine_run(
         logging_buffer.len = logging_subsystem_size;
         logging_buffer.buffer =
             (char*)stack_arena_push_item( &ctx.arena, logging_subsystem_size );
-        if( !log_init( config->log_level, logging_buffer ) ) {
+        if( !log_init( config.log_level, logging_buffer ) ) {
             MESSAGE_BOX_FATAL(
                 "Subsystem Failure",
                 "Failed to initialize logging subsystem!\n "
@@ -239,9 +315,9 @@ b32 engine_run(
     }
 
     if( !platform_init(
-        config->opt_application_icon_path,
-        { config->surface_dimensions.width, config->surface_dimensions.height },
-        config->platform_flags,
+        config.opt_application_icon_path,
+        { config.surface_dimensions.width, config.surface_dimensions.height },
+        config.platform_flags,
         ctx.platform
     ) ) {
         MESSAGE_BOX_FATAL(
@@ -251,13 +327,12 @@ b32 engine_run(
         );
         return false;
     }
-    engine_set_application_name( &ctx, config->application_name );
+    engine_set_application_name( &ctx, config.application_name );
 
     ctx.pause_on_surface_inactive = ARE_BITS_SET(
-        config->platform_flags,
+        config.platform_flags,
         PLATFORM_PAUSE_ON_SURFACE_INACTIVE
     );
-    ctx.renderer_backend = config->renderer_backend;
     RendererContext* renderer_ctx_buffer = (RendererContext*)stack_arena_push_item(
         &ctx.arena, renderer_subsystem_size
     );
@@ -270,8 +345,8 @@ b32 engine_run(
     ctx.renderer_context = renderer_ctx_buffer;
 
     if( !renderer_init(
-        config->application_name,
-        config->renderer_backend,
+        config.application_name,
+        config.renderer_backend,
         ctx.platform,
         renderer_subsystem_size,
         ctx.renderer_context
@@ -485,6 +560,13 @@ b32 engine_run(
         return false;
     }
 
+    void* application_memory = stack_arena_push_item(
+        &ctx.arena, config.memory_size
+    );
+    if( !ctx.application_init( &ctx, application_memory ) ) {
+        return false;
+    }
+
     // TODO(alicia): TEST CODE ONLY
     Vertex2D vertices[] = {
         { {  1.0f,  1.0f }, { 1.0f, 1.0f } },
@@ -537,7 +619,7 @@ b32 engine_run(
         ctx.render_order.meshes     = &mesh;
         ctx.render_order.mesh_count = 1;
         ctx.render_order.time       = &ctx.time;
-        if( !application_run( &ctx, application_run_user_params ) ) {
+        if( !ctx.application_run( &ctx, application_memory ) ) {
             return false;
         }
         
@@ -570,6 +652,8 @@ b32 engine_run(
 
     ctx.is_running = false; 
 
+    library_free( application_lib );
+
     audio_shutdown( ctx.platform );
 
     event_shutdown();
@@ -587,7 +671,6 @@ b32 engine_run(
     stack_arena_free( &ctx.arena );
 
     log_shutdown();
-    platform_exit();
 
     return true;
 }

@@ -9,7 +9,7 @@
 #include "threading.h"
 
 #if defined(LD_PLATFORM_WINDOWS)
-    #include <windows.h>
+    #include "platform/platform.h"
     global b32 OUTPUT_DEBUG_STRING_ENABLED = false;
     void log_enable_output_debug_string( b32 enable ) {
         OUTPUT_DEBUG_STRING_ENABLED = enable;
@@ -67,23 +67,13 @@ b32 log_init( LogLevel level, StringView logging_buffer ) {
     LOGGING_BUFFER_SIZE = logging_buffer.len;
     LOGGING_BUFFER      = logging_buffer.buffer;
 
-    ASSERT( mutex_create( &MUTEX ) );
-
-#if defined(LD_PLATFORM_WINDOWS)
-    DWORD dwMode = 0;
-    GetConsoleMode(
-        GetStdHandle( STD_OUTPUT_HANDLE ),
-        &dwMode
-    );
-    dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-    SetConsoleMode(
-        GetStdHandle( STD_OUTPUT_HANDLE ),
-        dwMode
-    );
-#endif // if platform windows
-#endif // if logging enabled
+    if( !MUTEX ) {
+        ASSERT( mutex_create( &MUTEX ) );
+    }
 
     LOG_INFO("Logging subsystem successfully initialized.");
+
+#endif // if logging enabled
 
     return true;
 }
@@ -97,7 +87,9 @@ void log_shutdown() {
 
 #if defined(LD_PLATFORM_WINDOWS)
     if( OUTPUT_DEBUG_STRING_ENABLED ) {
-        OutputDebugString( "[INFO ] Logging subsystem shutdown.\n" );
+        platform_win32_output_debug_string(
+            "[INFO ] Logging subsystem shutdown.\n"
+        );
     }
 #endif
 
@@ -119,26 +111,26 @@ internal inline void log_formatted_internal(
     b32 lock, const char* format,
     va_list args
 ) {
+
+#if defined(LD_LOGGING)
+    b32 is_error = ARE_BITS_SET( level, LOG_LEVEL_ERROR );
     if( !is_log_initialized() ) {
+        ASSERT( mutex_create( &MUTEX ) );
+        if( lock ) {
+            mutex_lock( MUTEX );
+        }
+        set_color( color );
+        if( is_error ) {
+            printlnerr_va( format, args );
+        } else {
+            println_va( format, args );
+        }
+        set_color( LOG_COLOR_RESET );
+        if( lock ) {
+            mutex_unlock( MUTEX );
+        }
         return;
     }
-#if defined(LD_LOGGING)
-
-#if defined(LD_ASSERTIONS)
-    if( !LOGGING_BUFFER ) {
-        println(
-            "LOG INIT WAS NOT CALLED BEFORE THIS LOG MESSAGE!\n"
-        );
-#if defined(LD_PLATFORM_WINDOWS)
-        if( OUTPUT_DEBUG_STRING_ENABLED ) {
-            OutputDebugString(
-                "LOG INIT WAS NOT CALLED BEFORE THIS LOG MESSAGE!\n"
-            );
-        }
-#endif // if platform windows
-        PANIC();
-    }
-#endif // if assertions are enabled
 
     if( lock ) {
         mutex_lock( MUTEX );
@@ -185,17 +177,17 @@ internal inline void log_formatted_internal(
 
     set_color( color );
 
-    b32 is_error = ARE_BITS_SET( level, LOG_LEVEL_ERROR );
     if( is_error ) {
         output_string_stderr( LOGGING_BUFFER );
     } else {
         output_string_stdout( LOGGING_BUFFER );
     }
+
     set_color( LOG_COLOR_RESET );
 
 #if defined(LD_PLATFORM_WINDOWS)
     if( OUTPUT_DEBUG_STRING_ENABLED ) {
-        OutputDebugString( LOGGING_BUFFER );
+        platform_win32_output_debug_string( LOGGING_BUFFER );
     }
 #endif // if platform windows
 

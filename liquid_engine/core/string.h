@@ -21,14 +21,14 @@ struct StringView {
     char* buffer;
     u32 len;
 
-    StringView() : buffer(nullptr), len(0) {}
-    StringView( const char* str ) : buffer((char*)str), len(str_length(str)) {}
-    StringView( String& string ) : buffer(string.buffer), len(string.len) {}
+    inline StringView() : buffer(nullptr), len(0) {}
+    inline StringView( const char* str ) : buffer((char*)str), len(str_length(str)) {}
+    inline StringView( String& string ) : buffer(string.buffer), len(string.len) {}
 
-    char& operator[]( u32 i ) { return buffer[i]; }
-    char operator[]( u32 i ) const { return buffer[i]; }
+    inline char& operator[]( u32 i ) { return buffer[i]; }
+    inline char operator[]( u32 i ) const { return buffer[i]; }
 
-    StringView clone() const {
+    inline StringView clone() const {
         StringView result;
         result.buffer = buffer;
         result.len    = len;
@@ -103,6 +103,9 @@ LD_API i64 string_find_first_char( String* string, char character );
 /// Find the first instance of a character in string view.
 /// Returns -1 if character is not found.
 LD_API i64 string_find_first_char( StringView string_view, char character );
+
+/// Check if string contains a phrase
+LD_API b32 string_contains( StringView string_view, StringView phrase );
 
 /// Copy contents from src to dst. Copies up to destination length.
 LD_API void string_copy( String* src, String* dst );

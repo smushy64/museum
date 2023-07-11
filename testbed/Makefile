@@ -3,59 +3,60 @@
 # * File Created: April 27, 2023
 # * Notes:        
 
-MAKEFLAGS += -j4
+TESTBED_PATH := ../$(BUILD_PATH)/$(TESTBED_NAME)
+TESTBED_COMPILE_FILE := entry.cpp
 
-target  := ../$(BUILD_PATH)/$(testbed_name)
+testbed_rc_flags :=
+testbed_dc_flags := 
+testbed_c_flags := $(c_flags) $(if $(IS_DEBUG),$(testbed_dc_flags),$(testbed_rc_flags))
+
+testbed_rcpp_flags :=
+testbed_dcpp_flags := 
+testbed_cpp_flags := $(cpp_flags) $(if $(IS_DEBUG),$(testbed_dcpp_flags),$(testbed_rcpp_flags))
+
+testbed_rlink_flags :=
+testbed_dlink_flags := $(dlink_flags)
+testbed_link_flags := $(if $(IS_DEBUG),$(testbed_dlink_flags),$(testbed_rlink_flags))
+testbed_link_flags += -nostdlib++ -static-libgcc -lmingw32 -shared
+testbed_link_flags += ../$(EXE_PATH)
+
+TESTBED_FLAGS := $(testbed_c_flags) $(testbed_cpp_flags) $(testbed_link_flags)
+TESTBED_FLAGS += -I../liquid_engine -Itestbed
+TESTBED_FLAGS += -MF ../$(object_path)/$(TESTBED_NAME).d
+
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
-test_bed_obj_path := $(obj_path)/test_bed
+deps := $(call recurse,../$(object_path),*d)
 
 cpp := $(call recurse,,*.cpp)
-c   := $(call recurse,,*.c)
+cpp := $(filter-out $(TESTBED_COMPILE_FILE),$(cpp))
+h   := $(call recurse,,*.h)
 
-c_obj   := $(c:%=$(test_bed_obj_path)/%.o)
-cpp_obj := $(cpp:%=$(test_bed_obj_path)/%.o)
-pch     := $(test_bed_obj_path)/testbed_pch.gch
+corecpp := $(cpp)
+corecpp := $(addsuffix \",$(corecpp))
+corecpp := $(addprefix "#include \"",$(corecpp))
 
-deps := $(call recurse,$(obj_path),*.d)
+corecpp_path := corecpp.inl
 
-test_bed_cpp_flags := $(preprocessor_flags)
+all: $(TESTBED_PATH)
 
-test_bed_debug_linker_flags := -Wl,--pdb=$(subst $(exe_ext),.pdb,$(target)) $(linker_debug_flags) 
-test_bed_linker_flags := $(if $(IS_DEBUG),$(test_bed_debug_linker_flags),)
-test_bed_linker_flags += -nostdlib++ -static-libgcc -lmingw32
+$(TESTBED_PATH): $(corecpp_path)
+	@echo "Make:    compiling" $(TESTBED_NAME) ". . ."
+	@mkdir -p ../$(object_path)
+	@$(CC) $(TESTBED_COMPILE_FILE) -o $(TESTBED_PATH) $(TESTBED_FLAGS)
 
-test_bed_win_res := ../$(win_res)
+$(corecpp_path): $(cpp)
+	@echo "// * Description:     Includes all cpp files" > $(corecpp_path)
+	@echo "// * Author:          Alicia Amarilla (smushyaa@gmail.com)" >> $(corecpp_path)
+	@echo "// * File Generated:  "$(shell date) >> $(corecpp_path)
+	@echo "// IMPORTANT(alicia): This file should only ever be included ONCE." >> $(corecpp_path)
+	@echo "" >> $(corecpp_path)
+	for i in $(corecpp); do echo $$i >> $(corecpp_path); done
 
-all: print_info $(target)
+spit:
+	@echo $(corecpp)
 
-print_info:
-	@echo Make: $(testbed_name)
-
-$(target): $(pch) $(c_obj) $(cpp_obj) $(if $(win_res), $(test_bed_win_res), )
-	@echo "    Make: linking $(testbed_name) . . ."
-	@$(CL) ../$(BUILD_PATH)/$(liquid_engine_dll) $^ -o $@ $(preprocessor_flags) $(test_bed_linker_flags)
-
-$(test_bed_obj_path)/%.c.o:%.c
-	@echo "    Make: compiling $< . . ."
-	@mkdir -p $(dir $@)
-	@$(CC) $< -o $@ $(compiler_flags) -c $(preprocessor_flags) $(INCLUDE_PATHS)
-
-$(test_bed_obj_path)/%.cpp.o:%.cpp
-	@echo "    Make: compiling $< . . ."
-	@mkdir -p $(dir $@)
-	@$(CXX) $< -o $@ $(compiler_flags) -c $(preprocessor_flags) $(INCLUDE_PATHS)
-
-$(pch):pch.h
-	@echo "    Make: compiling pre-compiled header . . ."
-	@mkdir -p $(dir $@)
-	@$(CXX) $(pch_flags) $< -o $@ $(compiler_flags) -c $(preprocessor_flags) $(INCLUDE_PATHS)
-
-$(test_bed_win_res):../win32/resources.rc ../win32/Application.manifest
-	@echo "    Make: compiling windows resources . . ."
-	@mkdir -p ../$(BUILD_PATH)/obj/
-	@windres ../win32/resources.rc -o $(test_bed_win_res)
-	
-.PHONY: all print_info
+.PHONY: all spit
 
 -include $(deps)
+

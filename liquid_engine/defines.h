@@ -287,10 +287,12 @@ typedef void* pvoid;
     #define MAKE_PACKED( declaration ) declaration __attribute__((__packed__))
 
     #if defined(LD_EXPORT)
-        #define LD_API __attribute__((visibility("default")))
+        #define LD_API __declspec(dllexport)
+        #define LD_API_STRUCT LD_API
     #else // import
         // unknown?
-        #define LD_API 
+        #define LD_API __declspec(dllimport) 
+        #define LD_API_STRUCT __declspec(dllimport)
     #endif
 
 #endif

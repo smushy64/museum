@@ -17,19 +17,19 @@ struct Time {
 namespace impl {
 
 /// Timer structure.
-struct AutoTimer {
+struct LD_API_STRUCT AutoTimer {
 private:
     u64 start_tick_count;
     const char* function;
     const char* file;
     int line;
 public:
-    LD_API AutoTimer(
+    AutoTimer(
         const char* function,
         const char* file,
         int line
     );
-    LD_API ~AutoTimer();
+    ~AutoTimer();
 };
 
 } // namespace impl

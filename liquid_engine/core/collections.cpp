@@ -17,7 +17,7 @@
 #define BASE_TO_BUFFER_POINTER( base )\
     (((u64*)base) + LIST_NUM_FIELDS)
 
-#define LOG_ALLOC( function, file, line, format, ... ) \
+#define LOG_LIST_ALLOC( function, file, line, format, ... ) \
     log_formatted_locked(\
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
         LOG_COLOR_GREEN,\
@@ -29,7 +29,7 @@
         ##__VA_ARGS__\
     )
 
-#define LOG_REALLOC( function, file, line, format, ... ) \
+#define LOG_LIST_REALLOC( function, file, line, format, ... ) \
     log_formatted_locked(\
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
         LOG_COLOR_GREEN,\
@@ -41,7 +41,7 @@
         ##__VA_ARGS__\
     )
 
-#define LOG_FREE( function, file, line, format, ... ) \
+#define LOG_LIST_FREE( function, file, line, format, ... ) \
     log_formatted_locked(\
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
         LOG_COLOR_CYAN,\
@@ -64,7 +64,7 @@ LD_API void* _list_create_trace(
 ) {
     void* result = _list_create( capacity, stride );
 
-    LOG_ALLOC(
+    LOG_LIST_ALLOC(
         function,
         file,
         line,
@@ -90,7 +90,7 @@ LD_API void* _list_realloc_trace(
     usize stride       = base[LIST_FIELD_STRIDE];
 
     void* result = _list_realloc( list, new_capacity );
-    LOG_REALLOC(
+    LOG_LIST_REALLOC(
         function,
         file,
         line,
@@ -116,7 +116,7 @@ LD_API void _list_free_trace(
     usize stride   = base[LIST_FIELD_STRIDE];
     usize capacity = base[LIST_FIELD_CAPACITY];
 
-    LOG_FREE(
+    LOG_LIST_FREE(
         function,
         file,
         line,

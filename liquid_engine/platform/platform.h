@@ -248,4 +248,8 @@ struct SystemInfo {
 /// Query CPU and memory information.
 struct SystemInfo query_system_info();
 
+#if defined(LD_PLATFORM_WINDOWS)
+void platform_win32_output_debug_string( const char* str );
+#endif
+
 #endif

@@ -3,16 +3,22 @@
 # * File Created: April 27, 2023
 # * Notes:        
 
+# silent make output
 MAKEFLAGS += -s
+MAKEFLAGS += -j
+
+export CC := clang++ -std=c++20
 
 # valid arch: x86_64, arm, wasm
-export TARGET_ARCH     := x86_64
-export IS_DEBUG        := true
-export BUILD_PATH      := build/$(if $(IS_DEBUG),debug,release)
-export PROJECT_VERSION_MAJOR := 0
-export PROJECT_VERSION_MINOR := 1
-export PROJECT_VERSION := $(PROJECT_VERSION_MAJOR).$(PROJECT_VERSION_MINOR)
-export ENGINE_NAME     := LiquidEngine
+export TARGET_ARCH := x86_64
+export IS_DEBUG    := true
+export BUILD_PATH  := build/$(if $(IS_DEBUG),debug,release)
+
+export LIQUID_VERSION_MAJOR := 0
+export LIQUID_VERSION_MINOR := 1
+export LIQUID_VERSION       := $(LIQUID_VERSION_MAJOR).$(LIQUID_VERSION_MINOR)
+export LIQUID_NAME          := LiquidEngine
+export LIQUID_VERSION_PATH  := $(subst .,_,$(LIQUID_VERSION))
 
 export VULKAN_VERSION_MAJOR := 1
 export VULKAN_VERSION_MINOR := 2
@@ -20,45 +26,37 @@ export VULKAN_VERSION_MINOR := 2
 export GL_VERSION_MAJOR := 4
 export GL_VERSION_MINOR := 5
 
-export project_version_underscore := $(subst .,_,$(PROJECT_VERSION))
-
 ifeq ($(OS), Windows_NT)
-	export dll_ext := .dll
-	export exe_ext := .exe
-	export windows := true
-	export win_res := $(BUILD_PATH)/obj/resources.o
-
-	export HOST_OS_NAME := Windows
+	export SO_EXT       := .dll
+	export EXE_EXT      := .exe
+	export IS_WINDOWS   := true
+	export HOST_OS_NAME := win32
 else
-	export dll_ext := .so
-	export exe_ext :=
+	export SO_EXT  := .so
+	export EXE_EXT := 
+	export HOST_OS_NAME := unknown
 endif
 
-export EXECUTABLE_NAME := ProjectMuseum_$(project_version_underscore)_$(if $(IS_DEBUG),DEBUG,)$(exe_ext)
+MAKEFLAGS += -s
 
-export testbed_name := TestBed_$(project_version_underscore)_$(if $(IS_DEBUG),DEBUG,)$(exe_ext)
+export EXE_NAME := $(LIQUID_NAME)_$(LIQUID_VERSION_PATH)_$(if $(IS_DEBUG),debug_,_)$(HOST_OS_NAME)
+export EXE_PATH := $(BUILD_PATH)/$(EXE_NAME)$(EXE_EXT)
 
-# c++ compiler
-export CXX  := clang++ -std=c++20
-# c compiler
-export CC   := clang -std=c11
-# pch compiler
-export PCHC := $(CL)
-# linker
-export CL   := $(CXX)
+export MUSEUM_NAME  := museum_$(if $(IS_DEBUG),debug,release)$(SO_EXT)
+export TESTBED_NAME := testbed_$(if $(IS_DEBUG),debug,release)$(SO_EXT)
 
-export INCLUDE_PATHS := -I../liquid_engine
+RC_FLAGS := -O2
 
-RELEASE_C_FLAGS := -O2
-
-DEBUG_C_FLAGS := -O0 -g -gcodeview -Wall -Wextra
-DEBUG_C_FLAGS += -Wno-missing-braces -pedantic -Werror
-DEBUG_C_FLAGS += -Wno-c11-extensions -Wno-gnu-zero-variadic-macro-arguments
-DEBUG_C_FLAGS += -Wno-gnu-anonymous-struct -Wno-nested-anon-types -Wno-unused-variable
+DC_FLAGS := -O0 -g -gcodeview -Werror -Wall -Wextra -pedantic
+DC_FLAGS += -Wno-missing-braces -Wno-c11-extensions
+DC_FLAGS += -Wno-gnu-zero-variadic-macro-arguments
+DC_FLAGS += -Wno-gnu-anonymous-struct -Wno-nested-anon-types
+DC_FLAGS += -Wno-unused-variable
 
 C_FLAGS := -fno-rtti -fno-exceptions -Werror=vla -ffast-math
 C_FLAGS += -fno-operator-names -fno-strict-enums
 C_FLAGS += -MMD -MP
+
 ifeq ($(TARGET_ARCH), x86_64)
 	C_FLAGS += -masm=intel -march=native
 endif
@@ -69,78 +67,125 @@ ifeq ($(TARGET_ARCH), wasm)
 	C_FLAGS += -target-wasm64
 endif
 
-RELEASE_CPP_FLAGS :=
-DEBUG_CPP_FLAGS   := -DDEBUG -DLD_LOGGING -DLD_ASSERTIONS -DLD_PROFILING
-CPP_FLAGS         := -DLD_SIMD_WIDTH=4 
-CPP_FLAGS         += -DLIQUID_ENGINE_VERSION=\""$(ENGINE_NAME) $(PROJECT_VERSION)"\"
-CPP_FLAGS         += -DLIQUID_ENGINE_VERSION_MAJOR=$(PROJECT_VERSION_MAJOR)
-CPP_FLAGS         += -DLIQUID_ENGINE_VERSION_MINOR=$(PROJECT_VERSION_MINOR)
+RCPP_FLAGS := 
 
-RELEASE_LINKER_FLAGS :=
-DEBUG_LINKER_FLAGS   := -g -fuse-ld=lld -Wl,//debug 
-LINKER_FLAGS         := -nostdlib++ -nostdlib -lkernel32
-# tell the linker to allocate a megabyte for the stack
-LINKER_FLAGS += -Wl,//stack:0x100000
+DCPP_FLAGS := -DDEBUG -DLD_LOGGING -DLD_ASSERTIONS -DLD_PROFILING
+
+CPP_FLAGS := -DLD_SIMD_WIDTH=4
+CPP_FLAGS += -DLIQUID_ENGINE_VERSION=\""$(ENGINE_NAME) $(PROJECT_VERSION)"\"
+CPP_FLAGS += -DLIQUID_ENGINE_VERSION_MAJOR=$(LIQUID_VERSION_MAJOR)
+CPP_FLAGS += -DLIQUID_ENGINE_VERSION_MINOR=$(LIQUID_VERSION_MINOR)
+CPP_FLAGS += -DGL_VERSION_MAJOR=$(GL_VERSION_MAJOR)
+CPP_FLAGS += -DGL_VERSION_MINOR=$(GL_VERSION_MINOR)
+CPP_FLAGS += -DVULKAN_VERSION_MAJOR=$(VULKAN_VERSION_MAJOR)
+CPP_FLAGS += -DVULKAN_VERSION_MINOR=$(VULKAN_VERSION_MINOR)
+
+RLINK_FLAGS :=
+
+DLINK_FLAGS := -fuse-ld=lld -Wl,//debug
+
+LINK_FLAGS := -nostdlib++ -nostdlib -Wl,//stack:0x100000
+ifeq ($(HOST_OS_NAME), win32)
+	LINK_FLAGS += -lkernel32
+endif
+
+export c_flags := $(if $(IS_DEBUG),$(DC_FLAGS),$(RC_FLAGS)) $(C_FLAGS)
+export rc_flags := $(RC_FLAGS)
+export dc_flags := $(DC_FLAGS)
+export common_c_flags := $(c_flags)
+
+export link_flags := $(if $(IS_DEBUG),$(DLINK_FLAGS),$(RLINK_FLAGS)) $(LINK_FLAGS)
+export rlink_flags := $(RLINK_FLAGS)
+export dlink_flags := $(DLINK_FLAGS)
+export common_link_flags := $(LINK_FLAGS)
+
+export cpp_flags := $(if $(IS_DEBUG),$(DCPP_FLAGS),$(RCPP_FLAGS)) $(CPP_FLAGS)
+export rcpp_flags := $(RCPP_FLAGS)
+export dcpp_flags := $(DCPP_FLAGS)
+export common_cpp_flags := $(CPP_FLAGS)
+
+export object_path := $(BUILD_PATH)/obj
+
+LIQUID_ENGINE_FLAGS := $(c_flags) $(cpp_flags) $(link_flags) -Iliquid_engine
+LIQUID_ENGINE_FLAGS += -DLD_EXPORT -MF $(object_path)/$(LIQUID_NAME).d
+LIQUID_ENGINE_FLAGS += -Wl,--out-implib=$(EXE_PATH).a
+
+ifeq ($(HOST_OS_NAME), win32)
+	LIQUID_COMPILE_FILE := liquid_engine/platform/win32.cpp
+	LIQUID_RESOURCES_PATH := win32/resources.rc
+	LIQUID_RESOURCES_FILE := $(object_path)/win32_resources.o
+endif
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
-export preprocessor_flags := $(if $(IS_DEBUG),$(DEBUG_CPP_FLAGS),$(RELEASE_CPP_FLAGS)) $(CPP_FLAGS)
-export release_compiler_flags := $(RELEASE_C_FLAGS)
-export debug_compiler_flags   := $(DEBUG_C_FLAGS)
-export common_compiler_flags  := $(C_FLAGS)
-export compiler_flags     := $(if $(IS_DEBUG),$(DEBUG_C_FLAGS),$(RELEASE_C_FLAGS)) $(C_FLAGS)
-export pch_flags          := -x c++-header
-export linker_debug_flags := $(if $(IS_DEBUG),$(DEBUG_LINKER_FLAGS),$(RELEASE_LINKER_FLAGS))
-export linker_flags       := $(linker_debug_flags) $(LINKER_FLAGS)
-export obj_path           := ../$(BUILD_PATH)/obj
+deps := $(call recurse,$(object_path),*.d)
 
-export liquid_engine_dll := $(ENGINE_NAME)_$(project_version_underscore)$(if $(IS_DEBUG),_DEBUG,)$(dll_ext)
+cpp := $(call recurse,liquid_engine/core/,*.cpp) $(call recurse,liquid_engine/renderer/,*.cpp)
+h   := $(call recurse,liquid_engine,*.h)
 
-# @echo "Make: Compiler flags: " $(compiler_flags)
-# @echo "Make: Pre-processor flags: " $(preprocessor_flags)
-# @echo "Make: Linker flags: " $(linker_flags)
-all:
-	@echo "Make: Target architecture:" $(HOST_OS_NAME)-$(TARGET_ARCH)
-	@$(MAKE) --directory=liquid_engine --no-print-directory
+corecpp := $(cpp)
+corecpp := $(subst liquid_engine/,,$(corecpp))
+corecpp := $(addsuffix \",$(corecpp))
+corecpp := $(addprefix "#include \"",$(corecpp))
+
+corecpp_path := liquid_engine/platform/corecpp.inl
+
+all: print_info shader $(EXE_PATH)
 	@$(MAKE) --directory=testbed --no-print-directory
+
+print_info:
+	@echo "Make: compilation target:" $(HOST_OS_NAME)-$(TARGET_ARCH)
+
+shader:
 	@$(MAKE) --directory=shader --no-print-directory
 
-# TODO(alicia): run!
+$(corecpp_path): $(cpp)
+	@echo "// * Description:     Includes all cpp files" > $(corecpp_path)
+	@echo "// * Author:          Alicia Amarilla (smushyaa@gmail.com)" >> $(corecpp_path)
+	@echo "// * File Generated:  "$(shell date) >> $(corecpp_path)
+	@echo "// IMPORTANT(alicia): This file should only ever be included ONCE." >> $(corecpp_path)
+	@echo "" >> $(corecpp_path)
+	for i in $(corecpp); do echo $$i >> $(corecpp_path); done
 
+$(EXE_PATH): $(corecpp_path) $(if $(IS_WINDOWS),$(LIQUID_RESOURCES_FILE),)
+	@echo "Make:    compiling" $(EXE_NAME)$(EXE_EXT) ". . ."
+	@mkdir -p $(object_path)
+	@$(CC) $(LIQUID_COMPILE_FILE) $(LIQUID_RESOURCES_FILE) -o $(EXE_PATH) $(LIQUID_ENGINE_FLAGS)
+
+$(LIQUID_RESOURCES_FILE): $(LIQUID_RESOURCES_PATH)
+	@echo "Make:    compiling" $(LIQUID_RESOURCES_FILE) ". . ."
+	@mkdir -p $(object_path)
+	@windres $(LIQUID_RESOURCES_PATH) -o $(LIQUID_RESOURCES_FILE)
+
+# TODO(alicia): update this when project museum is being worked on
 run: all
-	@echo Make: running Project Museum $(PROJECT_VERSION) . . .
-	@echo
-	@echo not yet implemented!
+	@echo "Make: project museum is not yet ready :("
 
 test: all
-	@echo Make: running Test Bed $(PROJECT_VERSION) . . .
-	@echo
-	@./$(BUILD_PATH)/$(testbed_name) --gl
+	@echo "Make: running test bed . . ."
+	@./$(EXE_PATH) --load=$(BUILD_PATH)/$(TESTBED_NAME) --gl
 
-debug: all $(if windows,debug_win32,)
+# for debugging variables
+spit:
+	@$(MAKE) --directory=testbed spit
+	@$(MAKE) --directory=shader spit
 
-debug_win32:
-	@echo Make: running Project Museum $(PROJECT_VERSION) in RemedyBG . . .
-	@echo
-	@remedybg start-debugging 1
+help:
+	@echo Usage: make [argument]
+	@echo "    all:    compile everything"
+	@echo "    run:    compile and run \"Project Museum\""
+	@echo "    test:   compile and run \"Testbed\""
+	@echo "    shader: compile shaders only"
+	@echo "    clean:  delete everything in build directory"
 
 clean:
 	@echo Make: removing everything from build directory . . .
 	@rm -r -f build/debug/*
 	@rm -r -f build/release/*
 	@rm -r -f resources/shaders/*
+	@rm $(corecpp_path)
 
-# for debugging variables
-spit:
-	@echo $(LINKER_FLAGS)
+.PHONY: all run test spit help clean gencpp shader print_info
 
-help:
-	@echo Help for Project Museum Makefile
-	@echo "   all:   compile everything"
-	@echo "   run:   compile and run \"Project Museum\" executable"
-	@echo "   debug: compile and run \"Project Museum\" in debugger"
-	@echo "   test:  compile and run \"Test Bed\" executable"
-	@echo "   clean: delete everything in build directory"
-
-.PHONY: all run test debug debug_win32 clean help spit
+-include $(deps)
 

@@ -195,6 +195,28 @@ LD_API char dstring_pop_char( String* string ) {
     }
     return string->buffer[string->len--];
 }
+LD_API b32 string_contains( StringView string_view, StringView phrase ) {
+    if( string_view.len < phrase.len ) {
+        return false;
+    }
+   
+    u32 i = 0;
+    do {
+        u32 remaining_len = string_view.len - i;
+        if( remaining_len < phrase.len ) {
+            return false;
+        }
+        StringView window = {};
+        window.buffer = &string_view.buffer[i];
+        window.len    = phrase.len;
+        if( string_cmp( window, phrase ) ) {
+            return true;
+        }
+        ++i;
+    } while( i < string_view.len );
+
+    return false;
+}
 LD_API b32 str_view(
     u32 str_len,
     const char* str,
@@ -249,9 +271,9 @@ LD_API usize str_length( const char* string ) {
     usize result = 0;
 
     if( *string ) {
-        do {
+        while( *string++ ) {
             result++;
-        } while( *string++ );
+        }
     }
 
     return result;

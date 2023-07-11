@@ -46,21 +46,28 @@ struct EngineConfig {
     RendererBackend renderer_backend;
     PlatformFlags   platform_flags;
     const char*     opt_application_icon_path;
+    u32 memory_size;
 };
 
-/// Application function
-typedef b32 (*ApplicationRunFN)(
-    struct EngineContext*   engine_ctx,
-    void* user_params
-);
+/// Function for getting engine configuration from application.
+typedef void (*ApplicationConfigFN)( struct EngineConfig* config );
+/// Application init. Called once before run loop.
+typedef b32 (*ApplicationInitFN)( struct EngineContext* ctx, void* memory );
+/// Application run. Called once every frame
+typedef b32 (*ApplicationRunFN)( struct EngineContext* ctx, void* memory );
 
-/// Run Engine
-LD_API b32 engine_run(
-    int argc, char** argv,
-    ApplicationRunFN application_run,
-    void* application_run_user_params,
-    EngineConfig* config
-);
+#define APPLICATION_CONFIG_NAME "application_config"
+#define APPLICATION_INIT_NAME   "application_init"
+#define APPLICATION_RUN_NAME    "application_run"
+
+#if defined(LD_API_INTERNAL)
+
+    // TODO(alicia): update to a more sensible path :)
+    #define DEFAULT_LIBRARY_PATH "build/debug/testbed_debug.dll"
+
+    /// Engine entry point
+    b32 engine_entry( int argc, char** argv );
+#endif
 
 /// Supported cursor styles
 enum CursorStyle : u32 {
