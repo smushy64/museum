@@ -5,14 +5,15 @@
 -->
 # TODO 
 
+
+## Motivation mini-projects
+- [ ] Make an asteroids clone using liquid engine :)
+
 ## Library to EXE + Unity build
 - [x] Make Liquid Engine the executable and Testbed the library
 - [x] Change build system to unity build instead of incremental build
 - [x] Compile windows resources into executable
 - [x] parse --load= option in engine.cpp
-
-## Motivation mini-projects
-- [ ] Make an asteroids clone using liquid engine :)
 
 ## Features
 - [x] Hello Triangle (OpenGL)

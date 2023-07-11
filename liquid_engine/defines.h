@@ -1,3 +1,5 @@
+#if !defined(DEFINES_HPP)
+#define DEFINES_HPP
 /**
  * Description:  Typedefs for integral types and relevant constants
  *               Compiler independent asserts
@@ -7,8 +9,6 @@
  *               <intrin.h> MSVC ONLY
  * Notes:        define LD_ASSERTIONS to enable DEBUG_ASSERT macro
 */
-#if !defined(DEFINES_HPP)
-#define DEFINES_HPP
 
 /// compiler defines
 #if defined(__GNUC__) || defined(__GNUG__)

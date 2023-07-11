@@ -735,7 +735,7 @@ inline quat operator+( quat lhs, quat rhs );
 inline quat operator-( quat lhs, quat rhs );
 inline quat operator*( quat lhs, f32 rhs );
 inline quat operator/( quat lhs, f32 rhs );
-LD_API quat operator*( quat lhs, quat rhs );
+inline quat operator*( quat lhs, quat rhs );
 
 namespace QUAT {
     global const usize COMPONENT_COUNT = 4;
@@ -1101,10 +1101,10 @@ namespace MAT4 {
     global const u32 CELL_COUNT   = 16;
     global const u32 COLUMN_COUNT = 4;
 };
-LD_API mat4 operator+( const mat4& lhs, const mat4& rhs );
-LD_API mat4 operator-( const mat4& lhs, const mat4& rhs );
-LD_API mat4 operator*( const mat4& lhs, f32 rhs );
-LD_API mat4 operator/( const mat4& lhs, f32 rhs );
+mat4 operator+( const mat4& lhs, const mat4& rhs );
+mat4 operator-( const mat4& lhs, const mat4& rhs );
+mat4 operator*( const mat4& lhs, f32 rhs );
+mat4 operator/( const mat4& lhs, f32 rhs );
 /// column-major 4x4 32-bit float matrix
 union mat4 {
     struct {
