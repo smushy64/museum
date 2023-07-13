@@ -78,4 +78,21 @@ struct Mesh {
     RendererID id;
 };
 
+/// Texture formats
+enum TextureFormat : u8 {
+    TEXTURE_FORMAT_RGB,
+    TEXTURE_FORMAT_RGBA,
+};
+
+/// Texture definition
+struct Texture {
+    union {
+        ivec2 dimensions;
+        struct { i32 width, height; };
+    };
+    void* buffer;
+    TextureFormat format;
+    RendererID id;
+};
+
 #endif // header guard

@@ -13,6 +13,6 @@ uniform layout(binding = 0) sampler2D u_texture;
 out layout( location = 0 ) vec4 FRAG_COLOR;
 void main() {
     vec4 tex_sample = texture( u_texture, v2f.uv );
-    FRAG_COLOR = vec4( tex_sample.rgb, 1.0 );
+    FRAG_COLOR = vec4( tex_sample );
 }
 

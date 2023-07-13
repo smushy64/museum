@@ -13,6 +13,10 @@ export CC := clang++ -std=c++20
 export TARGET_ARCH := x86_64
 export IS_DEBUG    := true
 export BUILD_PATH  := build/$(if $(IS_DEBUG),debug,release)
+export RESOURCES_LOCAL_PATH := resources
+export SHADERS_LOCAL_PATH   := $(RESOURCES_LOCAL_PATH)/shaders
+export RESOURCES_PATH := $(BUILD_PATH)/$(RESOURCES_LOCAL_PATH)
+export SHADERS_PATH   := $(BUILD_PATH)/$(SHADERS_LOCAL_PATH)
 
 export LIQUID_VERSION_MAJOR := 0
 export LIQUID_VERSION_MINOR := 1
@@ -108,7 +112,7 @@ export object_path := $(BUILD_PATH)/obj
 
 LIQUID_ENGINE_FLAGS := $(c_flags) $(cpp_flags) $(link_flags) -Iliquid_engine
 LIQUID_ENGINE_FLAGS += -DLD_EXPORT -MF $(object_path)/$(LIQUID_NAME).d
-LIQUID_ENGINE_FLAGS += -Wl,--out-implib=$(EXE_PATH).a
+LIQUID_ENGINE_FLAGS += -Wl,--out-implib=$(BUILD_PATH)/$(EXE_NAME).lib
 
 ifeq ($(HOST_OS_NAME), win32)
 	LIQUID_COMPILE_FILE := liquid_engine/platform/win32.cpp
@@ -163,7 +167,7 @@ run: all
 
 test: all
 	@echo "Make: running test bed . . ."
-	@./$(EXE_PATH) --load=$(BUILD_PATH)/$(TESTBED_NAME) --gl
+	@cd $(BUILD_PATH) && ./$(EXE_NAME)$(EXE_EXT) --load=$(TESTBED_NAME) --gl
 
 # for debugging variables
 spit:

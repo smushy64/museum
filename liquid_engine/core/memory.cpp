@@ -80,13 +80,15 @@ void* _mem_alloc_trace(
     int line
 ) {
     void* result = _mem_alloc( size, type );
+    f32 float_size = (f32)size;
     LOG_ALLOC(
         function,
         file,
         line,
-        "Type: {cc} | Size: {u64} | Pointer: {u64,x}",
+        "Type: {cc} | Size: {u64} ({f,b,.2}) | Pointer: {u64,x}",
         to_string(type),
         size,
+        float_size,
         (u64)(result)
     );
     return result;
@@ -101,13 +103,14 @@ void* _mem_realloc_trace(
     u64* header = ((u64*)memory) - MEMORY_FIELD_COUNT;
     MemoryType type = (MemoryType)header[MEMORY_FIELD_TYPE];
     void* result = _mem_realloc( memory, new_size );
+    f32 float_new_size = (f32)new_size;
     LOG_ALLOC(
         function,
         file,
         line,
-        "Realloc | Type: {cc} | Size: {u64} | Pointer: {u64,x}",
+        "Realloc | Type: {cc} | Size: {u64} ({f,b,.2}) | Pointer: {u64,x}",
         to_string(type),
-        new_size,
+        new_size, float_new_size,
         (u64)(result)
     );
     return result;

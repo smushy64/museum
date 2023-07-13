@@ -9,26 +9,27 @@ SL_C_FLAGS := -I.
 
 sl_flags := $(SL_C_FLAGS) $(if $(IS_DEBUG),$(SL_DEBUG_C_FLAGS),$(SL_RELEASE_C_FLAGS))
 
-target  := ../resources/shaders
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
+
+TARGET := ../$(SHADERS_PATH)
 
 vert := $(call recurse,,*.vert)
 frag := $(call recurse,,*.frag)
 
-vert_spv := $(vert:%=$(target)/%.spv)
-frag_spv := $(frag:%=$(target)/%.spv)
+vert_spv := $(vert:%=$(TARGET)/%.spv)
+frag_spv := $(frag:%=$(TARGET)/%.spv)
 
 all: $(vert_spv) $(frag_spv)
 
 spit:
+	@echo $(vert_spv)
 
-
-$(target)/%.vert.spv:%.vert
+$(TARGET)/%.vert.spv:%.vert
 	@echo "Make:    compiling $< . . ."
 	@mkdir -p $(dir $@)
 	@$(SLC) -c $< -o $@ $(sl_flags)
 
-$(target)/%.frag.spv:%.frag
+$(TARGET)/%.frag.spv:%.frag
 	@echo "Make:    compiling $< . . ."
 	@mkdir -p $(dir $@)
 	@$(SLC) -c $< -o $@ $(sl_flags)

@@ -101,7 +101,6 @@ internal ThreadReturnCode thread_proc( void* user_params );
 
 struct ArgParseResult {
     b32 success;
-    b32 backend_parsed;
     RendererBackend backend;
     char library_path_buffer[32];
     StringView library_path;
@@ -119,6 +118,8 @@ ArgParseResult parse_args( int argc, char** argv ) {
         result.library_path.len + 1
     );
 
+    result.backend = RENDERER_BACKEND_OPENGL;
+
     for( i32 i = 0; i < argc; ++i ) {
         StringView current_arg = argv[i];
 
@@ -130,14 +131,11 @@ ArgParseResult parse_args( int argc, char** argv ) {
 #endif
         if( string_cmp( current_arg, "--gl" ) ) {
             result.backend = RENDERER_BACKEND_OPENGL;
-            result.backend_parsed = true;
         } else if( string_cmp( current_arg, "--vk" ) ) {
             result.backend = RENDERER_BACKEND_VULKAN;
-            result.backend_parsed = true;
         } else if( string_cmp( current_arg, "--dx11" ) ) {
 #if defined(LD_PLATFORM_WINDOWS)
             result.backend = RENDERER_BACKEND_DX11;
-            result.backend_parsed = true;
 #else
             printlnerr( "DirectX11 is not available on non-windows platforms!" );
             return false;
@@ -145,7 +143,6 @@ ArgParseResult parse_args( int argc, char** argv ) {
         } else if( string_cmp( current_arg, "--dx12" ) ) {
 #if defined(LD_PLATFORM_WINDOWS)
             result.backend = RENDERER_BACKEND_DX12;
-            result.backend_parsed = true;
 #else
             printlnerr( "DirectX12 is not available on non-windows platforms!" );
             return false;
@@ -159,6 +156,7 @@ ArgParseResult parse_args( int argc, char** argv ) {
         }
     }
 
+    result.success = true;
     return result;
 }
 
@@ -167,6 +165,9 @@ b32 engine_entry( int argc, char** argv ) {
     EngineContext ctx = {};
 
     ArgParseResult arg_parse = parse_args( argc, argv );
+    if( !arg_parse.success ) {
+        return false;
+    }
 
     LibraryHandle application_lib = nullptr;
 
@@ -200,11 +201,7 @@ b32 engine_entry( int argc, char** argv ) {
     config.application_name.len    = APPLICATION_NAME_BUFFER_SIZE;
     ctx.application_config( &config );
 
-    if( arg_parse.backend_parsed ) {
-        ctx.renderer_backend = arg_parse.backend;
-    } else {
-        ctx.renderer_backend = config.renderer_backend;
-    }
+    ctx.renderer_backend = arg_parse.backend;
 
     ctx.system_info   = query_system_info();
     u32 thread_count  = ctx.system_info.logical_processor_count;
@@ -346,7 +343,7 @@ b32 engine_entry( int argc, char** argv ) {
 
     if( !renderer_init(
         config.application_name,
-        config.renderer_backend,
+        ctx.renderer_backend,
         ctx.platform,
         renderer_subsystem_size,
         ctx.renderer_context
@@ -556,9 +553,9 @@ b32 engine_entry( int argc, char** argv ) {
 
     #define UPDATE_FRAME_RATE_COUNTER_RATE 100
 
-    if( !audio_init( ctx.platform ) ) {
-        return false;
-    }
+    // if( !audio_init( ctx.platform ) ) {
+    //     return false;
+    // }
 
     void* application_memory = stack_arena_push_item(
         &ctx.arena, config.memory_size
@@ -602,7 +599,7 @@ b32 engine_entry( int argc, char** argv ) {
         }
 
         if( input_is_key_down( KEY_ALT_LEFT ) ||
-            input_is_key_down(KEY_ALT_RIGHT)
+            input_is_key_down( KEY_ALT_RIGHT )
         ) {
             if( input_is_key_down( KEY_F4 ) ) {
                 Event event = {};
@@ -635,7 +632,7 @@ b32 engine_entry( int argc, char** argv ) {
             return false;
         }
 
-        audio_test( ctx.platform );
+        // audio_test( ctx.platform );
 
         ctx.time.frame_count++;
         semaphore_increment(
@@ -654,7 +651,7 @@ b32 engine_entry( int argc, char** argv ) {
 
     library_free( application_lib );
 
-    audio_shutdown( ctx.platform );
+    // audio_shutdown( ctx.platform );
 
     event_shutdown();
     input_shutdown();

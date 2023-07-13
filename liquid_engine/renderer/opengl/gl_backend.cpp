@@ -15,7 +15,7 @@
 #include "core/math.h"
 #include "core/graphics.h"
 
-#define GL_DEFAULT_CLEAR_COLOR 0.0f, 0.0f, 0.0f, 1.0f
+#define GL_DEFAULT_CLEAR_COLOR 0.0f, 0.0f, 0.0f, 0.0f
 
 global GLuint NULL_TEXTURE = 0;
 
@@ -44,7 +44,7 @@ b32 gl_renderer_backend_initialize( RendererContext* generic_ctx ) {
 
     ctx->glrc = glrc;
 
-#if defined( LD_LOGGING )
+#if defined( LD_LOGGING ) && defined( DEBUG )
     glEnable( GL_DEBUG_OUTPUT );
     glDebugMessageCallback(
         gl_debug_callback,
@@ -149,7 +149,6 @@ b32 gl_renderer_backend_initialize( RendererContext* generic_ctx ) {
         PLATFORM_FILE_OPEN_SHARE_READ,
         &phong_vert_file
     ) ) {
-        GL_LOG_FATAL("FUCK");
         return false;
     }
     if( !platform_file_open(
@@ -159,7 +158,6 @@ b32 gl_renderer_backend_initialize( RendererContext* generic_ctx ) {
         PLATFORM_FILE_OPEN_SHARE_READ,
         &phong_frag_file
     ) ) {
-        GL_LOG_FATAL("FUCK");
         return false;
     }
 
@@ -232,7 +230,8 @@ b32 gl_renderer_backend_initialize( RendererContext* generic_ctx ) {
         return false;
     }
 
-
+    glEnable( GL_BLEND );
+    glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
     GL_LOG_INFO("OpenGL backend initialized successfully.");
     return true;
@@ -279,6 +278,57 @@ void gl_renderer_backend_on_resize(
         0, sizeof(mat4),
         value_pointer( view_projection )
     );
+}
+
+internal void gl_make_texture( Texture* texture ) {
+    if( texture->id.is_valid() ) {
+        return;
+    }
+    GLuint handle = 0;
+    glCreateTextures( GL_TEXTURE_2D, 1, &handle );
+    glTextureParameteri( handle, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
+    glTextureParameteri( handle, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
+    glTextureParameteri( handle, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+    glTextureParameteri( handle, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+    
+    GLenum internal_format = {};
+    switch( texture->format ) {
+        case TEXTURE_FORMAT_RGB:
+            internal_format = GL_RGB8;
+            break;
+        case TEXTURE_FORMAT_RGBA:
+            internal_format = GL_RGBA8;
+            break;
+    }
+
+    glTextureStorage2D(
+        handle,
+        1, internal_format,
+        texture->width, texture->height
+    );
+
+    GLenum format = {};
+    switch( texture->format ) {
+        case TEXTURE_FORMAT_RGB:
+            format = GL_RGB;
+            break;
+        case TEXTURE_FORMAT_RGBA:
+            format = GL_RGBA;
+            break;
+    }
+
+    glTextureSubImage2D(
+        handle,
+        0,
+        0, 0,
+        texture->width, texture->height,
+        format,
+        GL_UNSIGNED_BYTE,
+        texture->buffer
+    );
+
+    texture->id = handle;
+
 }
 
 internal void gl_make_mesh( Mesh* mesh ) {
@@ -399,6 +449,9 @@ b32 gl_renderer_backend_begin_frame(
     for( u32 i = 0; i < order->mesh_count; ++i ) {
         gl_make_mesh( &order->meshes[i] );
     }
+    for( u32 i = 0; i < order->texture_count; ++i ) {
+        gl_make_texture( &order->textures[i] );
+    }
 
     // TODO(alicia): 
     glClear(
@@ -414,9 +467,16 @@ b32 gl_renderer_backend_begin_frame(
     for( u32 i = 0; i < order->draw_binding_count; ++i ) {
         DrawBinding* current_binding = &order->draw_bindings[i];
         Mesh* mesh = &order->meshes[current_binding->mesh_index];
+        Texture* texture = &order->textures[current_binding->texture_index];
 
         if( !mesh->id.is_valid() ) {
             continue;
+        }
+
+        if( texture->id.is_valid() ) {
+            glBindTextureUnit( 0, texture->id.id() );
+        } else {
+            glBindTextureUnit( 0, 0 );
         }
 
         glProgramUniformMatrix4fv(

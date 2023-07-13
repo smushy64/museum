@@ -42,11 +42,15 @@ struct RendererContext {
 struct DrawBinding {
     mat4 transform;
     u32  mesh_index;
+    u32  texture_index;
 };
 
 struct RenderOrder {
     Mesh* meshes;
     u32   mesh_count;
+
+    Texture* textures;
+    u32      texture_count;
 
     DrawBinding* draw_bindings;
     u32 draw_binding_count;

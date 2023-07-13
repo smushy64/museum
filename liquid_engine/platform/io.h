@@ -6,6 +6,7 @@
  * File Created: June 14, 2023
 */
 #include "defines.h"
+#include "core/logging.h"
 
 struct FileHandle {
     void* platform;
@@ -21,9 +22,9 @@ typedef u32 FileOpenFlags;
 
 /// Open file from path.
 b32 platform_file_open(
-    const char* path,
+    const char*   path,
     FileOpenFlags flags,
-    FileHandle* out_handle
+    FileHandle*   out_handle
 );
 /// Close file handle.
 void platform_file_close( FileHandle handle );

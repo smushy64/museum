@@ -1583,9 +1583,9 @@ MessageBoxResult message_box(
 }
 
 b32 platform_file_open(
-    const char* path,
+    const char*   path,
     FileOpenFlags flags,
-    FileHandle* out_handle
+    FileHandle*   out_handle
 ) {
     DWORD dwDesiredAccess = 0;
     if( ARE_BITS_SET( flags, PLATFORM_FILE_OPEN_READ ) ) {
@@ -1621,7 +1621,6 @@ b32 platform_file_open(
     );
     if( handle == INVALID_HANDLE_VALUE ) {
         WIN32_LOG_ERROR( "Path: {cc}", path );
-        win32_log_error( true );
         return false;
     }
 

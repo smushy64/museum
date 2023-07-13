@@ -43,7 +43,6 @@ struct EngineConfig {
         i32 height;
     } surface_dimensions;
     LogLevel        log_level;
-    RendererBackend renderer_backend;
     PlatformFlags   platform_flags;
     const char*     opt_application_icon_path;
     u32 memory_size;
@@ -62,8 +61,7 @@ typedef b32 (*ApplicationRunFN)( struct EngineContext* ctx, void* memory );
 
 #if defined(LD_API_INTERNAL)
 
-    // TODO(alicia): update to a more sensible path :)
-    #define DEFAULT_LIBRARY_PATH "build/debug/testbed_debug.dll"
+    #define DEFAULT_LIBRARY_PATH "testbed_debug.dll"
 
     /// Engine entry point
     b32 engine_entry( int argc, char** argv );

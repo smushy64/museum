@@ -270,7 +270,7 @@ LD_API b32 dstring_view_writeable(
 LD_API usize str_length( const char* string ) {
     usize result = 0;
 
-    if( *string ) {
+    if( string ) {
         while( *string++ ) {
             result++;
         }
