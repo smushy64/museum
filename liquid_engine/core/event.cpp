@@ -48,8 +48,7 @@ LD_API EventListenerID event_subscribe(
 ) {
     ASSERT( REGISTRY );
 
-    EventListenerID result = (event_code << 16) | ID;
-    ID++;
+    EventListenerID result = (event_code << 8) | ID++;
 
     ListenerContext* listeners = REGISTRY->event_listeners[event_code].listeners;
     
@@ -65,23 +64,24 @@ LD_API EventListenerID event_subscribe(
 LD_API void event_unsubscribe( EventListenerID event_listener_id ) {
     ASSERT( REGISTRY );
 
-    EventCode event_code = event_listener_id >> 16;
-    u16 listener_id      = event_listener_id & 0x0000FFFF;
+    EventCode event_code = event_listener_id >> 8;
 
     ListenerContext* listeners = REGISTRY->event_listeners[event_code].listeners;
     u32 listener_count = list_count( listeners );
 
-    i32 listener_index = -1;
+    b32 listener_found = false;
+    u32 listener_index = 0;
 
     for( u32 i = 0; i < listener_count; ++i ) {
-        if( listener_id == listeners[i].id ) {
+        if( event_listener_id == listeners[i].id ) {
             listener_index = i;
+            listener_found = true;
             break;
         }
     }
 
-    if( listener_index < 0 ) {
-        LOG_ERROR("Could not find event listener {u}!", event_listener_id);
+    if( !listener_found ) {
+        LOG_ERROR("Could not find event listener {u16}!", event_listener_id);
         return;
     }
 
