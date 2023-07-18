@@ -1,4 +1,4 @@
-# How to Build
+# Building
 
 ## Requirements
 Currently, only Windows is supported as a build target
@@ -11,7 +11,7 @@ Currently, only Windows is supported as a build target
 - mingw64
 - windres (should be installed with mingw by default)
 
-*: might work on other versions
+`*: might work on other versions`
 
 ## Building 
 ### Debug build
@@ -62,9 +62,4 @@ Additionally, the command argument
 (again, under Session/Application and Parameters)
 --output-debug-string is recommended to enable print out to the
 debugger's output window.
-
-
-## Notes
-- Currently only builds on Windows 11
-
 
