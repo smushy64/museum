@@ -4,7 +4,7 @@
 Currently, only Windows is supported as a build target
 
 ### Common requirements
-- clang 16.0.1*
+- clang 16.0.1* (mingw version on Windows)
 - GNU Make 4.4.1*
 - glslc (can be installed with Vulkan SDK or [here](https://github.com/google/shaderc/blob/main/downloads.md))
 ### Windows requirements
