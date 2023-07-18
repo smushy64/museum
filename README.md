@@ -21,24 +21,13 @@ Currently, only Windows is supported as a build target
 
 `*: might work on other versions`
 
-### Building 
-#### Debug build
 cd into root directory and,
 
-to build all sources
-``` sh
-make
-```
+to build all sources: `make`
 
-to build and run testbed 
-``` sh
-make test
-```
+to build and run testbed `make test`
 
-to list other provided make recipes
-``` sh
-make help
-```
+to list other provided make recipes `make help`
 
 More information on how to build is available [here](./BUILD.md).
 
