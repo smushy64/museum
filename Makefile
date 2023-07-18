@@ -1,7 +1,6 @@
 # * Description:  Makefile for Project Museum
 # * Author:       Alicia Amarilla (smushyaa@gmail.com)
 # * File Created: April 27, 2023
-# * Notes:        
 
 # silent make output
 MAKEFLAGS += -s
@@ -40,8 +39,6 @@ else
 	export EXE_EXT := 
 	export HOST_OS_NAME := unknown
 endif
-
-MAKEFLAGS += -s
 
 export EXE_NAME := $(LIQUID_NAME)_$(LIQUID_VERSION_PATH)_$(if $(IS_DEBUG),debug_,_)$(HOST_OS_NAME)
 export EXE_PATH := $(BUILD_PATH)/$(EXE_NAME)$(EXE_EXT)
@@ -90,7 +87,7 @@ DLINK_FLAGS := -fuse-ld=lld -Wl,//debug
 
 LINK_FLAGS := -nostdlib++ -nostdlib -Wl,//stack:0x100000
 ifeq ($(HOST_OS_NAME), win32)
-	LINK_FLAGS += -lkernel32
+	LINK_FLAGS += -lkernel32 -mstack-probe-size=999999999
 endif
 
 export c_flags := $(if $(IS_DEBUG),$(DC_FLAGS),$(RC_FLAGS)) $(C_FLAGS)
