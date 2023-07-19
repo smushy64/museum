@@ -35,9 +35,15 @@ ifeq ($(OS), Windows_NT)
 	export IS_WINDOWS   := true
 	export HOST_OS_NAME := win32
 else
+	UNAME_S := $(shell uname -s)
+	ifeq ($(UNAME_S),Linux)
+		export HOST_OS_NAME := linux
+		export IS_LINUX := true
+	else
+		export HOST_OS_NAME := unknown
+	endif
 	export SO_EXT  := .so
 	export EXE_EXT := 
-	export HOST_OS_NAME := unknown
 endif
 
 export EXE_NAME := $(LIQUID_NAME)_$(LIQUID_VERSION_PATH)_$(if $(IS_DEBUG),debug_,_)$(HOST_OS_NAME)
@@ -48,15 +54,23 @@ export TESTBED_NAME := testbed_$(if $(IS_DEBUG),debug,release)$(SO_EXT)
 
 RC_FLAGS := -O2
 
-DC_FLAGS := -O0 -g -gcodeview -Werror -Wall -Wextra -pedantic
+DC_FLAGS := -O0 -g -Werror -Wall -Wextra -pedantic
 DC_FLAGS += -Wno-missing-braces -Wno-c11-extensions
 DC_FLAGS += -Wno-gnu-zero-variadic-macro-arguments
 DC_FLAGS += -Wno-gnu-anonymous-struct -Wno-nested-anon-types
-DC_FLAGS += -Wno-unused-variable
+DC_FLAGS += -Wno-unused-variable -Wno-ignored-attributes
+
+ifeq ($(IS_WINDOWS), true)
+	DC_FLAGS += -gcodeview
+endif
 
 C_FLAGS := -fno-rtti -fno-exceptions -Werror=vla -ffast-math
 C_FLAGS += -fno-operator-names -fno-strict-enums
 C_FLAGS += -MMD -MP
+
+ifeq ($(IS_LINUX), true)
+	C_FLAGS += -fdeclspec
+endif
 
 ifeq ($(TARGET_ARCH), x86_64)
 	C_FLAGS += -masm=intel -march=native
@@ -73,7 +87,7 @@ RCPP_FLAGS :=
 DCPP_FLAGS := -DDEBUG -DLD_LOGGING -DLD_ASSERTIONS -DLD_PROFILING
 
 CPP_FLAGS := -DLD_SIMD_WIDTH=4
-CPP_FLAGS += -DLIQUID_ENGINE_VERSION=\""$(ENGINE_NAME) $(PROJECT_VERSION)"\"
+CPP_FLAGS += -DLIQUID_ENGINE_VERSION=\""$(LIQUID_NAME) $(LIQUID_VERSION)"\"
 CPP_FLAGS += -DLIQUID_ENGINE_VERSION_MAJOR=$(LIQUID_VERSION_MAJOR)
 CPP_FLAGS += -DLIQUID_ENGINE_VERSION_MINOR=$(LIQUID_VERSION_MINOR)
 CPP_FLAGS += -DGL_VERSION_MAJOR=$(GL_VERSION_MAJOR)
@@ -82,12 +96,12 @@ CPP_FLAGS += -DVULKAN_VERSION_MAJOR=$(VULKAN_VERSION_MAJOR)
 CPP_FLAGS += -DVULKAN_VERSION_MINOR=$(VULKAN_VERSION_MINOR)
 
 RLINK_FLAGS :=
+DLINK_FLAGS :=
+LINK_FLAGS  := -nostdlib++ -nostdlib
 
-DLINK_FLAGS := -fuse-ld=lld -Wl,//debug
-
-LINK_FLAGS := -nostdlib++ -nostdlib -Wl,//stack:0x100000
-ifeq ($(HOST_OS_NAME), win32)
-	LINK_FLAGS += -lkernel32 -mstack-probe-size=999999999
+ifeq ($(IS_WINDOWS), true)
+	DLINK_FLAGS += -fuse-ld=lld -Wl,//debug
+	LINK_FLAGS  += -fuse-ld=lld -lkernel32 -mstack-probe-size=999999999 -Wl,//stack:0x100000
 endif
 
 export c_flags := $(if $(IS_DEBUG),$(DC_FLAGS),$(RC_FLAGS)) $(C_FLAGS)
@@ -109,12 +123,17 @@ export object_path := $(BUILD_PATH)/obj
 
 LIQUID_ENGINE_FLAGS := $(c_flags) $(cpp_flags) $(link_flags) -Iliquid_engine
 LIQUID_ENGINE_FLAGS += -DLD_EXPORT -MF $(object_path)/$(LIQUID_NAME).d
-LIQUID_ENGINE_FLAGS += -Wl,--out-implib=$(BUILD_PATH)/$(EXE_NAME).lib
 
-ifeq ($(HOST_OS_NAME), win32)
+ifeq ($(IS_WINDOWS), true)
+	LIQUID_ENGINE_FLAGS += -Wl,--out-implib=$(BUILD_PATH)/$(EXE_NAME).lib
+
 	LIQUID_COMPILE_FILE := liquid_engine/platform/win32.cpp
 	LIQUID_RESOURCES_PATH := win32/resources.rc
 	LIQUID_RESOURCES_FILE := $(object_path)/win32_resources.o
+endif
+
+ifeq ($(IS_LINUX), true)
+	LIQUID_COMPILE_FILE := liquid_engine/platform/linux.cpp
 endif
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
@@ -168,9 +187,11 @@ test: all
 
 # for debugging variables
 spit:
-	@$(MAKE) --directory=testbed spit
-	@$(MAKE) --directory=shader spit
+	@echo $(LIQUID_COMPILE_FILE)
 
+# @$(MAKE) --directory=testbed spit
+# @$(MAKE) --directory=shader spit
+ 
 help:
 	@echo Usage: make [argument]
 	@echo "    all:    compile everything"
