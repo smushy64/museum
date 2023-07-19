@@ -5,7 +5,6 @@
 -->
 # TODO 
 
-
 ## Motivation mini-projects
 - [ ] Make an asteroids clone using liquid engine :)
 
@@ -47,6 +46,7 @@
     - log, powf, no simd sqrtf
 
 ## Bug Fixes
+- [ ] defines: why is size_t defined as usize? look into this
 - [ ] format: integer binary format should only print necessary bits
 - [ ] replace all __builtin_ functions throughout math library
     - clangd doesn't complain about them but during compilation,

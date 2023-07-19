@@ -17,7 +17,12 @@ testbed_cpp_flags := $(cpp_flags) $(if $(IS_DEBUG),$(testbed_dcpp_flags),$(testb
 testbed_rlink_flags :=
 testbed_dlink_flags := $(dlink_flags)
 testbed_link_flags := $(if $(IS_DEBUG),$(testbed_dlink_flags),$(testbed_rlink_flags))
-testbed_link_flags += -nostdlib++ -static-libgcc -lmingw32 -shared
+testbed_link_flags += -nostdlib++ -static-libgcc -shared
+
+ifeq ($(IS_WINDOWS), true)
+	testbed_link_flags += -lmingw32
+endif
+
 testbed_link_flags += ../$(EXE_PATH)
 
 TESTBED_FLAGS := $(testbed_c_flags) $(testbed_cpp_flags) $(testbed_link_flags)
