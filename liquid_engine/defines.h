@@ -190,8 +190,6 @@ typedef void* pvoid;
 /// mark value as unused
 #define unused(x) x = x
 
-/// Check if bits are set in bitfield
-#define ARE_BITS_SET( bits, mask ) ( ((bits) & (mask)) == (mask) )
 
 /// Convert macro to const char*
 #define TO_STRING( foo ) #foo
@@ -492,5 +490,32 @@ namespace I64 {
     /// Sign mask
     global const u64 SIGN_MASK = (1ull << 63ull);
 };
+
+/// Define a 24-bit RGB value (using u32)
+#define RGB_U32( r, g, b )\
+    ( 255 << 24u | b << 16u | g << 8u | r )
+/// Define a 32-bit RGBA value
+#define RGBA_U32( r, g, b, a )\
+    ( a << 24u | b << 16u | g << 8u | r )
+
+/// Swap two values.
+#define SWAP( a, b ) do {\
+    __typeof(a) intermediate = a;\
+    a = b;\
+    b = intermediate;\
+} while(0)
+
+/// Check if bits are set in bitfield
+#define ARE_BITS_SET( bits, mask ) ( ((bits) & (mask)) == (mask) )
+/// Check if bits match given mask
+#define CHECK_BITS( bits, mask ) ( ( (bits) & (mask) ) == (mask) )
+/// Toggle masked bits
+#define TOGGLE_BITS( bits, toggle_mask ) do {\
+    bits ^= (toggle_mask);\
+} while(0)
+/// Clear masked bits
+#define CLEAR_BIT( bits, mask ) do {\
+    bits &= ~(mask);\
+} while(0)
 
 #endif

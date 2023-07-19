@@ -17,6 +17,7 @@
 #include "math.h"
 #include "audio.h"
 #include "ecs.h"
+#include "collections.h"
 
 #define THREAD_WORK_ENTRY_COUNT 256
 struct ThreadInfo {
@@ -564,27 +565,6 @@ b32 engine_entry( int argc, char** argv ) {
         return false;
     }
 
-    // TODO(alicia): TEST CODE ONLY
-    Vertex2D vertices[] = {
-        { {  1.0f,  1.0f }, { 1.0f, 1.0f } },
-        { { -1.0f,  1.0f }, { 0.0f, 1.0f } },
-        { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
-        { {  1.0f, -1.0f }, { 1.0f, 0.0f } }
-    };
-    u8 indices[] = {
-        0, 1, 2,
-        2, 3, 0
-    };
-
-    Mesh mesh = {};
-    mesh.vertices_2d  = vertices;
-    mesh.vertex_count = STATIC_ARRAY_COUNT( vertices );
-    mesh.indices8     = indices;
-    mesh.index_count  = STATIC_ARRAY_COUNT( indices );
-    mesh.vertex_type    = VERTEX_TYPE_2D;
-    mesh.index_type     = INDEX_TYPE_U8;
-    mesh.is_static_mesh = true;
-
     ctx.is_running = true;
     while( ctx.is_running ) {
         input_swap();
@@ -613,9 +593,13 @@ b32 engine_entry( int argc, char** argv ) {
         }
 
         ctx.render_order = {};
-        ctx.render_order.meshes     = &mesh;
-        ctx.render_order.mesh_count = 1;
-        ctx.render_order.time       = &ctx.time;
+        ctx.render_order.time = &ctx.time;
+#if defined(DEBUG)
+        ctx.render_order.list_debug_points =
+            (DebugPoints*)::impl::_list_create(
+                LIST_DEFAULT_CAPACITY, sizeof(DebugPoints)
+            );
+#endif
         if( !ctx.application_run( &ctx, application_memory ) ) {
             return false;
         }
@@ -631,6 +615,10 @@ b32 engine_entry( int argc, char** argv ) {
             );
             return false;
         }
+
+#if defined(DEBUG)
+        ::impl::_list_free( ctx.render_order.list_debug_points );
+#endif
 
         // audio_test( ctx.platform );
 

@@ -3,7 +3,7 @@
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: June 13, 2023
 */
-#version 450 core
+#include "defines.include"
 #include "matrix.include"
 
 in layout(location = 0) vec2 v_position;

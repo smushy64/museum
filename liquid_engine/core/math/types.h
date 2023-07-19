@@ -1235,6 +1235,28 @@ inline vec4 operator*( const mat4& lhs, vec4 rhs ) {
     };
 }
 
+struct Circle2D {
+    vec2 position;
+    f32  radius;
+};
+
+struct Rect2D {
+    f32 left, right;
+    f32 top,  bottom;
+};
+FORCE_INLINE vec2 rect2d_top_left( const Rect2D& rect ) {
+    return { rect.left, rect.top };
+}
+FORCE_INLINE vec2 rect2d_top_right( const Rect2D& rect ) {
+    return { rect.right, rect.top };
+}
+FORCE_INLINE vec2 rect2d_bottom_left( const Rect2D& rect ) {
+    return { rect.left, rect.bottom };
+}
+FORCE_INLINE vec2 rect2d_bottom_right( const Rect2D& rect ) {
+    return { rect.right, rect.bottom };
+}
+
 #if defined(LD_COMPILER_CLANG) && !defined(_CLANGD)
     #pragma clang diagnostic pop
 #endif

@@ -12,22 +12,25 @@ No libraries are used with the exception of system libraries ( Win32, OpenGL etc
 Currently, only Windows is supported as a build target
 
 #### Common requirements
-- clang 16.0.1* (mingw version on Windows)
+- clang 16.0.1*
 - GNU Make 4.4.1*
-- glslc (can be installed with Vulkan SDK or [here](https://github.com/google/shaderc/blob/main/downloads.md))
+- [glslc v2023.1*](https://github.com/google/shaderc/blob/main/downloads.md)
 #### Windows requirements
-- mingw64
-- windres (should be installed with mingw by default)
+- [msys2](https://www.msys2.org/wiki/MSYS2-installation/)
+- windres 2.40*
+    - should be installed with mingw by default
+#### Optional
+- [RemedyBG Debugger](https://remedybg.itch.io/remedybg)
 
-`*: might work on other versions`
+`*: might work with other versions`
 
-cd into root directory and,
+1) cd into root directory
+2) build all sources: ```make```
+3) executable will be in ./build/debug/
 
-to build all sources: `make`
+to build and execute testbed, run: ```make test```
 
-to build and run testbed `make test`
-
-to list other provided make recipes `make help`
+to list other provided make recipes, run: ```make help```
 
 More information on how to build is available [here](./BUILD.md).
 

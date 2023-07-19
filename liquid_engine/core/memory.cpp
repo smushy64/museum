@@ -124,14 +124,15 @@ void _mem_free_trace(
     u64* header = ((u64*)memory) - MEMORY_FIELD_COUNT;
     MemoryType type = (MemoryType)header[MEMORY_FIELD_TYPE];
     usize size = header[MEMORY_FIELD_SIZE];
+    f32 float_size = (f32)size;
 
     LOG_FREE(
         function,
         file,
         line,
-        "Type: {cc} | Size: {u64} | Pointer: {u64,x}",
+        "Type: {cc} | Size: {u64} ({f,b,.2}) | Pointer: {u64,x}",
         to_string(type),
-        size,
+        size, float_size,
         (u64)(memory)
     );
 
@@ -139,8 +140,6 @@ void _mem_free_trace(
 }
 
 void* _mem_alloc( usize size, MemoryType type ) {
-    // TODO(alicia): allocate in different ways depending on memory type
-    
     if( type == MEMTYPE_UNKNOWN ) {
         LOG_WARN(
             "Allocating memory of type unknown! "
@@ -148,6 +147,7 @@ void* _mem_alloc( usize size, MemoryType type ) {
         );
     }
 
+#if defined(LD_PROFILING)
     usize total_size = size + MEMORY_HEADER_SIZE;
     u64*  block      = (u64*)heap_alloc( total_size );
 
@@ -157,10 +157,12 @@ void* _mem_alloc( usize size, MemoryType type ) {
     USAGE.usage[type] += total_size;
 
     return block + MEMORY_FIELD_COUNT;
+#else
+    return heap_alloc( size );
+#endif
 }
 void* _mem_realloc( void* memory, usize new_size ) {
-    // TODO(alicia): allocate in different ways depending on memory type
-
+#if defined( LD_PROFILING )
     u64* header = ((u64*)memory) - MEMORY_FIELD_COUNT;
     usize old_size   = header[MEMORY_FIELD_SIZE] + MEMORY_HEADER_SIZE;
     MemoryType type  = (MemoryType)header[MEMORY_FIELD_TYPE];
@@ -180,8 +182,12 @@ void* _mem_realloc( void* memory, usize new_size ) {
     }
 
     return header + MEMORY_FIELD_COUNT;
+#else
+    return heap_realloc( memory, new_size );
+#endif
 }
 void _mem_free( void* memory ) {
+#if defined(LD_PROFILING)
     u64* header = ((u64*)memory) - MEMORY_FIELD_COUNT;
 
     usize      size = header[MEMORY_FIELD_SIZE];
@@ -190,9 +196,19 @@ void _mem_free( void* memory ) {
     USAGE.usage[type] -= size + MEMORY_HEADER_SIZE;
 
     heap_free( header );
+#else
+    heap_free( memory );
+#endif
 }
 
-LD_API void* _mem_page_alloc( usize size, MemoryType type ) {
+#if defined(LD_PLATFORM_WINDOWS)
+    #define PAGE_SIZE KILOBYTES(4)
+#else
+    #define PAGE_SIZE KILOBYTES(4)
+#endif
+
+internal void* internal_mem_page_alloc( usize size, MemoryType type, usize* out_actual_size ) {
+#if defined(LD_PROFILING)
     if( type == MEMTYPE_UNKNOWN ) {
         LOG_WARN(
             "Allocating memory of type unknown! "
@@ -200,40 +216,71 @@ LD_API void* _mem_page_alloc( usize size, MemoryType type ) {
         );
     }
 
-    usize total_size = size + MEMORY_HEADER_SIZE;
-    u64*  block      = (u64*)platform_page_alloc( total_size );
+    usize total_size            = size + ( size % PAGE_SIZE );
+    usize size_plus_header_size = total_size + MEMORY_HEADER_SIZE;
+    if( out_actual_size ) {
+        *out_actual_size = size_plus_header_size;
+    }
 
-    block[MEMORY_FIELD_SIZE] = size;
+    u64* block = (u64*)platform_page_alloc( size_plus_header_size );
+
+    block[MEMORY_FIELD_SIZE] = total_size;
     block[MEMORY_FIELD_TYPE] = type;
 
     USAGE.page_usage[type] += total_size;
 
     return block + MEMORY_FIELD_COUNT;
+#else
+    if( type == MEMTYPE_UNKNOWN ) {
+        LOG_WARN(
+            "Allocating memory of type unknown! "
+            "All memory allocations should be categorized!"
+        );
+    }
+
+    usize total_size = size + ( size % PAGE_SIZE );
+    if( out_actual_size ) {
+        *out_actual_size = total_size;
+    }
+
+    return platform_page_alloc( total_size );
+#endif
+}
+
+LD_API void* _mem_page_alloc( usize size, MemoryType type ) {
+    return internal_mem_page_alloc( size, type, nullptr );
 }
 LD_API void _mem_page_free( void* memory ) {
+#if defined(LD_PROFILING)
+    
     u64* header = ((u64*)memory) - MEMORY_FIELD_COUNT;
 
     usize      size = header[MEMORY_FIELD_SIZE];
     MemoryType type = (MemoryType)header[MEMORY_FIELD_TYPE];
 
-    USAGE.page_usage[type] -= size + MEMORY_HEADER_SIZE;
-
+    USAGE.page_usage[type] -= size;
     platform_page_free( header );
+#else
+    platform_page_free( memory );
+#endif
 }
+
 LD_API void* _mem_page_alloc_trace(
     usize size, MemoryType type,
     const char* function,
     const char* file,
     int line
 ) {
-    void* result = _mem_page_alloc( size, type );
+    usize actual_size = 0;
+    void* result = internal_mem_page_alloc( size, type, &actual_size );
+    f32 float_actual_size = (f32)actual_size;
     LOG_PAGE_ALLOC(
         function,
         file,
         line,
-        "Type: {cc} | Size: {u64} | Pointer: {u64,x}",
+        "Type: {cc} | Size: {u64} ({f,b,.2}) | Pointer: {u64,x}",
         to_string(type),
-        size,
+        actual_size, float_actual_size,
         (u64)(result)
     );
     return result;   
@@ -244,21 +291,32 @@ LD_API void _mem_page_free_trace(
     const char* file,
     int line
 ) {
-    u64* header = ((u64*)memory) - MEMORY_FIELD_COUNT;
-    MemoryType type = (MemoryType)header[MEMORY_FIELD_TYPE];
-    usize size = header[MEMORY_FIELD_SIZE];
+#if defined(LD_PROFILING)
+    u64*       header     = ((u64*)memory) - MEMORY_FIELD_COUNT;
+    MemoryType type       = (MemoryType)header[MEMORY_FIELD_TYPE];
+    usize      size       = header[MEMORY_FIELD_SIZE];
+    f32        float_size = (f32)size;
 
     LOG_PAGE_FREE(
         function,
         file,
         line,
-        "Type: {cc} | Size: {u64} | Pointer: {u64,x}",
+        "Type: {cc} | Size: {u64}({f,b,.2}) | Pointer: {u64,x}",
         to_string(type),
-        size,
+        size, float_size,
         (u64)(memory)
     );
+#else
+    LOG_PAGE_FREE(
+        function,
+        file,
+        line,
+        "Pointer: {u64,x}",
+        (u64)(memory)
+    );
+#endif
 
-    _mem_free( memory );
+    _mem_page_free( memory );
 }
 
 LD_API b32 _stack_arena_create( u32 size, MemoryType type, StackArena* out_arena ) {
@@ -283,9 +341,12 @@ LD_API void* _stack_arena_push_item( StackArena* arena, u32 item_size ) {
     u32 new_stack_pointer = arena->stack_pointer + item_size;
     if( new_stack_pointer >= arena->arena_size ) {
         u32 remaining_stack_size = arena->arena_size - arena->stack_pointer;
+        f32 float_remaining_stack_size = (f32)remaining_stack_size;
+        f32 float_item_size = (f32)item_size;
         LOG_ERROR(
-            "Stack Arena push failed! Item Size: {u} | Remaining Stack: {u}",
-            item_size, remaining_stack_size
+            "Stack Arena push failed! Item Size: {u} ({f,b,.2}) | Remaining Stack: {u} ({f,b,.2})",
+            item_size, float_item_size,
+            remaining_stack_size, float_remaining_stack_size
         );
         return nullptr;
     }
@@ -307,17 +368,27 @@ LD_API b32 _stack_arena_create_trace(
     const char* file,
     int line
 ) {
-    b32 success = _stack_arena_create( size, type, out_arena );
+    b32 success = true;
+    void* buffer = _mem_page_alloc_trace( size, type, function, file, line );
+    if( !buffer ) {
+        success = false;
+    }
+
+    out_arena->arena         = buffer;
+    out_arena->arena_size    = size;
+    out_arena->stack_pointer = 0;
+
+    f32 float_size = (f32)size;
     log_formatted_locked(
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
         LOG_COLOR_GREEN,
         LOG_FLAG_NEW_LINE,
         "[STACK ARENA ALLOC | {cc}() | {cc}:{i}] "
-        "Arena: {u64,x} | Type: {cc} | Size: {u}",
+        "Arena: {u64,x} | Type: {cc} | Size: {u} ({f,b,.2})",
         function, file, line,
         (u64)(out_arena->arena),
         to_string( type ),
-        size
+        size, float_size
     );
     return success;
 }
@@ -329,16 +400,18 @@ LD_API void _stack_arena_free_trace(
 ) {
     u64* header = ((u64*)arena->arena) - MEMORY_FIELD_COUNT;
     MemoryType type = (MemoryType)header[MEMORY_FIELD_TYPE];
+    f32 float_arena_size = (f32)arena->arena_size;
     log_formatted_locked(
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
         LOG_COLOR_CYAN,
         LOG_FLAG_NEW_LINE,
         "[STACK ARENA FREE | {cc}() | {cc}:{i}] "
-        "Arena: {u64,x} | Type: {cc} | Size: {u}",
+        "Arena: {u64,x} | Type: {cc} | Size: {u} ({f,b,.2})",
         function, file, line,
         (u64)(arena->arena),
         to_string( type ),
-        arena->arena_size
+        arena->arena_size,
+        float_arena_size
     );
     _stack_arena_free( arena );
 }
@@ -348,15 +421,16 @@ LD_API void* _stack_arena_push_item_trace(
     const char* file,
     int line
 ) {
+    f32 float_item_size = (f32)item_size;
     log_formatted_locked(
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
         LOG_COLOR_GREEN,
         LOG_FLAG_NEW_LINE,
         "[STACK ARENA PUSH | {cc}() | {cc}:{i}] "
-        "Arena: {u64,x} | Item Size: {u}",
+        "Arena: {u64,x} | Item Size: {u} ({f,b,.2})",
         function, file, line,
         (u64)(arena->arena),
-        item_size
+        item_size, float_item_size
     );
     return _stack_arena_push_item( arena, item_size );
 }
@@ -366,15 +440,16 @@ LD_API void _stack_arena_pop_item_trace(
     const char* file,
     int line
 ) {
+    f32 float_item_size = (f32)item_size;
     log_formatted_locked(
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
         LOG_COLOR_CYAN,
         LOG_FLAG_NEW_LINE,
         "[STACK ARENA POP | {cc}() | {cc}:{i}] "
-        "Arena: {u64,x} | Item Size: {u}",
+        "Arena: {u64,x} | Item Size: {u} ({f,b,.2})",
         function, file, line,
         (u64)(arena->arena),
-        item_size
+        item_size, float_item_size
     );
     _stack_arena_pop_item( arena, item_size );
 }

@@ -8,9 +8,11 @@ MAKEFLAGS += -j
 
 export CC := clang++ -std=c++20
 
+RELEASE ?= 
+export IS_DEBUG := $(if $(RELEASE),,true)
+
 # valid arch: x86_64, arm, wasm
 export TARGET_ARCH := x86_64
-export IS_DEBUG    := true
 export BUILD_PATH  := build/$(if $(IS_DEBUG),debug,release)
 export RESOURCES_LOCAL_PATH := resources
 export SHADERS_LOCAL_PATH   := $(RESOURCES_LOCAL_PATH)/shaders
@@ -81,7 +83,7 @@ CPP_FLAGS += -DGL_VERSION_MINOR=$(GL_VERSION_MINOR)
 CPP_FLAGS += -DVULKAN_VERSION_MAJOR=$(VULKAN_VERSION_MAJOR)
 CPP_FLAGS += -DVULKAN_VERSION_MINOR=$(VULKAN_VERSION_MINOR)
 
-RLINK_FLAGS :=
+RLINK_FLAGS := -fuse-ld=lld 
 
 DLINK_FLAGS := -fuse-ld=lld -Wl,//debug
 
@@ -135,7 +137,7 @@ all: print_info shader $(EXE_PATH)
 	@$(MAKE) --directory=testbed --no-print-directory
 
 print_info:
-	@echo "Make: compilation target:" $(HOST_OS_NAME)-$(TARGET_ARCH)
+	@echo "Make: compilation target:" $(HOST_OS_NAME)-$(TARGET_ARCH) $(if $(RELEASE), Release, Debug)
 
 shader:
 	@$(MAKE) --directory=shader --no-print-directory
@@ -168,6 +170,7 @@ test: all
 
 # for debugging variables
 spit:
+	@echo $(RELEASE)
 	@$(MAKE) --directory=testbed spit
 	@$(MAKE) --directory=shader spit
 
@@ -178,6 +181,8 @@ help:
 	@echo "    test:   compile and run \"Testbed\""
 	@echo "    shader: compile shaders only"
 	@echo "    clean:  delete everything in build directory"
+	@echo "            SHADERS=true - clean shaders only"
+	@echo "            TESTBED=true - clean testbed files only"
 
 clean:
 	@echo Make: removing everything from build directory . . .

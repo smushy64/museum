@@ -8,19 +8,30 @@
 #include "platform/io.h"
 #include "math/functions.h"
 
+#define BMP_FILE_TYPE ( 'M' << (u16)(8) | 'B' << (u16)(0) )
+#define BI_RGB       0u
+#define BI_BITFIELDS 3u
+#define BPP_24 24u
+#define BPP_32 32u
 /// BMP file header
 MAKE_PACKED( struct BMPHeader {
-    char identifier[2];
+    union {
+        char type_char[2];
+        u16  type;
+    };
     u32  bmp_file_size;
     u32  __reserved0;
     u32  data_offset;
     u32  unused_dib_header_size;
     i32  image_width;
     i32  image_height;
+    u16  unused_biplanes;
+    u16  bits_per_pixel;
+    u32  compression;
 } );
 
-#define BMP_IS_UPSIDE_DOWN( image_height )\
-    ARE_BITS_SET( image_height, I32::SIGN_MASK )
+#define BMP_IS_TOP_DOWN( image_height )\
+    ( image_height < 0 )
 
 b32 debug_load_bmp( const char* path, DebugImage* out_image ) {
     FileHandle bmp_file_handle = {};
@@ -51,11 +62,19 @@ b32 debug_load_bmp( const char* path, DebugImage* out_image ) {
         return false;
     }
 
-    if(!(
-        header.identifier[0] == 'B' &&
-        header.identifier[1] == 'M'
-    )) {
+    if( BMP_FILE_TYPE != header.type ) {
         LOG_ERROR("File \"{cc}\" is not a BMP!", path);
+        return false;
+    }
+
+    if( !(
+        header.compression == BI_RGB ||
+        header.compression == BI_BITFIELDS
+    ) ) {
+        LOG_ERROR(
+            "BMP File \"{cc}\" has an unsupported compression type!",
+            path
+        );
         return false;
     }
 
@@ -64,7 +83,20 @@ b32 debug_load_bmp( const char* path, DebugImage* out_image ) {
         return false;
     }
 
-    if( BMP_IS_UPSIDE_DOWN( header.image_height ) ) {
+    switch( header.bits_per_pixel ) {
+        case BPP_24:
+            out_image->format = TEXTURE_FORMAT_RGB;
+            break;
+        case BPP_32:
+            out_image->format = TEXTURE_FORMAT_RGBA;
+            break;
+        default:
+            LOG_ERROR(
+                "BMP file \"{cc}\" has invalid bits-per-pixel: {u16}",
+                path,
+                header.bits_per_pixel
+            );
+            return false;
     }
 
     out_image->width  = header.image_width;
@@ -72,12 +104,16 @@ b32 debug_load_bmp( const char* path, DebugImage* out_image ) {
 
     usize image_size = file_size - header.data_offset;
 
-    out_image->buffer = mem_alloc( image_size, MEMTYPE_UNKNOWN );
+    u32 bytes_per_pixel = header.bits_per_pixel / 8;
+    u32 bytes_per_row   = bytes_per_pixel * out_image->width;
+    out_image->buffer = mem_alloc(
+        image_size +
+        bytes_per_row,
+        MEMTYPE_UNKNOWN
+    );
     if( !out_image->buffer ) {
         return false;
     }
-
-    out_image->format = TEXTURE_FORMAT_RGBA;
 
     platform_file_set_offset( bmp_file_handle, header.data_offset );
     platform_file_read(
@@ -86,6 +122,30 @@ b32 debug_load_bmp( const char* path, DebugImage* out_image ) {
         image_size,
         out_image->buffer
     );
+
+    if( BMP_IS_TOP_DOWN( header.image_height ) ) {
+        u8* byte_buffer = (u8*)out_image->buffer;
+        u8* temp_buffer = &byte_buffer[image_size];
+        i32 i = 0, n = out_image->height - 1;
+        while( i <= n ) {
+            u8* src = &byte_buffer[i * bytes_per_row];
+            u8* dst = &byte_buffer[n * bytes_per_row];
+            mem_copy( temp_buffer, src, bytes_per_row );
+            mem_copy( src, dst, bytes_per_row );
+            mem_copy( dst, temp_buffer, bytes_per_row );
+            n--; i++;
+        }
+        for( i32 y = 0; y < out_image->height; ++y ) {
+            n = (out_image->width * bytes_per_pixel) - 1;
+            i = 0;
+            i32 stride = y * bytes_per_row;
+            while( i <= n ) {
+                SWAP( byte_buffer[n + stride], byte_buffer[i + stride] );
+                n--; i++;
+            }
+        }
+        
+    }
 
     platform_file_close( bmp_file_handle );
     return true;

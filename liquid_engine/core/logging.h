@@ -265,7 +265,7 @@ LD_API void log_formatted_unlocked(
                 }\
             } while(0)
 
-        #define DEBUG_UNIMPLEMENTED() \
+        #define UNIMPLEMENTED() \
             do {\
                 log_formatted_unlocked(\
                     LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
@@ -281,13 +281,13 @@ LD_API void log_formatted_unlocked(
     #else
         #define LOG_PANIC( format, ... ) PANIC()
         #define LOG_ASSERT( condition, format, ... ) ASSERT( condition )
-        #define DEBUG_UNIMPLEMENTED() PANIC()
+        #define UNIMPLEMENTED() PANIC()
     #endif
 
 #else
     #define LOG_PANIC( format, ... )
     #define LOG_ASSERT( condition, format, ... )
-    #define DEBUG_UNIMPLEMENTED()
+    #define UNIMPLEMENTED()
 #endif
 
 #endif

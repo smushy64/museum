@@ -2,7 +2,7 @@
 # * Author:       Alicia Amarilla (smushyaa@gmail.com)
 # * File Created: June 13, 2023
 
-SLC := glslc -std=450core --target-env=opengl --target-spv=spv1.6 -x glsl
+SLC := glslc -std=450core --target-env=opengl -x glsl
 SL_DEBUG_C_FLAGS := -O0
 SL_RELEASE_C_FLAGS := -O
 SL_C_FLAGS := -I.
@@ -19,7 +19,10 @@ frag := $(call recurse,,*.frag)
 vert_spv := $(vert:%=$(TARGET)/%.spv)
 frag_spv := $(frag:%=$(TARGET)/%.spv)
 
-all: $(vert_spv) $(frag_spv)
+all: print_info $(vert_spv) $(frag_spv)
+
+print_info:
+	@echo "Make: compiling shaders using glslc . . ."
 
 spit:
 	@echo $(vert_spv)
@@ -27,11 +30,11 @@ spit:
 $(TARGET)/%.vert.spv:%.vert
 	@echo "Make:    compiling $< . . ."
 	@mkdir -p $(dir $@)
-	@$(SLC) -c $< -o $@ $(sl_flags)
+	@$(SLC) -c $< -o $@ $(sl_flags) -DGLSL_VERTEX=1
 
 $(TARGET)/%.frag.spv:%.frag
 	@echo "Make:    compiling $< . . ."
 	@mkdir -p $(dir $@)
-	@$(SLC) -c $< -o $@ $(sl_flags)
+	@$(SLC) -c $< -o $@ $(sl_flags) -DGLSL_FRAGMENT=1
 
-.PHONY: all spit
+.PHONY: all spit print_info

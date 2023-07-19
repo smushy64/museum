@@ -22,15 +22,7 @@ struct StringView {
     u32 len;
 
     inline StringView() : buffer(nullptr), len(0) {}
-    inline StringView( const char* str ) {
-        if( !str ) {
-            buffer = nullptr;
-            len    = 0;
-            return;
-        }
-        buffer = (char*)str;
-        len    = str_length( str );
-    }
+    inline StringView( const char* str ) : buffer((char*)str), len(str_length(str)) {}
     inline StringView( String& string ) : buffer(string.buffer), len(string.len) {}
 
     inline char& operator[]( u32 i ) { return buffer[i]; }

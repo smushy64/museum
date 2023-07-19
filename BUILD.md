@@ -4,44 +4,38 @@
 Currently, only Windows is supported as a build target
 
 ### Common requirements
-- clang 16.0.1* (mingw version on Windows)
+- clang 16.0.1*
 - GNU Make 4.4.1*
-- glslc (can be installed with Vulkan SDK or [here](https://github.com/google/shaderc/blob/main/downloads.md))
+- [glslc v2023.1*](https://github.com/google/shaderc/blob/main/downloads.md)
 ### Windows requirements
-- mingw64
-- windres (should be installed with mingw by default)
+- [msys2](https://www.msys2.org/wiki/MSYS2-installation/)
+- windres 2.40*
+    - should be installed with mingw by default
+### Optional
+- [RemedyBG Debugger](https://remedybg.itch.io/remedybg)
 
-`*: might work on other versions`
+`*: might work with other versions`
 
 ## Building 
 ### Debug build
-cd into root directory and,
 
-to build all sources
-``` sh
-make
-```
+1) cd into root directory
+2) build all sources: ```make```
+3) executable will be in ./build/debug/
 
-to build and run testbed 
-``` sh
-make test
-```
+to build and execute testbed, run: ```make test```
 
-to list other provided make recipes
-``` sh
-make help
-```
+to list other provided make recipes, run: ```make help```
 
 ### Release build
-edit root Makefile, change
-``` make
-IS_DEBUG := true
-```
-to
-``` make
-IS_DEBUG :=
-```
-and follow debug build steps
+
+1) cd into root directory
+2) build all sources: ```make RELEASE=true```
+3) executable will be in ./build/release/
+
+to build and execute testbed, run: ```make test RELEASE=true```
+
+to list other provided make recipes, run: ```make help```
 
 ## Debugging
 I do not use Visual Studio or any other debugger except

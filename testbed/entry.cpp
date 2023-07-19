@@ -6,7 +6,6 @@
 #include <core/logging.h>
 #include <core/engine.h>
 #include <core/ecs.h>
-#include <renderer/renderer.h>
 #include <core/graphics.h>
 #include <core/collections.h>
 #include <core/event.h>
@@ -16,42 +15,104 @@
 #include <core/asset.h>
 #include <core/memory.h>
 
+#include <renderer/renderer.h>
+#include <renderer/primitives.h>
+
 #define ENTITY_TYPE_SHIP     1
 #define ENTITY_TYPE_ASTEROID 2
+#define ENTITY_TYPE_TORPEDO  3
 
 const char* entity_type_to_string( EntityType type ) {
     switch( type ) {
-        case ENTITY_TYPE_SHIP: return "Ship";
+        case ENTITY_TYPE_SHIP:     return "Ship";
         case ENTITY_TYPE_ASTEROID: return "Asteroid";
+        case ENTITY_TYPE_TORPEDO:  return "Torpedo";
         default: return "null";
     }
 }
 
-#define SHIP_SCALE (0.05f)
+#define SHIP_SPEED          (1.5f)
+#define SHIP_ROTATION_SPEED (5.5f)
+#define SHIP_SCALE          (0.05f)
 struct Ship {
-    Transform2D transform;
-    Physics2D   physics;
-    f32         normal_drag;
-    f32         stop_drag;
+    Transform2D    transform;
+    Physics2D      physics;
+    SpriteRenderer sprite_renderer;
+    Collider2D     collider;
+    f32            normal_drag;
+    f32            stop_drag;
 };
 STATIC_ASSERT( sizeof(Ship) <= MAX_ENTITY_SIZE );
-Entity ship_create() {
+Entity ship_create( struct Texture* texture_atlas ) {
     Entity entity    = {};
     entity.type      = ENTITY_TYPE_SHIP;
-    entity.is_2d     = true;
-    entity.is_active = true;
-    entity.flags     =
-        ENTITY_FLAG_PHYSICS |
-        ENTITY_FLAG_TRANSFORM;
+    entity.state_flags = ENTITY_STATE_FLAG_IS_ACTIVE |
+        ENTITY_STATE_FLAG_IS_2D |
+        ENTITY_STATE_FLAG_IS_VISIBLE;
+    entity.component_flags     =
+        ENTITY_COMPONENT_FLAG_PHYSICS   |
+        ENTITY_COMPONENT_FLAG_TRANSFORM |
+        ENTITY_COMPONENT_FLAG_SPRITE_RENDERER |
+        ENTITY_COMPONENT_FLAG_COLLIDER_2D;
 
     Ship* ship = (Ship*)entity.bytes;
 
+    ship->transform.scale = { SHIP_SCALE, SHIP_SCALE };
     ship->normal_drag          = 1.2f;
     ship->stop_drag            = 2.5f;
     ship->physics.drag         = ship->normal_drag;
     ship->physics.angular_drag = ship->normal_drag;
+    ship->sprite_renderer      = sprite_renderer_new( texture_atlas, 1 );
+    ship->collider             = collider2d_new_rect(
+        SHIP_SCALE * 2.0f,
+        SHIP_SCALE * 2.0f
+    );
 
     return entity;
+}
+
+#define TORPEDO_SCALE            (0.015f)
+#define TORPEDO_LIFETIME_SECONDS (2.0f)
+#define TORPEDO_SPEED            (SHIP_SPEED + 0.25f)
+struct Torpedo {
+    Transform2D    transform;
+    Physics2D      physics;
+    SpriteRenderer sprite_renderer;
+    Collider2D     collider;
+    f32 lifetime_timer;
+};
+STATIC_ASSERT( sizeof(Torpedo) <= MAX_ENTITY_SIZE );
+internal Entity torpedo_create( struct Texture* texture_atlas ) {
+    Entity entity    = {};
+    entity.type      = ENTITY_TYPE_TORPEDO;
+    entity.state_flags =
+        ENTITY_STATE_FLAG_IS_2D |
+        ENTITY_STATE_FLAG_IS_VISIBLE;
+    entity.component_flags     =
+        ENTITY_COMPONENT_FLAG_PHYSICS   |
+        ENTITY_COMPONENT_FLAG_TRANSFORM |
+        ENTITY_COMPONENT_FLAG_SPRITE_RENDERER |
+        ENTITY_COMPONENT_FLAG_COLLIDER_2D;
+
+    Torpedo* torpedo = (Torpedo*)entity.bytes;
+
+    torpedo->transform.scale = v2( TORPEDO_SCALE );
+    torpedo->sprite_renderer = sprite_renderer_new( texture_atlas, 1 );
+    torpedo->sprite_renderer.z_index = -1;
+    torpedo->collider        = collider2d_new_rect(
+        TORPEDO_SCALE * 2.0f,
+        TORPEDO_SCALE * 2.0f
+    );
+    torpedo->lifetime_timer = 0.0f;
+
+    return entity;
+}
+internal void torpedo_enable( Entity* entity, Ship* ship, vec2 ship_forward ) {
+    Torpedo* current_torpedo = (Torpedo*)entity->bytes;
+    current_torpedo->transform.position = ship->transform.position;
+    current_torpedo->physics.velocity   = ship_forward * TORPEDO_SPEED;
+    current_torpedo->lifetime_timer = 0.0f;
+    entity_set_active( entity, true );
 }
 
 struct Asteroid {
@@ -60,27 +121,26 @@ struct Asteroid {
 };
 STATIC_ASSERT( sizeof(Asteroid) <= MAX_ENTITY_SIZE );
 Entity asteroid_create() {
-    Entity result    = {};
-    result.type      = ENTITY_TYPE_ASTEROID;
-    result.is_2d     = true;
-    result.is_active = false;
-    result.flags     =
-        ENTITY_FLAG_PHYSICS |
-        ENTITY_FLAG_TRANSFORM;
-
+    Entity result = {};
     return result;
 }
 
+#define MAX_TORPEDOES (5)
 struct GameMemory {
-    Texture      test_texture;
-    DrawBinding* list_draw_bindings;
-    i32 ship_id;
+    Texture         textures[2];
+    i32             ship_id;
+    i32             first_torpedo_id;
+    i32             current_torpedo;
     EventListenerID on_exit_listener;
 };
 
 EventCallbackReturn on_exit( Event*, void* generic_memory ) {
     GameMemory* memory = (GameMemory*)generic_memory;
-    mem_free( memory->test_texture.buffer );
+    for( u32 i = 0; i < STATIC_ARRAY_COUNT( memory->textures ); ++i ) {
+        if( memory->textures[i].buffer ) {
+            mem_free( memory->textures[i].buffer );
+        }
+    }
 
     event_unsubscribe( memory->on_exit_listener );
 
@@ -99,7 +159,7 @@ void application_config( struct EngineConfig* config ) {
     );
 
     // TODO(alicia): figure this shit out
-    // config->opt_application_icon_path = "./resources/images/ui/testbed_icon_256x256.ico";
+    config->opt_application_icon_path = "./icon.ico";
     config->surface_dimensions        = { 800, 600 };
     config->log_level        = LOG_LEVEL_ALL_VERBOSE;
     // TODO(alicia): expose these flags somewhere 
@@ -110,46 +170,108 @@ void application_config( struct EngineConfig* config ) {
 extern "C"
 b32 application_init( struct EngineContext* ctx, void* generic_memory ) {
     GameMemory* memory = (GameMemory*)generic_memory;
-    memory->list_draw_bindings = list_reserve( DrawBinding, 2 );
-    if( !memory->list_draw_bindings ) {
-        return false;
-    }
-
-    DrawBinding null_binding = {};
-    list_push( memory->list_draw_bindings, null_binding );
 
     EntityStorage* storage = engine_get_entity_storage( ctx );
 
-    Entity ship = ship_create();
+    memory->textures[0].id = RendererID( 1u );
+
+    DebugImage ship_image = {};
+    if( !debug_load_bmp( "./resources/ship.bmp", &ship_image ) ) {
+        return false;
+    }
+
+    memory->textures[1].dimensions  = ship_image.dimensions;
+    memory->textures[1].format      = ship_image.format;
+    memory->textures[1].buffer      = ship_image.buffer;
+    memory->textures[1].wrap_x      = TEXTURE_WRAP_CLAMP;
+    memory->textures[1].wrap_y      = TEXTURE_WRAP_CLAMP;
+    memory->textures[1].filter      = TEXTURE_FILTER_BILINEAR;
+    memory->textures[1].use_opacity = true;
+
+    Entity ship = ship_create( &memory->textures[1] );
     memory->ship_id = entity_storage_create_entity( storage, &ship );
 
-    if( memory->ship_id < 0 ) {
-        return false;
+    ASSERT( memory->ship_id >= 0 );
+
+    for( u32 i = 0; i < MAX_TORPEDOES; ++i ) {
+        Entity   torpedo = torpedo_create( &memory->textures[0] );
+        EntityID id      = entity_storage_create_entity( storage, &torpedo );
+        ASSERT( id >= 0 );
+        if( i == 0 ) {
+            memory->first_torpedo_id = id;
+        }
     }
 
     Entity asteroid = asteroid_create();
     entity_storage_create_entity( storage, &asteroid );
-
-    DebugImage debug_image = {};
-    if( !debug_load_bmp( "./resources/ship.bmp", &debug_image ) ) {
-        return false;
-    }
-
-    memory->test_texture.dimensions = debug_image.dimensions;
-    memory->test_texture.format     = debug_image.format;
-    memory->test_texture.buffer     = debug_image.buffer;
 
     memory->on_exit_listener =
         event_subscribe( EVENT_CODE_EXIT, on_exit, memory );
 
     return true;
 }
+[[maybe_unused]]
+internal b32 filter_active_torpedoes( Entity* entity ) {
+    b32 is_torpedo = entity->type == ENTITY_TYPE_TORPEDO;
+    if( !is_torpedo ) {
+        return false;
+    }
+
+    b32 is_active_visible_2d = CHECK_BITS(
+        entity->state_flags,
+        ENTITY_STATE_FLAG_IS_ACTIVE  |
+        ENTITY_STATE_FLAG_IS_VISIBLE |
+        ENTITY_STATE_FLAG_IS_2D
+    );
+
+    return is_active_visible_2d;
+}
+[[maybe_unused]]
+internal b32 filter_colliders( Entity* entity ) {
+    b32 is_active_visible_2d = CHECK_BITS(
+        entity->state_flags,
+        ENTITY_STATE_FLAG_IS_ACTIVE  |
+        ENTITY_STATE_FLAG_IS_VISIBLE |
+        ENTITY_STATE_FLAG_IS_2D
+    );
+    b32 has_collider2d = CHECK_BITS(
+        entity->component_flags,
+        ENTITY_COMPONENT_FLAG_COLLIDER_2D
+    );
+    return is_active_visible_2d && has_collider2d;
+}
+
+internal b32 filter_sprites( Entity* entity ) {
+    b32 is_active_visible_2d = CHECK_BITS(
+        entity->state_flags,
+        ENTITY_STATE_FLAG_IS_ACTIVE |
+        ENTITY_STATE_FLAG_IS_VISIBLE |
+        ENTITY_STATE_FLAG_IS_2D
+    );
+    b32 has_sprite_renderer = CHECK_BITS(
+        entity->component_flags,
+        ENTITY_COMPONENT_FLAG_SPRITE_RENDERER
+    );
+    return is_active_visible_2d && has_sprite_renderer;
+}
+
+internal b32 filter_active_visible2d( Entity* entity ) {
+    b32 is_active_visible_2d = CHECK_BITS(
+        entity->state_flags,
+        ENTITY_STATE_FLAG_IS_ACTIVE  |
+        ENTITY_STATE_FLAG_IS_VISIBLE |
+        ENTITY_STATE_FLAG_IS_2D      
+    );
+    return is_active_visible_2d;
+}
 
 extern "C"
 b32 application_run( struct EngineContext* ctx, void* generic_memory ) {
-    GameMemory* memory = (GameMemory*)generic_memory;
+    GameMemory*    memory  = (GameMemory*)generic_memory;
     EntityStorage* storage = engine_get_entity_storage( ctx );
-    Time* time = engine_get_time( ctx );
+    Time*          time    = engine_get_time( ctx );
+    struct ThreadWorkQueue* work_queue =
+        engine_get_thread_work_queue( ctx );
 
     if( input_is_key_down( KEY_ESCAPE ) ) {
         Event event = {};
@@ -169,67 +291,144 @@ b32 application_run( struct EngineContext* ctx, void* generic_memory ) {
         ship->stop_drag : ship->normal_drag;
     ship->physics.angular_drag = ship->physics.drag;
 
-    vec2 forward_direction = rotate(
+    vec2 ship_forward_direction = rotate(
         VEC2::UP, ship->transform.rotation
     );
 
-    #define MOVEMENT_SPEED 1.5f
-    #define ROTATION_SPEED 5.5f
-
     ship->physics.velocity +=
-        forward_direction *
+        ship_forward_direction *
         input_direction.y *
         time->delta_seconds *
-        MOVEMENT_SPEED;
+        SHIP_SPEED;
 
     ship->physics.angular_velocity +=
         input_direction.x *
         time->delta_seconds *
-        ROTATION_SPEED;
+        SHIP_ROTATION_SPEED;
 
-    EntityStorageQueryResult physics_objects = system_physics_solver2d(
-        storage, time->delta_seconds
-    );
+    b32 z_is_down = input_is_key_down( KEY_Z );
+    if(
+        z_is_down &&
+        z_is_down != input_was_key_down( KEY_Z )
+    ) {
 
-    ivec2 dimensions = engine_query_surface_size( ctx );
-    f32 aspect_ratio = (f32)dimensions.x / (f32)dimensions.y;
-    f32 wrap_padding = SHIP_SCALE;
+        EntityID id = memory->first_torpedo_id + memory->current_torpedo;
+        Entity* torpedo = &storage->entities[id];
+        torpedo_enable( torpedo, ship, ship_forward_direction );
+        memory->current_torpedo = (memory->current_torpedo + 1) % MAX_TORPEDOES;
+    }
 
-    for( u32 i = 0; i < physics_objects.index_count; ++i ) {
-        Entity* entity = &storage->entities[i];
+    /* Torpedoes */ {
+        EntityStorageQueryResult torpedoes = entity_storage_query(
+            storage, filter_active_torpedoes
+        );
 
-        f32 abs_pos_x = absolute(entity->transform2d.position.x);
-        f32 abs_pos_y = absolute(entity->transform2d.position.y);
-
-        // screen wrapping
-        if( abs_pos_x >= aspect_ratio + wrap_padding ) {
-            entity->transform2d.position.x *= -1.0f;
-        }
-        if( abs_pos_y >= 1.0f + wrap_padding ) {
-            entity->transform2d.position.y *= -1.0f;
+        QueryResultIterator iterator = &torpedoes;
+        EntityID id;
+        while( iterator.next( &id ) ) {
+            Entity*  entity  = entity_storage_get( storage, id );
+            Torpedo* torpedo = (Torpedo*)(entity->bytes);
+            
+            torpedo->lifetime_timer += time->delta_seconds;
+            if( torpedo->lifetime_timer >= TORPEDO_LIFETIME_SECONDS ) {
+                entity_set_active( entity, false );
+            }
         }
     }
 
-    list_clear( memory->list_draw_bindings );
+    /* Physics and Wrapping */ {
+        EntityStorageQueryResult physics_objects = system_physics2d_solver(
+            work_queue, storage, time->delta_seconds
+        );
 
-    mat4 ship_transform =
-        translate( ship->transform.position ) *
-        rotate( ship->transform.rotation ) *
-        scale( SHIP_SCALE, SHIP_SCALE );
+        ivec2 dimensions = engine_query_surface_size( ctx );
+        f32 aspect_ratio = (f32)dimensions.x / (f32)dimensions.y;
+        f32 wrap_padding = SHIP_SCALE;
+
+        QueryResultIterator iterator = &physics_objects;
+        EntityID id;
+        while( iterator.next( &id ) ) {
+            Entity* entity = entity_storage_get( storage, id );
+
+            f32 abs_pos_x = absolute(entity->transform2d.position.x);
+            f32 abs_pos_y = absolute(entity->transform2d.position.y);
+
+            // screen wrapping
+            if( abs_pos_x >= aspect_ratio + wrap_padding ) {
+                entity->transform2d.position.x *= -1.0f;
+            }
+            if( abs_pos_y >= 1.0f + wrap_padding ) {
+                entity->transform2d.position.y *= -1.0f;
+            }
+        }
+    }
+
+    /* calculate transforms */ {
+        EntityStorageQueryResult active_objects = entity_storage_query(
+            storage, filter_active_visible2d
+        );
+        QueryResultIterator iterator = &active_objects;
+        EntityID id;
+        while( iterator.next( &id ) ) {
+            Entity* entity = entity_storage_get( storage, id );
+            entity->matrix =
+                translate( entity->transform2d.position ) *
+                rotate( entity->transform2d.rotation ) *
+                scale( entity->transform2d.scale );
+        }
+    }
     RenderOrder* render_order = engine_get_render_order( ctx );
-    render_order->textures = &memory->test_texture;
-    render_order->texture_count = 1;
 
-    DrawBinding ship_binding = {};
+    EntityStorageQueryResult sprites = entity_storage_query(
+        storage, filter_sprites
+    );
+    render_order->storage = storage;
+    render_order->sprites = sprites;
 
-    ship_binding.transform     = ship_transform;
-    ship_binding.mesh_index    = 0;
-    ship_binding.texture_index = 0;
-
-    list_push( memory->list_draw_bindings, ship_binding );
-
-    render_order->draw_bindings      = memory->list_draw_bindings;
-    render_order->draw_binding_count = list_count( memory->list_draw_bindings );
+#if defined(DEBUG)
+{
+    EntityStorageQueryResult collider_objects = entity_storage_query(
+        storage, filter_colliders
+    );
+    
+    QueryResultIterator iterator = &collider_objects;
+    EntityID id;
+    while( iterator.next( &id ) ) {
+        Entity* current = entity_storage_get( storage, id );
+        switch( current->collider2D.type ) {
+            case COLLIDER_TYPE_2D_RECT: {
+                Rect2D collider_rect = {
+                    current->transform2d.position.x -
+                        current->collider2D.rect.half_width,
+                    current->transform2d.position.x +
+                        current->collider2D.rect.half_width,
+                    current->transform2d.position.y +
+                        current->collider2D.rect.half_height,
+                    current->transform2d.position.y -
+                        current->collider2D.rect.half_height
+                };
+                debug_draw_rect(
+                    render_order,
+                    collider_rect,
+                    RGBA::BLUE
+                );
+            } break;
+            case COLLIDER_TYPE_2D_CIRCLE: {
+                Circle2D collider_circle = {
+                    current->transform2d.position,
+                    current->collider2D.circle.radius
+                };
+                debug_draw_circle(
+                    render_order,
+                    collider_circle,
+                    RGBA::BLUE
+                );
+            } break;
+            default: break;
+        }
+    }
+}
+#endif
 
     return true;
 }

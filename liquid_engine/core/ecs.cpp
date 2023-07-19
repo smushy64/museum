@@ -2,98 +2,25 @@
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: July 03, 2023
 #include "ecs.h"
-#include "memory.h"
+#include "core/memory.h"
+#include "core/logging.h"
+#include "core/math/type_functions.h"
 
-LD_API EntityStorageQueryResult entity_storage_query_flags(
-    EntityStorage* storage,
-    b32 only_active, b32 only_2d,
-    EntityFlags flags
-) {
-    EntityStorageQueryResult result = {};
-
-    for( u32 i = 0; i < MAX_ENTITIES; ++i ) {
-        Entity* entity = &storage->entities[i];
-
-        if( entity->type == ENTITY_TYPE_NULL ) {
-            continue;
-        }
-        if( only_active ) {
-            if( !entity->is_active ) {
-                continue;
-            }
-        }
-        if( only_2d ) {
-            if( !entity->is_2d ) {
-                continue;
-            }
-        }
-        if( ARE_BITS_SET( entity->flags, flags ) ) {
-            result.indices[result.index_count++] = i;
-        }
-    }
-
-    return result;
-}
-LD_API EntityStorageQueryResult entity_storage_query_type(
-    EntityStorage* storage,
-    b32 only_active, b32 only_2d,
-    EntityType     type
-) {
-    EntityStorageQueryResult result = {};
-
-    for( u32 i = 0; i < MAX_ENTITIES; ++i ) {
-        Entity* entity = &storage->entities[i];
-        if( !entity->type ) {
-            continue;
-        }
-        if( only_active ) {
-            if( !entity->is_active ) {
-                continue;
-            }
-        }
-        if( only_2d ) {
-            if( !entity->is_2d ) {
-                continue;
-            }
-        }
-        if( entity->type == type ) {
-            result.indices[result.index_count++] = i;
-        }
-    }
-
-    return result;
-}
 LD_API EntityStorageQueryResult entity_storage_query(
     EntityStorage* storage,
-    b32 only_active, b32 only_2d,
-    EntityType     type,
-    EntityFlags    flags
+    EntityFilterFN filter_function
 ) {
     EntityStorageQueryResult result = {};
 
-    for( u32 i = 0; i < MAX_ENTITIES; ++i ) {
-        Entity* entity = &storage->entities[i];
-
-        if( entity->type == ENTITY_TYPE_NULL ) {
+    for( EntityID id = 0; id < MAX_ENTITIES; ++id ) {
+        Entity* entity = entity_storage_get( storage, id );
+        if(
+            entity->type == ENTITY_TYPE_NULL ||
+            !filter_function( entity )
+        ) {
             continue;
         }
-        if( only_active ) {
-            if( !entity->is_active ) {
-                continue;
-            }
-        }
-        if( only_2d ) {
-            if( !entity->is_2d ) {
-                continue;
-            }
-        }
-        if(
-            entity->type == type &&
-            ARE_BITS_SET( entity->flags, flags )
-        ) {
-            result.indices[result.index_count++] = i;
-        }
-
+        result.ids[result.count++] = id;
     }
 
     return result;
@@ -117,23 +44,48 @@ LD_API i32 entity_storage_create_entity(
     return -1;
 }
 
-LD_API void entity_storage_mark_null( EntityStorage* storage, u32 index ) {
-    storage->entities[index].type = ENTITY_TYPE_NULL;
+LD_API void entity_storage_mark_null(
+    EntityStorage* storage,
+    EntityID id
+) {
+    Entity* entity = entity_storage_get( storage, id );
+    entity->type   = ENTITY_TYPE_NULL;
 }
 
-LD_API EntityStorageQueryResult system_physics_solver2d(
-    EntityStorage* storage,
-    f32 delta_time
+internal b32 filter_physics2d( Entity* entity ) {
+    b32 is_active_visible_2d = CHECK_BITS(
+        entity->state_flags,
+        ENTITY_STATE_FLAG_IS_ACTIVE  |
+        ENTITY_STATE_FLAG_IS_VISIBLE |
+        ENTITY_STATE_FLAG_IS_2D
+    );
+    if( !is_active_visible_2d ) {
+        return false;
+    }
+
+    b32 has_transform_physics = CHECK_BITS(
+        entity->component_flags,
+        ENTITY_COMPONENT_FLAG_TRANSFORM |
+        ENTITY_COMPONENT_FLAG_PHYSICS
+    );
+    return has_transform_physics;
+}
+
+LD_API EntityStorageQueryResult system_physics2d_solver(
+    struct ThreadWorkQueue* work_queue,
+    EntityStorage*          storage,
+    f32                     delta_time
 ) {
-    EntityStorageQueryResult query_result = entity_storage_query_flags(
-        storage,
-        true, true,
-        ENTITY_FLAG_TRANSFORM |
-        ENTITY_FLAG_PHYSICS
+    unused(work_queue);
+    EntityStorageQueryResult query_result = entity_storage_query(
+        storage, filter_physics2d
     );
 
-    for( u32 i = 0; i < query_result.index_count; ++i ) {
-        Entity* entity = &storage->entities[i];
+    QueryResultIterator iterator = &query_result;
+    EntityID id;
+    while( iterator.next( &id ) ) {
+        Entity* entity = entity_storage_get( storage, id );
+
         entity->transform2d.position +=
             entity->physics2d.velocity * delta_time;
         entity->transform2d.rotation +=
@@ -148,4 +100,143 @@ LD_API EntityStorageQueryResult system_physics_solver2d(
     return query_result;
 }
 
+internal Entity* system_collider2d_solver_circle(
+    struct ThreadWorkQueue*   work_queue,
+    EntityStorage*            storage,
+    EntityID                  collider_id,
+    Circle2D                  collider_circle,
+    EntityStorageQueryResult* colliders_to_test
+) {
+    unused(work_queue);
+
+    QueryResultIterator iterator = colliders_to_test;
+    EntityID id;
+    while( iterator.next( &id ) ) {
+        if( id == collider_id ) {
+            continue;
+        }
+        Entity* current = entity_storage_get( storage, id );
+        vec2 current_position = entity_position2d( current );
+
+        ASSERT( ARE_BITS_SET(
+            current->component_flags,
+            ENTITY_COMPONENT_FLAG_COLLIDER_2D
+        ) );
+
+        switch( current->collider2D.type ) {
+            case COLLIDER_TYPE_2D_CIRCLE: {
+                Circle2D current_collider_circle = {
+                    current_position,
+                    current->collider2D.circle.radius
+                };
+
+                if( circle2d_overlap_circle2d(
+                    collider_circle,
+                    current_collider_circle
+                ) ) {
+                    return current;
+                }
+            } break;
+            case COLLIDER_TYPE_2D_RECT:
+            default: UNIMPLEMENTED();
+        }
+    }
+
+    return nullptr;
+}
+
+internal Entity* system_collider2d_solver_rect(
+    struct ThreadWorkQueue*   work_queue,
+    EntityStorage*            storage,
+    EntityID                  collider_id,
+    Rect2D                    collider_rect,
+    EntityStorageQueryResult* colliders_to_test
+) {
+    unused(work_queue);
+
+    QueryResultIterator iterator = colliders_to_test;
+    EntityID id;
+    while( iterator.next( &id ) ) {
+        if( id == collider_id ) {
+            continue;
+        }
+        Entity* current = entity_storage_get( storage, id );
+        vec2 current_position = entity_position2d( current );
+
+        ASSERT( ARE_BITS_SET(
+            current->component_flags,
+            ENTITY_COMPONENT_FLAG_COLLIDER_2D
+        ) );
+
+        switch( current->collider2D.type ) {
+            case COLLIDER_TYPE_2D_RECT: {
+                Rect2D current_collider_rect = {
+                    current_position.x - current->collider2D.rect.half_width,
+                    current_position.x + current->collider2D.rect.half_width,
+                    current_position.y + current->collider2D.rect.half_height,
+                    current_position.y - current->collider2D.rect.half_height
+                };
+
+                if( rect2d_overlap_rect2d(
+                    collider_rect,
+                    current_collider_rect
+                ) ) {
+                    return current;
+                }
+            } break;
+            case COLLIDER_TYPE_2D_CIRCLE:
+            default: UNIMPLEMENTED();
+        }
+    }
+
+    return nullptr;
+}
+
+LD_API Entity* system_collider2d_solver(
+    struct ThreadWorkQueue*   work_queue,
+    EntityStorage*            storage,
+    EntityID                  collider_id,
+    EntityStorageQueryResult* colliders_to_test
+) {
+
+    Entity* collider = &storage->entities[collider_id];
+
+    ASSERT( ARE_BITS_SET(
+        collider->component_flags,
+        ENTITY_COMPONENT_FLAG_COLLIDER_2D
+    ) );
+    vec2 position = entity_position2d( collider );
+    switch( collider->collider2D.type ) {
+        case COLLIDER_TYPE_2D_CIRCLE: {
+            Circle2D collider_circle = {
+                position,
+                collider->collider2D.circle.radius
+            };
+            return system_collider2d_solver_circle(
+                work_queue,
+                storage,
+                collider_id,
+                collider_circle,
+                colliders_to_test
+            );
+        } break;
+        case COLLIDER_TYPE_2D_RECT: {
+            Rect2D collider_rect = {
+                position.x - collider->collider2D.rect.half_width,
+                position.x + collider->collider2D.rect.half_width,
+                position.y + collider->collider2D.rect.half_height,
+                position.y - collider->collider2D.rect.half_height
+            };
+            return system_collider2d_solver_rect(
+                work_queue,
+                storage,
+                collider_id,
+                collider_rect,
+                colliders_to_test
+            );
+        } break;
+        default: UNIMPLEMENTED();
+    }
+    return nullptr;
+}
 

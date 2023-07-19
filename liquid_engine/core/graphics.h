@@ -13,18 +13,13 @@
 /// be uninitialized if 0.
 struct RendererID {
 private:
-    union {
-        [[maybe_unused]]
-        u8  ___unused[3];
-        b8  initialized;
-        u32 id_value;
-    };
+    i32 value;
 public:
-    RendererID() : id_value(0) {}
-    RendererID( u32 x ) { id_value = 0x1 | (x << 1); }
+    RendererID()        : value(0) {}
+    RendererID( u32 x ) : value(x | (1u << 31u)) {}
 
-    b32 is_valid() const { return initialized; }
-    u32 id() const { return id_value >> 1; }
+    b32 is_valid() const { return (value >> 31u); }
+    u32 id() const { return value & ~(1u << 31u); }
 };
 
 /// Vertex definition
@@ -84,6 +79,16 @@ enum TextureFormat : u8 {
     TEXTURE_FORMAT_RGBA,
 };
 
+enum TextureFilter : u8 {
+    TEXTURE_FILTER_NEAREST,
+    TEXTURE_FILTER_BILINEAR
+};
+
+enum TextureWrap : u8 {
+    TEXTURE_WRAP_CLAMP,
+    TEXTURE_WRAP_REPEAT
+};
+
 /// Texture definition
 struct Texture {
     union {
@@ -92,6 +97,9 @@ struct Texture {
     };
     void* buffer;
     TextureFormat format;
+    TextureFilter filter;
+    TextureWrap wrap_x, wrap_y;
+    b8 use_opacity;
     RendererID id;
 };
 

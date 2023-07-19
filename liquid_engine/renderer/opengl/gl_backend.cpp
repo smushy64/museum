@@ -6,6 +6,7 @@
 #include "gl_backend.h"
 #include "gl_functions.h"
 #include "gl_buffer.h"
+#include "renderer/primitives.h"
 
 #include "platform/platform.h"
 #include "platform/io.h"
@@ -28,6 +29,198 @@ void gl_debug_callback (
     const GLchar*, // message
     const void*    // userParam
 );
+
+internal void gl_make_mesh( Mesh* mesh );
+
+#if defined(DEBUG)
+void gl_make_debug_shader( OpenGLRendererContext* ctx ) {
+    FileHandle vert_file = {}, frag_file = {};
+    ASSERT( platform_file_open(
+        "./resources/shaders/debug_draw.vert.spv",
+        PLATFORM_FILE_OPEN_EXISTING |
+        PLATFORM_FILE_OPEN_READ |
+        PLATFORM_FILE_OPEN_SHARE_READ,
+        &vert_file
+    ) );
+    ASSERT( platform_file_open(
+        "./resources/shaders/debug_draw.frag.spv",
+        PLATFORM_FILE_OPEN_EXISTING |
+        PLATFORM_FILE_OPEN_READ |
+        PLATFORM_FILE_OPEN_SHARE_READ,
+        &frag_file
+    ) );
+
+    u32 vert_binary_size =
+        platform_file_query_size( vert_file );
+    void* vert_binary = mem_alloc(
+        vert_binary_size,
+        MEMTYPE_RENDERER
+    );
+    platform_file_read(
+        vert_file,
+        vert_binary_size,
+        vert_binary_size,
+        vert_binary
+    );
+
+    u32 frag_binary_size =
+        platform_file_query_size( frag_file );
+    void* frag_binary = mem_alloc(
+        frag_binary_size,
+        MEMTYPE_RENDERER
+    );
+    platform_file_read(
+        frag_file,
+        frag_binary_size,
+        frag_binary_size,
+        frag_binary
+    );
+
+    platform_file_close( vert_file );
+    platform_file_close( frag_file );
+
+    Shader shaders[2] = {};
+
+    ASSERT( gl_shader_compile(
+        vert_binary_size,
+        vert_binary,
+        GL_VERTEX_SHADER,
+        "main",
+        0,
+        0,
+        0,
+        &shaders[0]
+    ) );
+    ASSERT( gl_shader_compile(
+        frag_binary_size,
+        frag_binary,
+        GL_FRAGMENT_SHADER,
+        "main",
+        0,
+        0,
+        0,
+        &shaders[1]
+    ) );
+    ASSERT( gl_shader_program_link(
+        2, shaders,
+        &ctx->debug
+    ) );
+    gl_shader_delete( shaders[0] );
+    gl_shader_delete( shaders[1] );
+    mem_free( vert_binary );
+    mem_free( frag_binary );
+
+    ctx->debug_color =
+        glGetUniformLocation( ctx->debug.handle, "u_color" );
+}
+#else
+void gl_make_debug_shader( OpenGLRendererContext* ctx ) {
+    unused(ctx);
+}
+#endif
+
+void gl_make_sprite_shader( OpenGLRendererContext* ctx ) {
+
+    ctx->sprite_mesh.vertices_2d    = (Vertex2D*)QUAD_2D;
+    ctx->sprite_mesh.vertex_count   = STATIC_ARRAY_COUNT( QUAD_2D );
+    ctx->sprite_mesh.indices8       = (u8*)QUAD_2D_INDICES;
+    ctx->sprite_mesh.index_count    = STATIC_ARRAY_COUNT( QUAD_2D_INDICES );
+    ctx->sprite_mesh.vertex_type    = VERTEX_TYPE_2D;
+    ctx->sprite_mesh.index_type     = INDEX_TYPE_U8;
+    ctx->sprite_mesh.is_static_mesh = true;
+
+    gl_make_mesh( &ctx->sprite_mesh );
+    FileHandle vert_file = {}, frag_file = {};
+    ASSERT( platform_file_open(
+        "./resources/shaders/sprite.vert.spv",
+        PLATFORM_FILE_OPEN_EXISTING |
+        PLATFORM_FILE_OPEN_READ |
+        PLATFORM_FILE_OPEN_SHARE_READ,
+        &vert_file
+    ) );
+    ASSERT( platform_file_open(
+        "./resources/shaders/sprite.frag.spv",
+        PLATFORM_FILE_OPEN_EXISTING |
+        PLATFORM_FILE_OPEN_READ |
+        PLATFORM_FILE_OPEN_SHARE_READ,
+        &frag_file
+    ) );
+
+    u32 vert_binary_size =
+        platform_file_query_size( vert_file );
+    void* vert_binary = mem_alloc(
+        vert_binary_size,
+        MEMTYPE_RENDERER
+    );
+    platform_file_read(
+        vert_file,
+        vert_binary_size,
+        vert_binary_size,
+        vert_binary
+    );
+
+    u32 frag_binary_size =
+        platform_file_query_size( frag_file );
+    void* frag_binary = mem_alloc(
+        frag_binary_size,
+        MEMTYPE_RENDERER
+    );
+    platform_file_read(
+        frag_file,
+        frag_binary_size,
+        frag_binary_size,
+        frag_binary
+    );
+
+    platform_file_close( vert_file );
+    platform_file_close( frag_file );
+
+    Shader shaders[2] = {};
+
+    ASSERT( gl_shader_compile(
+        vert_binary_size,
+        vert_binary,
+        GL_VERTEX_SHADER,
+        "main",
+        0,
+        0,
+        0,
+        &shaders[0]
+    ) );
+    ASSERT( gl_shader_compile(
+        frag_binary_size,
+        frag_binary,
+        GL_FRAGMENT_SHADER,
+        "main",
+        0,
+        0,
+        0,
+        &shaders[1]
+    ) );
+    ASSERT( gl_shader_program_link(
+        2, shaders,
+        &ctx->sprite
+    ) );
+    gl_shader_delete( shaders[0] );
+    gl_shader_delete( shaders[1] );
+    mem_free( vert_binary );
+    mem_free( frag_binary );
+    ASSERT( gl_shader_program_reflection( &ctx->sprite ) );
+
+    ctx->sprite_transform =
+        glGetUniformLocation( ctx->sprite.handle, "u_transform" );
+    ctx->sprite_atlas_coordinate =
+        glGetUniformLocation( ctx->sprite.handle, "u_atlas_coordinate" );
+    ctx->sprite_flip =
+        glGetUniformLocation( ctx->sprite.handle, "u_flip" );
+    ctx->sprite_atlas_cell_size =
+        glGetUniformLocation( ctx->sprite.handle, "u_atlas_cell_size" );
+    ctx->sprite_tint =
+        glGetUniformLocation( ctx->sprite.handle, "u_tint" );
+    ctx->sprite_z_index =
+        glGetUniformLocation( ctx->sprite.handle, "u_z_index" );
+
+}
 
 b32 gl_renderer_backend_initialize( RendererContext* generic_ctx ) {
     OpenGLRendererContext* ctx = (OpenGLRendererContext*)generic_ctx;
@@ -104,7 +297,7 @@ b32 gl_renderer_backend_initialize( RendererContext* generic_ctx ) {
         1, GL_RGBA8,
         1, 1
     );
-    u32 null_texture_pixel = U32::MAX;
+    u32 null_texture_pixel = RGBA_U32( 255, 255, 255, 255 );
     glTextureSubImage2D(
         NULL_TEXTURE,
         0,
@@ -127,7 +320,9 @@ b32 gl_renderer_backend_initialize( RendererContext* generic_ctx ) {
         -aspect_ratio,
         aspect_ratio,
         -1.0f,
-        1.0f
+        1.0f,
+        -100.0f,
+        100.0f
     );
     glNamedBufferStorage(
         ctx->u_matrices,
@@ -230,8 +425,36 @@ b32 gl_renderer_backend_initialize( RendererContext* generic_ctx ) {
         return false;
     }
 
+    gl_make_debug_shader( ctx );
+    gl_make_sprite_shader( ctx );
+
     glEnable( GL_BLEND );
     glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+
+#if defined(DEBUG)
+    glCreateVertexArrays( 1, &ctx->debug_vao );
+    glCreateBuffers( 1, &ctx->debug_vbo );
+
+    glNamedBufferData(
+        ctx->debug_vbo,
+        MAX_DEBUG_POINTS * sizeof(vec2),
+        nullptr,
+        GL_DYNAMIC_DRAW
+    );
+    glVertexArrayVertexBuffer(
+        ctx->debug_vao, 0,
+        ctx->debug_vbo, 0,
+        sizeof(vec2)
+    );
+    glEnableVertexArrayAttrib( ctx->debug_vao, 0 );
+    glVertexArrayAttribFormat(
+        ctx->debug_vao, 0,
+        2, GL_FLOAT,
+        GL_FALSE,
+        0
+    );
+    glVertexArrayAttribBinding( ctx->debug_vao, 0, 0 );
+#endif
 
     GL_LOG_INFO("OpenGL backend initialized successfully.");
     return true;
@@ -244,6 +467,7 @@ void gl_renderer_backend_shutdown( RendererContext* generic_ctx ) {
     glDeleteTextures( 1, &NULL_TEXTURE );
 
     glDeleteBuffers( 1, &ctx->u_matrices );
+    gl_shader_program_delete( &ctx->sprite );
     gl_shader_program_delete( &ctx->phong );
 
     // TODO(alicia): END TEST CODE ONLY
@@ -271,7 +495,9 @@ void gl_renderer_backend_on_resize(
         -aspect_ratio,
         aspect_ratio,
         -1.0f,
-        1.0f
+        1.0f,
+        -100.0f,
+        100.0f
     );
     glNamedBufferSubData(
         ctx->u_matrices,
@@ -280,16 +506,48 @@ void gl_renderer_backend_on_resize(
     );
 }
 
+[[maybe_unused]]
 internal void gl_make_texture( Texture* texture ) {
     if( texture->id.is_valid() ) {
         return;
     }
     GLuint handle = 0;
     glCreateTextures( GL_TEXTURE_2D, 1, &handle );
-    glTextureParameteri( handle, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
-    glTextureParameteri( handle, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
-    glTextureParameteri( handle, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-    glTextureParameteri( handle, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+
+    GLenum wrap_s, wrap_t;
+    switch( texture->wrap_x ) {
+        case TEXTURE_WRAP_CLAMP:
+            wrap_s = GL_CLAMP_TO_EDGE;
+            break;
+        case TEXTURE_WRAP_REPEAT:
+            wrap_s = GL_REPEAT;
+            break;
+    }
+    switch( texture->wrap_y ) {
+        case TEXTURE_WRAP_CLAMP:
+            wrap_t = GL_CLAMP_TO_EDGE;
+            break;
+        case TEXTURE_WRAP_REPEAT:
+            wrap_t = GL_REPEAT;
+            break;
+    }
+
+    GLenum min_filter, mag_filter;
+    switch( texture->filter ) {
+        case TEXTURE_FILTER_NEAREST:
+            min_filter = GL_NEAREST;
+            mag_filter = GL_NEAREST;
+            break;
+        case TEXTURE_FILTER_BILINEAR:
+            min_filter = GL_LINEAR;
+            mag_filter = GL_LINEAR;
+            break;
+    }
+
+    glTextureParameteri( handle, GL_TEXTURE_WRAP_S, wrap_s );
+    glTextureParameteri( handle, GL_TEXTURE_WRAP_T, wrap_t );
+    glTextureParameteri( handle, GL_TEXTURE_MIN_FILTER, min_filter );
+    glTextureParameteri( handle, GL_TEXTURE_MAG_FILTER, mag_filter );
     
     GLenum internal_format = {};
     switch( texture->format ) {
@@ -446,12 +704,6 @@ b32 gl_renderer_backend_begin_frame(
     RenderOrder* order
 ) {
     OpenGLRendererContext* ctx = (OpenGLRendererContext*)generic_ctx;
-    for( u32 i = 0; i < order->mesh_count; ++i ) {
-        gl_make_mesh( &order->meshes[i] );
-    }
-    for( u32 i = 0; i < order->texture_count; ++i ) {
-        gl_make_texture( &order->textures[i] );
-    }
 
     // TODO(alicia): 
     glClear(
@@ -461,44 +713,59 @@ b32 gl_renderer_backend_begin_frame(
     );
     glBindTextureUnit( 0, NULL_TEXTURE );
 
-    glUseProgram( ctx->phong.handle );
-    GLint transform_location = glGetUniformLocation( ctx->phong.handle, "u_transform" );
-    ASSERT( transform_location >= 0 );
-    for( u32 i = 0; i < order->draw_binding_count; ++i ) {
-        DrawBinding* current_binding = &order->draw_bindings[i];
-        Mesh* mesh = &order->meshes[current_binding->mesh_index];
-        Texture* texture = &order->textures[current_binding->texture_index];
+    if( order->sprites.count ) {
+        glBindVertexArray( ctx->sprite_mesh.id.id() );
+        glUseProgram( ctx->sprite.handle );
+    }
 
-        if( !mesh->id.is_valid() ) {
-            continue;
-        }
-
-        if( texture->id.is_valid() ) {
-            glBindTextureUnit( 0, texture->id.id() );
-        } else {
-            glBindTextureUnit( 0, 0 );
-        }
-
+    QueryResultIterator iterator = &order->sprites;
+    EntityID id;
+    while( iterator.next( &id ) ) {
+        Entity*         entity = entity_storage_get( order->storage, id );
+        SpriteRenderer* sprite = &entity->sprite_renderer;
+        ivec2 flip = { (i32)sprite->flip_x, (i32)sprite->flip_y };
         glProgramUniformMatrix4fv(
-            ctx->phong.handle,
-            transform_location,
+            ctx->sprite.handle,
+            ctx->sprite_transform,
             1, GL_FALSE,
-            value_pointer( current_binding->transform )
+            value_pointer( entity->matrix )
         );
-        glBindVertexArray( mesh->id.id() );
-        GLenum index_type = GL_UNSIGNED_INT;
-        switch( mesh->index_type ) {
-            case INDEX_TYPE_U16:
-                index_type = GL_UNSIGNED_SHORT;
-                break;
-            case INDEX_TYPE_U8:
-                index_type = GL_UNSIGNED_BYTE;
-                break;
-            default: break;
+        glProgramUniform4iv(
+            ctx->sprite.handle,
+            ctx->sprite_atlas_coordinate, 1,
+            value_pointer( sprite->atlas_coordinate )
+        );
+        glProgramUniform2iv(
+            ctx->sprite.handle,
+            ctx->sprite_flip, 1,
+            value_pointer( flip )
+        );
+        glProgramUniform1ui(
+            ctx->sprite.handle,
+            ctx->sprite_atlas_cell_size,
+            sprite->atlas_cell_size
+        );
+        glProgramUniform1i(
+            ctx->sprite.handle,
+            ctx->sprite_z_index,
+            sprite->z_index
+        );
+        glProgramUniform4fv(
+            ctx->sprite.handle,
+            ctx->sprite_tint, 1,
+            value_pointer( sprite->tint )
+        );
+        RendererID atlas_id = sprite->atlas->id;
+        if( atlas_id.is_valid() ) {
+            glBindTextureUnit( 0, atlas_id.id() );
+        } else {
+            gl_make_texture( sprite->atlas );
+            glBindTextureUnit( 0, NULL_TEXTURE );
         }
+        GLenum index_type = GL_UNSIGNED_BYTE;
         glDrawElements(
             GL_TRIANGLES,
-            mesh->index_count,
+            ctx->sprite_mesh.index_count,
             index_type,
             nullptr
         );
@@ -507,12 +774,44 @@ b32 gl_renderer_backend_begin_frame(
     return true;
 }
 b32 gl_renderer_backend_end_frame(
-    RendererContext* ctx,
+    RendererContext* generic_ctx,
     RenderOrder* order
 ) {
-    // TODO(alicia): 
-    
-    platform_gl_swap_buffers( ctx->platform );
+    OpenGLRendererContext* ctx = (OpenGLRendererContext*)generic_ctx;
+
+#if defined(DEBUG)
+    glUseProgram( ctx->debug.handle );
+    glBindVertexArray( ctx->debug_vao );
+    u32 debug_point_count = list_count( order->list_debug_points );
+    for( u32 i = 0; i < debug_point_count; ++i ) {
+        DebugPoints* current = &order->list_debug_points[i];
+        if( !current->list_points ) {
+            continue;
+        }
+        u32 point_count = list_count( current->list_points );
+        if( !point_count ) {
+            ::impl::_list_free( current->list_points );
+            continue;
+        }
+        glProgramUniform4fv(
+            ctx->debug.handle,
+            ctx->debug_color, 1,
+            value_pointer( current->color )
+        );
+        glNamedBufferSubData(
+            ctx->debug_vbo,
+            0, sizeof(vec2) * point_count,
+            current->list_points
+        );
+        glDrawArrays(
+            GL_LINE_LOOP,
+            0, point_count
+        );
+        ::impl::_list_free( current->list_points );
+    }
+#endif
+
+    platform_gl_swap_buffers( ctx->ctx.platform );
     unused(order);
     return true;
 }

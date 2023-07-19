@@ -27,12 +27,31 @@ b32 gl_renderer_backend_end_frame(
     struct RenderOrder* order
 );
 
+#if defined(DEBUG)
+#define MAX_DEBUG_POINTS 32
+#endif
+
 struct OpenGLRendererContext {
     RendererContext ctx;
 
     GLuint u_matrices;
 
     ShaderProgram phong;
+    ShaderProgram sprite;
+    GLint sprite_transform;
+    GLint sprite_atlas_coordinate;
+    GLint sprite_flip;
+    GLint sprite_atlas_cell_size;
+    GLint sprite_tint;
+    GLint sprite_z_index;
+
+#if defined(DEBUG)
+    ShaderProgram debug;
+    GLint         debug_color;
+    GLuint        debug_vao, debug_vbo;
+#endif
+
+    Mesh sprite_mesh;
 
     const char* device_vendor;
     const char* device_name;

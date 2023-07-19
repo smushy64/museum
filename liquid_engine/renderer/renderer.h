@@ -10,6 +10,7 @@
 #include "core/graphics.h"
 #include "core/engine.h"
 #include "core/string.h"
+#include "core/ecs.h"
 
 typedef void (*RendererBackendShutdownFn)(
     struct RendererContext* ctx
@@ -45,6 +46,13 @@ struct DrawBinding {
     u32  texture_index;
 };
 
+#if defined(DEBUG)
+struct DebugPoints {
+    vec2* list_points;
+    rgba  color;
+};
+#endif
+
 struct RenderOrder {
     Mesh* meshes;
     u32   mesh_count;
@@ -55,8 +63,19 @@ struct RenderOrder {
     DrawBinding* draw_bindings;
     u32 draw_binding_count;
 
+    struct EntityStorage*    storage;
+    EntityStorageQueryResult sprites;
+
     struct Time* time;
+
+#if defined(DEBUG)
+    DebugPoints* list_debug_points;
+#endif
 };
+
+LD_API void debug_draw_line( RenderOrder* render_order, vec2 from, vec2 to, rgba color );
+LD_API void debug_draw_rect( RenderOrder* render_order, Rect2D rect, rgba color );
+LD_API void debug_draw_circle( RenderOrder* render_order, Circle2D circle, rgba color );
 
 u32 query_renderer_subsystem_size( RendererBackend backend );
 b32 renderer_init(

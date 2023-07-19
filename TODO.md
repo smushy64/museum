@@ -31,20 +31,18 @@
 - [x] Macros that hide specfic intrinsics when using SIMD
 - [x] Implement mutex
 - [x] Implement math functions: asin, acos, atan, atan2, powi, modf
+- [x] Stack Arena
+- [ ] ECS or something approximating it
 - [ ] Proper frametiming (using platform_sleep?)
 - [ ] Audio subsystem
-- [ ] Memory arena
-    - [x] Stack Arena
-    - [ ] Dynamic Arena
 - [ ] Materials system
 - [ ] Text rendering
-- [ ] ECS or something approximating it
 - [ ] Resource manager
 - [ ] Write logging to file (timestamps?)
 - [ ] Customizable input actions + input processing
 - [ ] custom variadic macro implementations
 - [ ] format: more accurate float print out
-- [ ] Remove dependency on the C runtime library in testbed code
+- [ ] Completely rewrite memory allocations, not liking how data about allocations is stored
 - [ ] Implement custom math functions
     - log, powf, no simd sqrtf
 

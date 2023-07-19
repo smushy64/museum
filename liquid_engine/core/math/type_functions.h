@@ -1454,4 +1454,26 @@ mat4 operator*( const mat4& lhs, const mat4& rhs ) {
     return result;
 }
 
+FORCE_INLINE b32 rect2d_overlap_rect2d(
+    const Rect2D& a,
+    const Rect2D& b
+) {
+    return
+        (
+            a.left   < b.right &&
+            a.right  > b.left
+        ) && (
+            a.bottom < b.top   &&
+            a.top    > b.bottom
+        );
+}
+
+FORCE_INLINE b32 circle2d_overlap_circle2d(
+    const Circle2D& a,
+    const Circle2D& b
+) {
+    f32 dist = mag(a.position - b.position);
+    return dist < ( a.radius + b.radius );
+}
+
 #endif // header guard
