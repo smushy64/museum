@@ -141,8 +141,6 @@ typedef int64_t i64;
 
 #endif // if other architecture
 
-typedef usize size_t;
-
 /// 8-bit boolean
 typedef u8  b8;
 /// 32-bit boolean

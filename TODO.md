@@ -46,7 +46,6 @@
     - log, powf, no simd sqrtf
 
 ## Bug Fixes
-- [ ] defines: why is size_t defined as usize? look into this
 - [ ] format: integer binary format should only print necessary bits
 - [ ] replace all __builtin_ functions throughout math library
     - clangd doesn't complain about them but during compilation,
@@ -54,8 +53,11 @@
 - [ ] make sure that atan actually produces good results.
     outside the -1 -> 1 range, it diverges heavily.
     it may not actually be that big of a problem but still.
+- [x] defines: why is size_t defined as usize?
+    - not really sure why that was there but i removed it and nothing broke (i think?)
 
 ## Optimzations
+- [ ] Optimize string formatting functions
 - [x] Poll XInputGetState on a separate thread
     so that the main thread doesn't stall
     when a controller isn't connected. This is a known bug with
@@ -63,5 +65,4 @@
 - [x] replace hardware trig functions with taylor series + simd
     - on my machine, the hardware instructions are faster than stdlib
         but that may not be the case on other machines
-- [ ] Optimize string formatting functions
 
