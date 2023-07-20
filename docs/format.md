@@ -102,7 +102,7 @@ use {} to wrap a format specifier and use commas to separate parameters
 | Specifier        | Type           | Description                              |
 | ---------------- | -------------- | ---------------------------------------- |
 | {{               | -              | literal '{'                              |
-| c                | String         | 8-bit ASCII character                    |
+| c                | Character      | 8-bit ASCII character                    |
 | cc               | String         | const char* ASCII null-terminated string |
 | s                | String         | String                                   |
 | sv               | String         | StringView                               |
