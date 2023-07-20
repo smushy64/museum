@@ -4,26 +4,37 @@
  * File Created: July 19, 2023
 -->
 
-# Building | [Table of Contents](./docs/docs.md)
+# Building | [Table of Contents](./docs/toc.md)
+
+## Jump Table
+- [Requirements](#requirements)
+    - [Common Requirements](#common-requirements)
+    - [Windows Requirements](#windows-requirements)
+    - [Optional Software](#optional-software)
+- [Debug Build Steps](#debug-build-steps)
+- [Release Build Steps](#release-build-steps)
+- [Debugging](#debugging)
+    - [RemedyBG](#remedybg)
+    - [gf](#gf)
 
 ## Requirements
 Currently, only Windows is supported as a build target
 
 ### Common requirements
-- clang 16.0.1*
-- GNU Make 4.4.1*
-- [glslc v2023.1*](https://github.com/google/shaderc/blob/main/downloads.md)
+- clang 16.0.1 [^1]
+- GNU Make 4.4.1 [^1]
+- [glslc v2023.1](https://github.com/google/shaderc/blob/main/downloads.md) [^1]
 ### Windows requirements
 - [msys2](https://www.msys2.org/wiki/MSYS2-installation/)
-- windres 2.40*
+- windres 2.40 [^1]
     - should be installed with mingw by default
-### Optional
+### Optional Software
 - [RemedyBG Debugger](https://remedybg.itch.io/remedybg)
 - [gf gdb frontend for linux](https://github.com/nakst/gf)
 
-`*: might work with other versions`
+[^1]: might work with other versions
 
-## Debug Steps
+## Debug Build Steps
 
 1) cd into root directory
 2) build all sources: ```make```
@@ -33,7 +44,7 @@ to build and execute testbed, run: ```make test```
 
 to list other provided make recipes, run: ```make help```
 
-## Release Steps
+## Release Build Steps
 
 1) cd into root directory
 2) build all sources: ```make RELEASE=true```
