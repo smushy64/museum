@@ -1,4 +1,10 @@
-# Building
+<!--
+ * Description:  Build instructions
+ * Author:       Alicia Amarilla (smushyaa@gmail.com)
+ * File Created: July 19, 2023
+-->
+
+# Building | [Table of Contents](./docs/docs.md)
 
 ## Requirements
 Currently, only Windows is supported as a build target
@@ -17,8 +23,7 @@ Currently, only Windows is supported as a build target
 
 `*: might work with other versions`
 
-## Building 
-### Debug build
+## Debug Steps
 
 1) cd into root directory
 2) build all sources: ```make```
@@ -28,7 +33,7 @@ to build and execute testbed, run: ```make test```
 
 to list other provided make recipes, run: ```make help```
 
-### Release build
+## Release Steps
 
 1) cd into root directory
 2) build all sources: ```make RELEASE=true```
@@ -66,4 +71,5 @@ Set Command/Executable to
 current version of LiquidEngine.
 
 gf is available [here](https://github.com/nakst/gf).
+
 
