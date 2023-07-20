@@ -99,10 +99,13 @@ CPP_FLAGS += -DVULKAN_VERSION_MINOR=$(VULKAN_VERSION_MINOR)
 
 RLINK_FLAGS :=
 DLINK_FLAGS :=
-LINK_FLAGS  := -nostdlib++ -nostdlib
+# TODO(alicia): Temporarily allow stdlib in linux builds until
+# it is removed.
+LINK_FLAGS  := -nostdlib++
 
 ifeq ($(IS_WINDOWS), true)
 	DLINK_FLAGS += -fuse-ld=lld -Wl,//debug
+	LINK_FLAGS  += -nostdlib
 	LINK_FLAGS  += -fuse-ld=lld -lkernel32 -mstack-probe-size=999999999 -Wl,//stack:0x100000
 endif
 

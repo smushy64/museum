@@ -21,6 +21,7 @@ Currently, only Windows is supported as a build target
     - should be installed with mingw by default
 #### Optional
 - [RemedyBG Debugger](https://remedybg.itch.io/remedybg)
+- [gf gdb frontend for linux](https://github.com/nakst/gf)
 
 `*: might work with other versions`
 
