@@ -18,8 +18,6 @@
 #include <renderer/renderer.h>
 #include <renderer/primitives.h>
 
-#include <dlfcn.h>
-
 #define ENTITY_TYPE_SHIP     1
 #define ENTITY_TYPE_ASTEROID 2
 #define ENTITY_TYPE_TORPEDO  3

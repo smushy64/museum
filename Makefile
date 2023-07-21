@@ -195,15 +195,13 @@ run: all
 
 test: all
 	@echo "Make: running test bed . . ."
-	@cd $(BUILD_PATH) && ./$(EXE_NAME)$(EXE_EXT) --load=./$(TESTBED_NAME) --gl
+	@cd $(BUILD_PATH) && ./$(EXE_NAME)$(EXE_EXT) --load=$(TESTBED_NAME) --gl
 
 # for debugging variables
 spit:
-	@echo $(RELEASE)
+	@echo $(LIQUID_ENGINE_FLAGS)
 	@$(MAKE) --directory=testbed spit
-	@$(MAKE) --directory=shader spit
 
-# @$(MAKE) --directory=testbed spit
 # @$(MAKE) --directory=shader spit
  
 help:

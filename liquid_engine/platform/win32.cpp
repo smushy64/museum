@@ -325,13 +325,13 @@ void __stdcall mainCRTStartup() {
 
 }
 
-global LARGE_INTEGER PERFORMACE_COUNTER;
+global LARGE_INTEGER PERFORMANCE_COUNTER;
 global LARGE_INTEGER PERFORMANCE_FREQUENCY;
 
 /// Every x number of frames, check if xinput gamepad is active
 #define POLL_FOR_NEW_XINPUT_GAMEPAD_RATE (20000)
 internal DWORD WINAPI win32_xinput_polling_thread( void* params ) {
-    SemaphoreHandle semaphore = (SemaphoreHandle)params;
+    SemaphoreHandle* semaphore = (SemaphoreHandle*)params;
     loop {
         semaphore_wait( semaphore, true, 0 );
 
@@ -382,13 +382,16 @@ b32 platform_init(
     if( !semaphore_create( 0, 1, &xinput_polling_thread_semaphore ) ) {
         return false;
     }
+    win32_platform->xinput_polling_thread_semaphore = xinput_polling_thread_semaphore;
+
+    read_write_fence();
 
     Win32ThreadHandle xinput_polling_thread_handle = {};
     xinput_polling_thread_handle.thread_handle = CreateThread(
         nullptr,
         STACK_SIZE,
         win32_xinput_polling_thread,
-        nullptr,
+        &win32_platform->xinput_polling_thread_semaphore,
         0,
         &xinput_polling_thread_handle.thread_id
     );
@@ -396,9 +399,8 @@ b32 platform_init(
         win32_log_error( true );
         return false;
     }
-
     win32_platform->xinput_polling_thread = xinput_polling_thread_handle;
-    win32_platform->xinput_polling_thread_semaphore = xinput_polling_thread_semaphore;
+
     WIN32_LOG_NOTE(
         "Created XInput polling thread. ID: {u}",
         win32_platform->xinput_polling_thread.thread_id
@@ -579,7 +581,7 @@ b32 platform_init(
 void platform_shutdown( Platform* platform ) {
     Win32Platform* win32_platform = (Win32Platform*)platform;
 
-    semaphore_destroy( win32_platform->xinput_polling_thread_semaphore );
+    semaphore_destroy( &win32_platform->xinput_polling_thread_semaphore );
 
     for( u32 i = 0; i < MODULE_COUNT; ++i ) {
         if( win32_platform->modules[i] ) {
@@ -597,7 +599,7 @@ f64 platform_us_elapsed() {
         PERFORMANCE_COUNTER.QuadPart;
 
     return (f64)(ticks_elapsed * 1000000.0) /
-        (f64)PERFORMANCE_FREQUENCY;
+        (f64)PERFORMANCE_FREQUENCY.QuadPart;
 }
 f64 platform_ms_elapsed() {
     LARGE_INTEGER current_ticks;
@@ -606,7 +608,7 @@ f64 platform_ms_elapsed() {
         PERFORMANCE_COUNTER.QuadPart;
 
     return (f64)(ticks_elapsed * 1000.0) /
-        (f64)PERFORMANCE_FREQUENCY;
+        (f64)PERFORMANCE_FREQUENCY.QuadPart;
 }
 f64 platform_s_elapsed() {
     LARGE_INTEGER current_ticks;
@@ -615,7 +617,7 @@ f64 platform_s_elapsed() {
         PERFORMANCE_COUNTER.QuadPart;
 
     return (f64)(ticks_elapsed) /
-        (f64)PERFORMANCE_FREQUENCY;
+        (f64)PERFORMANCE_FREQUENCY.QuadPart;
 }
 b32 platform_pump_events( Platform* platform ) {
     Win32Platform* win32_platform = (Win32Platform*)platform;
@@ -633,10 +635,7 @@ b32 platform_pump_events( Platform* platform ) {
     if( ( win32_platform->event_pump_count %
         POLL_FOR_NEW_XINPUT_GAMEPAD_RATE
     ) == 0 ) {
-        semaphore_increment(
-            win32_platform->xinput_polling_thread_semaphore,
-            1, 0
-        );
+        semaphore_increment( &win32_platform->xinput_polling_thread_semaphore );
     }
 
     win32_platform->event_pump_count++;
@@ -2431,7 +2430,7 @@ void semaphore_wait(
         FALSE
     );
 }
-void semaphore_destroy( SemaphoreHandle semaphore_handle ) {
+void semaphore_destroy( SemaphoreHandle* semaphore_handle ) {
     Win32SemaphoreHandle* win32_semaphore =
         (Win32SemaphoreHandle*)semaphore_handle;
     CloseHandle( win32_semaphore->handle );

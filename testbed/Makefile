@@ -64,7 +64,8 @@ $(corecpp_path): $(cpp)
 	for i in $(corecpp); do echo $$i >> $(corecpp_path); done
 
 spit:
-	@echo $(testbed_link_flags)
+	@echo testbed spit:
+	@echo $(TESTBED_FLAGS)
 
 .PHONY: all spit
 
