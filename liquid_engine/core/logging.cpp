@@ -17,6 +17,7 @@
 #endif
 
 global LogLevel GLOBAL_LOG_LEVEL = LOG_LEVEL_NONE;
+global b32         MUTEX_CREATED;
 global MutexHandle MUTEX = {};
 
 #define MAX_LOG_LEVEL (\
@@ -67,8 +68,9 @@ b32 log_init( LogLevel level, StringView logging_buffer ) {
     LOGGING_BUFFER_SIZE = logging_buffer.len;
     LOGGING_BUFFER      = logging_buffer.buffer;
 
-    if( !MUTEX ) {
+    if( !MUTEX_CREATED ) {
         ASSERT( mutex_create( &MUTEX ) );
+        MUTEX_CREATED = true;
     }
 
     LOG_INFO("Logging subsystem successfully initialized.");
@@ -93,7 +95,7 @@ void log_shutdown() {
     }
 #endif
 
-    mutex_destroy( MUTEX );
+    mutex_destroy( &MUTEX );
 
 #endif
 }
@@ -116,8 +118,9 @@ internal inline void log_formatted_internal(
     b32 is_error = ARE_BITS_SET( level, LOG_LEVEL_ERROR );
     if( !is_log_initialized() ) {
         ASSERT( mutex_create( &MUTEX ) );
+        MUTEX_CREATED = true;
         if( lock ) {
-            mutex_lock( MUTEX );
+            mutex_lock( &MUTEX );
         }
         set_color( color );
         if( is_error ) {
@@ -127,13 +130,13 @@ internal inline void log_formatted_internal(
         }
         set_color( LOG_COLOR_RESET );
         if( lock ) {
-            mutex_unlock( MUTEX );
+            mutex_unlock( &MUTEX );
         }
         return;
     }
 
     if( lock ) {
-        mutex_lock( MUTEX );
+        mutex_lock( &MUTEX );
     }
 
     b32 always_print =
@@ -143,7 +146,7 @@ internal inline void log_formatted_internal(
 
     if( !(always_print || is_level_valid( level )) ) {
         if( lock ) {
-            mutex_unlock( MUTEX );
+            mutex_unlock( &MUTEX );
         }
         return;
     }
@@ -163,7 +166,7 @@ internal inline void log_formatted_internal(
         (((usize)write_size) >= (LOGGING_BUFFER_SIZE - 1))
     ) {
         if( lock ) {
-            mutex_unlock( MUTEX );
+            mutex_unlock( &MUTEX );
         }
         return;
     }
@@ -192,7 +195,7 @@ internal inline void log_formatted_internal(
 #endif // if platform windows
 
     if( lock ) {
-        mutex_unlock( MUTEX );
+        mutex_unlock( &MUTEX );
     }
 
 #endif // if logging enabled

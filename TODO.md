@@ -8,6 +8,9 @@
 ## Motivation mini-projects
 - [ ] Make an asteroids clone using liquid engine :)
 
+## Linux Build
+- [ ] Link testbed shared object to executable properly
+
 ## Library to EXE + Unity build
 - [x] Make Liquid Engine the executable and Testbed the library
 - [x] Change build system to unity build instead of incremental build

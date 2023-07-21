@@ -8,7 +8,7 @@
 #include "defines.h"
 
 /// Time
-struct Time {
+struct Timer {
     f32 delta_seconds;
     f32 elapsed_seconds;
     u64 frame_count;
@@ -19,7 +19,7 @@ namespace impl {
 /// Timer structure.
 struct LD_API_STRUCT AutoTimer {
 private:
-    u64 start_tick_count;
+    f64 start_ms;
     const char* function;
     const char* file;
     int line;

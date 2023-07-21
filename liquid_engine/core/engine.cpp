@@ -47,7 +47,7 @@ struct EngineContext {
     SystemInfo       system_info;       // 88 
     ThreadWorkQueue  thread_work_queue; // 48
     RenderOrder      render_order;      // 40
-    Time             time;              // 16
+    Timer            time;              // 16
     StackArena       arena;             // 16
     Platform*        platform;          // 8
     RendererContext* renderer_context;  // 8
@@ -139,14 +139,14 @@ ArgParseResult parse_args( int argc, char** argv ) {
             result.backend = RENDERER_BACKEND_DX11;
 #else
             printlnerr( "DirectX11 is not available on non-windows platforms!" );
-            return false;
+            return result;
 #endif
         } else if( string_cmp( current_arg, "--dx12" ) ) {
 #if defined(LD_PLATFORM_WINDOWS)
             result.backend = RENDERER_BACKEND_DX12;
 #else
             printlnerr( "DirectX12 is not available on non-windows platforms!" );
-            return false;
+            return result;
 #endif
         } else if( string_contains( current_arg, "--load=" ) ) {
             u32 load_string_len = str_length( "--load=" );
@@ -411,7 +411,6 @@ b32 engine_entry( int argc, char** argv ) {
             thread_proc,
             current_thread_info,
             STACK_SIZE,
-            false,
             &ctx.thread_handles[i]
         )) {
             if( i == 0 ) {
@@ -434,12 +433,6 @@ b32 engine_entry( int argc, char** argv ) {
     LOG_NOTE( "Instantiated {u} threads.", thread_count );
 
     read_write_fence();
-
-    for( u32 i = 0; i < thread_count; ++i ) {
-        platform_thread_resume(
-            &ctx.thread_handles[i]
-        );
-    }
 
     ctx.thread_count                   = thread_count;
     ctx.thread_work_queue.thread_count = thread_count;
@@ -624,11 +617,10 @@ b32 engine_entry( int argc, char** argv ) {
 
         ctx.time.frame_count++;
         semaphore_increment(
-            ctx.thread_work_queue.on_frame_update_semaphore,
-            1, nullptr
+            &ctx.thread_work_queue.on_frame_update_semaphore
         );
 
-        f64 seconds_elapsed = platform_s_elapsed( ctx.platform );
+        f64 seconds_elapsed = platform_s_elapsed();
         ctx.time.delta_seconds =
             seconds_elapsed - ctx.time.elapsed_seconds;
         ctx.time.elapsed_seconds = seconds_elapsed;
@@ -645,10 +637,10 @@ b32 engine_entry( int argc, char** argv ) {
     input_shutdown();
 
     semaphore_destroy(
-        ctx.thread_work_queue.wake_semaphore 
+        &ctx.thread_work_queue.wake_semaphore 
     );
     semaphore_destroy(
-        ctx.thread_work_queue.on_frame_update_semaphore
+        &ctx.thread_work_queue.on_frame_update_semaphore
     );
 
     renderer_shutdown( ctx.renderer_context ); 
@@ -681,10 +673,7 @@ void thread_work_queue_push(
         "Exceeded thread work entry count!!"
     );
 
-    semaphore_increment(
-        work_queue->wake_semaphore,
-        1, nullptr
-    );
+    semaphore_increment( &work_queue->wake_semaphore );
 }
 internal b32 thread_work_queue_pop(
     ThreadWorkQueue* work_queue,
@@ -713,7 +702,7 @@ internal ThreadReturnCode thread_proc( void* user_params ) {
     ThreadWorkEntry entry = {};
     loop {
         semaphore_wait(
-            thread_info->work_queue->wake_semaphore,
+            &thread_info->work_queue->wake_semaphore,
             true, 0
         );
 
@@ -837,7 +826,7 @@ LD_API struct EntityStorage* engine_get_entity_storage(
     return engine_ctx->entity_storage;
 }
 
-LD_API struct Time* engine_get_time( struct EngineContext* engine_ctx ) {
+LD_API struct Timer* engine_get_time( struct EngineContext* engine_ctx ) {
     return &engine_ctx->time;
 }
 

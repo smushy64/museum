@@ -283,12 +283,21 @@ typedef void* pvoid;
     #define MAKE_PACKED( declaration ) declaration __attribute__((__packed__))
 
     #if defined(LD_EXPORT)
-        #define LD_API __declspec(dllexport)
-        #define LD_API_STRUCT LD_API
+        #if defined(LD_PLATFORM_WINDOWS)
+            #define LD_API __declspec(dllexport)
+            #define LD_API_STRUCT LD_API
+        #else
+            #define LD_API __attribute__((visibility("default")))
+            #define LD_API_STRUCT LD_API
+        #endif
     #else // import
-        // unknown?
-        #define LD_API __declspec(dllimport) 
-        #define LD_API_STRUCT __declspec(dllimport)
+        #if defined(LD_PLATFORM_WINDOWS)
+            #define LD_API __declspec(dllimport) 
+            #define LD_API_STRUCT __declspec(dllimport)
+        #else
+            #define LD_API
+            #define LD_API_STRUCT
+        #endif
     #endif
 
 #endif
@@ -333,7 +342,7 @@ namespace F32 {
     /// Smallest finite f32 value
     global const f32 MIN = -3.40282347E+38f;
     /// Not a number
-    global const f32 NAN = ( 0.0f / 0.0f );
+    global const f32 NaN = ( 0.0f / 0.0f );
     /// Smallest positive f32 value
     global const f32 MIN_POS = 1.17549435E-38f;
     /// Positive infinity
@@ -379,7 +388,7 @@ namespace F64 {
     /// Smallest finite f64 value
     global const f64 MIN = -1.7976931348623157E+308;
     /// Not a number
-    global const f64 NAN = 0.0 / 0.0;
+    global const f64 NaN = 0.0 / 0.0;
     /// Smallest positive f32 value
     global const f64 MIN_POS = 2.2250738585072014E-308;
     /// Positive infinity

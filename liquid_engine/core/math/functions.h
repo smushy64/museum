@@ -677,12 +677,12 @@ FORCE_INLINE tuplef64 sincos( f64 x ) {
 /// tangent function
 FORCE_INLINE f32 tan( f32 x ) {
     tuplef32 sc = sincos( x );
-    return is_zero(sc.f1) ? F32::NAN : sc.f0 / sc.f1;
+    return is_zero(sc.f1) ? F32::NaN : sc.f0 / sc.f1;
 }
 /// tangent function
 FORCE_INLINE f64 tan( f64 x ) {
     tuplef64 sc = sincos( x );
-    return is_zero(sc.f1) ? F64::NAN : sc.f0 / sc.f1;
+    return is_zero(sc.f1) ? F64::NaN : sc.f0 / sc.f1;
 }
 /// arc-tangent function
 FORCE_INLINE f32 atan( f32 x ) {
@@ -711,7 +711,7 @@ FORCE_INLINE f32 atan2( f32 y, f32 x ) {
         if( x < 0.0f ) {
             return F32::PI;
         } else if( x == 0.0f ) {
-            return F32::NAN;
+            return F32::NaN;
         }
     }
 
@@ -725,7 +725,7 @@ FORCE_INLINE f64 atan2( f64 y, f64 x ) {
         if( x < 0.0 ) {
             return F64::PI;
         } else if( x == 0.0 ) {
-            return F64::NAN;
+            return F64::NaN;
         }
     }
 
@@ -752,15 +752,15 @@ FORCE_INLINE f64 to_deg( f64 theta ) {
 }
 
 /// natural logarithm
-FORCE_INLINE f32 log( f32 x ) {
+FORCE_INLINE f32 logarithm( f32 x ) {
     // TODO(alicia): replace with an actual function!
-    return F32::NAN * x;
+    return F32::NaN * x;
     // return impl::_logf_( x );
 }
 /// natural logarithm
-FORCE_INLINE f64 log( f64 x ) {
+FORCE_INLINE f64 logarithm( f64 x ) {
     // TODO(alicia): replace with an actual function!
-    return F32::NAN * x;
+    return F32::NaN * x;
     // return impl::_log_( x );
 }
 

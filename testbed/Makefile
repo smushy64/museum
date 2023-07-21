@@ -10,6 +10,10 @@ testbed_rc_flags :=
 testbed_dc_flags := 
 testbed_c_flags := $(c_flags) $(if $(IS_DEBUG),$(testbed_dc_flags),$(testbed_rc_flags))
 
+ifeq ($(IS_LINUX), true)
+	testbed_c_flags += -fPIC
+endif
+
 testbed_rcpp_flags :=
 testbed_dcpp_flags := 
 testbed_cpp_flags := $(cpp_flags) $(if $(IS_DEBUG),$(testbed_dcpp_flags),$(testbed_rcpp_flags))
@@ -17,13 +21,14 @@ testbed_cpp_flags := $(cpp_flags) $(if $(IS_DEBUG),$(testbed_dcpp_flags),$(testb
 testbed_rlink_flags :=
 testbed_dlink_flags := $(dlink_flags)
 testbed_link_flags := $(if $(IS_DEBUG),$(testbed_dlink_flags),$(testbed_rlink_flags))
-testbed_link_flags += -nostdlib++ -static-libgcc -shared
+testbed_link_flags += -nostdlib++ -shared
 
 ifeq ($(IS_WINDOWS), true)
-	testbed_link_flags += -lmingw32
+	testbed_link_flags += -lmingw32 -static-libgcc
+	testbed_link_flags += ../$(EXE_PATH)
+else
+	testbed_link_flags += -Wl,-rpath,../$(BUILD_PATH)/$(EXE_NAME).a
 endif
-
-testbed_link_flags += ../$(EXE_PATH)
 
 TESTBED_FLAGS := $(testbed_c_flags) $(testbed_cpp_flags) $(testbed_link_flags)
 TESTBED_FLAGS += -I../liquid_engine -Itestbed
@@ -59,7 +64,7 @@ $(corecpp_path): $(cpp)
 	for i in $(corecpp); do echo $$i >> $(corecpp_path); done
 
 spit:
-	@echo $(corecpp)
+	@echo $(testbed_link_flags)
 
 .PHONY: all spit
 

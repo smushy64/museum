@@ -33,18 +33,12 @@ b32 platform_init(
 );
 /// Shutdown platform subsystem.
 void platform_shutdown( Platform* platform );
-/// Get current tick count.
-u64 platform_ticks();
-/// Get how many ticks are in a second (frequency).
-u64 platform_ticks_per_second();
-/// Get ticks elapsed since start of the program.
-u64 platform_ticks_elapsed( Platform* platform );
 /// Get microseconds (μs) elapsed since start of the program.
-f64 platform_us_elapsed( Platform* platform );
+f64 platform_us_elapsed();
 /// Get milliseconds elapsed since start of the program.
-f64 platform_ms_elapsed( Platform* platform );
+f64 platform_ms_elapsed();
 /// Get seconds elapsed since start of the program.
-f64 platform_s_elapsed( Platform* platform );
+f64 platform_s_elapsed();
 /// Pump platform events.
 b32 platform_pump_events( Platform* platform );
 /// Set platform surface name.
@@ -83,26 +77,12 @@ void platform_set_pad_motor_state(
 );
 /// Poll gamepad.
 void platform_poll_gamepad( Platform* platform );
-/// Create a vulkan surface.
-struct VkSurfaceKHR_T* platform_vk_create_surface(
-    Platform* platform,
-    struct VulkanRendererContext* ctx
-);
-/// Get required vulkan extension names.
-usize platform_vk_read_ext_names(
-    Platform* platform,
-    usize max_names,
-    usize* name_count,
-    const char** names
-);
 /// Swap buffers. OpenGL only.
 void platform_gl_swap_buffers( Platform* platform );
 /// Initialize OpenGL.
 void* platform_gl_init( Platform* platform );
 /// Shutdown OpenGL.
 void platform_gl_shutdown( Platform* platform, void* glrc );
-/// Platform exit program.
-void platform_exit();
 
 /// Initialize Audio backend.
 b32 platform_init_audio( Platform* platform );

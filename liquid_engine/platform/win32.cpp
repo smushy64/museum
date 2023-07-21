@@ -325,6 +325,9 @@ void __stdcall mainCRTStartup() {
 
 }
 
+global LARGE_INTEGER PERFORMACE_COUNTER;
+global LARGE_INTEGER PERFORMANCE_FREQUENCY;
+
 /// Every x number of frames, check if xinput gamepad is active
 #define POLL_FOR_NEW_XINPUT_GAMEPAD_RATE (20000)
 internal DWORD WINAPI win32_xinput_polling_thread( void* params ) {
@@ -555,9 +558,11 @@ b32 platform_init(
     QueryPerformanceFrequency(
         &win32_platform->performance_frequency
     );
+    PERFORMANCE_FREQUENCY = win32_platform->performance_frequency;
     QueryPerformanceCounter(
         &win32_platform->performance_counter
     );
+    PERFORMANCE_COUNTER = win32_platform->performance_counter;
 
     out_platform->surface.dimensions = { width, height };
     out_platform->is_active = true;
@@ -585,45 +590,32 @@ void platform_shutdown( Platform* platform ) {
     DestroyWindow( win32_platform->window.handle );
 }
 
-void platform_exit() {
-    ExitProcess( 0 );
-}
-u64 platform_ticks() {
-    LARGE_INTEGER result = {};
-    QueryPerformanceCounter( &result );
-    return (u64)result.QuadPart;
-}
-u64 platform_ticks_per_second() {
-    LARGE_INTEGER result = {};
-    QueryPerformanceFrequency( &result );
-    return result.QuadPart;
-}
-u64 platform_ticks_elapsed( Platform* generic_platform ) {
-    Win32Platform* platform = (Win32Platform*)generic_platform;
-    u64 ticks = platform_ticks();
-    u64 start_ticks = platform->performance_counter.QuadPart;
-    return ticks - start_ticks;
-}
-f64 platform_us_elapsed( Platform* generic_platform ) {
-    Win32Platform* platform = (Win32Platform*)generic_platform;
-    u64 frequency = platform->performance_frequency.QuadPart;
-    u64 ticks_elapsed = platform_ticks_elapsed( generic_platform );
+f64 platform_us_elapsed() {
+    LARGE_INTEGER current_ticks;
+    QueryPerformanceCounter( &current_ticks );
+    u64 ticks_elapsed = current_ticks.QuadPart -
+        PERFORMANCE_COUNTER.QuadPart;
 
-    return (f64)(ticks_elapsed * 1000000.0) / (f64)frequency;
+    return (f64)(ticks_elapsed * 1000000.0) /
+        (f64)PERFORMANCE_FREQUENCY;
 }
-f64 platform_ms_elapsed( Platform* generic_platform ) {
-    Win32Platform* platform = (Win32Platform*)generic_platform;
-    u64 frequency = platform->performance_frequency.QuadPart;
-    u64 ticks_elapsed = platform_ticks_elapsed( generic_platform );
+f64 platform_ms_elapsed() {
+    LARGE_INTEGER current_ticks;
+    QueryPerformanceCounter( &current_ticks );
+    u64 ticks_elapsed = current_ticks.QuadPart -
+        PERFORMANCE_COUNTER.QuadPart;
 
-    return (f64)(ticks_elapsed * 1000.0) / (f64)frequency;
+    return (f64)(ticks_elapsed * 1000.0) /
+        (f64)PERFORMANCE_FREQUENCY;
 }
-f64 platform_s_elapsed( Platform* generic_platform ) {
-    Win32Platform* platform = (Win32Platform*)generic_platform;
-    u64 frequency = platform->performance_frequency.QuadPart;
-    u64 ticks_elapsed = platform_ticks_elapsed( generic_platform );
+f64 platform_s_elapsed() {
+    LARGE_INTEGER current_ticks;
+    QueryPerformanceCounter( &current_ticks );
+    u64 ticks_elapsed = current_ticks.QuadPart -
+        PERFORMANCE_COUNTER.QuadPart;
 
-    return (f64)(ticks_elapsed) / (f64)frequency;
+    return (f64)(ticks_elapsed) /
+        (f64)PERFORMANCE_FREQUENCY;
 }
 b32 platform_pump_events( Platform* platform ) {
     Win32Platform* win32_platform = (Win32Platform*)platform;
@@ -1362,7 +1354,7 @@ LRESULT win32_winproc(
             }
 
             b32 is_down = !((lParam & TRANSITION_STATE_MASK) != 0);
-            input_set_key( (KeyCode)keycode, is_down );
+            input_set_key( (KeyboardCode)keycode, is_down );
 
         } return TRUE;
         
@@ -1399,11 +1391,11 @@ LRESULT win32_winproc(
                 Msg == WM_RBUTTONDOWN;
             MouseCode code;
             if( Msg == WM_LBUTTONDOWN || Msg == WM_LBUTTONUP ) {
-                code = MBC_BUTTON_LEFT;
+                code = MOUSE_BUTTON_LEFT;
             } else if( Msg == WM_RBUTTONDOWN || Msg == WM_RBUTTONUP ) {
-                code = MBC_BUTTON_RIGHT;
+                code = MOUSE_BUTTON_RIGHT;
             } else if( Msg == WM_MBUTTONDOWN || Msg == WM_MBUTTONUP ) {
-                code = MBC_BUTTON_MIDDLE;
+                code = MOUSE_BUTTON_MIDDLE;
             } else {
                 break;
             }
@@ -1421,7 +1413,7 @@ LRESULT win32_winproc(
 
             UINT button = GET_XBUTTON_WPARAM(wParam);
             b32 is_down = Msg == WM_XBUTTONDOWN;
-            MouseCode code = (MouseCode)(button + (MBC_BUTTON_EXTRA_1 - 1));
+            MouseCode code = (MouseCode)(button + (MOUSE_BUTTON_EXTRA_1 - 1));
 
             input_set_mouse_button( code, is_down );
 
@@ -2366,7 +2358,6 @@ b32 platform_thread_create(
     ThreadProcFN     thread_proc,
     void*            user_params,
     usize            thread_stack_size,
-    b32              run_on_create,
     ThreadHandle*    out_thread_handle
 ) {
     Win32ThreadHandle* win32_thread_handle =
@@ -2382,7 +2373,7 @@ b32 platform_thread_create(
         thread_stack_size,
         win32_thread_proc,
         win32_thread_handle,
-        CREATE_SUSPENDED,
+        0,
         &win32_thread_handle->thread_id
     );
 
@@ -2392,37 +2383,22 @@ b32 platform_thread_create(
     }
 
     read_write_fence();
-    if( run_on_create ) {
-        if(!platform_thread_resume(
-            out_thread_handle
-        )) {
-            return false;
-        }
-    }
 
     WIN32_LOG_NOTE("New thread created. ID: {u}", win32_thread_handle->thread_id);
     return true;
 }
-b32 platform_thread_resume( ThreadHandle* thread_handle ) {
-    Win32ThreadHandle* win32_thread = (Win32ThreadHandle*)thread_handle;
-    DWORD result = ResumeThread( win32_thread->thread_handle );
-    if( result == (DWORD)-1 ) {
-        win32_log_error( false );
-        return false;
-    } else {
-        return true;
-    }
-}
 b32 semaphore_create(
-    u32 initial_count, u32 maximum_count,
+    const char* opt_name, u32 initial_count,
     SemaphoreHandle* out_semaphore_handle
 ) {
+    Win32SemaphoreHandle* win32_semaphore =
+        (Win32SemaphoreHandle*)out_semaphore_handle;
 
     HANDLE result = CreateSemaphoreEx(
         nullptr,
         initial_count,
-        maximum_count,
-        nullptr,
+        I32::MAX,
+        opt_name,
         0,
         SEMAPHORE_ALL_ACCESS
     );
@@ -2431,50 +2407,38 @@ b32 semaphore_create(
         return false;
     }
 
-    *out_semaphore_handle = (void*)result;
+    win32_semaphore->handle = result;
     return true;
 }
-void semaphore_increment(
-    SemaphoreHandle semaphore_handle,
-    u32 increment, u32* out_opt_previous_count
-) {
-    HANDLE win32_semaphore_handle = (HANDLE)semaphore_handle;
+void semaphore_increment( SemaphoreHandle* semaphore_handle ) {
+    Win32SemaphoreHandle* win32_semaphore =
+        (Win32SemaphoreHandle*)semaphore_handle;
     ReleaseSemaphore(
-        win32_semaphore_handle,
-        increment,
-        (LONG*)out_opt_previous_count
+        win32_semaphore->handle,
+        1, nullptr
     );
 }
 void semaphore_wait(
-    SemaphoreHandle semaphore_handle,
+    SemaphoreHandle* semaphore_handle,
     b32 infinite_timeout, u32 opt_timeout_ms
 ) {
-    HANDLE win32_semaphore_handle = (HANDLE)semaphore_handle;
+    Win32SemaphoreHandle* win32_semaphore =
+        (Win32SemaphoreHandle*)semaphore_handle;
     WaitForSingleObjectEx(
-        win32_semaphore_handle,
+        win32_semaphore->handle,
         infinite_timeout ?
             INFINITE : opt_timeout_ms,
         FALSE
     );
 }
-void semaphore_wait_multiple(
-    usize            semaphore_handle_count,
-    SemaphoreHandle* semaphore_handles,
-    b32 wait_for_all, b32 infinite_timeout,
-    u32 opt_timeout_ms
-) {
-    WaitForMultipleObjects(
-        semaphore_handle_count,
-        (HANDLE*)semaphore_handles,
-        wait_for_all ? TRUE : FALSE,
-        infinite_timeout ? INFINITE : opt_timeout_ms
-    );
-}
 void semaphore_destroy( SemaphoreHandle semaphore_handle ) {
-    HANDLE win32_semaphore_handle = (HANDLE)semaphore_handle;
-    CloseHandle( win32_semaphore_handle );
+    Win32SemaphoreHandle* win32_semaphore =
+        (Win32SemaphoreHandle*)semaphore_handle;
+    CloseHandle( win32_semaphore->handle );
+    *win32_semaphore = {};
 }
 LD_API b32 mutex_create( MutexHandle* out_mutex ) {
+    Win32MutexHandle* win32_mutex = (Win32MutexHandle*)out_mutex;
     HANDLE result = CreateMutexA(
         nullptr,
         false,
@@ -2484,21 +2448,24 @@ LD_API b32 mutex_create( MutexHandle* out_mutex ) {
         return false;
     }
 
-    *out_mutex = (MutexHandle)result;
-
+    win32_mutex->handle = result;
     return true;
 }
-LD_API void mutex_lock( MutexHandle mutex ) {
+LD_API void mutex_lock( MutexHandle* mutex ) {
+    Win32MutexHandle* win32_mutex = (Win32MutexHandle*)mutex;
     WaitForSingleObject(
-        (HANDLE)mutex,
+        win32_mutex->handle,
         INFINITE
     );
 }
-LD_API void mutex_unlock( MutexHandle mutex ) {
-    ReleaseMutex( (HANDLE)mutex );
+LD_API void mutex_unlock( MutexHandle* mutex ) {
+    Win32MutexHandle* win32_mutex = (Win32MutexHandle*)mutex;
+    ReleaseMutex( win32_mutex->handle );
 }
-LD_API void mutex_destroy( MutexHandle mutex ) {
-    CloseHandle( (HANDLE)mutex );
+LD_API void mutex_destroy( MutexHandle* mutex ) {
+    Win32MutexHandle* win32_mutex = (Win32MutexHandle*)mutex;
+    CloseHandle( win32_mutex->handle );
+    *win32_mutex = {};
 }
 u32 platform_interlocked_increment( volatile u32* addend ) {
     return InterlockedIncrement( addend );

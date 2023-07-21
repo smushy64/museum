@@ -66,7 +66,7 @@ struct RenderOrder {
     struct EntityStorage*    storage;
     EntityStorageQueryResult sprites;
 
-    struct Time* time;
+    struct Timer* time;
 
 #if defined(DEBUG)
     DebugPoints* list_debug_points;

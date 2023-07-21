@@ -16,7 +16,7 @@ LD_API struct ThreadWorkQueue* engine_get_thread_work_queue(
 LD_API struct EntityStorage* engine_get_entity_storage(
     struct EngineContext* engine_ctx
 );
-LD_API struct Time* engine_get_time( struct EngineContext* engine_ctx );
+LD_API struct Timer* engine_get_time( struct EngineContext* engine_ctx );
 LD_API struct RenderOrder* engine_get_render_order(
     struct EngineContext* engine_ctx
 );
@@ -61,7 +61,11 @@ typedef b32 (*ApplicationRunFN)( struct EngineContext* ctx, void* memory );
 
 #if defined(LD_API_INTERNAL)
 
+#if defined(LD_PLATFORM_WINDOWS)
     #define DEFAULT_LIBRARY_PATH "testbed_debug.dll"
+#else
+    #define DEFAULT_LIBRARY_PATH "./testbed_debug.so"
+#endif
 
     /// Engine entry point
     b32 engine_entry( int argc, char** argv );

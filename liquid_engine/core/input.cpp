@@ -60,8 +60,8 @@ struct InputState {
     b8 last_keys[KEY_STATE_COUNT];
     b8 keys[KEY_STATE_COUNT];
 
-    b8 last_mouse_buttons[MBC_COUNT];
-    b8 mouse_buttons[MBC_COUNT];
+    b8 last_mouse_buttons[MOUSE_BUTTON_COUNT];
+    b8 mouse_buttons[MOUSE_BUTTON_COUNT];
 
     ivec2 last_mouse_position;
     ivec2 mouse_position;
@@ -92,7 +92,7 @@ void input_shutdown() {
 }
 
 void input_set_key(
-    KeyCode keycode,
+    KeyboardCode keycode,
     b8 is_down
 ) {
     INPUT_STATE->keys[keycode] = is_down;
@@ -160,7 +160,7 @@ void input_swap() {
     mem_copy(
         INPUT_STATE->last_mouse_buttons,
         INPUT_STATE->mouse_buttons,
-        MBC_COUNT
+        MOUSE_BUTTON_COUNT
     );
 
     for( usize i = 0; i < MAX_GAMEPAD_INDEX; ++i ) {
@@ -185,10 +185,10 @@ void input_swap() {
         INPUT_STATE->horizontal_mouse_wheel;
 }
 
-b32 input_is_key_down( KeyCode keycode ) {
+b32 input_is_key_down( KeyboardCode keycode ) {
     return INPUT_STATE->keys[keycode];
 }
-b32 input_was_key_down( KeyCode keycode ) {
+b32 input_was_key_down( KeyboardCode keycode ) {
     return INPUT_STATE->last_keys[keycode];
 }
 

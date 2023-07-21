@@ -18,6 +18,8 @@
 #include <renderer/renderer.h>
 #include <renderer/primitives.h>
 
+#include <dlfcn.h>
+
 #define ENTITY_TYPE_SHIP     1
 #define ENTITY_TYPE_ASTEROID 2
 #define ENTITY_TYPE_TORPEDO  3
@@ -269,7 +271,7 @@ extern "C"
 b32 application_run( struct EngineContext* ctx, void* generic_memory ) {
     GameMemory*    memory  = (GameMemory*)generic_memory;
     EntityStorage* storage = engine_get_entity_storage( ctx );
-    Time*          time    = engine_get_time( ctx );
+    Timer*         time    = engine_get_time( ctx );
     struct ThreadWorkQueue* work_queue =
         engine_get_thread_work_queue( ctx );
 
