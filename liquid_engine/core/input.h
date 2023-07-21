@@ -12,11 +12,11 @@
 #include "math/types.h"
 
 /// Key Codes
-enum KeyCode : u8 {
-    KEY_BACKSPACE = 8,
-    KEY_TAB = 9,
+enum KeyboardCode : u8 {
+    KEY_BACKSPACE  = 8,
+    KEY_TAB        = 9,
 
-    KEY_ENTER = 13,
+    KEY_ENTER      = 13,
 
     KEY_SHIFT_LEFT = 16,
     KEY_CONTROL_LEFT,
@@ -138,7 +138,7 @@ enum KeyCode : u8 {
     KEY_UNKNOWN = U8::MAX,
 };
 #define KEY_COUNT 109
-inline const char* to_string( KeyCode keycode ) {
+inline const char* to_string( KeyboardCode keycode ) {
     switch( keycode ) {
         case KEY_SPACE:          return "Space";
         case KEY_A:              return "A";
@@ -255,24 +255,24 @@ inline const char* to_string( KeyCode keycode ) {
 
 /// Mouse Button Codes
 enum MouseCode : u8 {
-    MBC_UNKNOWN = U8::MAX,
-    MBC_BUTTON_LEFT = 0,
-    MBC_BUTTON_MIDDLE,
-    MBC_BUTTON_RIGHT,
-    MBC_BUTTON_EXTRA_1,
-    MBC_BUTTON_EXTRA_2,
+    MOUSE_BUTTON_UNKNOWN = U8::MAX,
+    MOUSE_BUTTON_LEFT = 0,
+    MOUSE_BUTTON_MIDDLE,
+    MOUSE_BUTTON_RIGHT,
+    MOUSE_BUTTON_EXTRA_1,
+    MOUSE_BUTTON_EXTRA_2,
 
-    MBC_COUNT
+    MOUSE_BUTTON_COUNT
 };
 inline const char* to_string( MouseCode mousecode ) {
-    local const char* strings[MBC_COUNT] = {
+    local const char* strings[MOUSE_BUTTON_COUNT] = {
         "Mouse Button Left",
         "Mouse Button Middle",
         "Mouse Button Right",
         "Mouse Button Extra 1",
         "Mouse Button Extra 2",
     };
-    if( mousecode >= MBC_COUNT ) {
+    if( mousecode >= MOUSE_BUTTON_COUNT ) {
         return "Unknown";
     }
     return strings[mousecode];
@@ -349,7 +349,7 @@ inline const char* to_string( PadCode padcode ) {
     void input_shutdown();
 
     void input_set_key(
-        KeyCode keycode,
+        KeyboardCode keycode,
         b8 is_down
     );
     void input_set_mouse_button(
@@ -390,8 +390,8 @@ inline const char* to_string( PadCode padcode ) {
 
 #endif // internal
 
-LD_API b32 input_is_key_down( KeyCode code );
-LD_API b32 input_was_key_down( KeyCode code );
+LD_API b32 input_is_key_down( KeyboardCode code );
+LD_API b32 input_was_key_down( KeyboardCode code );
 
 LD_API b32 input_is_mousebutton_down( MouseCode code );
 LD_API b32 input_was_mousebutton_down( MouseCode code );

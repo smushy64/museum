@@ -61,6 +61,7 @@ DC_FLAGS += -Wno-missing-braces -Wno-c11-extensions
 DC_FLAGS += -Wno-gnu-zero-variadic-macro-arguments
 DC_FLAGS += -Wno-gnu-anonymous-struct -Wno-nested-anon-types
 DC_FLAGS += -Wno-unused-variable -Wno-ignored-attributes
+DC_FLAGS += -Wno-gnu-case-range
 
 ifeq ($(IS_WINDOWS), true)
 	DC_FLAGS += -gcodeview
@@ -109,6 +110,10 @@ ifeq ($(IS_WINDOWS), true)
 	LINK_FLAGS  += -fuse-ld=lld -lkernel32 -mstack-probe-size=999999999 -Wl,//stack:0x100000
 endif
 
+ifeq ($(IS_LINUX), true)
+	LINK_FLAGS += -lX11 -lxcb -lX11-xcb
+endif
+
 export c_flags := $(if $(IS_DEBUG),$(DC_FLAGS),$(RC_FLAGS)) $(C_FLAGS)
 export rc_flags := $(RC_FLAGS)
 export dc_flags := $(DC_FLAGS)
@@ -138,6 +143,8 @@ ifeq ($(IS_WINDOWS), true)
 endif
 
 ifeq ($(IS_LINUX), true)
+	LIQUID_ENGINE_FLAGS += -Wl,--out-implib=$(BUILD_PATH)/$(EXE_NAME).a
+
 	LIQUID_COMPILE_FILE := liquid_engine/platform/linux.cpp
 endif
 
@@ -159,7 +166,7 @@ all: print_info shader $(EXE_PATH)
 	@$(MAKE) --directory=testbed --no-print-directory
 
 print_info:
-	@echo "Make: compilation target:" $(HOST_OS_NAME)-$(TARGET_ARCH) $(if $(RELEASE), Release, Debug)
+	@echo "Make: compilation target:" $(HOST_OS_NAME)-$(TARGET_ARCH)-$(if $(RELEASE),release,debug)
 
 shader:
 	@$(MAKE) --directory=shader --no-print-directory
@@ -188,7 +195,7 @@ run: all
 
 test: all
 	@echo "Make: running test bed . . ."
-	@cd $(BUILD_PATH) && ./$(EXE_NAME)$(EXE_EXT) --load=$(TESTBED_NAME) --gl
+	@cd $(BUILD_PATH) && ./$(EXE_NAME)$(EXE_EXT) --load=./$(TESTBED_NAME) --gl
 
 # for debugging variables
 spit:

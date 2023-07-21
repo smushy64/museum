@@ -12,6 +12,16 @@ there are a few areas where C++ features are used.
 
 ## Table of Contents
 - [Build Guide](../BUILD.md)
+    - [Requirements](../BUILD.md#requirements)
+        - [Common Requirements](../BUILD.md#common-requirements)
+        - [Windows Requirements](../BUILD.md#windows-requirements)
+        - [Linux Requirements](../BUILD.md#linux-requirements)
+        - [Optional Software](../BUILD.md#optional-software)
+    - [Debug Build Steps](../BUILD.md#debug-build-steps)
+    - [Release Build Steps](../BUILD.md#release-build-steps)
+    - [Debugging](../BUILD.md#debugging)
+        - [RemedyBG](../BUILD.md#remedybg)
+        - [gf](../BUILD.md#gf)
 - [Defines](./defines.md)
     - [Type Aliases](./defines.md#type-aliases)
     - [Attributes](./defines.md#attributes)

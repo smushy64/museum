@@ -16,6 +16,7 @@ clang++
 -DGL_VERSION_MAJOR=4
 -DGL_VERSION_MINOR=5
 -DLD_PROFILING
+-fdeclspec
 -I.
 -Werror=vla
 -Wall

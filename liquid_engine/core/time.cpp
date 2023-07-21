@@ -13,21 +13,18 @@ LD_API AutoTimer::AutoTimer(
 )
 : function(function), file(file), line(line) {
 
-    start_tick_count = platform_ticks();
+    start_ms = platform_ms_elapsed();
     println(
         "Begin AutoTimer: {cc}() {cc}:{i}",
         function, file, line
     );
 }
 LD_API AutoTimer::~AutoTimer() {
-    u64 end_tick_count = platform_ticks();
-    f64 end_time =
-        (f64)((end_tick_count - start_tick_count) * 1000.0) /
-        (f64)(platform_ticks_per_second());
+    f64 end_ms = platform_ms_elapsed();
 
     println(
         "End   AutoTimer: {cc}() {cc}:{i} | TIME: {f,.3}ms",
-        function, file, line, end_time
+        function, file, line, end_ms
     );
 }
 

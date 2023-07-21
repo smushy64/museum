@@ -21,6 +21,16 @@
 #include <xinput.h>
 #include <dsound.h>
 
+struct Win32MutexHandle {
+    HANDLE handle;
+};
+STATIC_ASSERT( sizeof(Win32MutexHandle) == MUTEX_HANDLE_SIZE );
+
+struct Win32SemaphoreHandle {
+    HANDLE handle;
+};
+STATIC_ASSERT( sizeof(Win32SemaphoreHandle) == SEMAPHORE_HANDLE_SIZE );
+
 struct Win32ThreadHandle {
     HANDLE       thread_handle;
     ThreadProcFN thread_proc;

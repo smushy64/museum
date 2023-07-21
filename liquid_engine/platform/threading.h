@@ -8,23 +8,21 @@
 #include "defines.h"
 #include "core/threading.h"
 
-#define THREAD_HANDLE_WIN32_SIZE 32
-#define THREAD_HANDLE_OTHER_SIZE (sizeof(usize))
-
-/// Handle to a thread.
-struct ThreadHandle {
 #if defined(LD_PLATFORM_WINDOWS)
-    u8 platform[THREAD_HANDLE_WIN32_SIZE];
-#else
-    u8 platform[THREAD_HANDLE_OTHER_SIZE];
-#endif
-};
-
-#if defined(LD_PLATFORM_WINDOWS)
+    #define THREAD_HANDLE_SIZE (32)
     typedef unsigned long ThreadReturnCode;
+#elif defined(LD_PLATFORM_LINUX)
+    #define THREAD_HANDLE_SIZE (24)
+    typedef void* ThreadReturnCode;
 #else
+    #define THREAD_HANDLE_SIZE (sizeof(usize))
     typedef int ThreadReturnCode;
 #endif
+
+/// Opaque handle to a thread.
+struct ThreadHandle {
+    u8 platform[THREAD_HANDLE_SIZE];
+};
 
 /// Thread Proc definition.
 typedef ThreadReturnCode (*ThreadProcFN)( void* user_params );
@@ -35,11 +33,8 @@ b32 platform_thread_create(
     ThreadProcFN     thread_proc,
     void*            user_params,
     usize            thread_stack_size,
-    b32              run_on_create,
     ThreadHandle*    out_thread_handle
 );
-/// Resume a suspended thread
-b32 platform_thread_resume( ThreadHandle* thread_handle );
 
 u32 platform_interlocked_increment( volatile u32* addend );
 u32 platform_interlocked_decrement( volatile u32* addend );

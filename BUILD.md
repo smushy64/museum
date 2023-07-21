@@ -10,6 +10,7 @@
 - [Requirements](#requirements)
     - [Common Requirements](#common-requirements)
     - [Windows Requirements](#windows-requirements)
+    - [Linux Requirements](#linux-requirements)
     - [Optional Software](#optional-software)
 - [Debug Build Steps](#debug-build-steps)
 - [Release Build Steps](#release-build-steps)
@@ -28,6 +29,10 @@ Currently, only Windows is supported as a build target
 - [msys2](https://www.msys2.org/wiki/MSYS2-installation/)
 - windres 2.40 [^1]
     - should be installed with mingw by default
+### Linux requirements
+- libX11
+- libXcb
+- libX11-Xcb
 ### Optional Software
 - [RemedyBG Debugger](https://remedybg.itch.io/remedybg)
 - [gf gdb frontend for linux](https://github.com/nakst/gf)
