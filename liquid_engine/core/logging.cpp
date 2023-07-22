@@ -48,9 +48,7 @@ global const char* LOG_COLOR_CODES[LOG_COLOR_COUNT] = {
 };
 
 internal void set_color( LogColor color ) {
-    #if defined(LD_LOGGING)
-        print("{cc}", LOG_COLOR_CODES[color]);
-    #endif
+    print("{cc}", LOG_COLOR_CODES[color]);
 }
 
 LD_API b32 is_log_initialized() {
@@ -113,6 +111,8 @@ internal inline void log_formatted_internal(
     b32 lock, const char* format,
     va_list args
 ) {
+    b32 always_print =
+        (flags & LOG_FLAG_ALWAYS_PRINT) == LOG_FLAG_ALWAYS_PRINT;
 
 #if defined(LD_LOGGING)
     b32 is_error = ARE_BITS_SET( level, LOG_LEVEL_ERROR );
@@ -141,8 +141,6 @@ internal inline void log_formatted_internal(
 
     read_write_fence();
 
-    b32 always_print =
-        (flags & LOG_FLAG_ALWAYS_PRINT) == LOG_FLAG_ALWAYS_PRINT;
     b32 new_line =
         (flags & LOG_FLAG_NEW_LINE) == LOG_FLAG_NEW_LINE;
 
@@ -201,7 +199,31 @@ internal inline void log_formatted_internal(
         platform_mutex_unlock( &MUTEX );
     }
 
-#endif // if logging enabled
+#else // if logging enabled
+    if( always_print ) {
+        if( lock ) {
+            platform_mutex_lock( &MUTEX );
+        }
+
+        read_write_fence();
+
+        set_color( color );
+
+        if( is_error ) {
+            printerr_va( format, args );
+        } else {
+            print_va( format, args );
+        }
+
+        set_color( LOG_COLOR_RESET );
+
+        read_write_fence();
+
+        if( lock ) {
+            platform_mutex_unlock( &MUTEX );
+        }
+    }
+#endif // if logging disabled
 }
 
 LD_API void log_formatted_unlocked(

@@ -270,8 +270,6 @@ b32 application_run( struct EngineContext* ctx, void* generic_memory ) {
     GameMemory*    memory  = (GameMemory*)generic_memory;
     EntityStorage* storage = engine_get_entity_storage( ctx );
     Timer*         time    = engine_get_time( ctx );
-    struct ThreadWorkQueue* work_queue =
-        engine_get_thread_work_queue( ctx );
 
     if( input_is_key_down( KEY_ESCAPE ) ) {
         Event event = {};
@@ -338,7 +336,7 @@ b32 application_run( struct EngineContext* ctx, void* generic_memory ) {
 
     /* Physics and Wrapping */ {
         EntityStorageQueryResult physics_objects = system_physics2d_solver(
-            work_queue, storage, time->delta_seconds
+            storage, time->delta_seconds
         );
 
         ivec2 dimensions = engine_query_surface_size( ctx );

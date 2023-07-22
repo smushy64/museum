@@ -101,8 +101,20 @@ LD_API void log_formatted_unlocked(
     ...
 );
 
-#if defined(LD_LOGGING)
+#define LOG_FATAL( format, ... ) \
+    log_formatted_locked(\
+        LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
+        LOG_COLOR_RED,\
+        LOG_FLAG_ALWAYS_PRINT | LOG_FLAG_NEW_LINE,\
+        "[FATAL | {cc}() | {cc}:{i}] " format,\
+        __FUNCTION__,\
+        __FILE__,\
+        __LINE__,\
+        ##__VA_ARGS__\
+    )
+        
 
+#if defined(LD_LOGGING)
     #define LOG_NOTE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE,\
@@ -204,18 +216,6 @@ LD_API void log_formatted_unlocked(
             ##__VA_ARGS__\
         )
         
-    #define LOG_FATAL( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
-            LOG_COLOR_RED,\
-            LOG_FLAG_ALWAYS_PRINT | LOG_FLAG_NEW_LINE,\
-            "[FATAL | {cc}() | {cc}:{i}] " format,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__,\
-            ##__VA_ARGS__\
-        )
-        
 #else
     #define LOG_NOTE( format, ... )
     #define LOG_INFO( format, ... )
@@ -229,64 +229,55 @@ LD_API void log_formatted_unlocked(
     #define LOG_WARN_TRACE( format, ... )
     #define LOG_ERROR_TRACE( format, ... )
 
-    #define LOG_FATAL( format, ... )
 #endif
 
 #if defined(LD_ASSERTIONS)
-
-    #if defined(LD_LOGGING)
-        #define LOG_PANIC( format, ... )\
-             log_formatted_unlocked(\
-                LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
-                LOG_COLOR_RED,\
-                LOG_FLAG_NEW_LINE | LOG_FLAG_ALWAYS_PRINT,\
-                "[PANIC | {cc}() | {cc}:{i}] " format,\
-                __FUNCTION__,\
-                __FILE__,\
-                __LINE__,\
-                ##__VA_ARGS__\
-            );\
-            PANIC()
-        #define LOG_ASSERT( condition, format, ... ) \
-            do {\
-                if(!(condition)) {\
-                    log_formatted_unlocked(\
-                        LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
-                        LOG_COLOR_RED,\
-                        LOG_FLAG_NEW_LINE | LOG_FLAG_ALWAYS_PRINT,\
-                        "[ASSERTION FAILED | {cc}() | {cc}:{i}] ({cc}) " format,\
-                        __FUNCTION__,\
-                        __FILE__,\
-                        __LINE__,\
-                        #condition,\
-                        ##__VA_ARGS__\
-                    );\
-                    PANIC();\
-                }\
-            } while(0)
-
-        #define UNIMPLEMENTED() \
-            do {\
+    #define LOG_PANIC( format, ... )\
+         log_formatted_unlocked(\
+            LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
+            LOG_COLOR_RED,\
+            LOG_FLAG_NEW_LINE | LOG_FLAG_ALWAYS_PRINT,\
+            "[PANIC | {cc}() | {cc}:{i}] " format,\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__,\
+            ##__VA_ARGS__\
+        );\
+        PANIC()
+    #define LOG_ASSERT( condition, format, ... ) \
+        do {\
+            if(!(condition)) {\
                 log_formatted_unlocked(\
                     LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
                     LOG_COLOR_RED,\
                     LOG_FLAG_NEW_LINE | LOG_FLAG_ALWAYS_PRINT,\
-                    "[UNIMPLEMENTED | {cc}() | {cc}:{i}] ",\
+                    "[ASSERTION FAILED | {cc}() | {cc}:{i}] ({cc}) " format,\
                     __FUNCTION__,\
                     __FILE__,\
-                    __LINE__\
+                    __LINE__,\
+                    #condition,\
+                    ##__VA_ARGS__\
                 );\
                 PANIC();\
-            } while(0)
-    #else
-        #define LOG_PANIC( format, ... ) PANIC()
-        #define LOG_ASSERT( condition, format, ... ) ASSERT( condition )
-        #define UNIMPLEMENTED() PANIC()
-    #endif
+            }\
+        } while(0)
 
+    #define UNIMPLEMENTED() \
+        do {\
+            log_formatted_unlocked(\
+                LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
+                LOG_COLOR_RED,\
+                LOG_FLAG_NEW_LINE | LOG_FLAG_ALWAYS_PRINT,\
+                "[UNIMPLEMENTED | {cc}() | {cc}:{i}] ",\
+                __FUNCTION__,\
+                __FILE__,\
+                __LINE__\
+            );\
+            PANIC();\
+        } while(0)
 #else
-    #define LOG_PANIC( format, ... )
-    #define LOG_ASSERT( condition, format, ... )
+    #define LOG_PANIC( format, ... ) 
+    #define LOG_ASSERT( condition, format, ... ) 
     #define UNIMPLEMENTED()
 #endif
 

@@ -18,12 +18,12 @@
 - [x] parse --load= option in engine.cpp
 
 ## Features
-- [x] put all platform functions into platform.h
-- [ ] expose threading functions to game dll
-    - [ ] semaphore api
-    - [ ] mutex api
-    - [ ] interlocked api
 - [ ] --help argument
+- [x] put all platform functions into platform.h
+- [x] expose threading functions to game dll
+    - [x] semaphore api
+    - [x] mutex api
+    - [x] interlocked api
 - [x] Hello Triangle (OpenGL)
   - [x] Shader compilation + linking (pipelines?)
   - [x] Vertex buffer + index buffer rendering

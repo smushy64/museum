@@ -10,6 +10,7 @@
 #include "core/input.h"
 #include "core/engine.h"
 #include "core/string.h"
+#include "core/threading.h"
 #include "flags.h"
 
 #define MAX_PLATFORM_SURFACE_TITLE_SIZE 255
@@ -198,6 +199,9 @@ void platform_thread_kill( PlatformThreadHandle* thread_handle );
     #define MUTEX_HANDLE_SIZE (40)
 #endif
 
+STATIC_ASSERT( SEMAPHORE_HANDLE_SIZE <= MAX_SEMAPHORE_SIZE );
+STATIC_ASSERT( MUTEX_HANDLE_SIZE <= MAX_MUTEX_SIZE );
+
 /// Opaque handle to a semaphore object.
 struct PlatformSemaphoreHandle {
     u8 buffer[SEMAPHORE_HANDLE_SIZE];
@@ -239,21 +243,21 @@ void platform_mutex_unlock( PlatformMutexHandle* mutex );
 /// Destroy a mutex handle.
 void platform_mutex_destroy( PlatformMutexHandle* mutex );
 
-/// Multi-Threading safe increment
-u32 platform_interlocked_increment( volatile u32* addend );
-/// Multi-Threading safe decrement
-u32 platform_interlocked_decrement( volatile u32* addend );
-/// Multi-Threading safe exchange
-u32 platform_interlocked_exchange( volatile u32* target, u32 value );
-/// Multi-Threading safe compare and exchange
+/// Multi-Threading safe increment.
+u32 platform_interlocked_increment_u32( volatile u32* addend );
+/// Multi-Threading safe decrement.
+u32 platform_interlocked_decrement_u32( volatile u32* addend );
+/// Multi-Threading safe exchange.
+u32 platform_interlocked_exchange_u32( volatile u32* target, u32 value );
+/// Multi-Threading safe compare and exchange.
+u32 platform_interlocked_compare_exchange_u32(
+    volatile u32* dst,
+    u32 exchange, u32 comperand
+);
+/// Multi-Threading safe compare and exchange.
 void* platform_interlocked_compare_exchange_pointer(
     void* volatile* dst,
     void* exchange, void* comperand
-);
-/// Multi-Threading safe compare and exchange
-u32 platform_interlocked_compare_exchange(
-    u32 volatile* dst,
-    u32 exchange, u32 comperand
 );
 
 /// Types of message boxes

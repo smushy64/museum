@@ -2323,30 +2323,30 @@ void platform_mutex_destroy( PlatformMutexHandle* mutex ) {
     CloseHandle( win32_mutex->handle );
     *win32_mutex = {};
 }
-u32 platform_interlocked_increment( volatile u32* addend ) {
+u32 platform_interlocked_increment_u32( volatile u32* addend ) {
     return InterlockedIncrement( addend );
 }
-u32 platform_interlocked_decrement( volatile u32* addend ) {
+u32 platform_interlocked_decrement_u32( volatile u32* addend ) {
     return InterlockedDecrement( addend );
 }
-u32 platform_interlocked_exchange( volatile u32* target, u32 value ) {
+u32 platform_interlocked_exchange_u32( volatile u32* target, u32 value ) {
     return InterlockedExchange( target, value );
+}
+u32 platform_interlocked_compare_exchange_u32(
+    volatile u32* dst,
+    u32 exchange, u32 comperand
+) {
+    return InterlockedCompareExchange(
+        dst,
+        exchange,
+        comperand
+    );
 }
 void* platform_interlocked_compare_exchange_pointer(
     void* volatile* dst,
     void* exchange, void* comperand
 ) {
     return InterlockedCompareExchangePointer(
-        dst,
-        exchange,
-        comperand
-    );
-}
-u32 platform_interlocked_compare_exchange(
-    u32 volatile* dst,
-    u32 exchange, u32 comperand
-) {
-    return InterlockedCompareExchange(
         dst,
         exchange,
         comperand

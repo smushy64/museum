@@ -72,11 +72,9 @@ internal b32 filter_physics2d( Entity* entity ) {
 }
 
 LD_API EntityStorageQueryResult system_physics2d_solver(
-    struct ThreadWorkQueue* work_queue,
     EntityStorage*          storage,
     f32                     delta_time
 ) {
-    unused(work_queue);
     EntityStorageQueryResult query_result = entity_storage_query(
         storage, filter_physics2d
     );
@@ -101,13 +99,11 @@ LD_API EntityStorageQueryResult system_physics2d_solver(
 }
 
 internal Entity* system_collider2d_solver_circle(
-    struct ThreadWorkQueue*   work_queue,
     EntityStorage*            storage,
     EntityID                  collider_id,
     Circle2D                  collider_circle,
     EntityStorageQueryResult* colliders_to_test
 ) {
-    unused(work_queue);
 
     QueryResultIterator iterator = colliders_to_test;
     EntityID id;
@@ -146,13 +142,11 @@ internal Entity* system_collider2d_solver_circle(
 }
 
 internal Entity* system_collider2d_solver_rect(
-    struct ThreadWorkQueue*   work_queue,
     EntityStorage*            storage,
     EntityID                  collider_id,
     Rect2D                    collider_rect,
     EntityStorageQueryResult* colliders_to_test
 ) {
-    unused(work_queue);
 
     QueryResultIterator iterator = colliders_to_test;
     EntityID id;
@@ -193,7 +187,6 @@ internal Entity* system_collider2d_solver_rect(
 }
 
 LD_API Entity* system_collider2d_solver(
-    struct ThreadWorkQueue*   work_queue,
     EntityStorage*            storage,
     EntityID                  collider_id,
     EntityStorageQueryResult* colliders_to_test
@@ -213,7 +206,6 @@ LD_API Entity* system_collider2d_solver(
                 collider->collider2D.circle.radius
             };
             return system_collider2d_solver_circle(
-                work_queue,
                 storage,
                 collider_id,
                 collider_circle,
@@ -228,7 +220,6 @@ LD_API Entity* system_collider2d_solver(
                 position.y - collider->collider2D.rect.half_height
             };
             return system_collider2d_solver_rect(
-                work_queue,
                 storage,
                 collider_id,
                 collider_rect,

@@ -10,9 +10,6 @@
 typedef u32 LogLevel;
 typedef u32 PlatformFlags;
 
-LD_API struct ThreadWorkQueue* engine_get_thread_work_queue(
-    struct EngineContext* engine_ctx
-);
 LD_API struct EntityStorage* engine_get_entity_storage(
     struct EngineContext* engine_ctx
 );

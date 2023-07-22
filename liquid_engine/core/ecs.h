@@ -232,7 +232,6 @@ LD_API EntityStorageQueryResult entity_storage_query(
 /// transform2d and physics2d component.
 /// Returns entities acted upon.
 LD_API EntityStorageQueryResult system_physics2d_solver(
-    struct ThreadWorkQueue* work_queue,
     EntityStorage*          storage,
     f32                     delta_time
 );
@@ -241,7 +240,6 @@ LD_API EntityStorageQueryResult system_physics2d_solver(
 /// Returns a pointer to the first entity hit,
 /// or null if no colliders were hit.
 LD_API Entity* system_collider2d_solver(
-    struct ThreadWorkQueue*   work_queue,
     EntityStorage*            storage,
     EntityID                  collider_id,
     EntityStorageQueryResult* colliders_to_test

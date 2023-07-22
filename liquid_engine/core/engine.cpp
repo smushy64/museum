@@ -18,33 +18,11 @@
 #include "collections.h"
 #include "library.h"
 
-#define THREAD_WORK_ENTRY_COUNT 256
-struct ThreadInfo {
-    PlatformThreadHandle* thread_handle;
-    struct ThreadWorkQueue* work_queue;
-    u32 thread_index;
-};
-struct ThreadWorkQueue {
-    ThreadInfo*      threads;
-    ThreadWorkEntry* work_entries;
-    PlatformSemaphoreHandle  wake_semaphore;
-    PlatformSemaphoreHandle  on_frame_update_semaphore;
-
-    u32 work_entry_count;
-    u32 thread_count;
-
-    volatile u32 push_entry;
-    volatile u32 read_entry;
-    volatile u32 entry_completion_count;
-    volatile u32 pending_work_count;
-};
-
 #define APPLICATION_NAME_BUFFER_SIZE 255
 char APPLICATION_NAME_BUFFER[APPLICATION_NAME_BUFFER_SIZE] = {};
 
 struct EngineContext {
     SystemInfo       system_info;       // 88 
-    ThreadWorkQueue  thread_work_queue; // 48
     RenderOrder      render_order;      // 40
     Timer            time;              // 16
     StackArena       arena;             // 16
@@ -96,8 +74,6 @@ EventCallbackReturn on_resize( Event* event, void* void_ctx ) {
     renderer_on_resize( ctx->renderer_context, width, height );
     return EVENT_CALLBACK_NOT_CONSUMED;
 }
-
-internal b32 thread_proc( void* user_params );
 
 struct ArgParseResult {
     b32 success;
@@ -207,15 +183,11 @@ b32 engine_entry( int argc, char** argv ) {
     u32 thread_count  = ctx.system_info.logical_processor_count;
     thread_count = (thread_count == 1 ? thread_count : thread_count - 1);
 
-    u32 thread_info_buffer_size = sizeof(ThreadInfo) * thread_count;
-    u32 thread_work_entry_buffer_size =
-        sizeof(ThreadWorkEntry) * THREAD_WORK_ENTRY_COUNT;
-    u32 thread_handle_buffer_size = sizeof(PlatformThreadHandle) * thread_count;
-
-    u32 event_subsystem_size    = query_event_subsystem_size();
-    u32 input_subsystem_size    = query_input_subsystem_size();
-    u32 platform_subsystem_size = query_platform_subsystem_size();
-    u32 renderer_subsystem_size = query_renderer_subsystem_size( ctx.renderer_backend );
+    u32 threading_subsystem_size = query_threading_subsystem_size();
+    u32 event_subsystem_size     = query_event_subsystem_size();
+    u32 input_subsystem_size     = query_input_subsystem_size();
+    u32 platform_subsystem_size  = query_platform_subsystem_size();
+    u32 renderer_subsystem_size  = query_renderer_subsystem_size( ctx.renderer_backend );
     
     u32 logging_subsystem_size = DEFAULT_LOGGING_BUFFER_SIZE;
 
@@ -224,13 +196,11 @@ b32 engine_entry( int argc, char** argv ) {
     #define STACK_ARENA_SAFETY_BYTES 16
     // calculate required stack arena size
     u32 required_stack_arena_size =
+        threading_subsystem_size +
         event_subsystem_size +
         input_subsystem_size +
         platform_subsystem_size +
         renderer_subsystem_size +
-        thread_info_buffer_size +
-        thread_work_entry_buffer_size +
-        thread_handle_buffer_size +
         logging_subsystem_size +
         sizeof( EntityStorage ) +
         STACK_ARENA_SAFETY_BYTES +
@@ -254,7 +224,6 @@ b32 engine_entry( int argc, char** argv ) {
 #if defined(LD_LOGGING)
 
     if( !is_log_initialized() ) {
-        println( "Stack Arena size: {u}", required_stack_arena_size );
         StringView logging_buffer = {};
         logging_buffer.len = logging_subsystem_size;
         logging_buffer.buffer =
@@ -356,91 +325,25 @@ b32 engine_entry( int argc, char** argv ) {
         return false;
     }
 
-    ctx.thread_work_queue.threads = (ThreadInfo*)stack_arena_push_item(
-        &ctx.arena, thread_info_buffer_size
+    void* threading_buffer = stack_arena_push_item(
+        &ctx.arena, threading_subsystem_size
     );
-    ctx.thread_work_queue.work_entries = (ThreadWorkEntry*)stack_arena_push_item(
-        &ctx.arena, thread_work_entry_buffer_size
+    LOG_ASSERT(
+        threading_buffer,
+        "Stack Arena of size {u} is not enough to initialize engine!",
+        ctx.arena.arena_size
     );
-    ctx.thread_handles = (PlatformThreadHandle*)stack_arena_push_item(
-        &ctx.arena, thread_handle_buffer_size
-    );
-    ASSERT(
-        ctx.thread_work_queue.threads &&
-        ctx.thread_work_queue.work_entries &&
-        ctx.thread_handles
-    );
-    ctx.thread_work_queue.work_entry_count = THREAD_WORK_ENTRY_COUNT;
 
-    if(!platform_semaphore_create(
-        0,
-        thread_count,
-        &ctx.thread_work_queue.wake_semaphore
-    )) {
+    if( !threading_init(
+        ctx.system_info.logical_processor_count,
+        threading_buffer
+    ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
-            "Failed to create wake semaphore!\n "
+            "Failed to initialize threading subsystem!\n"
             LD_CONTACT_MESSAGE
         );
         return false;
-    }
-    if(!platform_semaphore_create(
-        0,
-        thread_count,
-        &ctx.thread_work_queue.on_frame_update_semaphore
-    )) {
-        MESSAGE_BOX_FATAL(
-            "Subsystem Failure",
-            "Failed to create on frame update semaphore!\n "
-            LD_CONTACT_MESSAGE
-        );
-        return false;
-    }
-
-    read_write_fence();
-
-    const b32 THREAD_CREATE_SUSPENDED = true;
-    for( u32 i = 0; i < thread_count; ++i ) {
-        ThreadInfo* current_thread_info =
-            &ctx.thread_work_queue.threads[i];
-        current_thread_info->work_queue    = &ctx.thread_work_queue;
-        current_thread_info->thread_handle = &ctx.thread_handles[i];
-        current_thread_info->thread_index  = i;
-
-        if(!platform_thread_create(
-            thread_proc,
-            current_thread_info,
-            STACK_SIZE,
-            THREAD_CREATE_SUSPENDED,
-            &ctx.thread_handles[i]
-        )) {
-            if( i == 0 ) {
-                thread_count = 0;
-            } else {
-                thread_count = i - 1;
-            }
-            break;
-        }
-    }
-
-    if( !thread_count ) {
-        MESSAGE_BOX_FATAL(
-            "Subsystem Failure",
-            "Failed to create any threads!\n "
-            LD_CONTACT_MESSAGE
-        );
-        return false;
-    }
-    LOG_NOTE( "Instantiated {u} threads.", thread_count );
-
-    ctx.thread_count                   = thread_count;
-    ctx.thread_work_queue.thread_count = thread_count;
-
-    read_write_fence();
-
-    for( u32 i = 0; i < ctx.thread_count; ++i ) {
-        PlatformThreadHandle* thread = &ctx.thread_handles[i];
-        platform_thread_resume( thread );
     }
 
     LOG_NOTE("CPU: {cc}", ctx.system_info.cpu_name_buffer);
@@ -622,9 +525,6 @@ b32 engine_entry( int argc, char** argv ) {
         // audio_test( ctx.platform );
 
         ctx.time.frame_count++;
-        platform_semaphore_increment(
-            &ctx.thread_work_queue.on_frame_update_semaphore
-        );
 
         f64 seconds_elapsed = platform_s_elapsed();
         ctx.time.delta_seconds =
@@ -641,101 +541,15 @@ b32 engine_entry( int argc, char** argv ) {
 
     event_shutdown();
     input_shutdown();
-
-    platform_semaphore_destroy(
-        &ctx.thread_work_queue.wake_semaphore 
-    );
-    platform_semaphore_destroy(
-        &ctx.thread_work_queue.on_frame_update_semaphore
-    );
-
-    renderer_shutdown( ctx.renderer_context ); 
-    platform_shutdown( ctx.platform ); 
+    renderer_shutdown( ctx.renderer_context );
+    platform_shutdown( ctx.platform );
+    threading_shutdown();
     stack_arena_free( &ctx.arena );
 
     log_shutdown();
 
     return true;
 }
-void thread_work_queue_push(
-    ThreadWorkQueue* work_queue,
-    ThreadWorkEntry work_entry
-) {
-    work_queue->work_entries[work_queue->push_entry] =
-        work_entry;
-
-    read_write_fence();
-
-    work_queue->push_entry = platform_interlocked_increment(
-        &work_queue->push_entry
-    ) % work_queue->work_entry_count;
-
-    work_queue->pending_work_count = platform_interlocked_increment(
-        &work_queue->pending_work_count
-    );
-
-    LOG_ASSERT(
-        work_queue->pending_work_count < work_queue->work_entry_count,
-        "Exceeded thread work entry count!!"
-    );
-
-    platform_semaphore_increment( &work_queue->wake_semaphore );
-}
-internal b32 thread_work_queue_pop(
-    ThreadWorkQueue* work_queue,
-    ThreadWorkEntry* out_work_entry
-) {
-    if(
-        work_queue->push_entry ==
-        work_queue->read_entry
-    ) {
-        return false;
-    }
-
-    *out_work_entry = work_queue->work_entries[work_queue->read_entry];
-
-    read_write_fence();
-
-    work_queue->read_entry = platform_interlocked_increment(
-        &work_queue->read_entry
-    ) % work_queue->work_entry_count;
-
-    return true;
-}
-internal b32 thread_proc( void* user_params ) {
-    ThreadInfo* thread_info = (ThreadInfo*)user_params;
-
-    ThreadWorkEntry entry = {};
-    loop {
-        platform_semaphore_wait(
-            &thread_info->work_queue->wake_semaphore,
-            true, 0
-        );
-        read_write_fence();
-
-        if( thread_work_queue_pop(
-            thread_info->work_queue,
-            &entry
-        ) ) {
-            entry.thread_work_proc(
-                thread_info,
-                entry.thread_work_user_params
-            );
-
-            read_write_fence();
-
-            platform_interlocked_increment(
-                &thread_info->work_queue->entry_completion_count
-            );
-            platform_interlocked_decrement(
-                &thread_info->work_queue->pending_work_count
-            );
-        }
-    }
-
-    return true;
-}
-
 void engine_set_cursor_style( struct EngineContext* ctx, u32 style ) {
     ctx->cursor_style = (CursorStyle)style;
     platform_cursor_set_style(
@@ -811,16 +625,6 @@ b32 engine_query_is_avx512_available( struct EngineContext* ctx ) {
 }
 ivec2 engine_query_surface_size( struct EngineContext* ctx ) {
     return ctx->platform->surface.dimensions;
-}
-
-u32 thread_info_read_index( struct ThreadInfo* thread_info ) {
-    return thread_info->thread_index;
-}
-
-LD_API struct ThreadWorkQueue* engine_get_thread_work_queue(
-    struct EngineContext* engine_ctx
-) {
-    return &engine_ctx->thread_work_queue;
 }
 
 LD_API struct EntityStorage* engine_get_entity_storage(

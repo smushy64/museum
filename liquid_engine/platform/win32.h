@@ -193,17 +193,6 @@ LRESULT win32_winproc( HWND, UINT, WPARAM, LPARAM );
             __LINE__,\
             ##__VA_ARGS__\
         )
-    #define WIN32_LOG_FATAL( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
-            LOG_COLOR_RED,\
-            LOG_FLAG_NEW_LINE | LOG_FLAG_ALWAYS_PRINT,\
-            "[FATAL WIN32 | {cc}() | {cc}:{i}] " format,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__,\
-            ##__VA_ARGS__\
-        )
 #else
     #define WIN32_LOG_NOTE( format, ... )
     #define WIN32_LOG_INFO( format, ... )
@@ -215,8 +204,19 @@ LRESULT win32_winproc( HWND, UINT, WPARAM, LPARAM );
     #define WIN32_LOG_DEBUG_TRACE( format, ... )
     #define WIN32_LOG_WARN_TRACE( format, ... )
     #define WIN32_LOG_ERROR_TRACE( format, ... )
-    #define WIN32_LOG_FATAL( format, ... )
 #endif
+
+#define WIN32_LOG_FATAL( format, ... ) \
+    log_formatted_locked(\
+        LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
+        LOG_COLOR_RED,\
+        LOG_FLAG_NEW_LINE | LOG_FLAG_ALWAYS_PRINT,\
+        "[FATAL WIN32 | {cc}() | {cc}:{i}] " format,\
+        __FUNCTION__,\
+        __FILE__,\
+        __LINE__,\
+        ##__VA_ARGS__\
+    )
 
 DWORD win32_log_error( b32 present_message_box );
 
