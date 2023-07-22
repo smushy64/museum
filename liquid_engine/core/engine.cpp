@@ -83,8 +83,8 @@ struct ArgParseResult {
     b32 quit_instant;
 };
 
-internal void printhelp( const char* program_path ) {
-    println( "Usage: {cc} [options]", program_path );
+internal void printhelp() {
+    println( "Usage: {cc} [options]", LIQUID_ENGINE_EXECUTABLE );
     println("  --output-debug-string  "
         "enable output debug string (windows only)"
     );
@@ -132,7 +132,7 @@ ArgParseResult parse_args( int argc, char** argv ) {
             string_cmp( current_arg, "--help" ) ||
             string_cmp( current_arg, "-h" )
         ) {
-            printhelp( argv[0] );
+            printhelp();
             result.quit_instant = true;
             return result;
         }
@@ -152,7 +152,7 @@ ArgParseResult parse_args( int argc, char** argv ) {
             result.backend = RENDERER_BACKEND_DX11;
 #else
             printlnerr( "DirectX11 is not available on non-windows platforms!" );
-            printhelp( argv[0] );
+            printhelp();
             result.quit_instant = true;
             return result;
 #endif
@@ -161,7 +161,7 @@ ArgParseResult parse_args( int argc, char** argv ) {
             result.backend = RENDERER_BACKEND_DX12;
 #else
             printlnerr( "DirectX12 is not available on non-windows platforms!" );
-            printhelp( argv[0] );
+            printhelp();
             result.quit_instant = true;
             return result;
 #endif
@@ -173,7 +173,7 @@ ArgParseResult parse_args( int argc, char** argv ) {
             );
         } else {
             printlnerr( "Unrecognized argument: {sv}", current_arg );
-            printhelp( argv[0] );
+            printhelp();
             result.success      = false;
             result.quit_instant = true;
         }
