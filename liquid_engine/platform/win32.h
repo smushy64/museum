@@ -10,9 +10,8 @@
 
 #include "core/audio.h"
 #include "core/logging.h"
+#include "core/library.h"
 #include "platform/platform.h"
-#include "platform/io.h"
-#include "platform/threading.h"
 
 #define NOGDI
 #include <windows.h>
@@ -31,6 +30,11 @@ struct Win32SemaphoreHandle {
 };
 STATIC_ASSERT( sizeof(Win32SemaphoreHandle) == SEMAPHORE_HANDLE_SIZE );
 
+struct Win32FileHandle {
+    HANDLE handle;
+};
+STATIC_ASSERT( sizeof(Win32FileHandle) == FILE_HANDLE_SIZE );
+
 struct Win32ThreadHandle {
     HANDLE       thread_handle;
     ThreadProcFN thread_proc;
@@ -45,7 +49,7 @@ struct Win32DirectSound {
 
     u32 running_sample_index;
 };
-#define MODULE_COUNT 5
+#define LIBRARY_COUNT (5)
 struct Win32Platform {
     Platform platform;
     struct Win32Window {
@@ -60,13 +64,13 @@ struct Win32Platform {
 
     union {
         struct {
-            HMODULE lib_user32;
-            HMODULE lib_xinput;
-            HMODULE lib_gl;
-            HMODULE lib_gdi32;
-            HMODULE lib_dsound;
+            LibraryHandle lib_user32;
+            LibraryHandle lib_xinput;
+            LibraryHandle lib_gl;
+            LibraryHandle lib_gdi32;
+            LibraryHandle lib_dsound;
         };
-        HMODULE modules[MODULE_COUNT];
+        LibraryHandle libraries[LIBRARY_COUNT];
     };
 
     Win32DirectSound direct_sound;
@@ -74,8 +78,8 @@ struct Win32Platform {
     LARGE_INTEGER performance_frequency;
     LARGE_INTEGER performance_counter;
 
-    Win32ThreadHandle xinput_polling_thread;
-    SemaphoreHandle xinput_polling_thread_semaphore;
+    Win32ThreadHandle       xinput_polling_thread;
+    PlatformSemaphoreHandle xinput_polling_thread_semaphore;
     u32 event_pump_count;
 };
 
@@ -83,8 +87,8 @@ struct Win32Platform {
 global const char* WIN32_VULKAN_EXTENSIONS[] = {
     "VK_KHR_win32_surface"
 };
-b32 win32_load_user32( HMODULE* out_module );
-b32 win32_load_xinput( HMODULE* out_module );
+b32 win32_load_user32( Win32Platform* platform );
+b32 win32_load_xinput( Win32Platform* platform );
 b32 win32_load_opengl( Win32Platform* platform );
 LRESULT win32_winproc( HWND, UINT, WPARAM, LPARAM );
 

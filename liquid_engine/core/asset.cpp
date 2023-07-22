@@ -5,7 +5,7 @@
 #include "core/logging.h"
 #include "core/memory.h"
 #include "graphics.h"
-#include "platform/io.h"
+#include "platform/platform.h"
 #include "math/functions.h"
 
 #define BMP_FILE_TYPE ( 'M' << (u16)(8) | 'B' << (u16)(0) )
@@ -34,7 +34,7 @@ MAKE_PACKED( struct BMPHeader {
     ( image_height < 0 )
 
 b32 debug_load_bmp( const char* path, DebugImage* out_image ) {
-    FileHandle bmp_file_handle = {};
+    PlatformFileHandle bmp_file_handle = {};
     if( !platform_file_open(
         path,
         PLATFORM_FILE_OPEN_READ |
@@ -45,16 +45,16 @@ b32 debug_load_bmp( const char* path, DebugImage* out_image ) {
         return false;
     }
 
-    usize file_size = platform_file_query_size( bmp_file_handle );
+    usize file_size = platform_file_query_size( &bmp_file_handle );
     if( file_size < sizeof( BMPHeader ) ) {
         LOG_ERROR( "File \"{cc}\" is not a bmp!", path );
         return false;
     }
 
     BMPHeader header = {};
-    platform_file_set_offset( bmp_file_handle, 0 );
+    platform_file_set_offset( &bmp_file_handle, 0 );
     if( !platform_file_read(
-        bmp_file_handle,
+        &bmp_file_handle,
         sizeof( BMPHeader ),
         sizeof( BMPHeader ),
         &header
@@ -115,9 +115,9 @@ b32 debug_load_bmp( const char* path, DebugImage* out_image ) {
         return false;
     }
 
-    platform_file_set_offset( bmp_file_handle, header.data_offset );
+    platform_file_set_offset( &bmp_file_handle, header.data_offset );
     platform_file_read(
-        bmp_file_handle,
+        &bmp_file_handle,
         image_size,
         image_size,
         out_image->buffer
@@ -147,7 +147,7 @@ b32 debug_load_bmp( const char* path, DebugImage* out_image ) {
         
     }
 
-    platform_file_close( bmp_file_handle );
+    platform_file_close( &bmp_file_handle );
     return true;
 }
 void debug_destroy_bmp( DebugImage* image ) {

@@ -3,8 +3,6 @@
 // * File Created: June 18, 2023
 #include "engine.h"
 #include "platform/platform.h"
-#include "platform/io.h"
-#include "platform/threading.h"
 #include "renderer/renderer.h"
 #include "threading.h"
 #include "event.h"
@@ -18,18 +16,19 @@
 #include "audio.h"
 #include "ecs.h"
 #include "collections.h"
+#include "library.h"
 
 #define THREAD_WORK_ENTRY_COUNT 256
 struct ThreadInfo {
-    struct ThreadHandle*    thread_handle;
+    PlatformThreadHandle* thread_handle;
     struct ThreadWorkQueue* work_queue;
     u32 thread_index;
 };
 struct ThreadWorkQueue {
     ThreadInfo*      threads;
     ThreadWorkEntry* work_entries;
-    SemaphoreHandle  wake_semaphore;
-    SemaphoreHandle  on_frame_update_semaphore;
+    PlatformSemaphoreHandle  wake_semaphore;
+    PlatformSemaphoreHandle  on_frame_update_semaphore;
 
     u32 work_entry_count;
     u32 thread_count;
@@ -60,7 +59,7 @@ struct EngineContext {
     StringView application_name_view;
     StringView application_name_writable_view;
 
-    ThreadHandle* thread_handles; // 8
+    PlatformThreadHandle* thread_handles; // 8
     u32 thread_count; // 4
     RendererBackend renderer_backend; // 4
     
@@ -98,7 +97,7 @@ EventCallbackReturn on_resize( Event* event, void* void_ctx ) {
     return EVENT_CALLBACK_NOT_CONSUMED;
 }
 
-internal ThreadReturnCode thread_proc( void* user_params );
+internal b32 thread_proc( void* user_params );
 
 struct ArgParseResult {
     b32 success;
@@ -170,27 +169,27 @@ b32 engine_entry( int argc, char** argv ) {
         return false;
     }
 
-    LibraryHandle application_lib = nullptr;
+    LibraryHandle application_lib = {};
 
     if( !library_load( arg_parse.library_path.buffer, &application_lib ) ) {
         return false;
     }
     ctx.application_config = (ApplicationConfigFN)library_load_function(
-        application_lib,
+        &application_lib,
         APPLICATION_CONFIG_NAME
     );
     if( !ctx.application_config ) {
         return false;
     }
     ctx.application_init = (ApplicationInitFN)library_load_function(
-        application_lib,
+        &application_lib,
         APPLICATION_INIT_NAME
     );
     if( !ctx.application_init ) {
         return false;
     }
     ctx.application_run = (ApplicationRunFN)library_load_function(
-        application_lib,
+        &application_lib,
         APPLICATION_RUN_NAME
     );
     if( !ctx.application_run ) {
@@ -211,7 +210,7 @@ b32 engine_entry( int argc, char** argv ) {
     u32 thread_info_buffer_size = sizeof(ThreadInfo) * thread_count;
     u32 thread_work_entry_buffer_size =
         sizeof(ThreadWorkEntry) * THREAD_WORK_ENTRY_COUNT;
-    u32 thread_handle_buffer_size = sizeof(ThreadHandle) * thread_count;
+    u32 thread_handle_buffer_size = sizeof(PlatformThreadHandle) * thread_count;
 
     u32 event_subsystem_size    = query_event_subsystem_size();
     u32 input_subsystem_size    = query_input_subsystem_size();
@@ -363,7 +362,7 @@ b32 engine_entry( int argc, char** argv ) {
     ctx.thread_work_queue.work_entries = (ThreadWorkEntry*)stack_arena_push_item(
         &ctx.arena, thread_work_entry_buffer_size
     );
-    ctx.thread_handles = (ThreadHandle*)stack_arena_push_item(
+    ctx.thread_handles = (PlatformThreadHandle*)stack_arena_push_item(
         &ctx.arena, thread_handle_buffer_size
     );
     ASSERT(
@@ -373,7 +372,7 @@ b32 engine_entry( int argc, char** argv ) {
     );
     ctx.thread_work_queue.work_entry_count = THREAD_WORK_ENTRY_COUNT;
 
-    if(!semaphore_create(
+    if(!platform_semaphore_create(
         0,
         thread_count,
         &ctx.thread_work_queue.wake_semaphore
@@ -385,7 +384,7 @@ b32 engine_entry( int argc, char** argv ) {
         );
         return false;
     }
-    if(!semaphore_create(
+    if(!platform_semaphore_create(
         0,
         thread_count,
         &ctx.thread_work_queue.on_frame_update_semaphore
@@ -399,6 +398,8 @@ b32 engine_entry( int argc, char** argv ) {
     }
 
     read_write_fence();
+
+    const b32 THREAD_CREATE_SUSPENDED = true;
     for( u32 i = 0; i < thread_count; ++i ) {
         ThreadInfo* current_thread_info =
             &ctx.thread_work_queue.threads[i];
@@ -407,10 +408,10 @@ b32 engine_entry( int argc, char** argv ) {
         current_thread_info->thread_index  = i;
 
         if(!platform_thread_create(
-            ctx.platform,
             thread_proc,
             current_thread_info,
             STACK_SIZE,
+            THREAD_CREATE_SUSPENDED,
             &ctx.thread_handles[i]
         )) {
             if( i == 0 ) {
@@ -432,10 +433,15 @@ b32 engine_entry( int argc, char** argv ) {
     }
     LOG_NOTE( "Instantiated {u} threads.", thread_count );
 
-    read_write_fence();
-
     ctx.thread_count                   = thread_count;
     ctx.thread_work_queue.thread_count = thread_count;
+
+    read_write_fence();
+
+    for( u32 i = 0; i < ctx.thread_count; ++i ) {
+        PlatformThreadHandle* thread = &ctx.thread_handles[i];
+        platform_thread_resume( thread );
+    }
 
     LOG_NOTE("CPU: {cc}", ctx.system_info.cpu_name_buffer);
     LOG_NOTE("  Logical Processors: {u64}",
@@ -616,7 +622,7 @@ b32 engine_entry( int argc, char** argv ) {
         // audio_test( ctx.platform );
 
         ctx.time.frame_count++;
-        semaphore_increment(
+        platform_semaphore_increment(
             &ctx.thread_work_queue.on_frame_update_semaphore
         );
 
@@ -629,17 +635,17 @@ b32 engine_entry( int argc, char** argv ) {
 
     ctx.is_running = false; 
 
-    library_free( application_lib );
+    library_free( &application_lib );
 
     // audio_shutdown( ctx.platform );
 
     event_shutdown();
     input_shutdown();
 
-    semaphore_destroy(
+    platform_semaphore_destroy(
         &ctx.thread_work_queue.wake_semaphore 
     );
-    semaphore_destroy(
+    platform_semaphore_destroy(
         &ctx.thread_work_queue.on_frame_update_semaphore
     );
 
@@ -673,7 +679,7 @@ void thread_work_queue_push(
         "Exceeded thread work entry count!!"
     );
 
-    semaphore_increment( &work_queue->wake_semaphore );
+    platform_semaphore_increment( &work_queue->wake_semaphore );
 }
 internal b32 thread_work_queue_pop(
     ThreadWorkQueue* work_queue,
@@ -696,15 +702,16 @@ internal b32 thread_work_queue_pop(
 
     return true;
 }
-internal ThreadReturnCode thread_proc( void* user_params ) {
+internal b32 thread_proc( void* user_params ) {
     ThreadInfo* thread_info = (ThreadInfo*)user_params;
 
     ThreadWorkEntry entry = {};
     loop {
-        semaphore_wait(
+        platform_semaphore_wait(
             &thread_info->work_queue->wake_semaphore,
             true, 0
         );
+        read_write_fence();
 
         if( thread_work_queue_pop(
             thread_info->work_queue,
@@ -726,7 +733,7 @@ internal ThreadReturnCode thread_proc( void* user_params ) {
         }
     }
 
-    return 0;
+    return true;
 }
 
 void engine_set_cursor_style( struct EngineContext* ctx, u32 style ) {
@@ -808,10 +815,6 @@ ivec2 engine_query_surface_size( struct EngineContext* ctx ) {
 
 u32 thread_info_read_index( struct ThreadInfo* thread_info ) {
     return thread_info->thread_index;
-}
-
-SemaphoreHandle* thread_info_on_frame_update_semaphore( struct ThreadInfo* thread_info ) {
-    return &thread_info->work_queue->on_frame_update_semaphore;
 }
 
 LD_API struct ThreadWorkQueue* engine_get_thread_work_queue(

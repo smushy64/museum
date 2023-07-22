@@ -9,7 +9,6 @@
 #include "renderer/primitives.h"
 
 #include "platform/platform.h"
-#include "platform/io.h"
 #include "core/memory.h"
 #include "core/collections.h"
 #include "core/time.h"
@@ -34,7 +33,7 @@ internal void gl_make_mesh( Mesh* mesh );
 
 #if defined(DEBUG)
 void gl_make_debug_shader( OpenGLRendererContext* ctx ) {
-    FileHandle vert_file = {}, frag_file = {};
+    PlatformFileHandle vert_file = {}, frag_file = {};
     ASSERT( platform_file_open(
         "./resources/shaders/debug_draw.vert.spv",
         PLATFORM_FILE_OPEN_EXISTING |
@@ -51,33 +50,33 @@ void gl_make_debug_shader( OpenGLRendererContext* ctx ) {
     ) );
 
     u32 vert_binary_size =
-        platform_file_query_size( vert_file );
+        platform_file_query_size( &vert_file );
     void* vert_binary = mem_alloc(
         vert_binary_size,
         MEMTYPE_RENDERER
     );
     platform_file_read(
-        vert_file,
+        &vert_file,
         vert_binary_size,
         vert_binary_size,
         vert_binary
     );
 
     u32 frag_binary_size =
-        platform_file_query_size( frag_file );
+        platform_file_query_size( &frag_file );
     void* frag_binary = mem_alloc(
         frag_binary_size,
         MEMTYPE_RENDERER
     );
     platform_file_read(
-        frag_file,
+        &frag_file,
         frag_binary_size,
         frag_binary_size,
         frag_binary
     );
 
-    platform_file_close( vert_file );
-    platform_file_close( frag_file );
+    platform_file_close( &vert_file );
+    platform_file_close( &frag_file );
 
     Shader shaders[2] = {};
 
@@ -130,7 +129,7 @@ void gl_make_sprite_shader( OpenGLRendererContext* ctx ) {
     ctx->sprite_mesh.is_static_mesh = true;
 
     gl_make_mesh( &ctx->sprite_mesh );
-    FileHandle vert_file = {}, frag_file = {};
+    PlatformFileHandle vert_file = {}, frag_file = {};
     ASSERT( platform_file_open(
         "./resources/shaders/sprite.vert.spv",
         PLATFORM_FILE_OPEN_EXISTING |
@@ -147,33 +146,33 @@ void gl_make_sprite_shader( OpenGLRendererContext* ctx ) {
     ) );
 
     u32 vert_binary_size =
-        platform_file_query_size( vert_file );
+        platform_file_query_size( &vert_file );
     void* vert_binary = mem_alloc(
         vert_binary_size,
         MEMTYPE_RENDERER
     );
     platform_file_read(
-        vert_file,
+        &vert_file,
         vert_binary_size,
         vert_binary_size,
         vert_binary
     );
 
     u32 frag_binary_size =
-        platform_file_query_size( frag_file );
+        platform_file_query_size( &frag_file );
     void* frag_binary = mem_alloc(
         frag_binary_size,
         MEMTYPE_RENDERER
     );
     platform_file_read(
-        frag_file,
+        &frag_file,
         frag_binary_size,
         frag_binary_size,
         frag_binary
     );
 
-    platform_file_close( vert_file );
-    platform_file_close( frag_file );
+    platform_file_close( &vert_file );
+    platform_file_close( &frag_file );
 
     Shader shaders[2] = {};
 
@@ -336,7 +335,7 @@ b32 gl_renderer_backend_initialize( RendererContext* generic_ctx ) {
         ctx->u_matrices
     );
 
-    FileHandle phong_vert_file = {}, phong_frag_file = {};
+    PlatformFileHandle phong_vert_file = {}, phong_frag_file = {};
     if( !platform_file_open(
         "./resources/shaders/phong.vert.spv",
         PLATFORM_FILE_OPEN_EXISTING |
@@ -357,33 +356,33 @@ b32 gl_renderer_backend_initialize( RendererContext* generic_ctx ) {
     }
 
     u32 phong_vert_binary_size =
-        platform_file_query_size( phong_vert_file );
+        platform_file_query_size( &phong_vert_file );
     void* phong_vert_binary = mem_alloc(
         phong_vert_binary_size,
         MEMTYPE_RENDERER
     );
     platform_file_read(
-        phong_vert_file,
+        &phong_vert_file,
         phong_vert_binary_size,
         phong_vert_binary_size,
         phong_vert_binary
     );
 
     u32 phong_frag_binary_size =
-        platform_file_query_size( phong_frag_file );
+        platform_file_query_size( &phong_frag_file );
     void* phong_frag_binary = mem_alloc(
         phong_frag_binary_size,
         MEMTYPE_RENDERER
     );
     platform_file_read(
-        phong_frag_file,
+        &phong_frag_file,
         phong_frag_binary_size,
         phong_frag_binary_size,
         phong_frag_binary
     );
 
-    platform_file_close( phong_vert_file );
-    platform_file_close( phong_frag_file );
+    platform_file_close( &phong_vert_file );
+    platform_file_close( &phong_frag_file );
 
     Shader phong_shaders[2] = {};
 
