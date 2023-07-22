@@ -10,6 +10,7 @@
 
 ## Linux Build
 - [ ] Link testbed shared object to executable properly
+- [ ] Rewrite with platform.h changes
 
 ## Library to EXE + Unity build
 - [x] Make Liquid Engine the executable and Testbed the library
@@ -18,7 +19,7 @@
 - [x] parse --load= option in engine.cpp
 
 ## Features
-- [ ] --help argument
+- [x] --help argument
 - [x] put all platform functions into platform.h
 - [x] expose threading functions to game dll
     - [x] semaphore api
@@ -32,7 +33,6 @@
 - [x] Replace all printf/snprintf with new formatting functions
 - [x] format: String left justify + padding
 - [x] custom putc stdout/stderr
-    - Win32: WriteConsole()
 - [x] Remove dependency on stdint.h on x86
 - [x] Debug auto scope timer
 - [x] Remove dependency on the C runtime library in liquid engine library code
@@ -50,7 +50,8 @@
 - [ ] Customizable input actions + input processing
 - [ ] custom variadic macro implementations
 - [ ] format: more accurate float print out
-- [ ] Completely rewrite memory allocations, not liking how data about allocations is stored
+- [ ] Completely rewrite memory heap allocations,
+not liking how data about allocations is stored
 - [ ] Implement custom math functions
     - log, powf, no simd sqrtf
 

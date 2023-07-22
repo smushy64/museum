@@ -195,7 +195,7 @@ run: all
 
 test: all
 	@echo "Make: running test bed . . ."
-	@cd $(BUILD_PATH) && ./$(EXE_NAME)$(EXE_EXT) --load=$(TESTBED_NAME) --gl
+	@cd $(BUILD_PATH) && ./$(EXE_NAME)$(EXE_EXT) --libload=$(TESTBED_NAME) --gl
 
 # for debugging variables
 spit:
@@ -206,13 +206,12 @@ spit:
  
 help:
 	@echo Usage: make [argument]
-	@echo "    all:    compile everything"
-	@echo "    run:    compile and run \"Project Museum\""
-	@echo "    test:   compile and run \"Testbed\""
-	@echo "    shader: compile shaders only"
-	@echo "    clean:  delete everything in build directory"
-	@echo "            SHADERS=true - clean shaders only"
-	@echo "            TESTBED=true - clean testbed files only"
+	@echo "  all:    compile everything"
+	@echo "  run:    compile and run \"Project Museum\""
+	@echo "  test:   compile and run \"Testbed\""
+	@echo "  shader: compile shaders only"
+	@echo "  clean:  delete everything in build directory"
+	@echo "  help:   display this message"
 
 clean:
 	@echo Make: removing everything from build directory . . .

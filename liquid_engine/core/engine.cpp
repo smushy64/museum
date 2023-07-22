@@ -45,9 +45,9 @@ struct EngineContext {
     
     CursorStyle cursor_style;
 
-    b8 cursor_is_visible; // 1
-    b8 cursor_is_locked;  // 1
-    b8 is_running; // 1
+    b8 cursor_is_visible;         // 1
+    b8 cursor_is_locked;          // 1
+    b8 is_running;                // 1
     b8 pause_on_surface_inactive; // 1
 };
 
@@ -80,7 +80,35 @@ struct ArgParseResult {
     RendererBackend backend;
     char library_path_buffer[32];
     StringView library_path;
+    b32 quit_instant;
 };
+
+internal void printhelp( const char* program_path ) {
+    println( "Usage: {cc} [options]", program_path );
+    println("  --output-debug-string  "
+        "enable output debug string (windows only)"
+    );
+    println("  --gl                   "
+        "use OpenGL renderer (default)"
+    );
+    println("  --vk                   "
+        "use Vulkan renderer"
+    );
+    println("  --dx11                 "
+        "use Direct3D11 renderer (windows only)"
+    );
+    println("  --dx12                 "
+        "use Direct3D12 renderer (windows only)"
+    );
+    println("  --libload=[path]       "
+        "define path to game dll/so (default = "
+        DEFAULT_LIBRARY_PATH ")"
+    );
+    println("  --help or -h           "
+        "print help"
+    );
+
+}
 
 ArgParseResult parse_args( int argc, char** argv ) {
     ArgParseResult result = {};
@@ -95,9 +123,19 @@ ArgParseResult parse_args( int argc, char** argv ) {
     );
 
     result.backend = RENDERER_BACKEND_OPENGL;
+    result.success = true;
 
-    for( i32 i = 0; i < argc; ++i ) {
+    for( i32 i = 1; i < argc; ++i ) {
         StringView current_arg = argv[i];
+
+        if(
+            string_cmp( current_arg, "--help" ) ||
+            string_cmp( current_arg, "-h" )
+        ) {
+            printhelp( argv[0] );
+            result.quit_instant = true;
+            return result;
+        }
 
 #if defined(LD_PLATFORM_WINDOWS)
         if( string_cmp( current_arg, "--output-debug-string" ) ) {
@@ -114,6 +152,8 @@ ArgParseResult parse_args( int argc, char** argv ) {
             result.backend = RENDERER_BACKEND_DX11;
 #else
             printlnerr( "DirectX11 is not available on non-windows platforms!" );
+            printhelp( argv[0] );
+            result.quit_instant = true;
             return result;
 #endif
         } else if( string_cmp( current_arg, "--dx12" ) ) {
@@ -121,18 +161,24 @@ ArgParseResult parse_args( int argc, char** argv ) {
             result.backend = RENDERER_BACKEND_DX12;
 #else
             printlnerr( "DirectX12 is not available on non-windows platforms!" );
+            printhelp( argv[0] );
+            result.quit_instant = true;
             return result;
 #endif
-        } else if( string_contains( current_arg, "--load=" ) ) {
-            u32 load_string_len = str_length( "--load=" );
+        } else if( string_contains( current_arg, "--libload=" ) ) {
+            u32 load_string_len = str_length( "--libload=" );
             result.library_path.buffer = &current_arg.buffer[load_string_len];
             result.library_path.len    = str_length(
                 result.library_path.buffer
             );
+        } else {
+            printlnerr( "Unrecognized argument: {sv}", current_arg );
+            printhelp( argv[0] );
+            result.success      = false;
+            result.quit_instant = true;
         }
     }
 
-    result.success = true;
     return result;
 }
 
@@ -143,6 +189,10 @@ b32 engine_entry( int argc, char** argv ) {
     ArgParseResult arg_parse = parse_args( argc, argv );
     if( !arg_parse.success ) {
         return false;
+    }
+
+    if( arg_parse.quit_instant ) {
+        return true;
     }
 
     LibraryHandle application_lib = {};
