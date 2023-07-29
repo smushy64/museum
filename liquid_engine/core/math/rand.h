@@ -64,21 +64,18 @@ struct RandXOR {
     u32 current;
 
     RandXOR()
-    : seed( 34634623 ), current( seed ) {}
+    : seed( 34634623 ), current(seed) {}
 
     explicit RandXOR( u32 seed )
-    : seed( max( seed, 1u ) ) {
-        current = this->seed;
-    }
+    : seed( max( seed, 1u ) ), current(seed) {}
 
     /// random unsigned integer in range 0 to U32::MAX
     u32 next_u32() {
-        u32 result = current;
-        result ^= result << 13;
-        result ^= result >> 17;
-        result ^= result << 5;
-        current = result;
-        return result;
+        ASSERT(seed);
+        current ^= current << 13;
+        current ^= current << 17;
+        current ^= current << 5;
+        return current;
     }
     /// random signed integer in range I32::MIN to I32::MAX
     i32 next_i32() {
@@ -87,11 +84,23 @@ struct RandXOR {
     }
     /// random float in -1 to 1 range
     f32 next_f32() {
-        return normalize_range( next_i32() );
+        i32 next_int = next_i32();
+        f32 value    = inverse_lerp(
+            (f32)I32::MIN,
+            (f32)I32::MAX,
+            (f32)next_int
+        );
+        return value;
     }
     /// random float in 0 to 1 range
     f32 next_f32_01() {
-        return normalize_range( next_u32() );
+        u32 next_int = next_u32();
+        f32 value    = inverse_lerp(
+            (f32)U32::MIN,
+            (f32)U32::MAX,
+            (f32)next_int
+        );
+        return value;
     }
 };
 

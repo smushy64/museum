@@ -355,7 +355,6 @@ u32 query_platform_subsystem_size() {
     return sizeof(Win32Platform);
 }
 b32 platform_init(
-    StringView opt_icon_path,
     ivec2 surface_dimensions,
     PlatformFlags flags,
     Platform* out_platform
@@ -364,7 +363,7 @@ b32 platform_init(
     ASSERT( out_platform );
     Win32Platform* win32_platform = (Win32Platform*)out_platform;
 
-    IS_DPI_AWARE = ARE_BITS_SET( flags, PLATFORM_DPI_AWARE );
+    IS_DPI_AWARE = CHECK_BITS( flags, PLATFORM_DPI_AWARE );
 
     // load libraries
     if( !win32_load_user32( win32_platform ) ) {
@@ -434,18 +433,15 @@ b32 platform_init(
     win32_platform->instance = GetModuleHandle( nullptr );
 
     HICON window_icon = nullptr;
-    if( opt_icon_path.buffer ) {
-        window_icon = (HICON)LoadImageA(
-            nullptr,
-            opt_icon_path.buffer,
-            IMAGE_ICON,
-            0, 0,
-            LR_DEFAULTSIZE | LR_LOADFROMFILE
-        );
-        if( !window_icon ) {
-            win32_log_error(true);
-            return false;
-        }
+    window_icon = (HICON)LoadImageA(
+        nullptr,
+        SURFACE_ICON_PATH,
+        IMAGE_ICON,
+        0, 0,
+        LR_DEFAULTSIZE | LR_LOADFROMFILE
+    );
+    if( !window_icon ) {
+        WIN32_LOG_WARN("Failed to load window icon!");
     }
 
     // create window
@@ -792,76 +788,76 @@ void platform_poll_gamepad( Platform* platform ) {
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_DPAD_LEFT,
-            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_LEFT )
+            CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_LEFT )
         );
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_DPAD_RIGHT,
-            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_RIGHT )
+            CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_RIGHT )
         );
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_DPAD_UP,
-            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_UP )
+            CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_UP )
         );
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_DPAD_DOWN,
-            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_DOWN )
+            CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_DOWN )
         );
 
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_FACE_LEFT,
-            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_X )
+            CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_X )
         );
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_FACE_RIGHT,
-            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_B )
+            CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_B )
         );
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_FACE_UP,
-            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_Y )
+            CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_Y )
         );
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_FACE_DOWN,
-            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_A )
+            CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_A )
         );
 
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_START,
-            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_START )
+            CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_START )
         );
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_SELECT,
-            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_BACK )
+            CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_BACK )
         );
 
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_BUMPER_LEFT,
-            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_LEFT_SHOULDER )
+            CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_LEFT_SHOULDER )
         );
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_BUMPER_RIGHT,
-            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_RIGHT_SHOULDER )
+            CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_RIGHT_SHOULDER )
         );
 
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_STICK_LEFT_CLICK,
-            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_LEFT_THUMB )
+            CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_LEFT_THUMB )
         );
         input_set_pad_button(
             gamepad_index,
             PAD_CODE_STICK_RIGHT_CLICK,
-            ARE_BITS_SET( gamepad.wButtons, XINPUT_GAMEPAD_RIGHT_THUMB )
+            CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_RIGHT_THUMB )
         );
 
         f32 trigger_press_threshold =
@@ -977,52 +973,6 @@ void platform_poll_gamepad( Platform* platform ) {
             stick_right
         );
     }
-}
-// struct VkSurfaceKHR_T* platform_vk_create_surface(
-//     Platform* platform,
-//     struct VulkanRendererContext* ctx
-// ) {
-//     Win32Platform* win32_platform = (Win32Platform*)platform;
-    
-//     VkWin32SurfaceCreateInfoKHR create_info = {};
-//     create_info.sType     = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-//     create_info.hinstance = win32_platform->instance;
-//     create_info.hwnd      = win32_platform->window.handle;
-
-//     VkSurfaceKHR vk_surface = {};
-
-//     VkResult result = vkCreateWin32SurfaceKHR(
-//         ctx->instance,
-//         &create_info,
-//         ctx->allocator,
-//         &vk_surface
-//     );
-
-//     if( result != VK_SUCCESS ) {
-//         return nullptr;
-//     }
-
-//     return vk_surface;
-
-// }
-usize platform_vk_read_ext_names(
-    Platform*,
-    usize max_names,
-    usize* name_count,
-    const char** names
-) {
-    usize win32_ext_count = STATIC_ARRAY_COUNT( WIN32_VULKAN_EXTENSIONS );
-    usize max_count = win32_ext_count > max_names ?
-        max_names : win32_ext_count;
-    
-    usize count = *name_count;
-    for( usize i = 0; i < max_count; ++i ) {
-        names[count++] = WIN32_VULKAN_EXTENSIONS[i];
-        win32_ext_count--;
-    }
-
-    *name_count = count;
-    return win32_ext_count;
 }
 void platform_gl_swap_buffers( Platform* platform ) {
     Win32Platform* win32_platform = (Win32Platform*)platform;
@@ -1340,7 +1290,7 @@ LRESULT win32_winproc(
             }
             u8 keycode = wParam;
 
-            if( ARE_BITS_SET( lParam, EXTENDED_KEY_MASK ) ) {
+            if( CHECK_BITS( lParam, EXTENDED_KEY_MASK ) ) {
                 if( keycode == KEY_CONTROL_LEFT ) {
                     keycode = KEY_CONTROL_RIGHT;
                 } else if( keycode == KEY_ALT_LEFT ) {
@@ -1588,23 +1538,23 @@ b32 platform_file_open(
     Win32FileHandle* win32_file = (Win32FileHandle*)out_handle;
 
     DWORD dwDesiredAccess = 0;
-    if( ARE_BITS_SET( flags, PLATFORM_FILE_OPEN_READ ) ) {
+    if( CHECK_BITS( flags, PLATFORM_FILE_OPEN_READ ) ) {
         dwDesiredAccess |= GENERIC_READ;
     }
-    if( ARE_BITS_SET( flags, PLATFORM_FILE_OPEN_WRITE ) ) {
+    if( CHECK_BITS( flags, PLATFORM_FILE_OPEN_WRITE ) ) {
         dwDesiredAccess |= GENERIC_WRITE;
     }
 
     DWORD dwShareMode = 0;
-    if( ARE_BITS_SET( flags, PLATFORM_FILE_OPEN_SHARE_READ ) ) {
+    if( CHECK_BITS( flags, PLATFORM_FILE_OPEN_SHARE_READ ) ) {
         dwShareMode |= FILE_SHARE_READ;
     }
-    if( ARE_BITS_SET( flags, PLATFORM_FILE_OPEN_SHARE_WRITE ) ) {
+    if( CHECK_BITS( flags, PLATFORM_FILE_OPEN_SHARE_WRITE ) ) {
         dwShareMode |= FILE_SHARE_WRITE;
     }
 
     DWORD dwCreationDisposition = 0;
-    if( ARE_BITS_SET( flags, PLATFORM_FILE_OPEN_EXISTING ) ) {
+    if( CHECK_BITS( flags, PLATFORM_FILE_OPEN_EXISTING ) ) {
         dwCreationDisposition |= OPEN_EXISTING;
     } else {
         dwCreationDisposition |= OPEN_ALWAYS;

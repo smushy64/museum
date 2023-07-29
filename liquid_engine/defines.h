@@ -181,13 +181,6 @@ typedef void* pvoid;
 #define LD_CONTACT_MESSAGE \
     "Please contact me at smushybusiness@gmail.com if you see this."
 
-#define internal static
-#define local    static
-#define global   static
-#define loop     for( ;; )
-/// mark value as unused
-#define unused(x) x = x
-
 
 /// Convert macro to const char*
 #define TO_STRING( foo ) #foo
@@ -212,33 +205,6 @@ typedef void* pvoid;
 #define STATIC_ARRAY_SIZE( array ) \
     (sizeof(array))
 
-#define KILOBYTES(num) ( num * 1024ULL )
-#define MEGABYTES(num) ( KILOBYTES( num ) * 1024ULL )
-#define GIGABYTES(num) ( MEGABYTES( num ) * 1024ULL )
-#define STACK_SIZE (MEGABYTES(1))
-
-#define BYTES_TO_KB(bytes) ((f32)bytes / 1024.0f)
-#define KB_TO_MB(kb)       ((f32)kb / 1024.0f)
-#define MB_TO_GB(mb)       ((f32)mb / 1024.0f)
-
-#define KB_TO_BYTES(kb) ((f32)kb * 1024.0f)
-#define MB_TO_KB(mb)    ((f32)mb * 1024.0f)
-#define GB_TO_MB(gb)    ((f32)gb * 1024.0f)
-
-#define BYTES_TO_BEST_REPRESENTATION(bytes, result) do {\
-    if( bytes >= 1024 ) {\
-        result = BYTES_TO_KB(bytes);\
-        if( result >= 1024.0f ) {\
-            result = KB_TO_MB(result);\
-            if( result >= 1024.0f ) {\
-                result = MB_TO_GB(result);\
-            }\
-        }\
-    } else {\
-        result = (f32)bytes;\
-    }\
-} while(0)
-
 // panic
 // export/import definitions 
 // static assertions
@@ -253,7 +219,7 @@ typedef void* pvoid;
     // TODO(alicia): HOTPATH/NOOPTIMIZE FOR MSVC
 
     #define FORCE_INLINE __forceinline
-    #define NO_INLINE __declspec(noinline)
+    #define NO_INLINE    __declspec(noinline)
 
     #define MAKE_PACKED( declaration ) __pragma( pack(push, 1) ) declaration __pragma( pack(pop) )
 
@@ -273,13 +239,10 @@ typedef void* pvoid;
         #define NO_OPTIMIZE __attribute__((optnone))
     #endif
 
-    #if defined(LD_COMPILER_GCC) || defined(LD_COMPILER_CLANG)
-        #define STATIC_ASSERT _Static_assert
-        #define HOT_PATH __attribute__((hot))
-    #endif
-
-    #define FORCE_INLINE __attribute__((always_inline)) inline
-    #define NO_INLINE      __attribute__((noinline))
+    #define STATIC_ASSERT _Static_assert
+    #define HOT_PATH      __attribute__((hot))
+    #define FORCE_INLINE  __attribute__((always_inline)) inline
+    #define NO_INLINE     __attribute__((noinline))
     #define MAKE_PACKED( declaration ) declaration __attribute__((__packed__))
 
     #if defined(LD_EXPORT)
@@ -334,6 +297,45 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes!");
 #else
     #define ASSERT(condition)
 #endif
+
+#define internal static
+#define local    static
+#define global   static
+#define loop     for( ;; )
+/// mark value as unused
+#define unused(x) x = x
+
+/// Define a 24-bit RGB value (using u32)
+#define RGB_U32( r, g, b )\
+    ( 255 << 24u | b << 16u | g << 8u | r )
+/// Define a 32-bit RGBA value
+#define RGBA_U32( r, g, b, a )\
+    ( a << 24u | b << 16u | g << 8u | r )
+
+/// Swap two values.
+#define SWAP( a, b ) do {\
+    __typeof(a) intermediate = a;\
+    a = b;\
+    b = intermediate;\
+} while(0)
+
+/// Check if bits match given mask
+#define CHECK_BITS( bits, mask ) ( ( (bits) & (mask) ) == (mask) )
+/// Toggle masked bits
+#define TOGGLE_BITS( bits, toggle_mask ) do {\
+    bits ^= (toggle_mask);\
+} while(0)
+/// Clear masked bits
+#define CLEAR_BIT( bits, mask ) do {\
+    bits &= ~(mask);\
+} while(0)
+
+#define KILOBYTES(num) ( num * 1024ULL )
+#define MEGABYTES(num) ( KILOBYTES( num ) * 1024ULL )
+#define GIGABYTES(num) ( MEGABYTES( num ) * 1024ULL )
+
+/// Size of the stack. Must always compile with this value.
+#define STACK_SIZE (MEGABYTES(1))
 
 /// 32-bit floating point constants
 namespace F32 {
@@ -497,32 +499,5 @@ namespace I64 {
     /// Sign mask
     global const u64 SIGN_MASK = (1ull << 63ull);
 };
-
-/// Define a 24-bit RGB value (using u32)
-#define RGB_U32( r, g, b )\
-    ( 255 << 24u | b << 16u | g << 8u | r )
-/// Define a 32-bit RGBA value
-#define RGBA_U32( r, g, b, a )\
-    ( a << 24u | b << 16u | g << 8u | r )
-
-/// Swap two values.
-#define SWAP( a, b ) do {\
-    __typeof(a) intermediate = a;\
-    a = b;\
-    b = intermediate;\
-} while(0)
-
-/// Check if bits are set in bitfield
-#define ARE_BITS_SET( bits, mask ) ( ((bits) & (mask)) == (mask) )
-/// Check if bits match given mask
-#define CHECK_BITS( bits, mask ) ( ( (bits) & (mask) ) == (mask) )
-/// Toggle masked bits
-#define TOGGLE_BITS( bits, toggle_mask ) do {\
-    bits ^= (toggle_mask);\
-} while(0)
-/// Clear masked bits
-#define CLEAR_BIT( bits, mask ) do {\
-    bits &= ~(mask);\
-} while(0)
 
 #endif

@@ -114,7 +114,7 @@ internal Entity* system_collider2d_solver_circle(
         Entity* current = entity_storage_get( storage, id );
         vec2 current_position = entity_position2d( current );
 
-        ASSERT( ARE_BITS_SET(
+        ASSERT( CHECK_BITS(
             current->component_flags,
             ENTITY_COMPONENT_FLAG_COLLIDER_2D
         ) );
@@ -157,7 +157,7 @@ internal Entity* system_collider2d_solver_rect(
         Entity* current = entity_storage_get( storage, id );
         vec2 current_position = entity_position2d( current );
 
-        ASSERT( ARE_BITS_SET(
+        ASSERT( CHECK_BITS(
             current->component_flags,
             ENTITY_COMPONENT_FLAG_COLLIDER_2D
         ) );
@@ -194,7 +194,7 @@ LD_API Entity* system_collider2d_solver(
 
     Entity* collider = &storage->entities[collider_id];
 
-    ASSERT( ARE_BITS_SET(
+    ASSERT( CHECK_BITS(
         collider->component_flags,
         ENTITY_COMPONENT_FLAG_COLLIDER_2D
     ) );

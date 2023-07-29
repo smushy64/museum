@@ -27,7 +27,6 @@ struct Platform {
 u32 query_platform_subsystem_size();
 /// Initialize platform state. Returns true if successful.
 b32 platform_init(
-    StringView opt_icon_path,
     ivec2 surface_dimensions,
     PlatformFlags flags,
     Platform* out_platform
@@ -386,5 +385,7 @@ struct SystemInfo query_system_info();
 #if defined(LD_PLATFORM_WINDOWS)
 void platform_win32_output_debug_string( const char* str );
 #endif
+
+#define SURFACE_ICON_PATH "./icon.ico"
 
 #endif

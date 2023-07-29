@@ -111,11 +111,10 @@ internal inline void log_formatted_internal(
     b32 lock, const char* format,
     va_list args
 ) {
-    b32 always_print =
-        (flags & LOG_FLAG_ALWAYS_PRINT) == LOG_FLAG_ALWAYS_PRINT;
+    b32 always_print = CHECK_BITS( flags, LOG_FLAG_ALWAYS_PRINT );
 
 #if defined(LD_LOGGING)
-    b32 is_error = ARE_BITS_SET( level, LOG_LEVEL_ERROR );
+    b32 is_error = CHECK_BITS( level, LOG_LEVEL_ERROR );
     if( !is_log_initialized() ) {
         ASSERT( platform_mutex_create( &MUTEX ) );
         MUTEX_CREATED = true;
@@ -141,8 +140,7 @@ internal inline void log_formatted_internal(
 
     read_write_fence();
 
-    b32 new_line =
-        (flags & LOG_FLAG_NEW_LINE) == LOG_FLAG_NEW_LINE;
+    b32 new_line = CHECK_BITS( flags, LOG_FLAG_NEW_LINE );
 
     if( !(always_print || is_level_valid( level )) ) {
         if( lock ) {

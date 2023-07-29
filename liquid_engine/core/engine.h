@@ -41,7 +41,6 @@ struct EngineConfig {
     } surface_dimensions;
     LogLevel        log_level;
     PlatformFlags   platform_flags;
-    const char*     opt_application_icon_path;
     u32 memory_size;
 };
 
@@ -59,9 +58,9 @@ typedef b32 (*ApplicationRunFN)( struct EngineContext* ctx, void* memory );
 #if defined(LD_API_INTERNAL)
 
 #if defined(LD_PLATFORM_WINDOWS)
-    #define DEFAULT_LIBRARY_PATH "testbed_debug.dll"
+    #define DEFAULT_LIBRARY_PATH "testbed-debug.dll"
 #else
-    #define DEFAULT_LIBRARY_PATH "./testbed_debug.so"
+    #define DEFAULT_LIBRARY_PATH "./testbed-debug.so"
 #endif
 
     /// Engine entry point
@@ -125,14 +124,6 @@ LD_API usize engine_query_logical_processor_count( struct EngineContext* ctx );
 LD_API usize engine_query_total_system_memory( struct EngineContext* ctx );
 /// Query processor name.
 LD_API const char* engine_query_processor_name( struct EngineContext* ctx );
-/// Query if SSE instructions are available.
-LD_API b32 engine_query_is_sse_available( struct EngineContext* ctx );
-/// Query if AVX instructions are available.
-LD_API b32 engine_query_is_avx_available( struct EngineContext* ctx );
-/// Query if AVX2 instructions are available.
-LD_API b32 engine_query_is_avx2_available( struct EngineContext* ctx );
-/// Query if AVX-512 instructions are available.
-LD_API b32 engine_query_is_avx512_available( struct EngineContext* ctx );
 /// Query engine surface size
 LD_API ivec2 engine_query_surface_size( struct EngineContext* ctx );
 

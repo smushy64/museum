@@ -69,7 +69,7 @@ appropriate for gdb on *nix platforms.
 
 ### RemedyBG
 Under Session/Application and Parameters, set 'Command'
-to 'build/debug/LiquidEngine_x_x_debug_win32.exe' where x_x is the
+to 'build/debug/liquid-engine-x-x-debug-win32.exe' where x-x is the
 current version of LiquidEngine.
 
 Press F10 to begin debugging and break on entry point.
@@ -83,7 +83,7 @@ RemedyBG is available [here](https://remedybg.itch.io/remedybg).
 
 ### gf
 Set Command/Executable to 
-'build/debug/LiquidEngine_x_x_debug_linux' where x_x is the
+'build/debug/liquid-engine-x-x-debug-linux' where x-x is the
 current version of LiquidEngine.
 
 gf is available [here](https://github.com/nakst/gf).

@@ -51,7 +51,7 @@ corecpp_path := corecpp.inl
 all: $(TESTBED_PATH)
 
 $(TESTBED_PATH): $(corecpp_path)
-	@echo "Make:    compiling" $(TESTBED_NAME) ". . ."
+	@echo "Make: compiling" $(TESTBED_NAME) ". . ."
 	@mkdir -p ../$(object_path)
 	@$(CC) $(TESTBED_COMPILE_FILE) -o $(TESTBED_PATH) $(TESTBED_FLAGS)
 

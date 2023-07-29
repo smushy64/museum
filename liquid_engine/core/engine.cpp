@@ -37,8 +37,6 @@ struct EngineContext {
     StringView application_name_view;
     StringView application_name_writable_view;
 
-    PlatformThreadHandle* thread_handles; // 8
-    u32 thread_count; // 4
     RendererBackend renderer_backend; // 4
     
     u32 application_title_buffer_writable_offset; // 4
@@ -230,8 +228,6 @@ b32 engine_entry( int argc, char** argv ) {
     ctx.renderer_backend = arg_parse.backend;
 
     ctx.system_info   = query_system_info();
-    u32 thread_count  = ctx.system_info.logical_processor_count;
-    thread_count = (thread_count == 1 ? thread_count : thread_count - 1);
 
     u32 threading_subsystem_size = query_threading_subsystem_size();
     u32 event_subsystem_size     = query_event_subsystem_size();
@@ -331,7 +327,6 @@ b32 engine_entry( int argc, char** argv ) {
     }
 
     if( !platform_init(
-        config.opt_application_icon_path,
         { config.surface_dimensions.width, config.surface_dimensions.height },
         config.platform_flags,
         ctx.platform
@@ -345,7 +340,7 @@ b32 engine_entry( int argc, char** argv ) {
     }
     engine_set_application_name( &ctx, config.application_name );
 
-    ctx.pause_on_surface_inactive = ARE_BITS_SET(
+    ctx.pause_on_surface_inactive = CHECK_BITS(
         config.platform_flags,
         PLATFORM_PAUSE_ON_SURFACE_INACTIVE
     );
@@ -384,10 +379,10 @@ b32 engine_entry( int argc, char** argv ) {
         ctx.arena.arena_size
     );
 
-    if( !threading_init(
-        ctx.system_info.logical_processor_count,
-        threading_buffer
-    ) ) {
+    u32 thread_count  = ctx.system_info.logical_processor_count;
+    thread_count = (thread_count == 1 ? thread_count : thread_count - 1);
+
+    if( !threading_init( thread_count, threading_buffer ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
             "Failed to initialize threading subsystem!\n"
@@ -402,10 +397,14 @@ b32 engine_entry( int argc, char** argv ) {
     );
 
 #if defined(LD_ARCH_X86)
-    b32 sse  = engine_query_is_sse_available( &ctx );
-    b32 avx  = engine_query_is_avx_available( &ctx );
-    b32 avx2 = engine_query_is_avx2_available( &ctx );
-    b32 avx512 = engine_query_is_avx512_available( &ctx );
+    b32 sse = CHECK_BITS(
+        ctx.system_info.features,
+        SSE_MASK | SSE2_MASK | SSE3_MASK |
+        SSSE3_MASK | SSE4_1_MASK | SSE4_2_MASK
+    );
+    b32 avx    = CHECK_BITS( ctx.system_info.features, AVX_MASK );
+    b32 avx2   = CHECK_BITS( ctx.system_info.features, AVX2_MASK );
+    b32 avx512 = CHECK_BITS( ctx.system_info.features, AVX512_MASK );
     ProcessorFeatures features = ctx.system_info.features;
     if( LD_SIMD_WIDTH == 4 && !sse ) {
         #define ERROR_MESSAGE_SIZE 256
@@ -418,12 +417,12 @@ b32 engine_entry( int argc, char** argv ) {
             error_message_buffer_view,
             "Your CPU does not support SSE instructions!\n"
             "Missing instructions: {cc}{cc}{cc}{cc}{cc}{cc}",
-            ARE_BITS_SET(features, SSE_MASK)    ? "" : "SSE, ",
-            ARE_BITS_SET(features, SSE2_MASK)   ? "" : "SSE2, ",
-            ARE_BITS_SET(features, SSE3_MASK)   ? "" : "SSE3, ",
-            ARE_BITS_SET(features, SSSE3_MASK)  ? "" : "SSSE3, ",
-            ARE_BITS_SET(features, SSE4_1_MASK) ? "" : "SSE4.1, ",
-            ARE_BITS_SET(features, SSE4_2_MASK) ? "" : "SSE4.2"
+            CHECK_BITS(features, SSE_MASK)    ? "" : "SSE, ",
+            CHECK_BITS(features, SSE2_MASK)   ? "" : "SSE2, ",
+            CHECK_BITS(features, SSE3_MASK)   ? "" : "SSE3, ",
+            CHECK_BITS(features, SSSE3_MASK)  ? "" : "SSSE3, ",
+            CHECK_BITS(features, SSE4_1_MASK) ? "" : "SSE4.1, ",
+            CHECK_BITS(features, SSE4_2_MASK) ? "" : "SSE4.2"
         );
         MESSAGE_BOX_FATAL( "Missing instructions.", error_message_buffer );
         return false;
@@ -594,8 +593,6 @@ b32 engine_entry( int argc, char** argv ) {
     renderer_shutdown( ctx.renderer_context );
     platform_shutdown( ctx.platform );
     threading_shutdown();
-    stack_arena_free( &ctx.arena );
-
     log_shutdown();
 
     return true;
@@ -657,21 +654,6 @@ usize engine_query_total_system_memory( struct EngineContext* ctx ) {
 }
 const char* engine_query_processor_name( struct EngineContext* ctx ) {
     return ctx->system_info.cpu_name_buffer;
-}
-b32 engine_query_is_sse_available( struct EngineContext* ctx ) {
-    return ARE_BITS_SET(
-        ctx->system_info.features,
-        SSE_MASK | SSE2_MASK | SSE3_MASK | SSE4_1_MASK | SSE4_2_MASK | SSSE3_MASK
-    );
-}
-b32 engine_query_is_avx_available( struct EngineContext* ctx ) {
-    return ARE_BITS_SET( ctx->system_info.features, AVX_MASK );
-}
-b32 engine_query_is_avx2_available( struct EngineContext* ctx ) {
-    return ARE_BITS_SET( ctx->system_info.features, AVX2_MASK );
-}
-b32 engine_query_is_avx512_available( struct EngineContext* ctx ) {
-    return ARE_BITS_SET( ctx->system_info.features, AVX512_MASK );
 }
 ivec2 engine_query_surface_size( struct EngineContext* ctx ) {
     return ctx->platform->surface.dimensions;

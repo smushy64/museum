@@ -22,8 +22,8 @@ export SHADERS_PATH   := $(BUILD_PATH)/$(SHADERS_LOCAL_PATH)
 export LIQUID_VERSION_MAJOR := 0
 export LIQUID_VERSION_MINOR := 1
 export LIQUID_VERSION       := $(LIQUID_VERSION_MAJOR).$(LIQUID_VERSION_MINOR)
-export LIQUID_NAME          := LiquidEngine
-export LIQUID_VERSION_PATH  := $(subst .,_,$(LIQUID_VERSION))
+export LIQUID_NAME          := liquid-engine
+export LIQUID_VERSION_PATH  := $(subst .,-,$(LIQUID_VERSION))
 
 export VULKAN_VERSION_MAJOR := 1
 export VULKAN_VERSION_MINOR := 2
@@ -48,11 +48,11 @@ else
 	export EXE_EXT := 
 endif
 
-export EXE_NAME := $(LIQUID_NAME)_$(LIQUID_VERSION_PATH)_$(if $(IS_DEBUG),debug_,_)$(HOST_OS_NAME)
+export EXE_NAME := $(LIQUID_NAME)-$(LIQUID_VERSION_PATH)-$(if $(IS_DEBUG),debug-,)$(HOST_OS_NAME)
 export EXE_PATH := $(BUILD_PATH)/$(EXE_NAME)$(EXE_EXT)
 
-export MUSEUM_NAME  := museum_$(if $(IS_DEBUG),debug,release)$(SO_EXT)
-export TESTBED_NAME := testbed_$(if $(IS_DEBUG),debug,release)$(SO_EXT)
+export MUSEUM_NAME  := museum-$(if $(IS_DEBUG),debug,release)$(SO_EXT)
+export TESTBED_NAME := testbed-$(if $(IS_DEBUG),debug,release)$(SO_EXT)
 
 RC_FLAGS := -O2
 
@@ -163,14 +163,17 @@ corecpp := $(addprefix "#include \"",$(corecpp))
 
 corecpp_path := liquid_engine/platform/corecpp.inl
 
-all: print_info shader $(EXE_PATH)
+all: print_info shaders resources $(EXE_PATH)
 	@$(MAKE) --directory=testbed --no-print-directory
 
 print_info:
 	@echo "Make: compilation target:" $(HOST_OS_NAME)-$(TARGET_ARCH)-$(if $(RELEASE),release,debug)
 
-shader:
-	@$(MAKE) --directory=shader --no-print-directory
+resources: shaders
+	@$(MAKE) --directory=resources --no-print-directory
+
+shaders:
+	@$(MAKE) --directory=shaders --no-print-directory
 
 $(corecpp_path): $(cpp)
 	@echo "// * Description:     Includes all cpp files" > $(corecpp_path)
@@ -181,12 +184,12 @@ $(corecpp_path): $(cpp)
 	for i in $(corecpp); do echo $$i >> $(corecpp_path); done
 
 $(EXE_PATH): $(corecpp_path) $(if $(IS_WINDOWS),$(LIQUID_RESOURCES_FILE),)
-	@echo "Make:    compiling" $(EXE_NAME)$(EXE_EXT) ". . ."
+	@echo "Make: compiling" $(EXE_NAME)$(EXE_EXT) ". . ."
 	@mkdir -p $(object_path)
 	@$(CC) $(LIQUID_COMPILE_FILE) $(LIQUID_RESOURCES_FILE) -o $(EXE_PATH) $(LIQUID_ENGINE_FLAGS)
 
 $(LIQUID_RESOURCES_FILE): $(LIQUID_RESOURCES_PATH)
-	@echo "Make:    compiling" $(LIQUID_RESOURCES_FILE) ". . ."
+	@echo "Make: compiling" $(LIQUID_RESOURCES_FILE) ". . ."
 	@mkdir -p $(object_path)
 	@windres $(LIQUID_RESOURCES_PATH) -o $(LIQUID_RESOURCES_FILE)
 
@@ -200,8 +203,7 @@ test: all
 
 # for debugging variables
 spit:
-	@echo $(LIQUID_ENGINE_FLAGS)
-	@$(MAKE) --directory=testbed spit
+	@$(MAKE) --directory=resources spit
 
 # @$(MAKE) --directory=shader spit
  
@@ -211,17 +213,23 @@ help:
 	@echo "  run:    compile and run \"Project Museum\""
 	@echo "  test:   compile and run \"Testbed\""
 	@echo "  shader: compile shaders only"
-	@echo "  clean:  delete everything in build directory"
 	@echo "  help:   display this message"
+	@echo "  clean:  delete everything in build directory"
+	@echo "  cleanr: delete resources only"
 
-clean:
-	@echo Make: removing everything from build directory . . .
+clean: print_clean_info cleanr
 	@rm -r -f build/debug/*
 	@rm -r -f build/release/*
-	@rm -r -f resources/shaders/*
+	@rm -r -f resources/shaders
 	@rm $(corecpp_path)
 
-.PHONY: all run test spit help clean gencpp shader print_info
+print_clean_info:
+	@echo "Make: removing everything from build directory . . ."
+
+cleanr:
+	@$(MAKE) --directory=resources clean
+
+.PHONY: all run test spit help clean gencpp shaders print_info resources cleanr print_clean_info
 
 -include $(deps)
 
