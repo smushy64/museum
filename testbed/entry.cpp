@@ -2,6 +2,7 @@
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: June 21, 2023
 #include "corecpp.inl"
+
 #include <defines.h>
 #include <core/logging.h>
 #include <core/engine.h>
@@ -18,162 +19,40 @@
 #include <renderer/renderer.h>
 #include <renderer/primitives.h>
 
-#define ENTITY_TYPE_SHIP     1
-#define ENTITY_TYPE_ASTEROID 2
-#define ENTITY_TYPE_TORPEDO  3
+#include "entity.h"
 
-const char* entity_type_to_string( EntityType type ) {
-    switch( type ) {
-        case ENTITY_TYPE_SHIP:     return "Ship";
-        case ENTITY_TYPE_ASTEROID: return "Asteroid";
-        case ENTITY_TYPE_TORPEDO:  return "Torpedo";
-        default: return "null";
-    }
-}
-
-#define SHIP_SPEED          (1.5f)
-#define SHIP_ROTATION_SPEED (5.5f)
-#define SHIP_SCALE          (0.05f)
-struct Ship {
-    Transform2D    transform;
-    Physics2D      physics;
-    SpriteRenderer sprite_renderer;
-    Collider2D     collider;
-    f32            normal_drag;
-    f32            stop_drag;
+enum GameStatus : u32 {
+    GAME_STATUS_START,
+    GAME_STATUS_PLAY,
+    GAME_STATUS_DIED,
+    GAME_STATUS_PAUSE,
+    GAME_STATUS_STAGE_COMPLETE,
+    GAME_STATUS_GAME_OVER,
+    GAME_STATUS_TEST
 };
-STATIC_ASSERT( sizeof(Ship) <= MAX_ENTITY_SIZE );
-Entity ship_create( struct Texture* texture_atlas ) {
-    Entity entity    = {};
-    entity.type      = ENTITY_TYPE_SHIP;
-    entity.state_flags = ENTITY_STATE_FLAG_IS_ACTIVE |
-        ENTITY_STATE_FLAG_IS_2D |
-        ENTITY_STATE_FLAG_IS_VISIBLE;
-    entity.component_flags     =
-        ENTITY_COMPONENT_FLAG_PHYSICS   |
-        ENTITY_COMPONENT_FLAG_TRANSFORM |
-        ENTITY_COMPONENT_FLAG_SPRITE_RENDERER |
-        ENTITY_COMPONENT_FLAG_COLLIDER_2D;
 
-    Ship* ship = (Ship*)entity.bytes;
-
-    ship->transform.scale = { SHIP_SCALE, SHIP_SCALE };
-    ship->normal_drag          = 1.2f;
-    ship->stop_drag            = 2.5f;
-    ship->physics.drag         = ship->normal_drag;
-    ship->physics.angular_drag = ship->normal_drag;
-    ship->sprite_renderer      = sprite_renderer_new( texture_atlas, 1 );
-    ship->collider             = collider2d_new_rect(
-        SHIP_SCALE * 2.0f,
-        SHIP_SCALE * 2.0f
-    );
-
-    return entity;
-}
-
-#define TORPEDO_SCALE            (0.015f)
-#define TORPEDO_LIFETIME_SECONDS (2.0f)
-#define TORPEDO_SPEED            (SHIP_SPEED + 0.25f)
-struct Torpedo {
-    Transform2D    transform;
-    Physics2D      physics;
-    SpriteRenderer sprite_renderer;
-    Collider2D     collider;
-    f32 lifetime_timer;
+#define GAME_STATUS_START_MAX_TIMER (2.0f)
+#define GAME_STATUS_BLINK_TIME (GAME_STATUS_START_MAX_TIMER / 12.0f)
+struct GameStateStart {
+    f32 timer;
+    f32 blink_timer;
+    b32 show_ship;
+    b32 initialized;
 };
-STATIC_ASSERT( sizeof(Torpedo) <= MAX_ENTITY_SIZE );
-internal Entity torpedo_create( struct Texture* texture_atlas ) {
-    Entity entity    = {};
-    entity.type      = ENTITY_TYPE_TORPEDO;
-    entity.state_flags =
-        ENTITY_STATE_FLAG_IS_2D |
-        ENTITY_STATE_FLAG_IS_VISIBLE;
-    entity.component_flags     =
-        ENTITY_COMPONENT_FLAG_PHYSICS   |
-        ENTITY_COMPONENT_FLAG_TRANSFORM |
-        ENTITY_COMPONENT_FLAG_SPRITE_RENDERER |
-        ENTITY_COMPONENT_FLAG_COLLIDER_2D;
-
-    Torpedo* torpedo = (Torpedo*)entity.bytes;
-
-    torpedo->transform.scale = v2( TORPEDO_SCALE );
-    torpedo->sprite_renderer = sprite_renderer_new( texture_atlas, 1 );
-    torpedo->sprite_renderer.z_index = -1;
-    torpedo->collider        = collider2d_new_rect(
-        TORPEDO_SCALE * 2.0f,
-        TORPEDO_SCALE * 2.0f
-    );
-    torpedo->lifetime_timer = 0.0f;
-
-    return entity;
-}
-internal void torpedo_enable( Entity* entity, Ship* ship, vec2 ship_forward ) {
-    Torpedo* current_torpedo = (Torpedo*)entity->bytes;
-    current_torpedo->transform.position = ship->transform.position;
-    current_torpedo->physics.velocity   = ship_forward * TORPEDO_SPEED;
-    current_torpedo->lifetime_timer = 0.0f;
-    entity_set_active( entity, true );
-}
-
-#define MAX_ASTEROID_LIFE (3ul)
-struct Asteroid {
-    Transform2D    transform;
-    Physics2D      physics;
-    SpriteRenderer sprite_renderer;
-    Collider2D     collider;
-    u32            life; // 0-2 value
-};
-STATIC_ASSERT( sizeof(Asteroid) <= MAX_ENTITY_SIZE );
-inline void asteroid_set_life( Entity* entity, u32 new_life, RandXOR& rand_xor ) {
-    ASSERT( entity->type == ENTITY_TYPE_ASTEROID );
-
-    if( !new_life ) {
-        entity_set_active( entity, false );
-        return;
-    }
-
-    Asteroid* asteroid = (Asteroid*)entity->bytes;
-
-    i32 cell_x = rand_xor.next_u32() % 3;
-    i32 cell_y = (rand_xor.next_u32() % 2) + 1;
-
-    asteroid->sprite_renderer.atlas_cell_position = { cell_x, cell_y };
-    asteroid->life = clamp(new_life, 0ul, MAX_ASTEROID_LIFE);
-
-    local const f32 ASTEROID_LIFE_SCALES[] = {
-        0.0f, 0.25f, 0.6f, 1.0f
+struct GameState {
+    GameStatus status;
+    union {
+        GameStateStart start;
     };
-
-    asteroid->transform.scale = (VEC2::ONE * 0.135f) * ASTEROID_LIFE_SCALES[asteroid->life];
-    asteroid->collider = collider2d_new_rect(
-        asteroid->transform.scale.x * 1.4f,
-        asteroid->transform.scale.y * 1.4f
-    );
-
-    vec2 velocity = normalize( v2( rand_xor.next_f32(), rand_xor.next_f32() ) );
-    asteroid->physics.velocity = velocity;
-    asteroid->physics.angular_velocity = rand_xor.next_f32();
-}
-Entity asteroid_create( vec2 position, struct Texture* texture_atlas, RandXOR& rand_xor ) {
-    Entity entity    = {};
-    entity.type      = ENTITY_TYPE_ASTEROID;
-    entity.state_flags = ENTITY_STATE_FLAG_IS_ACTIVE |
-        ENTITY_STATE_FLAG_IS_2D |
-        ENTITY_STATE_FLAG_IS_VISIBLE;
-    entity.component_flags     =
-        ENTITY_COMPONENT_FLAG_PHYSICS   |
-        ENTITY_COMPONENT_FLAG_TRANSFORM |
-        ENTITY_COMPONENT_FLAG_SPRITE_RENDERER |
-        ENTITY_COMPONENT_FLAG_COLLIDER_2D;
-
-    Asteroid* asteroid = (Asteroid*)entity.bytes;
-
-    asteroid->transform.position = position;
-    asteroid->sprite_renderer    = sprite_renderer_new( texture_atlas, 3 );
-
-    asteroid_set_life( &entity, MAX_ASTEROID_LIFE, rand_xor );
-
-    return entity;
+};
+internal inline void game_state_set_status( GameState* game_state, GameStatus status ) {
+    game_state->status = status;
+    switch( status ) {
+        case GAME_STATUS_START:
+            game_state->status = {};
+            break;
+        default: break;
+    }
 }
 
 #define MAX_TORPEDOES (5)
@@ -183,77 +62,73 @@ struct GameMemory {
     EntityID        ship_id;
     EntityID        first_torpedo_id;
     EntityID        current_torpedo;
-    u32             active_asteroid_count;
-    u32             max_asteroids;
-    EntityID        first_asteroid;
     EventListenerID on_exit_listener;
+
+    u32 asteroid_count;
+
+    GameState       game_state;
 };
 
-inline void asteroid_activate( Entity* entity, u32 life, GameMemory* game_memory ) {
-    game_memory->active_asteroid_count++;
-    ASSERT( game_memory->active_asteroid_count <= game_memory->max_asteroids );
-    entity_set_active( entity, true );
-    asteroid_set_life( entity, life, game_memory->rand_xor );
-    Asteroid* asteroid = (Asteroid*)entity->bytes;
-    vec2 velocity;
-    velocity.x = game_memory->rand_xor.next_f32();
-    velocity.y = game_memory->rand_xor.next_f32();
-
-    f32 velocity_magnitude_t = game_memory->rand_xor.next_f32_01();
-    f32 velocity_magnitude = lerp( 0.4f, 2.0f, velocity_magnitude_t );
-
-    asteroid->physics.velocity = normalize( velocity ) * velocity_magnitude;
-    asteroid->physics.angular_velocity = game_memory->rand_xor.next_f32();
-}
-inline void asteroid_damage( Entity* entity, GameMemory* game_memory, struct EntityStorage* storage ) {
-    Asteroid* asteroid = (Asteroid*)entity->bytes;
-    asteroid_set_life( entity, asteroid->life - 1, game_memory->rand_xor );
-    if( !asteroid->life ) {
-        ASSERT( game_memory->active_asteroid_count );
-        game_memory->active_asteroid_count--;
-        return;
+internal b32 game_generate_asteroid(
+    GameMemory* game_memory,
+    EntityStorage* storage
+) {
+    vec2 position   = {
+        game_memory->rand_xor.next_f32(),
+        game_memory->rand_xor.next_f32()
+    };
+    Entity asteroid = asteroid_create(
+        position, ASTEROID_MAX_LIFE,
+        &game_memory->textures[2],
+        game_memory->rand_xor
+    );
+    EntityID asteroid_id = entity_storage_create_entity(
+        storage, &asteroid
+    );
+    if( asteroid_id < 0 ) {
+        return false;
     }
 
-    if( game_memory->active_asteroid_count < game_memory->max_asteroids ) {
-        u32 asteroid_piece_count = asteroid->life;
-        u32 asteroids_that_can_be_spawned = game_memory->max_asteroids - game_memory->active_asteroid_count;
-        u32 asteroids_to_spawn = min( asteroids_that_can_be_spawned, asteroid_piece_count );
+    game_memory->asteroid_count++;
 
-        if( !asteroids_to_spawn ) {
-            return;
+    return true;
+}
+
+internal b32 game_damage_asteroid(
+    GameMemory*    game_memory,
+    EntityStorage* storage,
+    Entity*        entity
+) {
+    Asteroid* asteroid = (Asteroid*)entity->bytes;
+    u32 asteroid_pieces = 3;
+    if( asteroid->life < ASTEROID_MAX_LIFE ) {
+        asteroid_pieces = 2;
+    }
+
+    if( !asteroid_damage( entity, game_memory->rand_xor ) ) {
+        game_memory->asteroid_count--;
+        return true;
+    }
+
+    vec2 position = asteroid->transform.position;
+    for( u32 i = 0; i < asteroid_pieces; ++i ) {
+        Entity new_asteroid = asteroid_create(
+            position,
+            asteroid->life,
+            &game_memory->textures[2],
+            game_memory->rand_xor
+        );
+        EntityID new_asteroid_id = entity_storage_create_entity(
+            storage, &new_asteroid
+        );
+        if( new_asteroid_id < 0 ) {
+            return false;
         }
 
-        for( u32 i = 0; i < asteroids_to_spawn; ++i ) {
-            EntityID new_asteroid_id = game_memory->active_asteroid_count +
-                game_memory->first_asteroid;
-            Entity* entity = entity_storage_get( storage, new_asteroid_id );
-            Asteroid* current_asteroid = (Asteroid*)entity->bytes;
-            current_asteroid->transform.position = asteroid->transform.position;
-            asteroid_activate( entity, asteroid->life, game_memory );
-            game_memory->active_asteroid_count++;
-        }
-
-    }
-}
-inline void asteroid_spawn_new( GameMemory* game_memory, struct EntityStorage* storage ) {
-    if( game_memory->active_asteroid_count >= game_memory->max_asteroids ) {
-        LOG_WARN( "active asteroids: {u}", game_memory->active_asteroid_count );
-        LOG_WARN( "max asteroids:    {u}", game_memory->max_asteroids );
-        LOG_WARN( "maximum asteroids exceeded!" );
-        return;
+        game_memory->asteroid_count++;
     }
 
-    EntityID new_asteroid_id = game_memory->first_asteroid + game_memory->active_asteroid_count;
-    Entity* entity = entity_storage_get( storage, new_asteroid_id );
-    Asteroid* asteroid = (Asteroid*)entity->bytes;
-
-    vec2 position;
-    position.x = game_memory->rand_xor.next_f32_01();
-    position.y = game_memory->rand_xor.next_f32_01();
-
-    asteroid->transform.position = position;
-
-    asteroid_activate( entity, MAX_ASTEROID_LIFE, game_memory );
+    return true;
 }
 
 EventCallbackReturn on_exit( Event*, void* generic_memory ) {
@@ -337,98 +212,57 @@ b32 application_init( struct EngineContext* ctx, void* generic_memory ) {
         }
     }
 
-    u32 max_asteroids = MAX_ENTITIES - MAX_TORPEDOES - 1;
-    for( u32 i = 0; i < max_asteroids; ++i ) {
-        Entity asteroid = asteroid_create( VEC2::ZERO, &memory->textures[2], memory->rand_xor );
-        entity_set_active( &asteroid, false );
-        EntityID id = entity_storage_create_entity( storage, &asteroid );
-        ASSERT( id >= 0 );
-        if( i == 0 ) {
-            memory->first_asteroid = id;
-        }
-    }
-    memory->max_asteroids = max_asteroids;
-
-    for( u32 i = 0; i < 3; ++i ) {
-        asteroid_spawn_new( memory, storage );
-    }
-
     memory->on_exit_listener =
         event_subscribe( EVENT_CODE_EXIT, on_exit, memory );
+
+    game_state_set_status( &memory->game_state, GAME_STATUS_START );
 
     return true;
 }
 
-internal b32 is_entity_active_visible_2d( Entity* entity ) {
-    return CHECK_BITS(
-        entity->state_flags,
-        ENTITY_STATE_FLAG_IS_ACTIVE  |
-        ENTITY_STATE_FLAG_IS_VISIBLE | 
-        ENTITY_STATE_FLAG_IS_2D 
-    );
-}
-
-[[maybe_unused]]
-internal b32 filter_active_torpedoes( Entity* entity ) {
-    b32 is_torpedo = entity->type == ENTITY_TYPE_TORPEDO;
-    if( !is_torpedo ) {
-        return false;
-    }
-
-    return is_entity_active_visible_2d( entity );
-}
-[[maybe_unused]]
-internal b32 filter_colliders( Entity* entity ) {
-    b32 has_collider2d = CHECK_BITS(
-        entity->component_flags,
-        ENTITY_COMPONENT_FLAG_COLLIDER_2D
-    );
-    return is_entity_active_visible_2d( entity ) && has_collider2d;
-}
-
-internal b32 filter_asteroids( Entity* entity ) {
-    if( entity->type != ENTITY_TYPE_ASTEROID ) {
-        return false;
-    }
-    return is_entity_active_visible_2d( entity );
-}
-
-internal b32 filter_sprites( Entity* entity ) {
-    b32 is_active_visible_2d = CHECK_BITS(
-        entity->state_flags,
-        ENTITY_STATE_FLAG_IS_ACTIVE |
-        ENTITY_STATE_FLAG_IS_VISIBLE |
-        ENTITY_STATE_FLAG_IS_2D
-    );
-    b32 has_sprite_renderer = CHECK_BITS(
-        entity->component_flags,
-        ENTITY_COMPONENT_FLAG_SPRITE_RENDERER
-    );
-    return is_active_visible_2d && has_sprite_renderer;
-}
-
 internal b32 filter_active_visible2d( Entity* entity ) {
-    b32 is_active_visible_2d = CHECK_BITS(
+    return CHECK_BITS(
         entity->state_flags,
         ENTITY_STATE_FLAG_IS_ACTIVE  |
         ENTITY_STATE_FLAG_IS_VISIBLE |
         ENTITY_STATE_FLAG_IS_2D      
     );
-    return is_active_visible_2d;
 }
 
-extern "C"
-b32 application_run( struct EngineContext* ctx, void* generic_memory ) {
-    GameMemory*    memory  = (GameMemory*)generic_memory;
-    EntityStorage* storage = engine_get_entity_storage( ctx );
-    Timer*         time    = engine_get_time( ctx );
+internal b32 filter_active_torpedoes( Entity* entity ) {
+    b32 is_torpedo = entity->type == ENTITY_TYPE_TORPEDO;
+    return filter_active_visible2d( entity ) && is_torpedo;
+}
 
-    if( input_is_key_down( KEY_ESCAPE ) ) {
-        Event event = {};
-        event.code  = EVENT_CODE_EXIT;
-        event_fire( event );
-    }
+internal b32 filter_colliders( Entity* entity ) {
+    b32 has_collider2d = CHECK_BITS(
+        entity->component_flags,
+        ENTITY_COMPONENT_FLAG_COLLIDER_2D
+    );
+    return filter_active_visible2d( entity ) && has_collider2d;
+}
 
+internal b32 filter_asteroids( Entity* entity ) {
+    b32 is_asteroid = entity->type == ENTITY_TYPE_ASTEROID;
+    return filter_active_visible2d( entity ) && is_asteroid;
+}
+
+internal b32 filter_sprites( Entity* entity ) {
+    b32 has_sprite_renderer = CHECK_BITS(
+        entity->component_flags,
+        ENTITY_COMPONENT_FLAG_SPRITE_RENDERER
+    );
+    return filter_active_visible2d( entity ) && has_sprite_renderer;
+}
+
+
+b32 status_play(
+    GameMemory* memory,
+    EntityStorage* storage,
+    Timer* time,
+    RenderOrder* render_order,
+    ivec2 screen_dimensions
+) {
     Entity* entity_ship = &storage->entities[memory->ship_id];
     Ship*   ship = (Ship*)entity_ship->bytes;
 
@@ -438,7 +272,7 @@ b32 application_run( struct EngineContext* ctx, void* generic_memory ) {
     input_direction.y = (f32)input_is_key_down( KEY_ARROW_UP );
 
     ship->physics.drag = input_is_key_down( KEY_ARROW_DOWN ) ?
-        ship->stop_drag : ship->normal_drag;
+        SHIP_STOP_DRAG : SHIP_NORMAL_DRAG;
     ship->physics.angular_drag = ship->physics.drag;
 
     vec2 ship_forward_direction = rotate(
@@ -449,7 +283,7 @@ b32 application_run( struct EngineContext* ctx, void* generic_memory ) {
         ship_forward_direction *
         input_direction.y *
         time->delta_seconds *
-        SHIP_SPEED;
+        SHIP_NORMAL_SPEED;
 
     ship->physics.angular_velocity +=
         input_direction.x *
@@ -480,19 +314,21 @@ b32 application_run( struct EngineContext* ctx, void* generic_memory ) {
         QueryResultIterator iterator = &torpedoes;
         EntityID id;
         while( iterator.next( &id ) ) {
-            Entity*  entity  = entity_storage_get( storage, id );
-            Torpedo* torpedo = (Torpedo*)(entity->bytes);
-            Entity* hit_result = system_collider2d_solver( storage, id, &asteroids );
+            Entity*  torpedo_entity = entity_storage_get( storage, id );
+            Torpedo* torpedo        = (Torpedo*)(torpedo_entity->bytes);
+            Entity* hit_result = system_collider2d_solver(
+                storage, id, &asteroids
+            );
 
             if( hit_result ) {
-                asteroid_damage( hit_result, memory, storage );
-                entity_set_active( entity, false );
+                game_damage_asteroid( memory, storage, hit_result );
+                entity_set_active( torpedo_entity, false );
                 continue;
             }
             
-            torpedo->lifetime_timer += time->delta_seconds;
-            if( torpedo->lifetime_timer >= TORPEDO_LIFETIME_SECONDS ) {
-                entity_set_active( entity, false );
+            torpedo->life_timer += time->delta_seconds;
+            if( torpedo->life_timer >= TORPEDO_LIFETIME_SECONDS ) {
+                entity_set_active( torpedo_entity, false );
             }
 
         }
@@ -503,8 +339,7 @@ b32 application_run( struct EngineContext* ctx, void* generic_memory ) {
             storage, time->delta_seconds
         );
 
-        ivec2 dimensions = engine_query_surface_size( ctx );
-        f32 aspect_ratio = (f32)dimensions.x / (f32)dimensions.y;
+        f32 aspect_ratio = (f32)screen_dimensions.x / (f32)screen_dimensions.y;
         f32 wrap_padding = SHIP_SCALE;
 
         QueryResultIterator iterator = &physics_objects;
@@ -539,13 +374,20 @@ b32 application_run( struct EngineContext* ctx, void* generic_memory ) {
                 scale( entity->transform2d.scale );
         }
     }
-    RenderOrder* render_order = engine_get_render_order( ctx );
 
-    EntityStorageQueryResult sprites = entity_storage_query(
+    render_order->sprites = entity_storage_query(
         storage, filter_sprites
     );
-    render_order->storage = storage;
-    render_order->sprites = sprites;
+
+    if( !memory->asteroid_count ) {
+        game_state_set_status( &memory->game_state, GAME_STATUS_START );
+    }
+
+    // local u32 last_count = 0;
+    // if( last_count != memory->asteroid_count ) {
+    //     LOG_DEBUG( "active asteroid count: {u}", memory->asteroid_count );
+    // }
+    // last_count = memory->asteroid_count;
 
 #if defined(DEBUG)
     /* debug draw colliders */ {
@@ -593,5 +435,109 @@ b32 application_run( struct EngineContext* ctx, void* generic_memory ) {
 #endif
 
     return true;
+}
+
+b32 status_start( GameMemory* memory, EntityStorage* storage, Timer* time, RenderOrder* render_order ) {
+    GameState* state = &memory->game_state;
+    ASSERT( state->status == GAME_STATUS_START );
+
+    if( !state->start.initialized ) {
+        Entity* ship_entity = &storage->entities[memory->ship_id];
+        Ship* ship = (Ship*)ship_entity->bytes;
+        ship->transform.position = {};
+        ship->transform.rotation = 0.0f;
+        ship_entity->matrix = transform(
+            ship->transform.position,
+            ship->transform.rotation,
+            ship->transform.scale
+        );
+        state->start.initialized = true;
+        state->start.show_ship   = true;
+        state->start.timer       = 0.0f;
+        state->start.blink_timer = 0.0f;
+    }
+
+    EntityStorageQueryResult torpedoes = entity_storage_query(
+        storage, filter_active_torpedoes
+    );
+    QueryResultIterator iterator = &torpedoes;
+    EntityID id;
+    while( iterator.next( &id ) ) {
+        Entity*  torpedo_entity = entity_storage_get( storage, id );
+        entity_set_active( torpedo_entity, false );
+    }
+
+    state->start.blink_timer += time->delta_seconds;
+    if( state->start.blink_timer >= GAME_STATUS_BLINK_TIME ) {
+        state->start.show_ship = !state->start.show_ship;
+        state->start.blink_timer = 0.0f;
+    }
+
+    if( state->start.show_ship ) {
+        EntityStorageQueryResult sprites;
+        sprites.count  = 1;
+        sprites.ids[0] = memory->ship_id;
+
+        render_order->sprites = sprites;
+    }
+
+    state->start.timer += time->delta_seconds;
+    if( state->start.timer < GAME_STATUS_START_MAX_TIMER ) {
+        return true;
+    }
+
+    for( u32 i = 0; i < 3; ++i ) {
+        game_generate_asteroid( memory, storage );
+    }
+
+    state->start.initialized = false;
+    game_state_set_status( state, GAME_STATUS_PLAY );
+    return true;
+}
+
+extern "C"
+b32 application_run( struct EngineContext* ctx, void* generic_memory ) {
+    GameMemory*    memory  = (GameMemory*)generic_memory;
+    EntityStorage* storage = engine_get_entity_storage( ctx );
+    Timer*         time    = engine_get_time( ctx );
+    RenderOrder*   render_order = engine_get_render_order( ctx );
+    ivec2 screen_dimensions = engine_query_surface_size( ctx );
+
+    render_order->storage = storage;
+
+    if( input_is_key_down( KEY_ESCAPE ) ) {
+        Event event = {};
+        event.code  = EVENT_CODE_EXIT;
+        event_fire( event );
+    }
+
+    b32 status_result = true;
+    switch( memory->game_state.status ) {
+        case GAME_STATUS_START: {
+            status_result = status_start(
+                memory,
+                storage,
+                time,
+                render_order
+            );
+        } break;
+        case GAME_STATUS_PAUSE:
+        case GAME_STATUS_DIED:
+        case GAME_STATUS_GAME_OVER:
+        case GAME_STATUS_STAGE_COMPLETE:
+        case GAME_STATUS_PLAY: {
+            status_result = status_play(
+                memory,
+                storage,
+                time,
+                render_order,
+                screen_dimensions
+            );
+        } break;
+
+        default: break;
+    }
+
+    return status_result;
 }
 

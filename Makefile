@@ -203,7 +203,7 @@ test: all
 
 # for debugging variables
 spit:
-	@$(MAKE) --directory=resources spit
+	@$(MAKE) --directory=testbed spit
 
 # @$(MAKE) --directory=shader spit
  

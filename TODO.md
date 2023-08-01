@@ -63,7 +63,8 @@ not liking how data about allocations is stored
 - [ ] make sure that atan actually produces good results.
     outside the -1 -> 1 range, it diverges heavily.
     it may not actually be that big of a problem but still.
-- [ ] normalize_range does not seem to do what i think it does
+- [x] normalize_range does not seem to do what i think it does
+    - it does do what i think 
 - [x] defines: why is size_t defined as usize?
     - not really sure why that was there but i removed it and nothing broke (i think?)
 

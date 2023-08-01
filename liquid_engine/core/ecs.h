@@ -46,8 +46,8 @@ struct SpriteRenderer {
     struct Texture* atlas;
     union {
         struct {
-            ivec2 atlas_cell_position;
-            ivec2 atlas_cell_scale;
+            ivec2 atlas_coordinate_position;
+            ivec2 atlas_coordinate_scale;
         };
         ivec4 atlas_coordinate;
     };
@@ -64,11 +64,12 @@ inline SpriteRenderer sprite_renderer_new(
     SpriteRenderer result;
     result.atlas               = texture_atlas;
     result.atlas_cell_size     = cell_size;
-    result.atlas_cell_scale    = IVEC2::ONE;
-    result.atlas_cell_position = IVEC2::ZERO;
+    result.atlas_coordinate_scale    = IVEC2::ONE;
+    result.atlas_coordinate_position = IVEC2::ZERO;
     result.tint                = RGBA::WHITE;
     result.flip_x              = false;
     result.flip_y              = false;
+    result.z_index             = 0;
     return result;
 }
 
@@ -104,7 +105,7 @@ inline Collider2D collider2d_new_circle( f32 radius ) {
     return result;
 }
 
-#define MAX_ENTITIES 20
+#define MAX_ENTITIES 32
 #define MAX_ENTITY_SIZE 192
 
 typedef u16 EntityStateFlag;
