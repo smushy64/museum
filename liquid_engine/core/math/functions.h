@@ -10,6 +10,13 @@
     #include "simd.h"
 #endif
 
+/// 32-bit unsigned integer rotate left
+#define rotl32( bitpattern, rotate )\
+    (bitpattern << rotate) | (bitpattern >> (-rotate & 31ul))
+/// 32-bit unsigned integer rotate right
+#define rotr32( bitpattern, rotate )\
+    (bitpattern >> rotate) | (bitpattern << (32ul - rotate))
+
 /// truncate float to signed integer
 FORCE_INLINE i64 trunc64( f32 x ) { return (i64)x; }
 /// truncate float to signed integer

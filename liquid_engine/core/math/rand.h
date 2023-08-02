@@ -72,10 +72,12 @@ struct RandXOR {
     /// random unsigned integer in range 0 to U32::MAX
     u32 next_u32() {
         ASSERT(seed);
-        current ^= current << 13;
-        current ^= current << 17;
-        current ^= current << 5;
-        return current;
+        u32 x = this->current;
+        x ^= x << 13;
+        x ^= x >> 17;
+        x ^= x << 5;
+
+        return this->current = x;
     }
     /// random signed integer in range I32::MIN to I32::MAX
     i32 next_i32() {
