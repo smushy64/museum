@@ -39,22 +39,33 @@ struct GameStateStart {
     b32 show_ship;
     b32 initialized;
 };
+#define GAME_STATE_PLAY_RESPAWN_TIME (3.0f)
+struct GameStatePlay {
+    f32 respawn_timer;
+};
 struct GameState {
     GameStatus status;
     union {
         GameStateStart start;
+        GameStatePlay  play;
     };
 };
-internal inline void game_state_set_status( GameState* game_state, GameStatus status ) {
+internal inline void game_state_set_status(
+    GameState* game_state,
+    GameStatus status
+) {
     game_state->status = status;
     switch( status ) {
         case GAME_STATUS_START:
-            game_state->status = {};
+            game_state->start = {};
             break;
+        case GAME_STATUS_PLAY:
+            game_state->play = {};
         default: break;
     }
 }
 
+#define PLAYER_MAX_LIVES (3ul)
 #define MAX_TORPEDOES (5)
 struct GameMemory {
     Texture         textures[3];
@@ -62,12 +73,30 @@ struct GameMemory {
     EntityID        ship_id;
     EntityID        first_torpedo_id;
     EntityID        current_torpedo;
+    EntityID        first_ship_destroyed_id;
+    EntityID        first_life_ui_id;
     EventListenerID on_exit_listener;
 
     u32 asteroid_count;
+    u32 ship_lives;
 
-    GameState       game_state;
+    GameState game_state;
 };
+
+internal void game_set_life(
+    GameMemory*    memory,
+    EntityStorage* storage,
+    u32            new_life
+) {
+    u32 life = clamp( new_life, 0ul, PLAYER_MAX_LIVES );
+    memory->ship_lives = life;
+    for( u32 i = 0; i < PLAYER_MAX_LIVES; ++i ) {
+        EntityID id         = memory->first_life_ui_id + i;
+        Entity*  entity     = entity_storage_get( storage, id );
+        b32      set_active = i < life;
+        entity_set_active( entity, set_active );
+    }
+}
 
 internal b32 game_generate_asteroid(
     GameMemory* game_memory,
@@ -166,7 +195,7 @@ extern "C"
 b32 application_init( struct EngineContext* ctx, void* generic_memory ) {
     GameMemory* memory = (GameMemory*)generic_memory;
 
-    memory->rand_xor = RandXOR( 463457457 );
+    memory->rand_xor = RandXOR( 53465457 );
 
     EntityStorage* storage = engine_get_entity_storage( ctx );
 
@@ -203,6 +232,21 @@ b32 application_init( struct EngineContext* ctx, void* generic_memory ) {
 
     ASSERT( memory->ship_id >= 0 );
 
+    f32 life_ui_y       = 0.9f;
+    f32 life_ui_start_x = 1.2f;
+    for( u32 i = 0; i < PLAYER_MAX_LIVES; ++i ) {
+        f32    life_ui_x = life_ui_start_x - ( 0.15f * (f32)i );
+        Entity life_ui = life_ui_create(
+            { life_ui_x, life_ui_y },
+            &memory->textures[1]
+        );
+        EntityID id = entity_storage_create_entity( storage, &life_ui );
+        ASSERT( id >= 0 );
+        if( i == 0 ) {
+            memory->first_life_ui_id = id;
+        }
+    }
+
     for( u32 i = 0; i < MAX_TORPEDOES; ++i ) {
         Entity   torpedo = torpedo_create( &memory->textures[0] );
         EntityID id      = entity_storage_create_entity( storage, &torpedo );
@@ -212,12 +256,34 @@ b32 application_init( struct EngineContext* ctx, void* generic_memory ) {
         }
     }
 
+    for( u32 i = 0; i < SHIP_DESTROYED_PIECE_COUNT; ++i ) {
+        Entity ship_destroyed = ship_destroyed_create(
+            &memory->textures[0]
+        );
+        EntityID id = entity_storage_create_entity(
+            storage, &ship_destroyed
+        );
+        ASSERT( id >= 0 );
+        if( i == 0 ) {
+            memory->first_ship_destroyed_id = id;
+        }
+
+    }
+
     memory->on_exit_listener =
         event_subscribe( EVENT_CODE_EXIT, on_exit, memory );
 
     game_state_set_status( &memory->game_state, GAME_STATUS_START );
 
     return true;
+}
+
+internal b32 filter_active( Entity* entity ) {
+    return CHECK_BITS(
+        entity->state_flags,
+        ENTITY_STATE_FLAG_IS_ACTIVE |
+        ENTITY_STATE_FLAG_IS_2D
+    );
 }
 
 internal b32 filter_active_visible2d( Entity* entity ) {
@@ -266,40 +332,50 @@ b32 status_play(
     Entity* entity_ship = &storage->entities[memory->ship_id];
     Ship*   ship = (Ship*)entity_ship->bytes;
 
-    vec2 input_direction = {};
-    input_direction.x = (f32)input_is_key_down( KEY_ARROW_RIGHT ) -
-        (f32)input_is_key_down( KEY_ARROW_LEFT );
-    input_direction.y = (f32)input_is_key_down( KEY_ARROW_UP );
+    b32 ship_is_active = CHECK_BITS(
+        entity_ship->state_flags,
+        ENTITY_STATE_FLAG_IS_ACTIVE
+    ) && memory->ship_lives;
 
-    ship->physics.drag = input_is_key_down( KEY_ARROW_DOWN ) ?
-        SHIP_STOP_DRAG : SHIP_NORMAL_DRAG;
-    ship->physics.angular_drag = ship->physics.drag;
+    if( ship_is_active ) {
 
-    vec2 ship_forward_direction = rotate(
-        VEC2::UP, ship->transform.rotation
-    );
+        vec2 input_direction = {};
+        input_direction.x = (f32)input_is_key_down( KEY_ARROW_RIGHT ) -
+            (f32)input_is_key_down( KEY_ARROW_LEFT );
+        input_direction.y = (f32)input_is_key_down( KEY_ARROW_UP );
 
-    ship->physics.velocity +=
-        ship_forward_direction *
-        input_direction.y *
-        time->delta_seconds *
-        SHIP_NORMAL_SPEED;
+        ship->physics.drag = input_is_key_down( KEY_ARROW_DOWN ) ?
+            SHIP_STOP_DRAG : SHIP_NORMAL_DRAG;
+        ship->physics.angular_drag = ship->physics.drag;
 
-    ship->physics.angular_velocity +=
-        input_direction.x *
-        time->delta_seconds *
-        SHIP_ROTATION_SPEED;
+        vec2 ship_forward_direction = rotate(
+            VEC2::UP, ship->transform.rotation
+        );
 
-    b32 z_is_down = input_is_key_down( KEY_Z );
-    if(
-        z_is_down &&
-        z_is_down != input_was_key_down( KEY_Z )
-    ) {
+        ship->physics.velocity +=
+            ship_forward_direction *
+            input_direction.y *
+            time->delta_seconds *
+            SHIP_NORMAL_SPEED;
 
-        EntityID id = memory->first_torpedo_id + memory->current_torpedo;
-        Entity* torpedo = &storage->entities[id];
-        torpedo_enable( torpedo, ship, ship_forward_direction );
-        memory->current_torpedo = (memory->current_torpedo + 1) % MAX_TORPEDOES;
+        ship->physics.angular_velocity +=
+            input_direction.x *
+            time->delta_seconds *
+            SHIP_ROTATION_SPEED;
+
+        b32 z_is_down = input_is_key_down( KEY_Z );
+        if(
+            z_is_down &&
+            z_is_down != input_was_key_down( KEY_Z ) &&
+            !ship->is_invincible
+        ) {
+
+            EntityID id = memory->first_torpedo_id + memory->current_torpedo;
+            Entity* torpedo = &storage->entities[id];
+            torpedo_enable( torpedo, ship, ship_forward_direction );
+            memory->current_torpedo =
+                (memory->current_torpedo + 1) % MAX_TORPEDOES;
+        }
     }
 
     EntityStorageQueryResult torpedoes = entity_storage_query(
@@ -360,18 +436,98 @@ b32 status_play(
         }
     }
 
+    /* Asteroid collision with ship */
+    if( ship_is_active && !ship->is_invincible ) {
+        Entity* hit_result = system_collider2d_solver(
+            storage, memory->ship_id, &asteroids
+        );
+        if( hit_result ) {
+
+            b32 is_ship_currently_active = CHECK_BITS(
+                entity_ship->state_flags,
+                ENTITY_STATE_FLAG_IS_ACTIVE
+            );
+            if( is_ship_currently_active ) {
+                // NOTE(alicia): Ship collided with asteroid
+                entity_set_active( entity_ship, false );
+
+                for( u32 i = 0; i < SHIP_DESTROYED_PIECE_COUNT; ++i ) {
+                    EntityID id = memory->first_ship_destroyed_id + i;
+                    Entity* ship_destroyed_piece =
+                        entity_storage_get( storage, id );
+                    ship_destroyed_enable(
+                        ship_destroyed_piece,
+                        ship->transform.position,
+                        memory->rand_xor
+                    );
+                }
+
+                ship->physics.velocity = {};
+                ship->physics.angular_velocity = 0.0f;
+                ship->transform.position = {};
+                ship->transform.rotation = 0.0f;
+
+                game_set_life( memory, storage, memory->ship_lives - 1 );
+            }
+        }
+    } else if( !ship_is_active && memory->ship_lives ) {
+        memory->game_state.play.respawn_timer += time->delta_seconds;
+        if(
+            memory->game_state.play.respawn_timer >=
+            GAME_STATE_PLAY_RESPAWN_TIME
+        ) {
+            memory->game_state.play.respawn_timer = 0.0f;
+            entity_set_active( entity_ship, true );
+            ship->is_invincible = true;
+            for( u32 i = 0; i < SHIP_DESTROYED_PIECE_COUNT; ++i ) {
+                EntityID id = memory->first_ship_destroyed_id + i;
+                Entity* ship_destroyed_piece =
+                    entity_storage_get( storage, id );
+                entity_set_active( ship_destroyed_piece, false );
+            }
+        }
+    }
+
+    if( ship_is_active && ship->is_invincible ) {
+        ship->invincibility_timer += time->delta_seconds;
+        ship->blink_timer += time->delta_seconds;
+        if( ship->blink_timer >= SHIP_BLINK_TIME ) {
+            ship->blink_timer = 0.0f;
+            b32 is_visible = CHECK_BITS(
+                entity_ship->state_flags,
+                ENTITY_STATE_FLAG_IS_VISIBLE
+            );
+            if( is_visible ) {
+                CLEAR_BIT(
+                    entity_ship->state_flags,
+                    ENTITY_STATE_FLAG_IS_VISIBLE
+                );
+            } else {
+                entity_ship->state_flags |= ENTITY_STATE_FLAG_IS_VISIBLE;
+            }
+        }
+        if( ship->invincibility_timer >= SHIP_INVINCIBILITY_TIME ) {
+            ship->is_invincible = false;
+            ship->invincibility_timer = 0.0f;
+            ship->blink_timer = 0.0f;
+            entity_ship->state_flags |= ENTITY_STATE_FLAG_IS_VISIBLE;
+        }
+
+    }
+
     /* calculate transforms */ {
         EntityStorageQueryResult active_objects = entity_storage_query(
-            storage, filter_active_visible2d
+            storage, filter_active
         );
         QueryResultIterator iterator = &active_objects;
         EntityID id;
         while( iterator.next( &id ) ) {
             Entity* entity = entity_storage_get( storage, id );
-            entity->matrix =
-                translate( entity->transform2d.position ) *
-                rotate( entity->transform2d.rotation ) *
-                scale( entity->transform2d.scale );
+            entity->matrix = transform(
+                entity->transform2d.position,
+                entity->transform2d.rotation,
+                entity->transform2d.scale
+            );
         }
     }
 
@@ -383,11 +539,15 @@ b32 status_play(
         game_state_set_status( &memory->game_state, GAME_STATUS_START );
     }
 
-    // local u32 last_count = 0;
-    // if( last_count != memory->asteroid_count ) {
-    //     LOG_DEBUG( "active asteroid count: {u}", memory->asteroid_count );
-    // }
-    // last_count = memory->asteroid_count;
+    if( !memory->ship_lives ) {
+        game_state_set_status( &memory->game_state, GAME_STATUS_GAME_OVER );
+    }
+
+    local u32 last_lives = 0;
+    if( last_lives != memory->ship_lives ) {
+        LOG_DEBUG( "lives: {u}", memory->ship_lives );
+    }
+    last_lives = memory->ship_lives;
 
 #if defined(DEBUG)
     /* debug draw colliders */ {
@@ -437,7 +597,12 @@ b32 status_play(
     return true;
 }
 
-b32 status_start( GameMemory* memory, EntityStorage* storage, Timer* time, RenderOrder* render_order ) {
+b32 status_start(
+    GameMemory*    memory,
+    EntityStorage* storage,
+    Timer*         time,
+    RenderOrder*   render_order
+) {
     GameState* state = &memory->game_state;
     ASSERT( state->status == GAME_STATUS_START );
 
@@ -484,6 +649,11 @@ b32 status_start( GameMemory* memory, EntityStorage* storage, Timer* time, Rende
     state->start.timer += time->delta_seconds;
     if( state->start.timer < GAME_STATUS_START_MAX_TIMER ) {
         return true;
+    }
+
+    if( !memory->ship_lives ) {
+        game_set_life( memory, storage, PLAYER_MAX_LIVES );
+        memory->ship_lives = PLAYER_MAX_LIVES;
     }
 
     for( u32 i = 0; i < 3; ++i ) {

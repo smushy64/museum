@@ -56,7 +56,6 @@ internal b32 filter_physics2d( Entity* entity ) {
     b32 is_active_visible_2d = CHECK_BITS(
         entity->state_flags,
         ENTITY_STATE_FLAG_IS_ACTIVE  |
-        ENTITY_STATE_FLAG_IS_VISIBLE |
         ENTITY_STATE_FLAG_IS_2D
     );
     if( !is_active_visible_2d ) {
@@ -194,6 +193,7 @@ LD_API Entity* system_collider2d_solver(
 
     Entity* collider = &storage->entities[collider_id];
 
+    ASSERT( collider->type != ENTITY_TYPE_NULL );
     ASSERT( CHECK_BITS(
         collider->component_flags,
         ENTITY_COMPONENT_FLAG_COLLIDER_2D
