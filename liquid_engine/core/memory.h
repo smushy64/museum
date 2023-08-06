@@ -250,7 +250,7 @@ LD_API void mem_copy( void* dst, const void* src, usize size );
 /// Potentially a lot slower than mem_copy so only use when necessary.
 LD_API void mem_copy_overlapped( void* dst, const void* src, usize size );
 /// Set a range of bytes to a specific value.
-LD_API void mem_set( u8 value, usize dst_size, void* dst );
+LD_API void* mem_set( void* dst, int value, usize n );
 /// Zero out memory.
 LD_API void mem_zero( void* ptr, usize size );
 

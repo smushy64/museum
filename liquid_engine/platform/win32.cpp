@@ -1169,9 +1169,9 @@ SystemInfo query_system_info() {
 
 #if defined(LD_ARCH_X86)
     mem_set(
+        result.cpu_name_buffer,
         ' ',
-        CPU_NAME_BUFFER_SIZE,
-        result.cpu_name_buffer
+        CPU_NAME_BUFFER_SIZE
     );
     result.cpu_name_buffer[CPU_NAME_BUFFER_SIZE - 1] = 0;
 
@@ -1624,6 +1624,31 @@ b32 platform_file_read(
         }
         return true;
     }
+}
+b32 platform_file_write(
+    PlatformFileHandle* handle,
+    usize write_size,
+    usize buffer_size,
+    void* buffer
+) {
+    ASSERT( buffer_size >= write_size );
+    ASSERT( (u64)U32::MAX >= write_size );
+    DWORD bytes_to_write = write_size;
+    DWORD bytes_written = 0;
+    Win32FileHandle* win32_file = (Win32FileHandle*)handle;
+    BOOL write_result = WriteFile(
+        win32_file->handle,
+        buffer,
+        bytes_to_write,
+        &bytes_written,
+        nullptr
+    );
+    if( !write_result || bytes_written != bytes_to_write ) {
+        win32_log_error( false );
+        return false;
+    }
+
+    return true;
 }
 usize platform_file_query_size( PlatformFileHandle* handle ) {
     Win32FileHandle* win32_file = (Win32FileHandle*)handle;

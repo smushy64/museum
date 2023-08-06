@@ -77,7 +77,15 @@ struct Mesh {
 enum TextureFormat : u8 {
     TEXTURE_FORMAT_RGB,
     TEXTURE_FORMAT_RGBA,
+    TEXTURE_FORMAT_RED,
 };
+inline u32 texture_format_byte_size( TextureFormat format ) {
+    switch( format ) {
+        case TEXTURE_FORMAT_RGB:  return 3;
+        case TEXTURE_FORMAT_RGBA: return 4;
+        case TEXTURE_FORMAT_RED:  return 1;
+    }
+}
 
 enum TextureFilter : u8 {
     TEXTURE_FILTER_NEAREST,

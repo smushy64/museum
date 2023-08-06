@@ -10,6 +10,7 @@
     - [x] i-frames on respawn
     - [x] lives counter
     - [ ] font rendering
+        - [x] stb_truetype packed font atlas
         - [ ] score
         - [ ] main menu
     - [ ] sfx

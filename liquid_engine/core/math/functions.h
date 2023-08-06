@@ -133,134 +133,26 @@ FORCE_INLINE i8 round8( f32 x ) {
     return x > 0.0f ? trunc8( x + 0.5f ) : trunc8( x - 0.5f );
 }
 
-/// get the sign of a signed integer
-FORCE_INLINE i8 sign( i8 x ) { return ( x > 0 ) - ( x < 0 ); }
-/// get the sign of a signed integer
-FORCE_INLINE i16 sign( i16 x ) { return ( x > 0 ) - ( x < 0 ); }
-/// get the sign of a signed integer
-FORCE_INLINE i32 sign( i32 x ) { return ( x > 0 ) - ( x < 0 ); }
-/// get the sign of a signed integer
-FORCE_INLINE i64 sign( i64 x ) { return ( x > 0 ) - ( x < 0 ); }
-/// get the sign of a single-precision float
-FORCE_INLINE f32 sign( f32 x ) {
-    u32 bitpattern = *(u32*)&x;
-    return ((bitpattern >> 31) & 1) == 1 ? -1.0f : 1.0f;
-}
-/// get the sign of a double-precision float
-FORCE_INLINE f64 sign( f64 x ) {
-    u64 bitpattern = *(u64*)&x;
-    return ((bitpattern >> 63) & 1) == 1 ? -1.0 : 1.0;
-}
+/// sign of value
+#define sign( x ) (( x > (__typeof(x))0 ) - ( x < (__typeof(x))0 ))
 
-/// get the absolute value of a signed integer
-FORCE_INLINE i8 absolute( i8 x ) { return x * sign( x ); }
-/// get the absolute value of a signed integer
-FORCE_INLINE i16 absolute( i16 x ) { return x * sign( x ); }
-/// get the absolute value of a signed integer
-FORCE_INLINE i32 absolute( i32 x ) { return x * sign( x ); }
-/// get the absolute value of a signed integer
-FORCE_INLINE i64 absolute( i64 x ) { return x * sign( x ); }
-/// get the absolute value of a single-precision float
-FORCE_INLINE f32 absolute( f32 x ) { return x * sign( x ); }
-/// get the absolute value of a double-precision float
-FORCE_INLINE f64 absolute( f64 x ) { return x * sign( x ); }
+/// absolute value
+#define absolute(x) (x * sign(x))
 
-/// clamp a signed integer between min and max, inclusive-inclusive
-FORCE_INLINE i8 clamp( i8 value, i8 min, i8 max ) {
-    const i8 t = value < min ? min : value;
-    return t > max ? max : t;
-}
-/// clamp a signed integer between min and max, inclusive-inclusive
-FORCE_INLINE i16 clamp( i16 value, i16 min, i16 max ) {
-    const i16 t = value < min ? min : value;
-    return t > max ? max : t;
-}
-/// clamp a signed integer between min and max, inclusive-inclusive
-FORCE_INLINE i32 clamp( i32 value, i32 min, i32 max ) {
-    const i32 t = value < min ? min : value;
-    return t > max ? max : t;
-}
-/// clamp a signed integer between min and max, inclusive-inclusive
-FORCE_INLINE i64 clamp( i64 value, i64 min, i64 max ) {
-    const i64 t = value < min ? min : value;
-    return t > max ? max : t;
-}
-/// clamp an unsigned integer between min and max, inclusive-inclusive
-FORCE_INLINE u8 clamp( u8 value, u8 min, u8 max ) {
-    const u8 t = value < min ? min : value;
-    return t > max ? max : t;
-}
-/// clamp an unsigned integer between min and max, inclusive-inclusive
-FORCE_INLINE u16 clamp( u16 value, u16 min, u16 max ) {
-    const u16 t = value < min ? min : value;
-    return t > max ? max : t;
-}
-/// clamp an unsigned integer between min and max, inclusive-inclusive
-FORCE_INLINE u32 clamp( u32 value, u32 min, u32 max ) {
-    const u32 t = value < min ? min : value;
-    return t > max ? max : t;
-}
-/// clamp an unsigned integer between min and max, inclusive-inclusive
-FORCE_INLINE u64 clamp( u64 value, u64 min, u64 max ) {
-    const u64 t = value < min ? min : value;
-    return t > max ? max : t;
-}
-/// clamp a single-precision float between min and max, inclusive-inclusive
-FORCE_INLINE f32 clamp( f32 value, f32 min, f32 max ) {
-    const f32 t = value < min ? min : value;
-    return t > max ? max : t;
-}
-/// clamp a double-precision float between min and max, inclusive-inclusive
-FORCE_INLINE f64 clamp( f64 value, f64 min, f64 max ) {
-    const f64 t = value < min ? min : value;
-    return t > max ? max : t;
-}
+/// smallest of two values
+#define min( a, b ) ( a < b ? a : b )
+
+/// largest of two values
+#define max( a, b ) ( a < b ? b : a )
+
+/// clamp a number between min and max, inclusive-inclusive
+#define clamp( value, min, max ) \
+    (value < min ? min : value) > max ? max : (value < min ? min : value)
+
 /// clamp a single-precision float between 0-1
 FORCE_INLINE f32 clamp01( f32 value ) { return clamp(value,0.0f,1.0f); }
 /// clamp a double-precision float between 0-1
 FORCE_INLINE f64 clamp01( f64 value ) { return clamp(value,0.0,1.0); }
-
-/// get the smallest of two values
-FORCE_INLINE i8 min( i8 a, i8 b ) { return a < b ? a : b; }
-/// get the smallest of two values
-FORCE_INLINE i16 min( i16 a, i16 b ) { return a < b ? a : b; }
-/// get the smallest of two values
-FORCE_INLINE i32 min( i32 a, i32 b ) { return a < b ? a : b; }
-/// get the smallest of two values
-FORCE_INLINE i64 min( i64 a, i64 b ) { return a < b ? a : b; }
-/// get the smallest of two values
-FORCE_INLINE u8 min( u8 a, u8 b ) { return a < b ? a : b; }
-/// get the smallest of two values
-FORCE_INLINE u16 min( u16 a, u16 b ) { return a < b ? a : b; }
-/// get the smallest of two values
-FORCE_INLINE u32 min( u32 a, u32 b ) { return a < b ? a : b; }
-/// get the smallest of two values
-FORCE_INLINE u64 min( u64 a, u64 b ) { return a < b ? a : b; }
-/// get the smallest of two values
-FORCE_INLINE f32 min( f32 a, f32 b ) { return a < b ? a : b; }
-/// get the smallest of two values
-FORCE_INLINE f64 min( f64 a, f64 b ) { return a < b ? a : b; }
-
-/// get the largest of two values
-FORCE_INLINE i8 max( i8 a, i8 b ) { return a < b ? b : a; }
-/// get the largest of two values
-FORCE_INLINE i16 max( i16 a, i16 b ) { return a < b ? b : a; }
-/// get the largest of two values
-FORCE_INLINE i32 max( i32 a, i32 b ) { return a < b ? b : a; }
-/// get the largest of two values
-FORCE_INLINE i64 max( i64 a, i64 b ) { return a < b ? b : a; }
-/// get the largest of two values
-FORCE_INLINE u8 max( u8 a, u8 b ) { return a < b ? b : a; }
-/// get the largest of two values
-FORCE_INLINE u16 max( u16 a, u16 b ) { return a < b ? b : a; }
-/// get the largest of two values
-FORCE_INLINE u32 max( u32 a, u32 b ) { return a < b ? b : a; }
-/// get the largest of two values
-FORCE_INLINE u64 max( u64 a, u64 b ) { return a < b ? b : a; }
-/// get the largest of two values
-FORCE_INLINE f32 max( f32 a, f32 b ) { return a < b ? b : a; }
-/// get the largest of two values
-FORCE_INLINE f64 max( f64 a, f64 b ) { return a < b ? b : a; }
 
 /// normalize integer -1 to 1 range
 FORCE_INLINE f32 normalize_range( i8 x ) {
@@ -433,6 +325,7 @@ FORCE_INLINE f64 powi( f64 base, i32 exponent ) {
         return result;
     }
 }
+
 /// raise to the power, float exponent
 FORCE_INLINE f32 pow( f32 base, f32 exponent ) {
     // TODO(alicia): REPLACE

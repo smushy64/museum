@@ -149,6 +149,13 @@ b32 platform_file_read(
     usize buffer_size,
     void* buffer
 );
+/// Write buffer into file.
+b32 platform_file_write(
+    PlatformFileHandle* handle,
+    usize write_size,
+    usize buffer_size,
+    void* buffer
+);
 /// Query size of file in bytes.
 usize platform_file_query_size( PlatformFileHandle* handle );
 /// Query where in the file the handle is at.

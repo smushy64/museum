@@ -556,6 +556,9 @@ internal void gl_make_texture( Texture* texture ) {
         case TEXTURE_FORMAT_RGBA:
             internal_format = GL_RGBA8;
             break;
+        case TEXTURE_FORMAT_RED:
+            internal_format = GL_RED;
+            break;
     }
 
     glTextureStorage2D(
@@ -571,6 +574,9 @@ internal void gl_make_texture( Texture* texture ) {
             break;
         case TEXTURE_FORMAT_RGBA:
             format = GL_RGBA;
+            break;
+        case TEXTURE_FORMAT_RED:
+            format = GL_RED;
             break;
     }
 

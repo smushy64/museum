@@ -19,6 +19,7 @@ clang++
 -DLD_PROFILING
 -fdeclspec
 -I.
+-I../vendor/
 -Werror=vla
 -Wall
 -Wextra

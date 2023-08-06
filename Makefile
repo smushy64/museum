@@ -132,7 +132,7 @@ export common_cpp_flags := $(CPP_FLAGS)
 
 export object_path := $(BUILD_PATH)/obj
 
-LIQUID_ENGINE_FLAGS := $(c_flags) $(cpp_flags) $(link_flags) -Iliquid_engine
+LIQUID_ENGINE_FLAGS := $(c_flags) $(cpp_flags) $(link_flags) -Iliquid_engine -Ivendor
 LIQUID_ENGINE_FLAGS += -DLD_EXPORT -MF $(object_path)/$(LIQUID_NAME).d
 
 ifeq ($(IS_WINDOWS), true)

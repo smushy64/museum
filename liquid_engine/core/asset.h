@@ -20,4 +20,11 @@ struct DebugImage {
 LD_API b32 debug_load_bmp( const char* path, DebugImage* out_image );
 LD_API void debug_destroy_bmp( DebugImage* image );
 
+LD_API b32 debug_write_bmp(
+    struct PlatformFileHandle* file_handle,
+    u32 width, u32 height,
+    u32 bytes_per_pixel,
+    void* buffer
+);
+
 #endif // header guard

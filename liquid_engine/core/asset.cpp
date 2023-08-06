@@ -13,6 +13,22 @@
 #define BI_BITFIELDS 3u
 #define BPP_24 24u
 #define BPP_32 32u
+
+MAKE_PACKED( struct BMPDIBHeader {
+    u32 header_size;
+    i32 width;
+    i32 height;
+    u16 biplanes; // must be 1
+    u16 bits_per_pixel;
+    u32 compression;
+    u32 image_size;
+    u32 horizontal_resolution;
+    u32 vertical_resolution;
+    u32 color_palette_size;
+    u32 important_color_count;
+} );
+STATIC_ASSERT( sizeof(BMPDIBHeader) == 40 );
+
 /// BMP file header
 MAKE_PACKED( struct BMPHeader {
     union {
@@ -22,12 +38,8 @@ MAKE_PACKED( struct BMPHeader {
     u32  bmp_file_size;
     u32  __reserved0;
     u32  data_offset;
-    u32  unused_dib_header_size;
-    i32  image_width;
-    i32  image_height;
-    u16  unused_biplanes;
-    u16  bits_per_pixel;
-    u32  compression;
+
+    BMPDIBHeader dib;
 } );
 
 #define BMP_IS_TOP_DOWN( image_height )\
@@ -68,8 +80,8 @@ b32 debug_load_bmp( const char* path, DebugImage* out_image ) {
     }
 
     if( !(
-        header.compression == BI_RGB ||
-        header.compression == BI_BITFIELDS
+        header.dib.compression == BI_RGB ||
+        header.dib.compression == BI_BITFIELDS
     ) ) {
         LOG_ERROR(
             "BMP File \"{cc}\" has an unsupported compression type!",
@@ -83,7 +95,7 @@ b32 debug_load_bmp( const char* path, DebugImage* out_image ) {
         return false;
     }
 
-    switch( header.bits_per_pixel ) {
+    switch( header.dib.bits_per_pixel ) {
         case BPP_24:
             out_image->format = TEXTURE_FORMAT_RGB;
             break;
@@ -94,17 +106,17 @@ b32 debug_load_bmp( const char* path, DebugImage* out_image ) {
             LOG_ERROR(
                 "BMP file \"{cc}\" has invalid bits-per-pixel: {u16}",
                 path,
-                header.bits_per_pixel
+                header.dib.bits_per_pixel
             );
             return false;
     }
 
-    out_image->width  = header.image_width;
-    out_image->height = absolute( header.image_height );
+    out_image->width  = header.dib.width;
+    out_image->height = absolute( header.dib.height );
 
     usize image_size = file_size - header.data_offset;
 
-    u32 bytes_per_pixel = header.bits_per_pixel / 8;
+    u32 bytes_per_pixel = header.dib.bits_per_pixel / 8;
     u32 bytes_per_row   = bytes_per_pixel * out_image->width;
     out_image->buffer = mem_alloc(
         image_size +
@@ -123,7 +135,7 @@ b32 debug_load_bmp( const char* path, DebugImage* out_image ) {
         out_image->buffer
     );
 
-    if( BMP_IS_TOP_DOWN( header.image_height ) ) {
+    if( BMP_IS_TOP_DOWN( header.dib.height ) ) {
         u8* byte_buffer = (u8*)out_image->buffer;
         u8* temp_buffer = &byte_buffer[image_size];
         i32 i = 0, n = out_image->height - 1;
@@ -156,4 +168,48 @@ void debug_destroy_bmp( DebugImage* image ) {
     }
     *image = {};
 }
+
+LD_API b32 debug_write_bmp(
+    struct PlatformFileHandle* file_handle,
+    u32 width, u32 height,
+    u32 bytes_per_pixel,
+    void* buffer
+) {
+    BMPHeader header = {};
+    header.type = BMP_FILE_TYPE;
+    u32 image_size = width * height * bytes_per_pixel;
+    u32 file_size  = image_size + sizeof(BMPHeader);
+
+    header.bmp_file_size      = file_size;
+    header.data_offset        = sizeof(BMPHeader);
+    header.dib.header_size    = sizeof(BMPDIBHeader);
+    header.dib.width          = width;
+    header.dib.height         = height;
+    header.dib.bits_per_pixel = bytes_per_pixel * 8;
+    header.dib.compression    = BI_RGB;
+    header.dib.biplanes       = 1;
+    header.dib.image_size     = image_size;
+
+    b32 platform_success = platform_file_write(
+        file_handle,
+        sizeof(BMPHeader),
+        sizeof(BMPHeader),
+        &header
+    );
+    if( !platform_success ) {
+        return false;
+    }
+    platform_success = platform_file_write(
+        file_handle,
+        image_size,
+        image_size,
+        buffer
+    );
+    if( !platform_success ) {
+        return false;
+    }
+
+    return true;
+}
+
 

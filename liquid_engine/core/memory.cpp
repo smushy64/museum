@@ -121,6 +121,10 @@ void _mem_free_trace(
     const char* file,
     int line
 ) {
+    if( !memory ) {
+        LOG_WARN("Attempted to free nullptr!");
+        return;
+    }
     u64* header = ((u64*)memory) - MEMORY_FIELD_COUNT;
     MemoryType type = (MemoryType)header[MEMORY_FIELD_TYPE];
     usize size = header[MEMORY_FIELD_SIZE];
@@ -526,11 +530,12 @@ void mem_copy_overlapped( void* dst, const void* src, usize size ) {
 
 }
 
-void mem_set( u8 value, usize dst_size, void* dst ) {
+void* mem_set( void* dst, int value, usize n ) {
     u8* bytes = (u8*)dst;
-    for( usize i = 0; i < dst_size; ++i ) {
-        bytes[i] = value;
+    for( usize i = 0; i < n; ++i ) {
+        bytes[i] = (u8)value;
     }
+    return dst;
 }
 
 void mem_zero( void* dst, usize size ) {

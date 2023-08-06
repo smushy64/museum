@@ -10,7 +10,9 @@ Project Museum is a 3D Action RPG. Liquid Engine is the custom engine that will 
 
 Compiled using clang, C++20 standard.
 
-No libraries are used with the exception of system libraries ( Win32, OpenGL etc. )
+No libraries are used with the exception of system libraries ( Win32, OpenGL etc. )*
+
+`* currently using [stb_truetype](https://github.com/nothings/stb/blob/master/stb_truetype.h) for font rendering`
 
 ## Building
 
