@@ -28,10 +28,96 @@ void gl_debug_callback (
     const GLchar*, // message
     const void*    // userParam
 );
-
+internal void gl_make_texture( Texture* texture );
 internal void gl_make_mesh( Mesh* mesh );
 
 #if defined(DEBUG)
+void gl_make_debug_text_shader( OpenGLRendererContext* ctx ) {
+    ctx->font_mesh.vertices_2d    = (Vertex2D*)FONT_QUAD_2D;
+    ctx->font_mesh.vertex_count   = STATIC_ARRAY_COUNT( FONT_QUAD_2D );
+    ctx->font_mesh.indices8       = (u8*)FONT_QUAD_2D_INDICES;
+    ctx->font_mesh.index_count    = STATIC_ARRAY_COUNT( FONT_QUAD_2D_INDICES );
+    ctx->font_mesh.vertex_type    = VERTEX_TYPE_2D;
+    ctx->font_mesh.index_type     = INDEX_TYPE_U8;
+    ctx->font_mesh.is_static_mesh = true;
+
+    gl_make_mesh( &ctx->font_mesh );
+
+    PlatformFileHandle vert_file = {}, frag_file = {};
+    ASSERT( platform_file_open(
+        "./resources/shaders/debug_text.vert.spv",
+        PLATFORM_FILE_OPEN_EXISTING |
+        PLATFORM_FILE_OPEN_READ     |
+        PLATFORM_FILE_OPEN_SHARE_READ,
+        &vert_file
+    ) );
+    ASSERT( platform_file_open(
+        "./resources/shaders/debug_text.frag.spv",
+        PLATFORM_FILE_OPEN_EXISTING |
+        PLATFORM_FILE_OPEN_READ     |
+        PLATFORM_FILE_OPEN_SHARE_READ,
+        &frag_file
+    ) );
+
+    u32 vert_binary_size =
+        platform_file_query_size( &vert_file );
+    void* vert_binary =
+        mem_alloc( vert_binary_size, MEMTYPE_RENDERER );
+    ASSERT(vert_binary);
+    u32 frag_binary_size =
+        platform_file_query_size( &frag_file );
+    void* frag_binary =
+        mem_alloc( frag_binary_size, MEMTYPE_RENDERER );
+    ASSERT( frag_binary );
+
+    ASSERT( platform_file_read(
+        &vert_file,
+        vert_binary_size,
+        vert_binary_size,
+        vert_binary
+    ) );
+    ASSERT( platform_file_read(
+        &frag_file,
+        frag_binary_size,
+        frag_binary_size,
+        frag_binary
+    ) );
+    platform_file_close( &vert_file );
+    platform_file_close( &frag_file );
+
+    Shader shaders[2] = {};
+
+    ASSERT( gl_shader_compile(
+        vert_binary_size,
+        vert_binary,
+        GL_VERTEX_SHADER,
+        "main",
+        0,
+        0,
+        0,
+        &shaders[0]
+    ) );
+    ASSERT( gl_shader_compile(
+        frag_binary_size,
+        frag_binary,
+        GL_FRAGMENT_SHADER,
+        "main",
+        0,
+        0,
+        0,
+        &shaders[1]
+    ) );
+    ASSERT( gl_shader_program_link(
+        2, shaders,
+        &ctx->font
+    ) );
+    gl_shader_delete( shaders[0] );
+    gl_shader_delete( shaders[1] );
+
+    mem_free( vert_binary );
+    mem_free( frag_binary );
+}
+
 void gl_make_debug_shader( OpenGLRendererContext* ctx ) {
     PlatformFileHandle vert_file = {}, frag_file = {};
     ASSERT( platform_file_open(
@@ -311,7 +397,8 @@ b32 gl_renderer_backend_initialize( RendererContext* generic_ctx ) {
     f32 aspect_ratio =
         (f32)dimensions.width /
         (f32)dimensions.height;
-    mat4 view_projection = lookat(
+    mat4 view_projections[2];
+    view_projections[0] = lookat(
         VEC3::FORWARD,
         VEC3::ZERO,
         VEC3::UP
@@ -323,12 +410,23 @@ b32 gl_renderer_backend_initialize( RendererContext* generic_ctx ) {
         -100.0f,
         100.0f
     );
+    view_projections[1] = lookat(
+        VEC3::BACK,
+        VEC3::ZERO,
+        VEC3::UP
+    ) * ortho(
+        0.0f,
+        (f32)dimensions.width,
+        0.0f,
+        (f32)dimensions.height
+    );
     glNamedBufferStorage(
         ctx->u_matrices,
-        sizeof(mat4),
-        value_pointer( view_projection ),
+        sizeof(mat4) * 2,
+        view_projections,
         GL_DYNAMIC_STORAGE_BIT
     );
+    ctx->viewport = v2(dimensions);
     glBindBufferBase(
         GL_UNIFORM_BUFFER,
         0,
@@ -455,6 +553,14 @@ b32 gl_renderer_backend_initialize( RendererContext* generic_ctx ) {
     glVertexArrayAttribBinding( ctx->debug_vao, 0, 0 );
 #endif
 
+    ASSERT( debug_font_create(
+        "./resources/test.ttf",
+        64.0f,
+        &ctx->font_data
+    ) );
+    gl_make_debug_text_shader( ctx );
+    gl_make_texture( &ctx->font_data.texture );
+
     GL_LOG_INFO("OpenGL backend initialized successfully.");
     return true;
 }
@@ -464,10 +570,14 @@ void gl_renderer_backend_shutdown( RendererContext* generic_ctx ) {
     // TODO(alicia): TEST CODE ONLY
 
     glDeleteTextures( 1, &NULL_TEXTURE );
+    GLuint font_texture_id = ctx->font_data.texture.id.id();
+    glDeleteTextures( 1, &font_texture_id );
 
     glDeleteBuffers( 1, &ctx->u_matrices );
     gl_shader_program_delete( &ctx->sprite );
     gl_shader_program_delete( &ctx->phong );
+
+    debug_font_destroy( &ctx->font_data );
 
     // TODO(alicia): END TEST CODE ONLY
 
@@ -484,9 +594,12 @@ void gl_renderer_backend_on_resize(
 ) {
     OpenGLRendererContext* ctx = (OpenGLRendererContext*)generic_ctx;
 
+    ctx->viewport = v2( (f32)width, (f32)height );
+
     glViewport( 0, 0, width, height );
     f32 aspect_ratio = (f32)width / (f32)height;
-    mat4 view_projection = lookat(
+    mat4 view_projections[2];
+    view_projections[0] = lookat(
         VEC3::FORWARD,
         VEC3::ZERO,
         VEC3::UP
@@ -498,10 +611,20 @@ void gl_renderer_backend_on_resize(
         -100.0f,
         100.0f
     );
+    view_projections[1] = lookat(
+        VEC3::BACK,
+        VEC3::ZERO,
+        VEC3::UP
+    ) * ortho(
+        0.0f,
+        (f32)width,
+        0.0f,
+        (f32)height
+    );
     glNamedBufferSubData(
         ctx->u_matrices,
-        0, sizeof(mat4),
-        value_pointer( view_projection )
+        0, sizeof(mat4) * 2,
+        view_projections
     );
 }
 
@@ -509,6 +632,9 @@ void gl_renderer_backend_on_resize(
 internal void gl_make_texture( Texture* texture ) {
     if( texture->id.is_valid() ) {
         return;
+    }
+    if( texture->format == TEXTURE_FORMAT_RED ) {
+        glPixelStorei( GL_UNPACK_ALIGNMENT, 1 );
     }
     GLuint handle = 0;
     glCreateTextures( GL_TEXTURE_2D, 1, &handle );
@@ -548,6 +674,7 @@ internal void gl_make_texture( Texture* texture ) {
     glTextureParameteri( handle, GL_TEXTURE_MIN_FILTER, min_filter );
     glTextureParameteri( handle, GL_TEXTURE_MAG_FILTER, mag_filter );
     
+
     GLenum internal_format = {};
     switch( texture->format ) {
         case TEXTURE_FORMAT_RGB:
@@ -557,7 +684,7 @@ internal void gl_make_texture( Texture* texture ) {
             internal_format = GL_RGBA8;
             break;
         case TEXTURE_FORMAT_RED:
-            internal_format = GL_RED;
+            internal_format = GL_R8;
             break;
     }
 
@@ -591,6 +718,10 @@ internal void gl_make_texture( Texture* texture ) {
     );
 
     texture->id = handle;
+
+    if( texture->format == TEXTURE_FORMAT_RED ) {
+        glPixelStorei( GL_UNPACK_ALIGNMENT, 4 );
+    }
 
 }
 
@@ -774,6 +905,85 @@ b32 gl_renderer_backend_begin_frame(
             index_type,
             nullptr
         );
+    }
+
+    glBindVertexArray( ctx->font_mesh.id.id() );
+    glUseProgram( ctx->font.handle );
+    glBindTextureUnit( 0, ctx->font_data.texture.id.id() );
+
+    for( u32 i = 0; i < order->text_count; ++i ) {
+        UIText* text = (UIText*)&order->ui_text[i];
+        glProgramUniform4fv(
+            ctx->font.handle,
+            DEBUG_TEXT_U_COLOR, 1,
+            value_pointer( text->color )
+        );
+
+        f32 origin_x = text->position.x * ctx->viewport.x;
+        f32 origin_y = text->position.y * ctx->viewport.y;
+
+        for( u32 i = 0; i < text->text.len; ++i ) {
+            c8 character = text->text.buffer[i];
+            GlyphMetrics* metrics = font_data_metrics(
+                &ctx->font_data,
+                character
+            );
+            if( !metrics ) {
+                continue;
+            }
+
+            vec2 char_scale = v2(
+                (f32)metrics->pixel_width,
+                (f32)metrics->pixel_height
+            ) * text->scale;
+
+            f32 left_side_bearing =
+                (f32)metrics->pixel_left_bearing * text->scale;
+            f32 top_bearing =
+                (f32)metrics->pixel_top_bearing * text->scale;
+
+            vec2 char_translate = {
+                origin_x + left_side_bearing,
+                origin_y - top_bearing
+            };
+
+            mat4 transform =
+                translate( char_translate ) *
+                scale( char_scale );
+
+            glProgramUniformMatrix4fv(
+                ctx->font.handle,
+                DEBUG_TEXT_U_TRANSFORM,
+                1, GL_FALSE,
+                value_pointer( transform )
+            );
+
+            vec4 font_coordinates = {
+                metrics->atlas_coordinate.x,
+                metrics->atlas_coordinate.y,
+                metrics->atlas_scale.x,
+                metrics->atlas_scale.y
+            };
+            glProgramUniform4fv(
+                ctx->font.handle,
+                DEBUG_TEXT_U_COORDINATES, 1,
+                value_pointer( font_coordinates )
+            );
+
+            glDrawElements(
+                GL_TRIANGLES,
+                ctx->font_mesh.index_count,
+                GL_UNSIGNED_BYTE,
+                nullptr
+            );
+
+            f32 advance =
+                (f32)metrics->pixel_advance * text->scale;
+
+            origin_x += advance;
+
+        }
+
     }
 
     return true;

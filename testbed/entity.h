@@ -72,6 +72,7 @@ struct Asteroid {
     SpriteRenderer sprite_renderer;
     Collider2D     collider;
     u32            life;
+    u32            score;
 };
 STATIC_ASSERT( sizeof(Asteroid) <= MAX_ENTITY_SIZE );
 Entity asteroid_create(

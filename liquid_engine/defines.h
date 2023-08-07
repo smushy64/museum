@@ -147,11 +147,11 @@ typedef u8  b8;
 typedef u32 b32;
 
 /// UTF-8 | 8-bit character
-typedef i8 c8;
+typedef char c8;
 /// UTF-16 | 16-bit character
-typedef i16 c16;
+typedef wchar_t c16;
 /// UTF-32 | 32-bit character
-typedef i32 c32;
+typedef int c32;
 
 /// single precision IEEE-754 floating-point number
 typedef float f32;
@@ -229,6 +229,7 @@ typedef void* pvoid;
         #define LD_API __declspec(dllimport)
     #endif
 
+    #define unused(x) (void)(x)
 
 #else // not MSVC
     #define PANIC() __builtin_trap()
@@ -244,6 +245,8 @@ typedef void* pvoid;
     #define FORCE_INLINE  __attribute__((always_inline)) inline
     #define NO_INLINE     __attribute__((noinline))
     #define MAKE_PACKED( declaration ) declaration __attribute__((__packed__))
+
+    #define unused(x) (void)((x))
 
     #if defined(LD_EXPORT)
         #if defined(LD_PLATFORM_WINDOWS)
@@ -280,6 +283,9 @@ STATIC_ASSERT(sizeof(i32) == 4, "Expected i32 to be 4 bytes!");
 STATIC_ASSERT(sizeof(i64) == 8, "Expected i64 to be 8 bytes!");
 STATIC_ASSERT(sizeof(f32) == 4, "Expected f32 to be 4 bytes!");
 STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes!");
+STATIC_ASSERT(sizeof(c8)  == 1, "Expected c8 to be 1 byte!" );
+STATIC_ASSERT(sizeof(c16) == 2, "Expected c16 to be 2 bytes!" );
+STATIC_ASSERT(sizeof(c32) == 4, "Expected c32 to be 4 bytes!" );
 
 #if defined(LD_ARCH_32_BIT)
     STATIC_ASSERT(sizeof(usize) == sizeof(u32), "Expected to be running on 32 bit architecture!");
@@ -302,8 +308,6 @@ STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes!");
 #define local    static
 #define global   static
 #define loop     for( ;; )
-/// mark value as unused
-#define unused(x) x = x
 
 /// Define a 24-bit RGB value (using u32)
 #define RGB_U32( r, g, b )\

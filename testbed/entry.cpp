@@ -67,6 +67,7 @@ internal inline void game_state_set_status(
 
 #define PLAYER_MAX_LIVES (3ul)
 #define MAX_TORPEDOES (5)
+#define MAX_TEXT (3)
 struct GameMemory {
     Texture         textures[3];
     RandXOR         rand_xor;
@@ -77,6 +78,9 @@ struct GameMemory {
     EntityID        first_life_ui_id;
     EventListenerID on_exit_listener;
 
+    UIText text[MAX_TEXT];
+
+    u32 player_score;
     u32 asteroid_count;
     u32 ship_lives;
 
@@ -321,6 +325,8 @@ internal b32 filter_sprites( Entity* entity ) {
     return filter_active_visible2d( entity ) && has_sprite_renderer;
 }
 
+#define SCORE_TEXT_BUFFER_SIZE (32)
+global char SCORE_TEXT_BUFFER[SCORE_TEXT_BUFFER_SIZE];
 
 b32 status_play(
     GameMemory* memory,
@@ -336,6 +342,20 @@ b32 status_play(
         entity_ship->state_flags,
         ENTITY_STATE_FLAG_IS_ACTIVE
     ) && memory->ship_lives;
+
+    render_order->text_count = 1;
+    render_order->ui_text    = memory->text;
+
+    StringView score_text;
+    score_text.buffer = SCORE_TEXT_BUFFER;
+    score_text.len    = SCORE_TEXT_BUFFER_SIZE;
+    score_text.len =
+        string_format( score_text, "{i,06}", memory->player_score );
+
+    memory->text[0].text     = score_text;
+    memory->text[0].position = v2(0.025f, 0.85f);
+    memory->text[0].scale    = 0.3f;
+    memory->text[0].color    = RGBA::WHITE;
 
     if( ship_is_active ) {
 
@@ -397,6 +417,8 @@ b32 status_play(
             );
 
             if( hit_result ) {
+                Asteroid* hit_asteroid = (Asteroid*)hit_result->bytes;
+                memory->player_score += hit_asteroid->score;
                 game_damage_asteroid( memory, storage, hit_result );
                 entity_set_active( torpedo_entity, false );
                 continue;

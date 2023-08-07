@@ -11,6 +11,7 @@
 #include "gl_loader.h"
 #include "gl_shader.h"
 #include "gl_buffer.h"
+#include "core/graphics/font.h"
 
 b32 gl_renderer_backend_initialize( RendererContext* generic_ctx );
 void gl_renderer_backend_shutdown( RendererContext* ctx );
@@ -31,6 +32,9 @@ b32 gl_renderer_backend_end_frame(
 #define MAX_DEBUG_POINTS 32
 #endif
 
+#define DEBUG_TEXT_U_TRANSFORM   (0)
+#define DEBUG_TEXT_U_COLOR       (1)
+#define DEBUG_TEXT_U_COORDINATES (2)
 struct OpenGLRendererContext {
     RendererContext ctx;
 
@@ -38,12 +42,17 @@ struct OpenGLRendererContext {
 
     ShaderProgram phong;
     ShaderProgram sprite;
+    ShaderProgram font;
     GLint sprite_transform;
     GLint sprite_atlas_coordinate;
     GLint sprite_flip;
     GLint sprite_atlas_cell_size;
     GLint sprite_tint;
     GLint sprite_z_index;
+
+    FontData font_data;
+
+    vec2 viewport;
 
 #if defined(DEBUG)
     ShaderProgram debug;
@@ -52,6 +61,7 @@ struct OpenGLRendererContext {
 #endif
 
     Mesh sprite_mesh;
+    Mesh font_mesh;
 
     const char* device_vendor;
     const char* device_name;

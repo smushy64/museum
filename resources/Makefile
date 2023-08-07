@@ -7,8 +7,9 @@ SHADERS_PATH   := ../$(BUILD_PATH)/resources/shaders
 SHIP_PATH      := $(RESOURCES_PATH)/ship.bmp
 ICON_PATH      := ../$(BUILD_PATH)/icon.ico
 ASTEROID_PATH  := $(RESOURCES_PATH)/asteroid.bmp
+TEST_FONT_PATH := $(RESOURCES_PATH)/test.ttf
 
-all: $(RESOURCES_PATH) $(SHADERS_PATH) $(ICON_PATH) $(ASTEROID_PATH) $(SHIP_PATH)
+all: $(RESOURCES_PATH) $(SHADERS_PATH) $(TEST_FONT_PATH) $(ICON_PATH) $(ASTEROID_PATH) $(SHIP_PATH)
 
 clean:
 	@echo "Make: removing resources from build directory . . ."
@@ -37,6 +38,10 @@ $(SHIP_PATH):images/ship.bmp
 $(ASTEROID_PATH):images/asteroid.bmp
 	@echo "Make: copying asteroid.bmp . . ."
 	@cp images/asteroid.bmp $(ASTEROID_PATH)
+
+$(TEST_FONT_PATH):test.ttf
+	@echo "Make: copying test.ttf . . ."
+	@cp test.ttf $(TEST_FONT_PATH)
 
 .PHONY: all spit clean
 

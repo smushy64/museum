@@ -83,9 +83,13 @@ inline internal void asteroid_set_life( Entity* entity, u32 life, RandXOR& rand 
     local const f32 ASTEROID_SCALE[] = {
         0, 0.4f, 0.6f, 1.0f
     };
+    local const u32 ASTEROID_SCORE[] = {
+        0, 100, 50, 20
+    };
     const vec2 ASTEROID_BASE_SCALE = VEC2::ONE * 0.13f;
 
     asteroid->transform.scale = ASTEROID_BASE_SCALE * ASTEROID_SCALE[life];
+    asteroid->score = ASTEROID_SCORE[life];
 
     #define ASTEROID_COLLIDER_SCALE (1.5f)
     asteroid->collider = collider2d_new_rect(

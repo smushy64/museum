@@ -288,36 +288,6 @@ b32 engine_entry( int argc, char** argv ) {
 
 #endif
 
-    // TODO(alicia): TEST CODE ONLY
-    b32 test_font = true;
-    if( test_font ) {
-        FontData font_data = {};
-        if( !debug_font_create( "test.ttf", 64.0f, &font_data ) ) {
-            return false;
-        }
-        PlatformFileHandle write_file = {};
-        if( !platform_file_open(
-            "./test_font_render.bmp",
-            PLATFORM_FILE_OPEN_WRITE,
-            &write_file
-        ) ) {
-            return false;
-        }
-
-        if(!debug_write_bmp(
-            &write_file,
-            font_data.texture.width,
-            font_data.texture.height,
-            texture_format_byte_size( font_data.texture.format ),
-            font_data.texture.buffer
-        )) {
-            return false;
-        }
-
-        platform_file_close( &write_file );
-        return true;
-    }
-
     LOG_INFO("Liquid Engine Version: {i}.{i}",
         LIQUID_ENGINE_VERSION_MAJOR,
         LIQUID_ENGINE_VERSION_MINOR

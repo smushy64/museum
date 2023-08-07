@@ -53,12 +53,22 @@ struct DebugPoints {
 };
 #endif
 
+struct UIText {
+    StringView text;
+    vec2 position;
+    f32  scale;
+    rgba color;
+};
+
 struct RenderOrder {
     Mesh* meshes;
     u32   mesh_count;
 
     Texture* textures;
     u32      texture_count;
+
+    UIText* ui_text;
+    u32     text_count;
 
     DrawBinding* draw_bindings;
     u32 draw_binding_count;

@@ -11,7 +11,7 @@
     - [x] lives counter
     - [ ] font rendering
         - [x] stb_truetype packed font atlas
-        - [ ] score
+        - [x] score
         - [ ] main menu
     - [ ] sfx
     - [ ] ufo?
