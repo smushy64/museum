@@ -12,5 +12,7 @@ typedef u32 PlatformFlags;
 #define PLATFORM_DPI_AWARE ( 1 << 0 )
 /// Pause application when surface is inactive.
 #define PLATFORM_PAUSE_ON_SURFACE_INACTIVE ( 1 << 1 )
+/// Allow user to resize surface.
+#define PLATFORM_RESIZEABLE ( 1 << 2 )
 
 #endif

@@ -11,7 +11,6 @@
 #define ENTITY_TYPE_ASTEROID       2
 #define ENTITY_TYPE_TORPEDO        3
 #define ENTITY_TYPE_SHIP_DESTROYED 4
-#define ENTITY_TYPE_LIFE_UI        5
 
 inline const char* entity_type_to_string( EntityType type ) {
     switch( type ) {
@@ -19,7 +18,6 @@ inline const char* entity_type_to_string( EntityType type ) {
         case ENTITY_TYPE_ASTEROID: return "Asteroid";
         case ENTITY_TYPE_TORPEDO:  return "Torpedo";
         case ENTITY_TYPE_SHIP_DESTROYED: return "Ship Destroyed";
-        case ENTITY_TYPE_LIFE_UI: return "Life UI";
         default: return "null";
     }
 }
@@ -64,8 +62,8 @@ void torpedo_enable( Entity* entity, Ship* ship, vec2 ship_forward );
 // NOTE(alicia): asteroid
 
 #define ASTEROID_MAX_LIFE (3ul)
-#define ASTEROID_MIN_SPEED (0.25f)
-#define ASTEROID_MAX_SPEED (1.0f)
+#define ASTEROID_MIN_SPEED (0.1f)
+#define ASTEROID_MAX_SPEED (0.6f)
 struct Asteroid {
     Transform2D    transform;
     Physics2D      physics;
@@ -102,14 +100,5 @@ struct ShipDestroyed {
 };
 Entity ship_destroyed_create( struct Texture* texture_atlas );
 void ship_destroyed_enable( Entity* entity, vec2 position, RandXOR& rand );
-
-// NOTE(alicia): life ui
-
-struct LifeUI {
-    Transform2D transform;
-    u8 _padding[sizeof(Physics2D)];
-    SpriteRenderer sprite_renderer;
-};
-Entity life_ui_create( vec2 position, struct Texture* texture_atlas );
 
 #endif // header guard

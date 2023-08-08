@@ -9,10 +9,12 @@
 - [ ] Make an asteroids clone using liquid engine :)
     - [x] i-frames on respawn
     - [x] lives counter
-    - [ ] font rendering
+    - [x] font rendering
         - [x] stb_truetype packed font atlas
         - [x] score
-        - [ ] main menu
+        - [x] main menu
+    - [x] make lives counter a ui element
+    - [x] prevent window resize
     - [ ] sfx
     - [ ] ufo?
 

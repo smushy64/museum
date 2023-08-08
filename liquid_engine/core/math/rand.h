@@ -8,6 +8,24 @@
 #include "defines.h"
 #include "functions.h"
 
+#define RAND_INT_TO_FLOAT( x )\
+    lerp(\
+        -1.0f,\
+        1.0f,\
+        inverse_lerp(\
+            (f32)I32::MIN,\
+            (f32)I32::MAX,\
+            (f32)(x)\
+        )\
+    )
+
+#define RAND_INT_TO_FLOAT_01( x )\
+    inverse_lerp(\
+        (f32)U32::MIN,\
+        (f32)U32::MAX,\
+        (f32)(x)\
+    )
+
 /// random number generator.
 /// linear congruential generator algorithm
 struct RandLCG {
@@ -42,18 +60,18 @@ struct RandLCG {
         current = ( a * -current + b ) % m;
         return current;
     }
-    /// random unsigned int in 0-U32::MAX range
+    /// random unsigned int in 0 to U32::MAX range
     u32 next_u32() {
         i32 next = next_i32();
         return *(u32*)&next;
     }
     /// random float in -1 to 1 range
     f32 next_f32() {
-        return normalize_range( next_i32() );
+        return RAND_INT_TO_FLOAT( next_i32() );
     }
     /// random float in 0 to 1 range
     f32 next_f32_01() {
-        return normalize_range( next_u32() );
+        return RAND_INT_TO_FLOAT_01( next_u32() );
     }
 };
 
@@ -81,28 +99,17 @@ struct RandXOR {
     }
     /// random signed integer in range I32::MIN to I32::MAX
     i32 next_i32() {
-        i32 result = next_u32();
-        return *(i32*)&result;
+        u32 absolute = next_u32();
+        b32 sign     = next_u32() % 2;
+        return (i32)absolute * (sign ? -1 : 1);
     }
     /// random float in -1 to 1 range
     f32 next_f32() {
-        i32 next_int = next_i32();
-        f32 value    = inverse_lerp(
-            (f32)I32::MIN,
-            (f32)I32::MAX,
-            (f32)next_int
-        );
-        return value;
+        return RAND_INT_TO_FLOAT( next_i32() );
     }
     /// random float in 0 to 1 range
     f32 next_f32_01() {
-        u32 next_int = next_u32();
-        f32 value    = inverse_lerp(
-            (f32)U32::MIN,
-            (f32)U32::MAX,
-            (f32)next_int
-        );
-        return value;
+        return RAND_INT_TO_FLOAT_01( next_u32() );
     }
 };
 

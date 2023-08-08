@@ -53,11 +53,26 @@ struct DebugPoints {
 };
 #endif
 
+enum UIAnchorX {
+    UI_ANCHOR_X_LEFT,
+    UI_ANCHOR_X_CENTER,
+    UI_ANCHOR_X_RIGHT
+};
+
 struct UIText {
     StringView text;
-    vec2 position;
-    f32  scale;
-    rgba color;
+    vec2       position;
+    f32        scale;
+    rgba       color;
+    UIAnchorX  anchor_x;
+};
+
+struct UIImage {
+    vec2      position;
+    f32       scale;
+    rgba      color;
+    UIAnchorX anchor_x;
+    Texture*  texture;
 };
 
 struct RenderOrder {
@@ -69,6 +84,9 @@ struct RenderOrder {
 
     UIText* ui_text;
     u32     text_count;
+
+    UIImage* ui_image;
+    u32      image_count;
 
     DrawBinding* draw_bindings;
     u32 draw_binding_count;

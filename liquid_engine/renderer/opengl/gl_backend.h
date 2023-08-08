@@ -35,6 +35,9 @@ b32 gl_renderer_backend_end_frame(
 #define DEBUG_TEXT_U_TRANSFORM   (0)
 #define DEBUG_TEXT_U_COLOR       (1)
 #define DEBUG_TEXT_U_COORDINATES (2)
+
+#define DEBUG_UI_IMAGE_U_TRANSFORM (0)
+#define DEBUG_UI_IMAGE_U_TINT      (1)
 struct OpenGLRendererContext {
     RendererContext ctx;
 
@@ -43,6 +46,7 @@ struct OpenGLRendererContext {
     ShaderProgram phong;
     ShaderProgram sprite;
     ShaderProgram font;
+    ShaderProgram ui_image;
     GLint sprite_transform;
     GLint sprite_atlas_coordinate;
     GLint sprite_flip;

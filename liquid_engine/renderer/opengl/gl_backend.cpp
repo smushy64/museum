@@ -31,7 +31,82 @@ void gl_debug_callback (
 internal void gl_make_texture( Texture* texture );
 internal void gl_make_mesh( Mesh* mesh );
 
-#if defined(DEBUG)
+void gl_make_debug_image_shader( OpenGLRendererContext* ctx ) {
+    PlatformFileHandle vert_file = {}, frag_file = {};
+    ASSERT( platform_file_open(
+        "./resources/shaders/debug_ui_image.vert.spv",
+        PLATFORM_FILE_OPEN_EXISTING |
+        PLATFORM_FILE_OPEN_READ     |
+        PLATFORM_FILE_OPEN_SHARE_READ,
+        &vert_file
+    ) );
+    ASSERT( platform_file_open(
+        "./resources/shaders/debug_ui_image.frag.spv",
+        PLATFORM_FILE_OPEN_EXISTING |
+        PLATFORM_FILE_OPEN_READ     |
+        PLATFORM_FILE_OPEN_SHARE_READ,
+        &frag_file
+    ) );
+
+    u32 vert_binary_size =
+        platform_file_query_size( &vert_file );
+    void* vert_binary =
+        mem_alloc( vert_binary_size, MEMTYPE_RENDERER );
+    ASSERT(vert_binary);
+    u32 frag_binary_size =
+        platform_file_query_size( &frag_file );
+    void* frag_binary =
+        mem_alloc( frag_binary_size, MEMTYPE_RENDERER );
+    ASSERT( frag_binary );
+
+    ASSERT( platform_file_read(
+        &vert_file,
+        vert_binary_size,
+        vert_binary_size,
+        vert_binary
+    ) );
+    ASSERT( platform_file_read(
+        &frag_file,
+        frag_binary_size,
+        frag_binary_size,
+        frag_binary
+    ) );
+    platform_file_close( &vert_file );
+    platform_file_close( &frag_file );
+
+    Shader shaders[2] = {};
+
+    ASSERT( gl_shader_compile(
+        vert_binary_size,
+        vert_binary,
+        GL_VERTEX_SHADER,
+        "main",
+        0,
+        0,
+        0,
+        &shaders[0]
+    ) );
+    ASSERT( gl_shader_compile(
+        frag_binary_size,
+        frag_binary,
+        GL_FRAGMENT_SHADER,
+        "main",
+        0,
+        0,
+        0,
+        &shaders[1]
+    ) );
+    ASSERT( gl_shader_program_link(
+        2, shaders,
+        &ctx->ui_image
+    ) );
+    gl_shader_delete( shaders[0] );
+    gl_shader_delete( shaders[1] );
+
+    mem_free( vert_binary );
+    mem_free( frag_binary );
+
+}
 void gl_make_debug_text_shader( OpenGLRendererContext* ctx ) {
     ctx->font_mesh.vertices_2d    = (Vertex2D*)FONT_QUAD_2D;
     ctx->font_mesh.vertex_count   = STATIC_ARRAY_COUNT( FONT_QUAD_2D );
@@ -117,6 +192,7 @@ void gl_make_debug_text_shader( OpenGLRendererContext* ctx ) {
     mem_free( vert_binary );
     mem_free( frag_binary );
 }
+#if defined(DEBUG)
 
 void gl_make_debug_shader( OpenGLRendererContext* ctx ) {
     PlatformFileHandle vert_file = {}, frag_file = {};
@@ -560,6 +636,7 @@ b32 gl_renderer_backend_initialize( RendererContext* generic_ctx ) {
     ) );
     gl_make_debug_text_shader( ctx );
     gl_make_texture( &ctx->font_data.texture );
+    gl_make_debug_image_shader( ctx );
 
     GL_LOG_INFO("OpenGL backend initialized successfully.");
     return true;
@@ -907,8 +984,8 @@ b32 gl_renderer_backend_begin_frame(
         );
     }
 
-    glBindVertexArray( ctx->font_mesh.id.id() );
     glUseProgram( ctx->font.handle );
+    glBindVertexArray( ctx->font_mesh.id.id() );
     glBindTextureUnit( 0, ctx->font_data.texture.id.id() );
 
     for( u32 i = 0; i < order->text_count; ++i ) {
@@ -921,6 +998,34 @@ b32 gl_renderer_backend_begin_frame(
 
         f32 origin_x = text->position.x * ctx->viewport.x;
         f32 origin_y = text->position.y * ctx->viewport.y;
+
+        if( text->anchor_x != UI_ANCHOR_X_LEFT ) {
+            f32 width = 0.0f;
+            for( u32 i = 0; i < text->text.len; ++i ) {
+                c8 character = text->text.buffer[i];
+                GlyphMetrics* metrics = font_data_metrics(
+                    &ctx->font_data,
+                    character
+                );
+                if( !metrics ) {
+                    continue;
+                }
+                f32 advance =
+                    (f32)metrics->pixel_advance * text->scale;
+
+                width += advance;
+            }
+
+            switch( text->anchor_x ) {
+                case UI_ANCHOR_X_CENTER: {
+                    origin_x -= width / 2.0f;
+                } break;
+                case UI_ANCHOR_X_RIGHT: {
+                    origin_x -= width;
+                } break;
+                default: break;
+            }
+        }
 
         for( u32 i = 0; i < text->text.len; ++i ) {
             c8 character = text->text.buffer[i];
@@ -984,6 +1089,60 @@ b32 gl_renderer_backend_begin_frame(
 
         }
 
+    }
+
+    glUseProgram( ctx->ui_image.handle );
+    glBindVertexArray( ctx->font_mesh.id.id() );
+
+    for( u32 i = 0; i < order->image_count; ++i ) {
+        UIImage* image = &order->ui_image[i];
+        if( image->texture->id.is_valid() ) {
+            glBindTextureUnit( 0, image->texture->id.id() );
+        } else {
+            glBindTextureUnit( 0, NULL_TEXTURE );
+            gl_make_texture( image->texture );
+        }
+
+        vec2 position = hadamard( image->position, ctx->viewport );
+
+        switch( image->anchor_x ) {
+            case UI_ANCHOR_X_CENTER: {
+                position.x -= image->scale / 2.0f;
+            } break;
+            case UI_ANCHOR_X_RIGHT: {
+                position.x -= image->scale;
+            } break;
+            default:
+                break;
+        }
+
+        vec2 texture_scale = v2( image->texture->dimensions );
+
+        vec2 image_scale = texture_scale * image->scale;
+
+        mat4 transform =
+            translate( position ) *
+            scale( image_scale );
+
+        glProgramUniformMatrix4fv(
+            ctx->ui_image.handle,
+            DEBUG_UI_IMAGE_U_TRANSFORM,
+            1, GL_FALSE,
+            value_pointer( transform )
+        );
+
+        glProgramUniform4fv(
+            ctx->ui_image.handle,
+            DEBUG_UI_IMAGE_U_TINT, 1,
+            value_pointer( image->color )
+        );
+
+        glDrawElements(
+            GL_TRIANGLES,
+            ctx->font_mesh.index_count,
+            GL_UNSIGNED_BYTE,
+            nullptr
+        );
     }
 
     return true;

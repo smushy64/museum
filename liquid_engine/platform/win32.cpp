@@ -462,8 +462,17 @@ b32 platform_init(
         return false;
     }
 
-    DWORD dwStyle   = WS_OVERLAPPEDWINDOW;
+    DWORD dwStyle;
     DWORD dwExStyle = WS_EX_OVERLAPPEDWINDOW;
+
+    if( CHECK_BITS( flags, PLATFORM_RESIZEABLE ) ) {
+        dwStyle = WS_OVERLAPPEDWINDOW;
+    } else {
+        dwStyle =
+            WS_OVERLAPPED  |
+            WS_CAPTION     |
+            WS_SYSMENU;
+    }
 
     i32 width = 0, height = 0;
     RECT window_rect = {};

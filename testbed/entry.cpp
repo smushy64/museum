@@ -28,6 +28,7 @@ enum GameStatus : u32 {
     GAME_STATUS_PAUSE,
     GAME_STATUS_STAGE_COMPLETE,
     GAME_STATUS_GAME_OVER,
+    GAME_STATUS_MAIN_MENU,
     GAME_STATUS_TEST
 };
 
@@ -68,6 +69,7 @@ internal inline void game_state_set_status(
 #define PLAYER_MAX_LIVES (3ul)
 #define MAX_TORPEDOES (5)
 #define MAX_TEXT (3)
+#define MAX_IMAGES (3)
 struct GameMemory {
     Texture         textures[3];
     RandXOR         rand_xor;
@@ -75,31 +77,26 @@ struct GameMemory {
     EntityID        first_torpedo_id;
     EntityID        current_torpedo;
     EntityID        first_ship_destroyed_id;
-    EntityID        first_life_ui_id;
     EventListenerID on_exit_listener;
 
     UIText text[MAX_TEXT];
+    UIImage images[MAX_IMAGES];
 
     u32 player_score;
     u32 asteroid_count;
     u32 ship_lives;
 
+    u32 menu_selection;
+
     GameState game_state;
 };
 
 internal void game_set_life(
-    GameMemory*    memory,
-    EntityStorage* storage,
-    u32            new_life
+    GameMemory* memory,
+    u32         new_life
 ) {
     u32 life = clamp( new_life, 0ul, PLAYER_MAX_LIVES );
     memory->ship_lives = life;
-    for( u32 i = 0; i < PLAYER_MAX_LIVES; ++i ) {
-        EntityID id         = memory->first_life_ui_id + i;
-        Entity*  entity     = entity_storage_get( storage, id );
-        b32      set_active = i < life;
-        entity_set_active( entity, set_active );
-    }
 }
 
 internal b32 game_generate_asteroid(
@@ -236,21 +233,6 @@ b32 application_init( struct EngineContext* ctx, void* generic_memory ) {
 
     ASSERT( memory->ship_id >= 0 );
 
-    f32 life_ui_y       = 0.9f;
-    f32 life_ui_start_x = 1.2f;
-    for( u32 i = 0; i < PLAYER_MAX_LIVES; ++i ) {
-        f32    life_ui_x = life_ui_start_x - ( 0.15f * (f32)i );
-        Entity life_ui = life_ui_create(
-            { life_ui_x, life_ui_y },
-            &memory->textures[1]
-        );
-        EntityID id = entity_storage_create_entity( storage, &life_ui );
-        ASSERT( id >= 0 );
-        if( i == 0 ) {
-            memory->first_life_ui_id = id;
-        }
-    }
-
     for( u32 i = 0; i < MAX_TORPEDOES; ++i ) {
         Entity   torpedo = torpedo_create( &memory->textures[0] );
         EntityID id      = entity_storage_create_entity( storage, &torpedo );
@@ -274,10 +256,25 @@ b32 application_init( struct EngineContext* ctx, void* generic_memory ) {
 
     }
 
+    f32 lives_origin_x = 0.025f;
+    f32 lives_origin_y = 0.925f;
+    f32 lives_advance  = 0.05f;
+    f32 lives_scale    = 0.5f;
+    for( u32 i = 0; i < MAX_IMAGES; ++i ) {
+        vec2 position = { lives_origin_x, lives_origin_y };
+        memory->images[i].position = position;
+        memory->images[i].scale    = lives_scale;
+        memory->images[i].color    = RGBA::WHITE;
+        memory->images[i].anchor_x = UI_ANCHOR_X_LEFT;
+        memory->images[i].texture  = &memory->textures[1];
+
+        lives_origin_x += lives_advance;
+    }
+
     memory->on_exit_listener =
         event_subscribe( EVENT_CODE_EXIT, on_exit, memory );
 
-    game_state_set_status( &memory->game_state, GAME_STATUS_START );
+    game_state_set_status( &memory->game_state, GAME_STATUS_MAIN_MENU );
 
     return true;
 }
@@ -304,6 +301,7 @@ internal b32 filter_active_torpedoes( Entity* entity ) {
     return filter_active_visible2d( entity ) && is_torpedo;
 }
 
+[[maybe_unused]]
 internal b32 filter_colliders( Entity* entity ) {
     b32 has_collider2d = CHECK_BITS(
         entity->component_flags,
@@ -325,6 +323,81 @@ internal b32 filter_sprites( Entity* entity ) {
     return filter_active_visible2d( entity ) && has_sprite_renderer;
 }
 
+#define MAX_SELECTION (2)
+b32 status_main_menu(
+    GameMemory* memory,
+    RenderOrder* render_order
+) {
+
+    render_order->text_count = 3;
+    render_order->ui_text    = memory->text;
+
+    memory->text[0].text     = "Asteroids";
+    memory->text[0].anchor_x = UI_ANCHOR_X_CENTER;
+    memory->text[0].position = v2(0.5f);
+    memory->text[0].scale    = 1.0f;
+    memory->text[0].color    = RGBA::WHITE;
+
+    f32 y = 0.4f;
+    f32 scale = 0.5f;
+    rgba selected_color     = RGBA::WHITE;
+    rgba not_selected_color = RGBA::GRAY;
+
+    memory->text[1].text     = "Start Game";
+    memory->text[1].anchor_x = UI_ANCHOR_X_CENTER;
+    memory->text[1].position = v2(0.5f, y);
+    memory->text[1].scale    = scale;
+    memory->text[1].color    =
+        memory->menu_selection == 0 ?
+            selected_color :
+            not_selected_color;
+
+    y -= 0.1f;
+
+    memory->text[2].text     = "Quit Game";
+    memory->text[2].anchor_x = UI_ANCHOR_X_CENTER;
+    memory->text[2].position = v2(0.5f, y);
+    memory->text[2].scale    = scale;
+    memory->text[2].color    =
+        memory->menu_selection == 1 ?
+            selected_color :
+            not_selected_color;
+
+    b32 key_arrow_up   = input_is_key_down( KEY_ARROW_UP );
+    b32 key_arrow_down = input_is_key_down( KEY_ARROW_DOWN );
+    if(
+        key_arrow_up &&
+        key_arrow_up != input_was_key_down( KEY_ARROW_UP )
+    ) {
+        memory->menu_selection =
+            (memory->menu_selection + 1) % MAX_SELECTION;
+    }
+    if(
+        key_arrow_down &&
+        key_arrow_down != input_was_key_down( KEY_ARROW_DOWN )
+    ) {
+        memory->menu_selection =
+            (memory->menu_selection - 1) % MAX_SELECTION;
+    }
+
+    if( input_is_key_down( KEY_ENTER ) ) {
+        switch( memory->menu_selection ) {
+            case 0: {
+                game_state_set_status( &memory->game_state, GAME_STATUS_START );
+            } break;
+            case 1: {
+                Event event = {};
+                event.code = EVENT_CODE_EXIT;
+                event_fire( event );
+            } break;
+            default:
+                break;
+        }
+    }
+
+    return true;
+}
+
 #define SCORE_TEXT_BUFFER_SIZE (32)
 global char SCORE_TEXT_BUFFER[SCORE_TEXT_BUFFER_SIZE];
 
@@ -338,12 +411,23 @@ b32 status_play(
     Entity* entity_ship = &storage->entities[memory->ship_id];
     Ship*   ship = (Ship*)entity_ship->bytes;
 
+    b32 game_is_over = memory->game_state.status == GAME_STATUS_GAME_OVER;
     b32 ship_is_active = CHECK_BITS(
         entity_ship->state_flags,
         ENTITY_STATE_FLAG_IS_ACTIVE
     ) && memory->ship_lives;
 
-    render_order->text_count = 1;
+    if( game_is_over ) {
+        memory->text[1].text     = "Game Over";
+        memory->text[1].position = v2(0.5f);
+        memory->text[1].scale    = 0.5f;
+        memory->text[1].color    = RGBA::WHITE;
+        memory->text[1].anchor_x = UI_ANCHOR_X_CENTER;
+
+        render_order->text_count = 2;
+    } else {
+        render_order->text_count = 1;
+    }
     render_order->ui_text    = memory->text;
 
     StringView score_text;
@@ -356,8 +440,13 @@ b32 status_play(
     memory->text[0].position = v2(0.025f, 0.85f);
     memory->text[0].scale    = 0.3f;
     memory->text[0].color    = RGBA::WHITE;
+    memory->text[0].anchor_x = UI_ANCHOR_X_LEFT;
 
-    if( ship_is_active ) {
+    render_order->image_count = memory->ship_lives;
+    render_order->ui_image    = memory->images;
+
+
+    if( !game_is_over && ship_is_active ) {
 
         vec2 input_direction = {};
         input_direction.x = (f32)input_is_key_down( KEY_ARROW_RIGHT ) -
@@ -405,7 +494,19 @@ b32 status_play(
         storage, filter_asteroids
     );
 
-    /* Torpedoes */ {
+    /* Torpedoes */
+    if( game_is_over ) {
+
+        QueryResultIterator iterator = &torpedoes;
+        EntityID id;
+        while( iterator.next( &id ) ) {
+            Entity* torpedo_entity = entity_storage_get( storage, id );
+            Torpedo* torpedo = (Torpedo*)torpedo_entity->bytes;
+            torpedo->life_timer = 0.0f;
+            entity_set_active( torpedo_entity, false );
+        }
+
+    } else {
 
         QueryResultIterator iterator = &torpedoes;
         EntityID id;
@@ -459,83 +560,87 @@ b32 status_play(
     }
 
     /* Asteroid collision with ship */
-    if( ship_is_active && !ship->is_invincible ) {
-        Entity* hit_result = system_collider2d_solver(
-            storage, memory->ship_id, &asteroids
-        );
-        if( hit_result ) {
+    if( !game_is_over ) {
 
-            b32 is_ship_currently_active = CHECK_BITS(
-                entity_ship->state_flags,
-                ENTITY_STATE_FLAG_IS_ACTIVE
+        if( ship_is_active && !ship->is_invincible ) {
+            Entity* hit_result = system_collider2d_solver(
+                storage, memory->ship_id, &asteroids
             );
-            if( is_ship_currently_active ) {
-                // NOTE(alicia): Ship collided with asteroid
-                entity_set_active( entity_ship, false );
+            if( hit_result ) {
 
+                b32 is_ship_currently_active = CHECK_BITS(
+                    entity_ship->state_flags,
+                    ENTITY_STATE_FLAG_IS_ACTIVE
+                );
+                if( is_ship_currently_active ) {
+                    // NOTE(alicia): Ship collided with asteroid
+                    entity_set_active( entity_ship, false );
+
+                    for( u32 i = 0; i < SHIP_DESTROYED_PIECE_COUNT; ++i ) {
+                        EntityID id = memory->first_ship_destroyed_id + i;
+                        Entity* ship_destroyed_piece =
+                            entity_storage_get( storage, id );
+                        ship_destroyed_enable(
+                            ship_destroyed_piece,
+                            ship->transform.position,
+                            memory->rand_xor
+                        );
+                    }
+
+                    ship->physics.velocity = {};
+                    ship->physics.angular_velocity = 0.0f;
+                    ship->transform.position = {};
+                    ship->transform.rotation = 0.0f;
+
+                    game_set_life( memory, memory->ship_lives - 1 );
+                }
+            }
+        } else if( !ship_is_active && memory->ship_lives ) {
+            memory->game_state.play.respawn_timer += time->delta_seconds;
+            if(
+                memory->game_state.play.respawn_timer >=
+                GAME_STATE_PLAY_RESPAWN_TIME
+            ) {
+                memory->game_state.play.respawn_timer = 0.0f;
+                entity_set_active( entity_ship, true );
+                ship->is_invincible = true;
                 for( u32 i = 0; i < SHIP_DESTROYED_PIECE_COUNT; ++i ) {
                     EntityID id = memory->first_ship_destroyed_id + i;
                     Entity* ship_destroyed_piece =
                         entity_storage_get( storage, id );
-                    ship_destroyed_enable(
-                        ship_destroyed_piece,
-                        ship->transform.position,
-                        memory->rand_xor
-                    );
+                    entity_set_active( ship_destroyed_piece, false );
                 }
-
-                ship->physics.velocity = {};
-                ship->physics.angular_velocity = 0.0f;
-                ship->transform.position = {};
-                ship->transform.rotation = 0.0f;
-
-                game_set_life( memory, storage, memory->ship_lives - 1 );
             }
         }
-    } else if( !ship_is_active && memory->ship_lives ) {
-        memory->game_state.play.respawn_timer += time->delta_seconds;
-        if(
-            memory->game_state.play.respawn_timer >=
-            GAME_STATE_PLAY_RESPAWN_TIME
-        ) {
-            memory->game_state.play.respawn_timer = 0.0f;
-            entity_set_active( entity_ship, true );
-            ship->is_invincible = true;
-            for( u32 i = 0; i < SHIP_DESTROYED_PIECE_COUNT; ++i ) {
-                EntityID id = memory->first_ship_destroyed_id + i;
-                Entity* ship_destroyed_piece =
-                    entity_storage_get( storage, id );
-                entity_set_active( ship_destroyed_piece, false );
-            }
-        }
-    }
 
-    if( ship_is_active && ship->is_invincible ) {
-        ship->invincibility_timer += time->delta_seconds;
-        ship->blink_timer += time->delta_seconds;
-        if( ship->blink_timer >= SHIP_BLINK_TIME ) {
-            ship->blink_timer = 0.0f;
-            b32 is_visible = CHECK_BITS(
-                entity_ship->state_flags,
-                ENTITY_STATE_FLAG_IS_VISIBLE
-            );
-            if( is_visible ) {
-                CLEAR_BIT(
+        if( ship_is_active && ship->is_invincible ) {
+            ship->invincibility_timer += time->delta_seconds;
+            ship->blink_timer += time->delta_seconds;
+            if( ship->blink_timer >= SHIP_BLINK_TIME ) {
+                ship->blink_timer = 0.0f;
+                b32 is_visible = CHECK_BITS(
                     entity_ship->state_flags,
                     ENTITY_STATE_FLAG_IS_VISIBLE
                 );
-            } else {
+                if( is_visible ) {
+                    CLEAR_BIT(
+                        entity_ship->state_flags,
+                        ENTITY_STATE_FLAG_IS_VISIBLE
+                    );
+                } else {
+                    entity_ship->state_flags |= ENTITY_STATE_FLAG_IS_VISIBLE;
+                }
+            }
+            if( ship->invincibility_timer >= SHIP_INVINCIBILITY_TIME ) {
+                ship->is_invincible = false;
+                ship->invincibility_timer = 0.0f;
+                ship->blink_timer = 0.0f;
                 entity_ship->state_flags |= ENTITY_STATE_FLAG_IS_VISIBLE;
             }
-        }
-        if( ship->invincibility_timer >= SHIP_INVINCIBILITY_TIME ) {
-            ship->is_invincible = false;
-            ship->invincibility_timer = 0.0f;
-            ship->blink_timer = 0.0f;
-            entity_ship->state_flags |= ENTITY_STATE_FLAG_IS_VISIBLE;
-        }
 
+        }
     }
+
 
     /* calculate transforms */ {
         EntityStorageQueryResult active_objects = entity_storage_query(
@@ -565,13 +670,7 @@ b32 status_play(
         game_state_set_status( &memory->game_state, GAME_STATUS_GAME_OVER );
     }
 
-    local u32 last_lives = 0;
-    if( last_lives != memory->ship_lives ) {
-        LOG_DEBUG( "lives: {u}", memory->ship_lives );
-    }
-    last_lives = memory->ship_lives;
-
-#if defined(DEBUG)
+#if defined(DEBUG) && 0
     /* debug draw colliders */ {
         EntityStorageQueryResult collider_objects = entity_storage_query(
             storage, filter_colliders
@@ -674,7 +773,7 @@ b32 status_start(
     }
 
     if( !memory->ship_lives ) {
-        game_set_life( memory, storage, PLAYER_MAX_LIVES );
+        game_set_life( memory, PLAYER_MAX_LIVES );
         memory->ship_lives = PLAYER_MAX_LIVES;
     }
 
@@ -705,6 +804,11 @@ b32 application_run( struct EngineContext* ctx, void* generic_memory ) {
 
     b32 status_result = true;
     switch( memory->game_state.status ) {
+        case GAME_STATUS_MAIN_MENU: {
+            status_result = status_main_menu(
+                memory, render_order
+            );
+        } break;
         case GAME_STATUS_START: {
             status_result = status_start(
                 memory,
@@ -715,8 +819,9 @@ b32 application_run( struct EngineContext* ctx, void* generic_memory ) {
         } break;
         case GAME_STATUS_PAUSE:
         case GAME_STATUS_DIED:
-        case GAME_STATUS_GAME_OVER:
         case GAME_STATUS_STAGE_COMPLETE:
+
+        case GAME_STATUS_GAME_OVER:
         case GAME_STATUS_PLAY: {
             status_result = status_play(
                 memory,

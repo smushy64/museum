@@ -217,22 +217,3 @@ void ship_destroyed_enable( Entity* entity, vec2 position, RandXOR& rand ) {
 
 }
 
-Entity life_ui_create( vec2 position, struct Texture* texture_atlas ) {
-    Entity result = {};
-    result.type = ENTITY_TYPE_LIFE_UI;
-    result.state_flags =
-        ENTITY_STATE_FLAG_IS_ACTIVE |
-        ENTITY_STATE_FLAG_IS_VISIBLE |
-        ENTITY_STATE_FLAG_IS_2D;
-    result.component_flags =
-        ENTITY_COMPONENT_FLAG_TRANSFORM |
-        ENTITY_COMPONENT_FLAG_SPRITE_RENDERER;
-
-    LifeUI* life_ui = (LifeUI*)result.bytes;
-    life_ui->sprite_renderer = sprite_renderer_new( texture_atlas, 1ul );
-    life_ui->transform.position = position;
-    life_ui->transform.scale    = v2( SHIP_SCALE );
-
-    return result;
-}
-
