@@ -6,7 +6,7 @@
 # TODO 
 
 ## Motivation mini-projects
-- [ ] Make an asteroids clone using liquid engine :)
+- [x] Make an asteroids clone using liquid engine :)
     - [x] i-frames on respawn
     - [x] lives counter
     - [x] font rendering
@@ -15,8 +15,6 @@
         - [x] main menu
     - [x] make lives counter a ui element
     - [x] prevent window resize
-    - [ ] sfx
-    - [ ] ufo?
 
 ## Linux Build
 - [ ] Link testbed shared object to executable properly
