@@ -18,9 +18,9 @@ testbed_rcpp_flags :=
 testbed_dcpp_flags := 
 testbed_cpp_flags := $(cpp_flags) $(if $(IS_DEBUG),$(testbed_dcpp_flags),$(testbed_rcpp_flags))
 
-testbed_rlink_flags :=
+testbed_rlink_flags := $(rlink_flags)
 testbed_dlink_flags := $(dlink_flags)
-testbed_link_flags := $(if $(IS_DEBUG),$(testbed_dlink_flags),$(testbed_rlink_flags))
+testbed_link_flags := -fuse-ld=lld $(if $(IS_DEBUG),$(testbed_dlink_flags),$(testbed_rlink_flags))
 testbed_link_flags += -nostdlib++ -shared
 
 ifeq ($(IS_WINDOWS), true)

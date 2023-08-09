@@ -32,12 +32,25 @@ b32 gl_renderer_backend_end_frame(
 #define MAX_DEBUG_POINTS 32
 #endif
 
+#define PHONG_U_TRANSFORM (0)
+#define PHONG_TEXTURE     (0)
+
+#define SPRITE_U_TRANSFORM        (0)
+#define SPRITE_U_ATLAS_COORDINATE (1)
+#define SPRITE_U_FLIP             (2)
+#define SPRITE_U_ATLAS_CELL_SIZE  (3)
+#define SPRITE_U_Z_INDEX          (4)
+#define SPRITE_U_TINT             (5)
+#define SPRITE_TEXTURE            (0)
+
 #define DEBUG_TEXT_U_TRANSFORM   (0)
 #define DEBUG_TEXT_U_COLOR       (1)
 #define DEBUG_TEXT_U_COORDINATES (2)
 
 #define DEBUG_UI_IMAGE_U_TRANSFORM (0)
 #define DEBUG_UI_IMAGE_U_TINT      (1)
+
+#define DEBUG_U_COLOR (0)
 struct OpenGLRendererContext {
     RendererContext ctx;
 
@@ -47,12 +60,6 @@ struct OpenGLRendererContext {
     ShaderProgram sprite;
     ShaderProgram font;
     ShaderProgram ui_image;
-    GLint sprite_transform;
-    GLint sprite_atlas_coordinate;
-    GLint sprite_flip;
-    GLint sprite_atlas_cell_size;
-    GLint sprite_tint;
-    GLint sprite_z_index;
 
     FontData font_data;
 
@@ -60,7 +67,6 @@ struct OpenGLRendererContext {
 
 #if defined(DEBUG)
     ShaderProgram debug;
-    GLint         debug_color;
     GLuint        debug_vao, debug_vbo;
 #endif
 

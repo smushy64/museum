@@ -301,7 +301,7 @@ STATIC_ASSERT(sizeof(c32) == 4, "Expected c32 to be 4 bytes!" );
         }\
     } while(0)
 #else
-    #define ASSERT(condition)
+    #define ASSERT(condition) (condition)
 #endif
 
 #define internal static

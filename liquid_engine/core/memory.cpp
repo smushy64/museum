@@ -72,7 +72,7 @@ global MemoryUsage USAGE = {};
 
 namespace impl {
 
-void* _mem_alloc_trace(
+LD_API void* _mem_alloc_trace(
     usize size,
     MemoryType type,
     const char* function,
@@ -93,7 +93,7 @@ void* _mem_alloc_trace(
     );
     return result;
 }
-void* _mem_realloc_trace(
+LD_API void* _mem_realloc_trace(
     void* memory,
     usize new_size,
     const char* function,
@@ -115,7 +115,7 @@ void* _mem_realloc_trace(
     );
     return result;
 }
-void _mem_free_trace(
+LD_API void _mem_free_trace(
     void* memory,
     const char* function,
     const char* file,
@@ -143,7 +143,7 @@ void _mem_free_trace(
     _mem_free( memory );
 }
 
-void* _mem_alloc( usize size, MemoryType type ) {
+LD_API void* _mem_alloc( usize size, MemoryType type ) {
     if( type == MEMTYPE_UNKNOWN ) {
         LOG_WARN(
             "Allocating memory of type unknown! "
@@ -165,7 +165,7 @@ void* _mem_alloc( usize size, MemoryType type ) {
     return heap_alloc( size );
 #endif
 }
-void* _mem_realloc( void* memory, usize new_size ) {
+LD_API void* _mem_realloc( void* memory, usize new_size ) {
 #if defined( LD_PROFILING )
     u64* header = ((u64*)memory) - MEMORY_FIELD_COUNT;
     usize old_size   = header[MEMORY_FIELD_SIZE] + MEMORY_HEADER_SIZE;
@@ -190,7 +190,7 @@ void* _mem_realloc( void* memory, usize new_size ) {
     return heap_realloc( memory, new_size );
 #endif
 }
-void _mem_free( void* memory ) {
+LD_API void _mem_free( void* memory ) {
 #if defined(LD_PROFILING)
     u64* header = ((u64*)memory) - MEMORY_FIELD_COUNT;
 
@@ -461,10 +461,10 @@ LD_API void _stack_arena_pop_item_trace(
 } // namespace impl
 
 
-usize query_memory_usage( MemoryType memtype ) {
+LD_API usize query_memory_usage( MemoryType memtype ) {
     return USAGE.usage[memtype] + USAGE.page_usage[memtype];
 }
-usize query_total_memory_usage() {\
+LD_API usize query_total_memory_usage() {\
     usize result = 0;
     for( u64 i = 0; i < MEMTYPE_COUNT; ++i ) {
         result += query_memory_usage( (MemoryType)i );
@@ -472,16 +472,16 @@ usize query_total_memory_usage() {\
     return result;
 }
 
-usize mem_query_size( void* memory ) {
+LD_API usize mem_query_size( void* memory ) {
     u64* header = ((u64*)memory) - MEMORY_FIELD_COUNT;
     return header[MEMORY_FIELD_SIZE];
 }
-MemoryType mem_query_type( void* memory ) {
+LD_API MemoryType mem_query_type( void* memory ) {
     u64* header = ((u64*)memory) - MEMORY_FIELD_COUNT;
     return (MemoryType)header[MEMORY_FIELD_TYPE];
 }
 
-void mem_copy( void* dst, const void* src, usize size ) {
+LD_API void mem_copy( void* dst, const void* src, usize size ) {
     usize count64 = size / sizeof(u64);
     for( usize i = 0; i < count64; ++i ) {
         *((u64*)dst + i) = *((u64*)src + i);
@@ -495,7 +495,7 @@ void mem_copy( void* dst, const void* src, usize size ) {
     }
 }
 
-void mem_copy_overlapped( void* dst, const void* src, usize size ) {
+LD_API void mem_copy_overlapped( void* dst, const void* src, usize size ) {
     #define INTERMEDIATE_BUFFER_SIZE 256ULL
     void* intermediate_buffer = stack_alloc( INTERMEDIATE_BUFFER_SIZE );
 
@@ -530,7 +530,7 @@ void mem_copy_overlapped( void* dst, const void* src, usize size ) {
 
 }
 
-void* mem_set( void* dst, int value, usize n ) {
+LD_API void* mem_set( void* dst, int value, usize n ) {
     u8* bytes = (u8*)dst;
     for( usize i = 0; i < n; ++i ) {
         bytes[i] = (u8)value;
@@ -538,7 +538,7 @@ void* mem_set( void* dst, int value, usize n ) {
     return dst;
 }
 
-void mem_zero( void* dst, usize size ) {
+LD_API void mem_zero( void* dst, usize size ) {
     usize count64 = size / sizeof(u64);
     for( usize i = 0; i < count64; ++i ) {
         *((u64*)dst + i) = 0ULL;

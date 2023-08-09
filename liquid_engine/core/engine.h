@@ -58,9 +58,17 @@ typedef b32 (*ApplicationRunFN)( struct EngineContext* ctx, void* memory );
 #if defined(LD_API_INTERNAL)
 
 #if defined(LD_PLATFORM_WINDOWS)
-    #define DEFAULT_LIBRARY_PATH "testbed-debug.dll"
+    #if defined(DEBUG)
+        #define DEFAULT_LIBRARY_PATH "testbed-debug.dll"
+    #else
+        #define DEFAULT_LIBRARY_PATH "testbed-release.dll"
+    #endif
 #else
-    #define DEFAULT_LIBRARY_PATH "./testbed-debug.so"
+    #if defined(DEBUG)
+        #define DEFAULT_LIBRARY_PATH "./testbed-debug.so"
+    #else
+        #define DEFAULT_LIBRARY_PATH "./testbed-release.so"
+    #endif
 #endif
 
     /// Engine entry point

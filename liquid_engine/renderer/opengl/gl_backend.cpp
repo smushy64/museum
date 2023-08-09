@@ -192,6 +192,7 @@ void gl_make_debug_text_shader( OpenGLRendererContext* ctx ) {
     mem_free( vert_binary );
     mem_free( frag_binary );
 }
+
 #if defined(DEBUG)
 
 void gl_make_debug_shader( OpenGLRendererContext* ctx ) {
@@ -271,8 +272,6 @@ void gl_make_debug_shader( OpenGLRendererContext* ctx ) {
     mem_free( vert_binary );
     mem_free( frag_binary );
 
-    ctx->debug_color =
-        glGetUniformLocation( ctx->debug.handle, "u_color" );
 }
 #else
 void gl_make_debug_shader( OpenGLRendererContext* ctx ) {
@@ -367,19 +366,6 @@ void gl_make_sprite_shader( OpenGLRendererContext* ctx ) {
     mem_free( vert_binary );
     mem_free( frag_binary );
     ASSERT( gl_shader_program_reflection( &ctx->sprite ) );
-
-    ctx->sprite_transform =
-        glGetUniformLocation( ctx->sprite.handle, "u_transform" );
-    ctx->sprite_atlas_coordinate =
-        glGetUniformLocation( ctx->sprite.handle, "u_atlas_coordinate" );
-    ctx->sprite_flip =
-        glGetUniformLocation( ctx->sprite.handle, "u_flip" );
-    ctx->sprite_atlas_cell_size =
-        glGetUniformLocation( ctx->sprite.handle, "u_atlas_cell_size" );
-    ctx->sprite_tint =
-        glGetUniformLocation( ctx->sprite.handle, "u_tint" );
-    ctx->sprite_z_index =
-        glGetUniformLocation( ctx->sprite.handle, "u_z_index" );
 
 }
 
@@ -939,41 +925,41 @@ b32 gl_renderer_backend_begin_frame(
         ivec2 flip = { (i32)sprite->flip_x, (i32)sprite->flip_y };
         glProgramUniformMatrix4fv(
             ctx->sprite.handle,
-            ctx->sprite_transform,
+            SPRITE_U_TRANSFORM,
             1, GL_FALSE,
             value_pointer( entity->matrix )
         );
         glProgramUniform4iv(
             ctx->sprite.handle,
-            ctx->sprite_atlas_coordinate, 1,
-            value_pointer( sprite->atlas_coordinate )
+            SPRITE_U_ATLAS_COORDINATE,
+            1, value_pointer( sprite->atlas_coordinate )
         );
         glProgramUniform2iv(
             ctx->sprite.handle,
-            ctx->sprite_flip, 1,
-            value_pointer( flip )
+            SPRITE_U_FLIP,
+            1, value_pointer( flip )
         );
         glProgramUniform1ui(
             ctx->sprite.handle,
-            ctx->sprite_atlas_cell_size,
+            SPRITE_U_ATLAS_CELL_SIZE,
             sprite->atlas_cell_size
         );
         glProgramUniform1i(
             ctx->sprite.handle,
-            ctx->sprite_z_index,
+            SPRITE_U_Z_INDEX,
             sprite->z_index
         );
         glProgramUniform4fv(
             ctx->sprite.handle,
-            ctx->sprite_tint, 1,
-            value_pointer( sprite->tint )
+            SPRITE_U_TINT,
+            1, value_pointer( sprite->tint )
         );
         RendererID atlas_id = sprite->atlas->id;
         if( atlas_id.is_valid() ) {
-            glBindTextureUnit( 0, atlas_id.id() );
+            glBindTextureUnit( SPRITE_TEXTURE, atlas_id.id() );
         } else {
             gl_make_texture( sprite->atlas );
-            glBindTextureUnit( 0, NULL_TEXTURE );
+            glBindTextureUnit( SPRITE_TEXTURE, NULL_TEXTURE );
         }
         GLenum index_type = GL_UNSIGNED_BYTE;
         glDrawElements(
@@ -1169,8 +1155,8 @@ b32 gl_renderer_backend_end_frame(
         }
         glProgramUniform4fv(
             ctx->debug.handle,
-            ctx->debug_color, 1,
-            value_pointer( current->color )
+            DEBUG_U_COLOR,
+            1, value_pointer( current->color )
         );
         glNamedBufferSubData(
             ctx->debug_vbo,
@@ -1215,11 +1201,16 @@ inline const char* to_string_type( GLenum type ) {
 }
 
 void gl_debug_callback (
+    [[maybe_unused]]
     GLenum source,
+    [[maybe_unused]]
     GLenum type,
+    [[maybe_unused]]
     GLuint id,
+    [[maybe_unused]]
     GLenum severity,
     GLsizei,       // message length
+    [[maybe_unused]]
     const GLchar* message,
     const void*    // userParam
 ) {

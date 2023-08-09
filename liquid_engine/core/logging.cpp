@@ -55,7 +55,12 @@ LD_API b32 is_log_initialized() {
     return LOGGING_BUFFER != nullptr;
 }
 
-b32 log_init( LogLevel level, StringView logging_buffer ) {
+b32 log_init(
+    [[maybe_unused]]
+    LogLevel level,
+    [[maybe_unused]]
+    StringView logging_buffer
+) {
 #if defined(LD_LOGGING)
 
     ASSERT(!is_log_initialized());
@@ -98,7 +103,10 @@ void log_shutdown() {
 #endif
 }
 
-inline b32 is_level_valid( LogLevel level ) {
+internal inline b32 is_level_valid(
+    [[maybe_unused]]
+    LogLevel level
+) {
     #if defined(LD_LOGGING)
         return (level & GLOBAL_LOG_LEVEL) == level;
     #endif
@@ -198,6 +206,7 @@ internal inline void log_formatted_internal(
     }
 
 #else // if logging enabled
+    b32 is_error = CHECK_BITS( level, LOG_LEVEL_ERROR );
     if( always_print ) {
         if( lock ) {
             platform_mutex_lock( &MUTEX );

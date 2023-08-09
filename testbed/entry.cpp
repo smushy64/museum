@@ -39,16 +39,14 @@ EventCallbackReturn on_exit( Event*, void* generic_memory ) {
 extern "C"
 void application_config( struct EngineConfig* config ) {
 
-    string_format(
+    config->application_name.len = string_format(
         config->application_name,
-        "Test Bed {i}.{i}{c}",
-        LIQUID_ENGINE_VERSION_MAJOR,
-        LIQUID_ENGINE_VERSION_MINOR,
+        "Asteroids{c}",
         0
     );
 
-    config->surface_dimensions        = { 800, 600 };
-    config->log_level        = LOG_LEVEL_ALL_VERBOSE;
+    config->surface_dimensions = { 800, 600 };
+    config->log_level          = LOG_LEVEL_ALL_VERBOSE;
     // TODO(alicia): expose these flags somewhere 
     config->platform_flags   = (1 << 0) | (1 << 1);
     config->memory_size = sizeof(GameMemory);

@@ -112,6 +112,7 @@ b32 status_main_menu(
         switch( state->main_menu.menu_selection ) {
             case GAME_STATE_MAIN_MENU_START_GAME: {
                 memory->asteroid_count = 0;
+                memory->player_score   = 0;
                 game_state_set_status(
                     &memory->game_state,
                     GAME_STATUS_START

@@ -277,7 +277,7 @@ LD_API void log_formatted_unlocked(
         } while(0)
 #else
     #define LOG_PANIC( format, ... ) 
-    #define LOG_ASSERT( condition, format, ... ) 
+    #define LOG_ASSERT( condition, format, ... ) (condition)
     #define UNIMPLEMENTED()
 #endif
 

@@ -113,6 +113,7 @@ internal void printhelp() {
 ArgParseResult parse_args( int argc, char** argv ) {
     ArgParseResult result = {};
 
+    
     const char* default_library_path = DEFAULT_LIBRARY_PATH;
     result.library_path.buffer = result.library_path_buffer;
     result.library_path.len    = str_length( default_library_path );

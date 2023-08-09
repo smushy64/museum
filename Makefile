@@ -54,25 +54,22 @@ export EXE_PATH := $(BUILD_PATH)/$(EXE_NAME)$(EXE_EXT)
 export MUSEUM_NAME  := museum-$(if $(IS_DEBUG),debug,release)$(SO_EXT)
 export TESTBED_NAME := testbed-$(if $(IS_DEBUG),debug,release)$(SO_EXT)
 
-RC_FLAGS := -O2
-
+RC_FLAGS := -O2 -g -Werror -Wall -Wextra
 DC_FLAGS := -O0 -g -Werror -Wall -Wextra -pedantic
-DC_FLAGS += -Wno-missing-braces -Wno-c11-extensions
-DC_FLAGS += -Wno-gnu-zero-variadic-macro-arguments
-DC_FLAGS += -Wno-gnu-anonymous-struct -Wno-nested-anon-types
-DC_FLAGS += -Wno-unused-variable -Wno-ignored-attributes
-DC_FLAGS += -Wno-gnu-case-range
-
-ifeq ($(IS_WINDOWS), true)
-	DC_FLAGS += -gcodeview
-endif
 
 C_FLAGS := -fno-rtti -fno-exceptions -Werror=vla -ffast-math
 C_FLAGS += -fno-operator-names -fno-strict-enums
 C_FLAGS += -MMD -MP
+C_FLAGS += -Wno-missing-braces -Wno-c11-extensions
+C_FLAGS += -Wno-gnu-zero-variadic-macro-arguments
+C_FLAGS += -Wno-gnu-anonymous-struct -Wno-nested-anon-types
+C_FLAGS += -Wno-unused-variable -Wno-ignored-attributes
+C_FLAGS += -Wno-gnu-case-range
 
-ifeq ($(IS_LINUX), true)
-	C_FLAGS += -fdeclspec
+ifeq ($(IS_WINDOWS), true)
+	DC_FLAGS += -gcodeview
+	RC_FLAGS += -gcodeview -Wno-unused-value
+	C_FLAGS += -mwindows
 endif
 
 ifeq ($(TARGET_ARCH), x86_64)
@@ -86,7 +83,6 @@ ifeq ($(TARGET_ARCH), wasm)
 endif
 
 RCPP_FLAGS := 
-
 DCPP_FLAGS := -DDEBUG -DLD_LOGGING -DLD_ASSERTIONS -DLD_PROFILING
 
 CPP_FLAGS := -DLD_SIMD_WIDTH=4
@@ -101,18 +97,15 @@ CPP_FLAGS += -DVULKAN_VERSION_MINOR=$(VULKAN_VERSION_MINOR)
 
 RLINK_FLAGS :=
 DLINK_FLAGS :=
-# TODO(alicia): Temporarily allow stdlib in linux builds until
-# it is removed.
 LINK_FLAGS  := -nostdlib++
 
 ifeq ($(IS_WINDOWS), true)
-	DLINK_FLAGS += -fuse-ld=lld -Wl,//debug
-	LINK_FLAGS  += -nostdlib
-	LINK_FLAGS  += -fuse-ld=lld -lkernel32 -mstack-probe-size=999999999 -Wl,//stack:0x100000
-endif
+	LINK_FLAGS  += -fuse-ld=lld
+	DLINK_FLAGS += -Wl,//debug
+	RLINK_FLAGS += -Wl,//debug
 
-ifeq ($(IS_LINUX), true)
-	LINK_FLAGS += -lX11 -lxcb -lX11-xcb
+	LINK_FLAGS  += -nostdlib
+	LINK_FLAGS  += -lkernel32 -mstack-probe-size=999999999 -Wl,//stack:0x100000
 endif
 
 export c_flags := $(if $(IS_DEBUG),$(DC_FLAGS),$(RC_FLAGS)) $(C_FLAGS)

@@ -283,8 +283,11 @@ LPSTR* WINAPI CommandLineToArgvA(LPSTR lpCmdline, int* numargs) {
     return argv;
 }
 
-
+#if defined(DEBUG)
 void __stdcall mainCRTStartup() {
+#else
+void __stdcall WinMainCRTStartup() {
+#endif
 
     DWORD dwMode = 0;
     GetConsoleMode(
