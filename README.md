@@ -12,7 +12,7 @@ Compiled using clang, C++20 standard.
 
 No libraries are used with the exception of system libraries ( Win32, OpenGL etc. )*
 
-`* currently using [stb_truetype](https://github.com/nothings/stb/blob/master/stb_truetype.h) for font rendering`
+* currently using [stb_truetype](https://github.com/nothings/stb/blob/master/stb_truetype.h) for font rendering
 
 ## Building
 
@@ -31,7 +31,7 @@ Currently, only Windows is supported as a build target
 - [RemedyBG Debugger](https://remedybg.itch.io/remedybg)
 - [gf gdb frontend for linux](https://github.com/nakst/gf)
 
-`*: might work with other versions`
+*: might work with other versions
 
 ### Steps
 
