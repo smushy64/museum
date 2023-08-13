@@ -189,13 +189,13 @@ typedef void* pvoid;
 
 /// Make a version uint32
 #define LD_MAKE_VERSION( major, minor )\
-    ((u32)major << 16u) | ((u32)minor)
+    ((u32)major << 15u) | ((u32)minor)
 /// Get major version from uint32 version
 #define LD_GET_MAJOR( version )\
-    ((u32)version >> 16u)
+    ((u32)version >> 15u)
 /// Get minor version from uint32 version
 #define LD_GET_MINOR( version )\
-    ((u32)minor & 0x0000FFFF)
+    ((u32)version & 0x0000FFFF)
 
 /// Calculate number of elements in a static array
 #define STATIC_ARRAY_COUNT( array ) \

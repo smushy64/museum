@@ -35,16 +35,16 @@ global u32   LOGGING_BUFFER_SIZE = 0ULL;
 global char* LOGGING_BUFFER      = nullptr;
 
 global const char* LOG_COLOR_CODES[LOG_COLOR_COUNT] = {
-    "\033[1;30m",
-    "\033[1;31m",
-    "\033[1;32m",
-    "\033[1;33m",
-    "\033[1;35m",
-    "\033[1;36m",
-    "\033[1;37m",
-    "\033[1;34m",
-    "\033[1;0m" ,
-    "\033[1;39m"
+    "\033[1;30m", // BLACK
+    "\033[1;31m", // RED
+    "\033[1;32m", // GREEN
+    "\033[1;33m", // YELLOW
+    "\033[1;35m", // MAGENTA
+    "\033[1;36m", // CYAN
+    "\033[1;37m", // WHITE
+    "\033[1;34m", // BLUE
+    "\033[1;0m" , // RESET
+    "\033[1;39m"  // DEFAULT
 };
 
 internal void set_color( LogColor color ) {

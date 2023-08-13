@@ -20,7 +20,7 @@ export RESOURCES_PATH := $(BUILD_PATH)/$(RESOURCES_LOCAL_PATH)
 export SHADERS_PATH   := $(BUILD_PATH)/$(SHADERS_LOCAL_PATH)
 
 export LIQUID_VERSION_MAJOR := 0
-export LIQUID_VERSION_MINOR := 1
+export LIQUID_VERSION_MINOR := 2
 export LIQUID_VERSION       := $(LIQUID_VERSION_MAJOR).$(LIQUID_VERSION_MINOR)
 export LIQUID_NAME          := liquid-engine
 export LIQUID_VERSION_PATH  := $(subst .,-,$(LIQUID_VERSION))
@@ -68,8 +68,7 @@ C_FLAGS += -Wno-gnu-case-range
 
 ifeq ($(IS_WINDOWS), true)
 	DC_FLAGS += -gcodeview
-	RC_FLAGS += -gcodeview -Wno-unused-value
-	C_FLAGS += -mwindows
+	RC_FLAGS += -gcodeview -Wno-unused-value -mwindows
 endif
 
 ifeq ($(TARGET_ARCH), x86_64)
@@ -156,11 +155,14 @@ corecpp := $(addprefix "#include \"",$(corecpp))
 
 corecpp_path := liquid_engine/platform/corecpp.inl
 
-all: print_info shaders resources $(EXE_PATH)
+all: print_info lepkg shaders resources $(EXE_PATH)
 	@$(MAKE) --directory=testbed --no-print-directory
 
 print_info:
 	@echo "Make: compilation target:" $(HOST_OS_NAME)-$(TARGET_ARCH)-$(if $(RELEASE),release,debug)
+
+lepkg:
+	@$(MAKE) --directory=lepkg --no-print-directory
 
 resources: shaders
 	@$(MAKE) --directory=resources --no-print-directory
@@ -194,6 +196,9 @@ test: all
 	@echo "Make: running test bed . . ."
 	@cd $(BUILD_PATH) && ./$(EXE_NAME)$(EXE_EXT) --libload=$(TESTBED_NAME) --gl
 
+pack:
+	@$(MAKE) --directory=lepkg run
+
 # for debugging variables
 spit:
 	@$(MAKE) --directory=testbed spit
@@ -201,7 +206,9 @@ spit:
 # @$(MAKE) --directory=shader spit
  
 help:
-	@echo Usage: make [argument]
+	@echo "Usage: make [argument]"
+	@echo ""
+	@echo "Arguments:"
 	@echo "  all:    compile everything"
 	@echo "  run:    compile and run \"Project Museum\""
 	@echo "  test:   compile and run \"Testbed\""
@@ -222,7 +229,7 @@ print_clean_info:
 cleanr:
 	@$(MAKE) --directory=resources clean
 
-.PHONY: all run test spit help clean gencpp shaders print_info resources cleanr print_clean_info
+.PHONY: all run test spit help clean gencpp shaders print_info resources cleanr print_clean_info lepkg pack
 
 -include $(deps)
 

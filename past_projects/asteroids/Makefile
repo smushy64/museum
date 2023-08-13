@@ -1,6 +1,7 @@
-# * Description:  Testbed Makefile
+# * Description:  Makefile for Test Bed EXE
 # * Author:       Alicia Amarilla (smushyaa@gmail.com)
-# * File Created: August 09, 2023
+# * File Created: April 27, 2023
+# * Notes:        
 
 TESTBED_PATH := ../$(BUILD_PATH)/$(TESTBED_NAME)
 TESTBED_COMPILE_FILE := entry.cpp
@@ -8,6 +9,10 @@ TESTBED_COMPILE_FILE := entry.cpp
 testbed_rc_flags :=
 testbed_dc_flags := 
 testbed_c_flags := $(c_flags) $(if $(IS_DEBUG),$(testbed_dc_flags),$(testbed_rc_flags))
+
+ifeq ($(IS_LINUX), true)
+	testbed_c_flags += -fPIC
+endif
 
 testbed_rcpp_flags :=
 testbed_dcpp_flags := 

@@ -11,6 +11,25 @@
 
 #include "platform/platform.h"
 
+#if defined(USE_STD_LIB)
+#include <stdio.h>
+
+#define WRITE_CONSOLE( stream, count, buffer )\
+    fprintf( (FILE*)stream, "%.*s", count, buffer )
+
+#define STANDARD_OUT_HANDLE stdout
+#define STANDARD_ERROR_HANDLE stderr
+
+#else
+
+#define WRITE_CONSOLE( stream, count, buffer )\
+    platform_write_console( stream, count, buffer )
+
+#define STANDARD_OUT_HANDLE   platform_stdout_handle()
+#define STANDARD_ERROR_HANDLE platform_stderr_handle()
+
+#endif
+
 inline internal b32 dstring_allocate( u32 capacity, String* out_string ) {
     void* buffer = mem_alloc( capacity, MEMTYPE_STRING );
     if( !buffer ) {
@@ -1177,14 +1196,14 @@ LD_API void printerr_va( const char* format, va_list variadic ) {
 }
 
 LD_API void stdout_push( char character ) {
-    platform_write_console(
-        platform_stdout_handle(),
+    WRITE_CONSOLE(
+        STANDARD_OUT_HANDLE,
         1, &character
     );
 }
 LD_API void stderr_push( char character ) {
-    platform_write_console(
-        platform_stderr_handle(),
+    WRITE_CONSOLE(
+        STANDARD_ERROR_HANDLE,
         1, &character
     );
 }
@@ -1192,8 +1211,8 @@ LD_API void stderr_push( char character ) {
 HOT_PATH
 LD_API void output_string_stdout( const char* str ) {
     u32 str_len = (u32)str_length( str );
-    platform_write_console(
-        platform_stdout_handle(),
+    WRITE_CONSOLE(
+        STANDARD_OUT_HANDLE,
         str_len, str
     );
     stdout_push( 0 );
@@ -1201,8 +1220,8 @@ LD_API void output_string_stdout( const char* str ) {
 
 HOT_PATH
 LD_API void output_string_stdout( StringView string_view ) {
-    platform_write_console(
-        platform_stdout_handle(),
+    WRITE_CONSOLE(
+        STANDARD_OUT_HANDLE,
         string_view.len, string_view.buffer
     );
     stdout_push( 0 );
@@ -1210,16 +1229,16 @@ LD_API void output_string_stdout( StringView string_view ) {
 
 HOT_PATH
 LD_API void output_string_view_stdout( StringView string_view ) {
-    platform_write_console(
-        platform_stdout_handle(),
+    WRITE_CONSOLE(
+        STANDARD_OUT_HANDLE,
         string_view.len, string_view.buffer
     );
 }
 
 HOT_PATH
 LD_API void output_string_stdout( String* string ) {
-    platform_write_console(
-        platform_stdout_handle(),
+    WRITE_CONSOLE(
+        STANDARD_OUT_HANDLE,
         string->len, string->buffer
     );
     stdout_push( 0 );
@@ -1228,8 +1247,8 @@ LD_API void output_string_stdout( String* string ) {
 HOT_PATH
 LD_API void output_string_stderr( const char* str ) {
     u32 str_len = (u32)str_length( str );
-    platform_write_console(
-        platform_stderr_handle(),
+    WRITE_CONSOLE(
+        STANDARD_ERROR_HANDLE,
         str_len, str
     );
     stderr_push( 0 );
@@ -1237,8 +1256,8 @@ LD_API void output_string_stderr( const char* str ) {
 
 HOT_PATH
 LD_API void output_string_stderr( StringView string_view ) {
-    platform_write_console(
-        platform_stderr_handle(),
+    WRITE_CONSOLE(
+        STANDARD_ERROR_HANDLE,
         string_view.len, string_view.buffer
     );
     stderr_push( 0 );
@@ -1246,16 +1265,16 @@ LD_API void output_string_stderr( StringView string_view ) {
 
 HOT_PATH
 LD_API void output_string_view_stderr( StringView string_view ) {
-    platform_write_console(
-        platform_stderr_handle(),
+    WRITE_CONSOLE(
+        STANDARD_ERROR_HANDLE,
         string_view.len, string_view.buffer
     );
 }
 
 HOT_PATH
 LD_API void output_string_stderr( String* string ) {
-    platform_write_console(
-        platform_stderr_handle(),
+    WRITE_CONSOLE(
+        STANDARD_ERROR_HANDLE,
         string->len, string->buffer
     );
     stderr_push( 0 );
