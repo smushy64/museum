@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
-b32 str_contains( const char* string, const char* phrase ) {
+b32 str_contains( const char* string, const char* phrase, usize* out_offset ) {
     u32 string_len = strlen( string );
     u32 phrase_len = strlen( phrase );
 
@@ -30,6 +30,10 @@ b32 str_contains( const char* string, const char* phrase ) {
             if( !matches ) {
                 return false;
             }
+            if( out_offset ) {
+                *out_offset = i;
+            }
+            break;
         }
     }
 

@@ -150,4 +150,18 @@ STATIC_ASSERT( sizeof(c32) == 4, "Expected UTF-32 to be 4 bytes!" );
 #define local static
 #define global static
 
+#define ASSERT(condition) do {\
+    if(!(condition)) {\
+        PANIC();\
+    }\
+} while(0)
+
+/// Swap two values.
+#define SWAP( a, b ) do {\
+    __typeof(a) intermediate = a;\
+    a = b;\
+    b = intermediate;\
+} while(0)
+
+
 #endif // header guard

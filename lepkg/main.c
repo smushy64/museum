@@ -5,7 +5,7 @@
 #include "term_color.h"
 #include "error.h"
 #include "format.h"
-#include "path.h"
+#include "fs.h"
 #include "validate.h"
 #include "package.h"
 #include <stdio.h>

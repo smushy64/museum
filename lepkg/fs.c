@@ -1,7 +1,7 @@
 // * Description:  Path Processing Implementation
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: August 12, 2023
-#include "path.h"
+#include "fs.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -48,19 +48,39 @@ global AssetType EXTENSION_ASSET_TYPES[] = {
     ASSET_TYPE_SHADER
 };
 
-AssetType get_file_asset_type( const char* path ) {
+global u8 EXTENSION_ASSET_FORMATS[] = {
+    METADATA_SCENE,
+    IMAGE_TYPE_BMP, IMAGE_TYPE_PNG, IMAGE_TYPE_PSD,
+    FONT_FORMAT_TTF,
+    AUDIO_FORMAT_WAV,
+    MODEL_3D_FORMAT_OBJ, MODEL_3D_FORMAT_GLTF, MODEL_3D_FORMAT_BLEND, MODEL_3D_FORMAT_FBX,
+    SHADER_FORMAT_SPV    
+};
+
+FiletypeInfo get_file_asset_info( const char* path ) {
+    FiletypeInfo info = {0};
     const char* ext = get_file_ext( path );
     if( !ext ) {
-        return false;
+        return info;
     }
 
     u32 ext_count = STATIC_ARRAY_COUNT( SUPPORTED_EXTENSIONS );
     for( u32 i = 0; i < ext_count; ++i ) {
         if( strcmp( ext, SUPPORTED_EXTENSIONS[i] ) == 0 ) {
-            return EXTENSION_ASSET_TYPES[i];
+            info.is_supported   = true;
+            info.asset_type     = EXTENSION_ASSET_TYPES[i];
+            info.generic_format = EXTENSION_ASSET_FORMATS[i];
+            return info;
         }
     }
 
-    return ASSET_TYPE_UNKNOWN;
+    return info;
+}
+
+usize get_file_size( FILE* file ) {
+    fseek( file, 0L, SEEK_END );
+    usize size = ftello( file );
+    rewind( file );
+    return size;
 }
 

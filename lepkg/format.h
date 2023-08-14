@@ -37,11 +37,40 @@ typedef enum : u8 {
     ASSET_TYPE_SHADER
 } AssetType;
 
+typedef enum : u8 {
+    METADATA_SCENE,
+} MetadataType;
+
+typedef enum : u8 {
+    IMAGE_TYPE_BMP,
+    IMAGE_TYPE_PNG,
+    IMAGE_TYPE_PSD,
+} ImageFormat;
+
+typedef enum : u8 {
+    FONT_FORMAT_TTF,
+} FontFormat;
+
+typedef enum : u8 {
+    AUDIO_FORMAT_WAV,
+} AudioFormat;
+
+typedef enum : u8 {
+    MODEL_3D_FORMAT_OBJ,
+    MODEL_3D_FORMAT_GLTF,
+    MODEL_3D_FORMAT_BLEND,
+    MODEL_3D_FORMAT_FBX,
+} Model3DFormat;
+
+typedef enum : u8 {
+    SHADER_FORMAT_SPV,
+} ShaderFormat;
+
 typedef struct AssetMetaData_0_1 {
 
 } AssetMetaData_0_1;
 
-typedef enum : u32 {
+typedef enum : u8 {
     TEXTURE_FORMAT_UNKNOWN,
 
     TEXTURE_FORMAT_RGBA,
@@ -49,13 +78,18 @@ typedef enum : u32 {
     TEXTURE_FORMAT_RED
 } TextureFormat;
 
+typedef enum : u8 {
+    TEXTURE_COMPRESSION_NONE,
+} TextureCompression;
+
 typedef struct PACKED {
     union {
         Vector2DInt dimensions;
         struct { i32 width, height; };
     };
     u64 buffer_offset;
-    TextureFormat format;
+    TextureFormat      format;
+    TextureCompression compression;
 } AssetTexture_0_1;
 
 typedef struct AssetFontGlyphMetric_0_1 {
