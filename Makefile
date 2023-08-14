@@ -7,6 +7,7 @@ MAKEFLAGS += -s
 MAKEFLAGS += -j
 
 export CC := clang++ -std=c++20
+ENGINE_CC := clang -std=c99
 
 RELEASE ?= 
 export IS_DEBUG := $(if $(RELEASE),,true)
@@ -96,7 +97,7 @@ CPP_FLAGS += -DVULKAN_VERSION_MINOR=$(VULKAN_VERSION_MINOR)
 
 RLINK_FLAGS :=
 DLINK_FLAGS :=
-LINK_FLAGS  := -nostdlib++
+LINK_FLAGS  := 
 
 ifeq ($(IS_WINDOWS), true)
 	LINK_FLAGS  += -fuse-ld=lld
@@ -130,32 +131,26 @@ LIQUID_ENGINE_FLAGS += -DLD_EXPORT -MF $(object_path)/$(LIQUID_NAME).d
 ifeq ($(IS_WINDOWS), true)
 	LIQUID_ENGINE_FLAGS += -Wl,--out-implib=$(BUILD_PATH)/$(EXE_NAME).lib
 
-	LIQUID_COMPILE_FILE := liquid_engine/platform/win32.cpp
+	LIQUID_COMPILE_FILE   := liquid_engine/platform/win32.c
 	LIQUID_RESOURCES_PATH := win32/resources.rc
 	LIQUID_RESOURCES_FILE := $(object_path)/win32_resources.o
-endif
-
-ifeq ($(IS_LINUX), true)
-	LIQUID_ENGINE_FLAGS += -Wl,--out-implib=$(BUILD_PATH)/$(EXE_NAME).a
-
-	LIQUID_COMPILE_FILE := liquid_engine/platform/linux.cpp
 endif
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
 deps := $(call recurse,$(object_path),*.d)
 
-cpp := $(call recurse,liquid_engine/core/,*.cpp) $(call recurse,liquid_engine/renderer/,*.cpp)
-h   := $(call recurse,liquid_engine,*.h)
+c := $(call recurse,liquid_engine/core/,*.c) $(call recurse,liquid_engine/renderer/,*.c)
+h := $(call recurse,liquid_engine,*.h)
 
-corecpp := $(cpp)
-corecpp := $(subst liquid_engine/,,$(corecpp))
-corecpp := $(addsuffix \",$(corecpp))
-corecpp := $(addprefix "#include \"",$(corecpp))
+corec := $(c)
+corec := $(subst liquid_engine/,,$(corec))
+corec := $(addsuffix \",$(corec))
+corec := $(addprefix "#include \"",$(corec))
 
-corecpp_path := liquid_engine/platform/corecpp.inl
+corec_path := liquid_engine/platform/corec.inl
 
-all: print_info lepkg shaders resources $(EXE_PATH)
+all: print_info shaders resources $(EXE_PATH)
 	@$(MAKE) --directory=testbed --no-print-directory
 
 print_info:
@@ -170,18 +165,18 @@ resources: shaders
 shaders:
 	@$(MAKE) --directory=shaders --no-print-directory
 
-$(corecpp_path): $(cpp)
-	@echo "// * Description:     Includes all cpp files" > $(corecpp_path)
-	@echo "// * Author:          Alicia Amarilla (smushyaa@gmail.com)" >> $(corecpp_path)
-	@echo "// * File Generated:  "$(shell date) >> $(corecpp_path)
-	@echo "// IMPORTANT(alicia): This file should only ever be included ONCE." >> $(corecpp_path)
-	@echo "" >> $(corecpp_path)
-	for i in $(corecpp); do echo $$i >> $(corecpp_path); done
+$(corec_path): $(cpp)
+	@echo "// * Description:     Includes all cpp files" > $(corec_path)
+	@echo "// * Author:          Alicia Amarilla (smushyaa@gmail.com)" >> $(corec_path)
+	@echo "// * File Generated:  "$(shell date) >> $(corec_path)
+	@echo "// IMPORTANT(alicia): This file should only ever be included ONCE." >> $(corec_path)
+	@echo "" >> $(corec_path)
+	for i in $(corec); do echo $$i >> $(corec_path); done
 
-$(EXE_PATH): $(corecpp_path) $(if $(IS_WINDOWS),$(LIQUID_RESOURCES_FILE),)
+$(EXE_PATH): $(corec_path) $(if $(IS_WINDOWS),$(LIQUID_RESOURCES_FILE),)
 	@echo "Make: compiling" $(EXE_NAME)$(EXE_EXT) ". . ."
 	@mkdir -p $(object_path)
-	@$(CC) $(LIQUID_COMPILE_FILE) $(LIQUID_RESOURCES_FILE) -o $(EXE_PATH) $(LIQUID_ENGINE_FLAGS)
+	@$(ENGINE_CC) $(LIQUID_COMPILE_FILE) $(LIQUID_RESOURCES_FILE) -o $(EXE_PATH) $(LIQUID_ENGINE_FLAGS)
 
 $(LIQUID_RESOURCES_FILE): $(LIQUID_RESOURCES_PATH)
 	@echo "Make: compiling" $(LIQUID_RESOURCES_FILE) ". . ."
@@ -201,7 +196,7 @@ pack:
 
 # for debugging variables
 spit:
-	@$(MAKE) --directory=testbed spit
+	@echo $(ENGINE_CC) $(LIQUID_COMPILE_FILE) $(LIQUID_RESOURCES_FILE) -o $(EXE_PATH) $(LIQUID_ENGINE_FLAGS)
 
 # @$(MAKE) --directory=shader spit
  
@@ -221,7 +216,7 @@ clean: print_clean_info cleanr
 	@rm -r -f build/debug/*
 	@rm -r -f build/release/*
 	@rm -r -f resources/shaders
-	@rm $(corecpp_path)
+	@rm $(corec_path)
 
 print_clean_info:
 	@echo "Make: removing everything from build directory . . ."
@@ -229,7 +224,7 @@ print_clean_info:
 cleanr:
 	@$(MAKE) --directory=resources clean
 
-.PHONY: all run test spit help clean gencpp shaders print_info resources cleanr print_clean_info lepkg pack
+.PHONY: all run test spit help clean shaders print_info resources cleanr print_clean_info lepkg pack
 
 -include $(deps)
 
