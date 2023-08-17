@@ -6,15 +6,13 @@
  * File Created: June 11, 2023
 */
 #include "defines.h"
-#include "core/logging.h"
-#include "core/graphics.h"
-#include "core/engine.h"
-#include "core/string.h"
-#include "core/ecs.h"
+#include "core/ldlog.h"
+#include "core/ldengine.h"
+#include "core/ldstring.h"
 
-typedef void (*RendererBackendShutdownFn)(
-    struct RendererContext* ctx
-);
+struct RendererContext;
+
+typedef void (*RendererBackendShutdownFn)( struct RendererContext* ctx );
 
 typedef void (*RendererBackendOnResizeFn)(
     struct RendererContext* ctx,
@@ -31,75 +29,27 @@ typedef b32 (*RendererBackendEndFrameFn)(
     struct RenderOrder* order
 );
 
-struct RendererContext {
+typedef struct RendererContext {
     struct Platform* platform;
 
     RendererBackendShutdownFn   backend_shutdown;
     RendererBackendOnResizeFn   backend_on_resize;
     RendererBackendBeginFrameFn backend_begin_frame;
     RendererBackendEndFrameFn   backend_end_frame;
-};
+} RendererContext;
 
-struct DrawBinding {
+typedef struct DrawBinding {
     mat4 transform;
     u32  mesh_index;
     u32  texture_index;
-};
+} DrawBinding;
 
-#if defined(DEBUG)
-struct DebugPoints {
-    vec2* list_points;
-    rgba  color;
-};
-#endif
-
-enum UIAnchorX {
-    UI_ANCHOR_X_LEFT,
-    UI_ANCHOR_X_CENTER,
-    UI_ANCHOR_X_RIGHT
-};
-
-struct UIText {
-    StringView text;
-    vec2       position;
-    f32        scale;
-    rgba       color;
-    UIAnchorX  anchor_x;
-};
-
-struct UIImage {
-    vec2      position;
-    f32       scale;
-    rgba      color;
-    UIAnchorX anchor_x;
-    Texture*  texture;
-};
-
-struct RenderOrder {
-    Mesh* meshes;
-    u32   mesh_count;
-
-    Texture* textures;
-    u32      texture_count;
-
-    UIText* ui_text;
-    u32     text_count;
-
-    UIImage* ui_image;
-    u32      image_count;
-
+typedef struct RenderOrder {
     DrawBinding* draw_bindings;
     u32 draw_binding_count;
 
-    struct EntityStorage*    storage;
-    EntityStorageQueryResult sprites;
-
     struct Timer* time;
-
-#if defined(DEBUG)
-    DebugPoints* list_debug_points;
-#endif
-};
+} RenderOrder;
 
 LD_API void debug_draw_line( RenderOrder* render_order, vec2 from, vec2 to, rgba color );
 LD_API void debug_draw_rect( RenderOrder* render_order, Rect2D rect, rgba color );

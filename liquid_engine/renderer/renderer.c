@@ -5,9 +5,9 @@
 */
 #include "renderer.h"
 #include "opengl/gl_backend.h"
-#include "core/time.h"
-#include "core/collections.h"
-#include "core/math/type_functions.h"
+#include "core/ldtime.h"
+#include "core/ldcollections.h"
+#include "core/ldmath/type_functions.h"
 
 u32 query_renderer_subsystem_size( RendererBackend backend ) {
     local const u32 sizes[] = {
@@ -47,7 +47,7 @@ b32 renderer_init(
             unused(app_name);
             LOG_FATAL(
                 "Backend \"{cc}\" is not currently supported!",
-                to_string(backend)
+                renderer_backend_to_string(backend)
             );
             PANIC();
         } return false;
@@ -89,7 +89,7 @@ b32 renderer_draw_frame(
     return true;
 }
 
-const char* to_string( RendererBackend backend ) {
+const char* renderer_backend_to_string( RendererBackend backend ) {
     local const char* strings[RENDERER_BACKEND_COUNT] = {
         "OpenGL "
             VALUE_TO_STRING(GL_VERSION_MAJOR)
@@ -118,75 +118,4 @@ b32 renderer_backend_is_supported( RendererBackend backend ) {
     unused(backend);
     return true;
 }
-#if defined(DEBUG)
-#define list_reserve_no_trace( type, capacity )\
-    (type*) ::impl::_list_create( capacity, sizeof(type) )
-
-#define list_push_no_trace( list, value ) do {\
-    __typeof(value) temp = value;\
-    list = (__typeof(list)) ::impl::_list_push(\
-        list, &temp\
-    );\
-} while(0)
-
-LD_API void debug_draw_line(
-    RenderOrder* render_order,
-    vec2 from, vec2 to,
-    rgba color
-) {
-    DebugPoints points = {};
-    points.list_points = list_reserve_no_trace( vec2, 2 );
-    list_push_no_trace( points.list_points, from );
-    list_push_no_trace( points.list_points, to );
-    points.color = color;
-    list_push_no_trace( render_order->list_debug_points, points );
-}
-LD_API void debug_draw_rect(
-    RenderOrder* render_order,
-    Rect2D rect, rgba color
-) {
-    DebugPoints points = {};
-    points.list_points = list_reserve_no_trace( vec2, 4 );
-    list_push_no_trace( points.list_points, rect2d_top_left( rect ) );
-    list_push_no_trace( points.list_points, rect2d_top_right( rect ) );
-    list_push_no_trace( points.list_points, rect2d_bottom_right( rect ) );
-    list_push_no_trace( points.list_points, rect2d_bottom_left( rect ) );
-    points.color = color;
-    list_push_no_trace( render_order->list_debug_points, points );
-}
-LD_API void debug_draw_circle(
-    RenderOrder* render_order,
-    Circle2D circle, rgba color
-) {
-    DebugPoints points = {};
-    const u32 point_count = 12;
-    points.list_points = list_reserve_no_trace( vec2, point_count );
-
-    vec2 ray   = VEC2::UP * circle.radius;
-    list_push_no_trace( points.list_points, circle.position + ray );
-
-    f32 theta = F32::TAU / (f32)point_count;
-    for( u32 i = 0; i < (point_count - 1); ++i ) {
-        ray = rotate( ray, theta );
-        list_push_no_trace( points.list_points, circle.position + ray );
-    }
-
-    points.color = color;
-    list_push_no_trace( render_order->list_debug_points, points );
-}
-#else
-LD_API void debug_draw_line(
-    RenderOrder* ,
-    vec2 , vec2 ,
-    rgba 
-) { }
-LD_API void debug_draw_rect(
-    RenderOrder* ,
-    Rect2D , rgba 
-) { }
-LD_API void debug_draw_circle(
-    RenderOrder* ,
-    Circle2D , rgba 
-) { }
-#endif
 

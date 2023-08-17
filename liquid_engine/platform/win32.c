@@ -6,15 +6,15 @@
 #include "win32.h"
 
 #if defined(LD_PLATFORM_WINDOWS)
-#include "corecpp.inl"
+#include "corec.inl"
 
-#include "core/logging.h"
-#include "core/string.h"
-#include "core/memory.h"
-#include "core/collections.h"
-#include "core/event.h"
-#include "core/math.h"
-#include "core/engine.h"
+#include "core/ldlog.h"
+#include "core/ldstring.h"
+#include "core/ldmemory.h"
+#include "core/ldcollections.h"
+#include "core/ldevent.h"
+#include "core/ldmath.h"
+#include "core/ldengine.h"
 
 #include "renderer/renderer.h"
 
@@ -27,8 +27,6 @@
 #include <intrin.h>
 
 global b32 IS_DPI_AWARE = false;
-
-extern "C" {
 
 #if defined(LD_COMPILER_MSVC)
     #pragma function(memset)
@@ -326,8 +324,6 @@ void __stdcall WinMainCRTStartup() {
 //     return TRUE;
 // }
 
-}
-
 global LARGE_INTEGER PERFORMANCE_COUNTER;
 global LARGE_INTEGER PERFORMANCE_FREQUENCY;
 
@@ -393,7 +389,7 @@ b32 platform_init(
 
     Win32ThreadHandle xinput_polling_thread_handle = {};
     xinput_polling_thread_handle.thread_handle = CreateThread(
-        nullptr,
+        NULL,
         STACK_SIZE,
         win32_xinput_polling_thread,
         &win32_platform->xinput_polling_thread_semaphore,
@@ -421,7 +417,7 @@ b32 platform_init(
         );
         return false;
     }
-    GetStockObject = (::impl::GetStockObjectFN)library_load_function(
+    GetStockObject = (GetStockObjectFN)library_load_function(
         &win32_platform->lib_gdi32,
         "GetStockObject"
     );
@@ -433,11 +429,11 @@ b32 platform_init(
         return false;
     }
 
-    win32_platform->instance = GetModuleHandle( nullptr );
+    win32_platform->instance = GetModuleHandle( NULL );
 
-    HICON window_icon = nullptr;
+    HICON window_icon = NULL;
     window_icon = (HICON)LoadImageA(
-        nullptr,
+        NULL,
         SURFACE_ICON_PATH,
         IMAGE_ICON,
         0, 0,
@@ -524,10 +520,11 @@ b32 platform_init(
     }
 
     i32 x = 0, y = 0; {
-        ivec2 screen_center = ivec2{
+        ivec2 screen_center = (ivec2){
             GetSystemMetrics( SM_CXSCREEN ),
             GetSystemMetrics( SM_CYSCREEN )
-        } / 2;
+        };
+        screen_center = iv2_div( screen_center, 2 );
 
         x = screen_center.x - (width / 2);
         y = screen_center.y - (height / 2);
@@ -541,10 +538,10 @@ b32 platform_init(
         x, y,
         window_rect.right - window_rect.left,
         window_rect.bottom - window_rect.top,
-        nullptr,
-        nullptr,
+        NULL,
+        NULL,
         win32_platform->instance,
-        nullptr
+        NULL
     );
     if( !hWnd ) {
         win32_log_error( true );
@@ -577,7 +574,7 @@ b32 platform_init(
     );
     PERFORMANCE_COUNTER = win32_platform->performance_counter;
 
-    out_platform->surface.dimensions = { width, height };
+    out_platform->surface.dimensions = (ivec2){ width, height };
     out_platform->is_active = true;
 
     SetWindowLongPtr(
@@ -713,7 +710,7 @@ void platform_cursor_set_style(
 
     LPCTSTR win32_style = cursor_style_to_win32_style( cursor_style );
     SetCursor(
-        LoadCursor( nullptr, win32_style )
+        LoadCursor( NULL, win32_style )
     );
 }
 void platform_cursor_set_visible( Platform* platform, b32 visible ) {
@@ -733,29 +730,31 @@ void platform_cursor_center( Platform* platform ) {
     );
     SetCursorPos( center.x, center.y );
 }
-void platform_sleep( Platform*, u32 ms ) {
+void platform_sleep( Platform* platform, u32 ms ) {
+    unused(platform);
     DWORD dwMilliseconds = ms;
     Sleep( dwMilliseconds );
 }
 void platform_set_pad_motor_state(
-    Platform*,
+    Platform* platform,
     u32 gamepad_index, u32 motor, f32 value
 ) {
+    unused(platform);
     XINPUT_VIBRATION vibration = {};
     if( motor == GAMEPAD_MOTOR_LEFT ) {
         f32 right_motor = input_pad_read_motor_state(
             gamepad_index,
             GAMEPAD_MOTOR_RIGHT
         );
-        vibration.wLeftMotorSpeed  = (WORD)( value * (f32)U16::MAX );
-        vibration.wRightMotorSpeed = (WORD)( right_motor * (f32)U16::MAX );
+        vibration.wLeftMotorSpeed  = (WORD)( value * (f32)U16_MAX );
+        vibration.wRightMotorSpeed = (WORD)( right_motor * (f32)U16_MAX );
     } else {
         f32 left_motor = input_pad_read_motor_state(
             gamepad_index,
             GAMEPAD_MOTOR_LEFT
         );
-        vibration.wLeftMotorSpeed  = (WORD)( left_motor * (f32)U16::MAX );
-        vibration.wRightMotorSpeed = (WORD)( value * (f32)U16::MAX );
+        vibration.wLeftMotorSpeed  = (WORD)( left_motor * (f32)U16_MAX );
+        vibration.wRightMotorSpeed = (WORD)( value * (f32)U16_MAX );
     }
 
     XInputSetState( gamepad_index, &vibration );
@@ -799,76 +798,76 @@ void platform_poll_gamepad( Platform* platform ) {
 
         input_set_pad_button(
             gamepad_index,
-            PAD_CODE_DPAD_LEFT,
+            GAMEPAD_CODE_DPAD_LEFT,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_LEFT )
         );
         input_set_pad_button(
             gamepad_index,
-            PAD_CODE_DPAD_RIGHT,
+            GAMEPAD_CODE_DPAD_RIGHT,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_RIGHT )
         );
         input_set_pad_button(
             gamepad_index,
-            PAD_CODE_DPAD_UP,
+            GAMEPAD_CODE_DPAD_UP,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_UP )
         );
         input_set_pad_button(
             gamepad_index,
-            PAD_CODE_DPAD_DOWN,
+            GAMEPAD_CODE_DPAD_DOWN,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_DOWN )
         );
 
         input_set_pad_button(
             gamepad_index,
-            PAD_CODE_FACE_LEFT,
+            GAMEPAD_CODE_FACE_LEFT,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_X )
         );
         input_set_pad_button(
             gamepad_index,
-            PAD_CODE_FACE_RIGHT,
+            GAMEPAD_CODE_FACE_RIGHT,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_B )
         );
         input_set_pad_button(
             gamepad_index,
-            PAD_CODE_FACE_UP,
+            GAMEPAD_CODE_FACE_UP,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_Y )
         );
         input_set_pad_button(
             gamepad_index,
-            PAD_CODE_FACE_DOWN,
+            GAMEPAD_CODE_FACE_DOWN,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_A )
         );
 
         input_set_pad_button(
             gamepad_index,
-            PAD_CODE_START,
+            GAMEPAD_CODE_START,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_START )
         );
         input_set_pad_button(
             gamepad_index,
-            PAD_CODE_SELECT,
+            GAMEPAD_CODE_SELECT,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_BACK )
         );
 
         input_set_pad_button(
             gamepad_index,
-            PAD_CODE_BUMPER_LEFT,
+            GAMEPAD_CODE_BUMPER_LEFT,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_LEFT_SHOULDER )
         );
         input_set_pad_button(
             gamepad_index,
-            PAD_CODE_BUMPER_RIGHT,
+            GAMEPAD_CODE_BUMPER_RIGHT,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_RIGHT_SHOULDER )
         );
 
         input_set_pad_button(
             gamepad_index,
-            PAD_CODE_STICK_LEFT_CLICK,
+            GAMEPAD_CODE_STICK_LEFT_CLICK,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_LEFT_THUMB )
         );
         input_set_pad_button(
             gamepad_index,
-            PAD_CODE_STICK_RIGHT_CLICK,
+            GAMEPAD_CODE_STICK_RIGHT_CLICK,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_RIGHT_THUMB )
         );
 
@@ -880,8 +879,8 @@ void platform_poll_gamepad( Platform* platform ) {
         f32 trigger_right_deadzone =
             input_pad_read_trigger_right_deadzone( gamepad_index );
 
-        f32 trigger_left  = normalize_range( gamepad.bLeftTrigger );
-        f32 trigger_right = normalize_range( gamepad.bRightTrigger );
+        f32 trigger_left  = normalize_range_u8_f32( gamepad.bLeftTrigger );
+        f32 trigger_right = normalize_range_u8_f32( gamepad.bRightTrigger );
 
         if( trigger_left >= trigger_left_deadzone ) {
             trigger_left = remap(
@@ -904,12 +903,12 @@ void platform_poll_gamepad( Platform* platform ) {
 
         input_set_pad_button(
             gamepad_index,
-            PAD_CODE_TRIGGER_LEFT,
+            GAMEPAD_CODE_TRIGGER_LEFT,
             trigger_left >= trigger_press_threshold
         );
         input_set_pad_button(
             gamepad_index,
-            PAD_CODE_TRIGGER_RIGHT,
+            GAMEPAD_CODE_TRIGGER_RIGHT,
             trigger_right >= trigger_press_threshold
         );
 
@@ -923,24 +922,26 @@ void platform_poll_gamepad( Platform* platform ) {
         );
 
         vec2 stick_left = v2(
-            normalize_range( gamepad.sThumbLX ),
-            normalize_range( gamepad.sThumbLY )
+            normalize_range_i16_f32( gamepad.sThumbLX ),
+            normalize_range_i16_f32( gamepad.sThumbLY )
         );
         vec2 stick_right = v2(
-            normalize_range( gamepad.sThumbRX ),
-            normalize_range( gamepad.sThumbRY )
+            normalize_range_i16_f32( gamepad.sThumbRX ),
+            normalize_range_i16_f32( gamepad.sThumbRY )
         );
 
-        f32 stick_left_magnitude  = mag( stick_left );
-        f32 stick_right_magnitude = mag( stick_right );
+        f32 stick_left_magnitude  = v2_mag( stick_left );
+        f32 stick_right_magnitude = v2_mag( stick_right );
 
-        vec2 stick_left_direction  = stick_left_magnitude >= 0 ?
-            stick_left  / stick_left_magnitude  : VEC2::ZERO;
+        vec2 stick_left_direction = stick_left_magnitude >= 0 ?
+            v2_div( stick_left, stick_left_magnitude ) : VEC2_ZERO;
         vec2 stick_right_direction = stick_right_magnitude >= 0 ?
-            stick_right / stick_right_magnitude : VEC2::ZERO;
+            v2_div( stick_right, stick_right_magnitude ) : VEC2_ZERO;
 
-        f32 stick_left_deadzone  = input_pad_read_stick_left_deadzone( gamepad_index );
-        f32 stick_right_deadzone = input_pad_read_stick_right_deadzone( gamepad_index );
+        f32 stick_left_deadzone  =
+            input_pad_read_stick_left_deadzone( gamepad_index );
+        f32 stick_right_deadzone =
+            input_pad_read_stick_right_deadzone( gamepad_index );
 
         if( stick_left_magnitude >= stick_left_deadzone ) {
             stick_left_magnitude = remap(
@@ -961,17 +962,17 @@ void platform_poll_gamepad( Platform* platform ) {
             stick_right_magnitude = 0;
         }
 
-        stick_left  = stick_left_magnitude * stick_left_direction;
-        stick_right = stick_right_magnitude * stick_right_direction;
+        stick_left  = v2_mul( stick_left_direction, stick_left_magnitude );
+        stick_right = v2_mul( stick_right_direction, stick_right_magnitude );
         
         input_set_pad_button(
             gamepad_index,
-            PAD_CODE_STICK_LEFT,
+            GAMEPAD_CODE_STICK_LEFT,
             stick_left_magnitude  >= 0
         );
         input_set_pad_button(
             gamepad_index,
-            PAD_CODE_STICK_RIGHT,
+            GAMEPAD_CODE_STICK_RIGHT,
             stick_right_magnitude >= 0
         );
         
@@ -1020,13 +1021,13 @@ internal HGLRC win32_gl_create_context( Platform* platform ) {
         &suggested_pixel_format
     ) == FALSE ) {
         win32_log_error( true );
-        return nullptr;
+        return NULL;
     }
 
     HGLRC temp = wglCreateContext( win32_platform->window.device_context );
     if(!temp) {
         win32_log_error( false );
-        return nullptr;
+        return NULL;
     }
 
     if( wglMakeCurrent(
@@ -1034,10 +1035,10 @@ internal HGLRC win32_gl_create_context( Platform* platform ) {
         temp ) == FALSE
     ) {
         WIN32_LOG_ERROR("Failed to make temp OpenGL context current!");
-        return nullptr;
+        return NULL;
     }
 
-    wglCreateContextAttribsARB = (impl::wglCreateContextAttribsARBFN)
+    wglCreateContextAttribsARB = (wglCreateContextAttribsARBFN)
         wglGetProcAddress("wglCreateContextAttribsARB");
 
     if(!wglCreateContextAttribsARB) {
@@ -1045,7 +1046,7 @@ internal HGLRC win32_gl_create_context( Platform* platform ) {
             "Failed to load function "
             "\"wglCreateContextAttribsARB\"!"
         );
-        return nullptr;
+        return NULL;
     }
 
     i32 attribs[] = {
@@ -1057,7 +1058,7 @@ internal HGLRC win32_gl_create_context( Platform* platform ) {
     };
 
     HGLRC result = wglCreateContextAttribsARB(
-        win32_platform->window.device_context, nullptr, attribs
+        win32_platform->window.device_context, NULL, attribs
     );
     wglDeleteContext( temp );
     if(!result) {
@@ -1065,7 +1066,7 @@ internal HGLRC win32_gl_create_context( Platform* platform ) {
             "wglCreateContextAttribsARB "
             "failed to create OpenGL context!"
         );
-        return nullptr;
+        return NULL;
     }
     wglMakeCurrent( win32_platform->window.device_context, result );
 
@@ -1097,17 +1098,17 @@ void* platform_gl_init( Platform* platform ) {
     Win32Platform* win32_platform = (Win32Platform*)platform;
 
     if( !win32_load_opengl( win32_platform ) ) {
-        return nullptr;
+        return NULL;
     }
 
     HGLRC gl_context = win32_gl_create_context( platform );
     if( !gl_context ) {
-        return nullptr;
+        return NULL;
     }
 
     if( !gl_load( win32_gl_load_proc ) ) {
         WIN32_LOG_FATAL( "Failed to load OpenGL functions!" );
-        return nullptr;
+        return NULL;
     }
 
     return (void*)gl_context;
@@ -1116,7 +1117,7 @@ void platform_gl_shutdown( Platform* platform, void* glrc ) {
     Win32Platform* win32_platform = (Win32Platform*)platform;
     wglMakeCurrent(
         win32_platform->window.device_context,
-        nullptr
+        NULL
     );
     wglDeleteContext( (HGLRC)glrc );
 }
@@ -1207,8 +1208,8 @@ SystemInfo query_system_info() {
         sizeof(cpu_info)
     );
 
-    StringView cpu_name = result.cpu_name_buffer;
-    string_trim_trailing_whitespace( cpu_name );
+    StringView cpu_name = sv_from_str( result.cpu_name_buffer );
+    sv_trim_trailing_whitespace( cpu_name );
 #endif
 
     return result;
@@ -1395,7 +1396,7 @@ LRESULT win32_winproc(
             }
 
             i64 delta = GET_WHEEL_DELTA_WPARAM(wParam);
-            delta = delta == 0 ? 0 : absolute(delta);
+            delta = delta == 0 ? 0 : absof(delta);
 
             if( Msg == WM_MOUSEWHEEL ) {
                 input_set_mouse_wheel( delta );
@@ -1464,26 +1465,26 @@ MessageBoxResult message_box(
     MessageBoxType type,
     MessageBoxIcon icon
 ) {
-    HWND   hWnd      = nullptr;
+    HWND   hWnd      = NULL;
     LPCSTR lpText    = message;
     LPCSTR lpCaption = window_title;
 
     b32  valid_type = true;
     UINT uType = 0;
     switch( type ) {
-        case MBTYPE_OK:
+        case MESSAGE_BOX_TYPE_OK:
             uType |= MB_OK;
             break;
-        case MBTYPE_OKCANCEL:
+        case MESSAGE_BOX_TYPE_OKCANCEL:
             uType |= MB_OKCANCEL;
             break;
-        case MBTYPE_RETRYCANCEL:
+        case MESSAGE_BOX_TYPE_RETRYCANCEL:
             uType |= MB_RETRYCANCEL;
             break;
-        case MBTYPE_YESNO:
+        case MESSAGE_BOX_TYPE_YESNO:
             uType |= MB_YESNO;
             break;
-        case MBTYPE_YESNOCANCEL:
+        case MESSAGE_BOX_TYPE_YESNOCANCEL:
             uType |= MB_YESNOCANCEL;
             break;
         default:
@@ -1493,17 +1494,17 @@ MessageBoxResult message_box(
 
     if( !valid_type ) {
         WIN32_LOG_ERROR("Message Box requires a valid type.");
-        return MBRESULT_UNKNOWN_ERROR;
+        return MESSAGE_BOX_RESULT_UNKNOWN_ERROR;
     }
 
     switch( icon ) {
-        case MBICON_INFORMATION:
+        case MESSAGE_BOX_ICON_INFORMATION:
             uType |= MB_ICONASTERISK;
             break;
-        case MBICON_WARNING:
+        case MESSAGE_BOX_ICON_WARNING:
             uType |= MB_ICONWARNING;
             break;
-        case MBICON_ERROR:
+        case MESSAGE_BOX_ICON_ERROR:
             uType |= MB_ICONERROR;
             break;
         default: break;
@@ -1519,23 +1520,23 @@ MessageBoxResult message_box(
     MessageBoxResult result;
     switch( mb_result ) {
         case IDOK:
-            result = MBRESULT_OK;
+            result = MESSAGE_BOX_RESULT_OK;
             break;
         case IDYES:
-            result = MBRESULT_YES;
+            result = MESSAGE_BOX_RESULT_YES;
             break;
         case IDNO:
-            result = MBRESULT_NO;
+            result = MESSAGE_BOX_RESULT_NO;
             break;
         case IDRETRY:
-            result = MBRESULT_RETRY;
+            result = MESSAGE_BOX_RESULT_RETRY;
             break;
         case IDCANCEL:
-            result = MBRESULT_CANCEL;
+            result = MESSAGE_BOX_RESULT_CANCEL;
             break;
         default:
             WIN32_LOG_ERROR("Message Box returned an unknown result.");
-            result = MBRESULT_UNKNOWN_ERROR;
+            result = MESSAGE_BOX_RESULT_UNKNOWN_ERROR;
             break;
     }
 
@@ -1576,10 +1577,10 @@ b32 platform_file_open(
         path,
         dwDesiredAccess,
         dwShareMode,
-        nullptr,
+        NULL,
         dwCreationDisposition,
         0,
-        nullptr
+        NULL
     );
     if( handle == INVALID_HANDLE_VALUE ) {
         WIN32_LOG_ERROR( "Path: {cc}", path );
@@ -1600,7 +1601,7 @@ b32 platform_file_read(
     void* buffer
 ) {
     LOG_ASSERT(
-        read_size < U32::MAX,
+        read_size < U32_MAX,
         "platform_file_read does not support reads over 4GB on Win32!"
     );
     Win32FileHandle* win32_file = (Win32FileHandle*)handle;
@@ -1621,7 +1622,7 @@ b32 platform_file_read(
         buffer,
         bytes_to_read,
         &bytes_read,
-        nullptr
+        NULL
     ) ) {
         win32_log_error( false );
         return false;
@@ -1644,7 +1645,7 @@ b32 platform_file_write(
     void* buffer
 ) {
     ASSERT( buffer_size >= write_size );
-    ASSERT( (u64)U32::MAX >= write_size );
+    ASSERT( (u64)U32_MAX >= write_size );
     DWORD bytes_to_write = write_size;
     DWORD bytes_written = 0;
     Win32FileHandle* win32_file = (Win32FileHandle*)handle;
@@ -1653,7 +1654,7 @@ b32 platform_file_write(
         buffer,
         bytes_to_write,
         &bytes_written,
-        nullptr
+        NULL
     );
     if( !write_result || bytes_written != bytes_to_write ) {
         win32_log_error( false );
@@ -1695,7 +1696,7 @@ b32 platform_file_set_offset( PlatformFileHandle* handle, usize offset ) {
     if( !SetFilePointerEx(
         win32_file->handle,
         large_offset,
-        nullptr,
+        NULL,
         FILE_BEGIN
     ) ) {
         win32_log_error( false );
@@ -1704,222 +1705,228 @@ b32 platform_file_set_offset( PlatformFileHandle* handle, usize offset ) {
         return true;
     }
 }
-internal inline void fill_sound_buffer(
-    i16* sample_out,
-    DWORD sample_count,
-    Win32DirectSound* ds,
-    i16 volume
-) {
-    f32 wave_period = (f32)AUDIO_KHZ / (f32)256;
-    for(
-        DWORD sample_index = 0;
-        sample_index < sample_count;
-        ++sample_index
-    ) {
-        f32 t = F32::TAU * ((f32)ds->running_sample_index / wave_period);
-        f32 sine_value = sin(t);
-        i16 sample_value = (i16)(sine_value * volume);
-        *sample_out++ = sample_value;
-        *sample_out++ = sample_value;
-
-        ds->running_sample_index++;
-    }
-}
+// internal inline void fill_sound_buffer(
+//     i16* sample_out,
+//     DWORD sample_count,
+//     Win32DirectSound* ds,
+//     i16 volume
+// ) {
+//     f32 wave_period = (f32)AUDIO_KHZ / (f32)256;
+//     for(
+//         DWORD sample_index = 0;
+//         sample_index < sample_count;
+//         ++sample_index
+//     ) {
+//         f32 t = F32_TAU * ((f32)ds->running_sample_index / wave_period);
+//         f32 sine_value = sin(t);
+//         i16 sample_value = (i16)(sine_value * volume);
+//         *sample_out++ = sample_value;
+//         *sample_out++ = sample_value;
+//
+//         ds->running_sample_index++;
+//     }
+// }
 b32 platform_init_audio( Platform* generic_platform ) {
-    Win32Platform* platform = (Win32Platform*)generic_platform;
-
-    if( !library_load(
-        "DSOUND.DLL",
-        &platform->lib_dsound
-    ) ) {
-        MESSAGE_BOX_FATAL(
-            "Failed to load library!",
-            "Failed to load user32.dll!"
-        );
-        return false;
-    }
-    DirectSoundCreate =
-    (::impl::DirectSoundCreateFN)library_load_function(
-        &platform->lib_dsound,
-        "DirectSoundCreate"
-    );
-    if( !DirectSoundCreate ) {
-        return false;
-    }
-
-    LPDIRECTSOUND direct_sound = nullptr;
-    HRESULT hResult = DirectSoundCreate(
-        NULL, &direct_sound, NULL
-    );
-    if( !SUCCEEDED(hResult) ) {
-        win32_log_error( true );
-        return false;
-    }
-    
-    // Set cooperative level
-    hResult = direct_sound->SetCooperativeLevel(
-        platform->window.handle,
-        DSSCL_PRIORITY
-    );
-    if( !SUCCEEDED(hResult) ) {
-        win32_log_error( true );
-        return false;
-    }
-
-    /// Create primary buffer
-    DSBUFFERDESC buffer_description = {};
-    buffer_description.dwSize  = sizeof(buffer_description);
-    buffer_description.dwFlags = DSBCAPS_PRIMARYBUFFER;
-
-    LPDIRECTSOUNDBUFFER direct_sound_primary_buffer = {};
-    hResult = direct_sound->CreateSoundBuffer(
-        &buffer_description,
-        &direct_sound_primary_buffer,
-        NULL
-    );
-    if( !SUCCEEDED( hResult ) ) {
-        win32_log_error( true );
-        return false;
-    }
-
-    /// Set primary buffer format
-    WAVEFORMATEX wave_format = {};
-    wave_format.wFormatTag     = WAVE_FORMAT_PCM;
-    wave_format.nChannels      = AUDIO_CHANNEL_COUNT;
-    wave_format.wBitsPerSample = AUDIO_BITS_PER_SAMPLE;
-    wave_format.nSamplesPerSec = AUDIO_KHZ;
-    wave_format.nBlockAlign =
-        (wave_format.nChannels * wave_format.wBitsPerSample) / 8;
-    wave_format.nAvgBytesPerSec =
-        wave_format.nSamplesPerSec * wave_format.nBlockAlign;
-
-    hResult = direct_sound_primary_buffer->SetFormat( &wave_format );
-    if( !SUCCEEDED( hResult ) ) {
-        win32_log_error( true );
-        return false;
-    }
-
-    /// Create secondary buffer
-    buffer_description = {};
-    buffer_description.dwSize        = sizeof(buffer_description);
-    buffer_description.dwBufferBytes = AUDIO_BUFFER_SIZE;
-    buffer_description.lpwfxFormat   = &wave_format;
-    LPDIRECTSOUNDBUFFER direct_sound_secondary_buffer = {};
-    hResult = direct_sound->CreateSoundBuffer(
-        &buffer_description,
-        &direct_sound_secondary_buffer,
-        NULL
-    );
-
-    if( !SUCCEEDED(hResult) ) {
-        win32_log_error( true );
-        return false;
-    }
-
-    platform->direct_sound.handle          = direct_sound;
-    platform->direct_sound.hardware_handle = direct_sound_primary_buffer;
-    platform->direct_sound.buffer          = direct_sound_secondary_buffer;
-    platform->direct_sound.running_sample_index = 0;
-
-    void* audio_ptr[2];
-    DWORD audio_bytes[2];
-    hResult = direct_sound_secondary_buffer->Lock(
-        0, AUDIO_BUFFER_SIZE,
-        &audio_ptr[0], &audio_bytes[0],
-        &audio_ptr[1], &audio_bytes[1],
-        DSBLOCK_ENTIREBUFFER
-    );
-    LOG_ASSERT( SUCCEEDED(hResult), "Failed to lock" );
-    
-    if( audio_ptr[0] ) {
-        // NOTE(alicia): should probably clear to zero instead
-        fill_sound_buffer(
-            (i16*)audio_ptr[0],
-            audio_bytes[0] / AUDIO_BYTES_PER_SAMPLE,
-            &platform->direct_sound,
-            400
-        );
-    }
-
-    hResult = direct_sound_secondary_buffer->Unlock(
-        audio_ptr[0], audio_bytes[0],
-        audio_ptr[1], audio_bytes[1]
-    );
-    LOG_ASSERT( SUCCEEDED(hResult), "Failed to unlock" );
-
-    direct_sound_secondary_buffer->Play(
-        0, 0,
-        DSBPLAY_LOOPING
-    );
-
-
+    unused(generic_platform);
     return true;
 }
+//     Win32Platform* platform = (Win32Platform*)generic_platform;
+//
+//     if( !library_load(
+//         "DSOUND.DLL",
+//         &platform->lib_dsound
+//     ) ) {
+//         MESSAGE_BOX_FATAL(
+//             "Failed to load library!",
+//             "Failed to load user32.dll!"
+//         );
+//         return false;
+//     }
+//     DirectSoundCreate =
+//     (DirectSoundCreateFN)library_load_function(
+//         &platform->lib_dsound,
+//         "DirectSoundCreate"
+//     );
+//     if( !DirectSoundCreate ) {
+//         return false;
+//     }
+//
+//     LPDIRECTSOUND direct_sound = NULL;
+//     HRESULT hResult = DirectSoundCreate(
+//         NULL, &direct_sound, NULL
+//     );
+//     if( !SUCCEEDED(hResult) ) {
+//         win32_log_error( true );
+//         return false;
+//     }
+//
+//     // Set cooperative level
+//     hResult = direct_sound->SetCooperativeLevel(
+//         platform->window.handle,
+//         DSSCL_PRIORITY
+//     );
+//     if( !SUCCEEDED(hResult) ) {
+//         win32_log_error( true );
+//         return false;
+//     }
+//
+//     /// Create primary buffer
+//     DSBUFFERDESC buffer_description = {};
+//     buffer_description.dwSize  = sizeof(buffer_description);
+//     buffer_description.dwFlags = DSBCAPS_PRIMARYBUFFER;
+//
+//     LPDIRECTSOUNDBUFFER direct_sound_primary_buffer = {};
+//     hResult = direct_sound->CreateSoundBuffer(
+//         &buffer_description,
+//         &direct_sound_primary_buffer,
+//         NULL
+//     );
+//     if( !SUCCEEDED( hResult ) ) {
+//         win32_log_error( true );
+//         return false;
+//     }
+//
+//     /// Set primary buffer format
+//     WAVEFORMATEX wave_format = {};
+//     wave_format.wFormatTag     = WAVE_FORMAT_PCM;
+//     wave_format.nChannels      = AUDIO_CHANNEL_COUNT;
+//     wave_format.wBitsPerSample = AUDIO_BITS_PER_SAMPLE;
+//     wave_format.nSamplesPerSec = AUDIO_KHZ;
+//     wave_format.nBlockAlign =
+//         (wave_format.nChannels * wave_format.wBitsPerSample) / 8;
+//     wave_format.nAvgBytesPerSec =
+//         wave_format.nSamplesPerSec * wave_format.nBlockAlign;
+//
+//     hResult = direct_sound_primary_buffer->SetFormat( &wave_format );
+//     if( !SUCCEEDED( hResult ) ) {
+//         win32_log_error( true );
+//         return false;
+//     }
+//
+//     /// Create secondary buffer
+//     buffer_description = {};
+//     buffer_description.dwSize        = sizeof(buffer_description);
+//     buffer_description.dwBufferBytes = AUDIO_BUFFER_SIZE;
+//     buffer_description.lpwfxFormat   = &wave_format;
+//     LPDIRECTSOUNDBUFFER direct_sound_secondary_buffer = {};
+//     hResult = direct_sound->CreateSoundBuffer(
+//         &buffer_description,
+//         &direct_sound_secondary_buffer,
+//         NULL
+//     );
+//
+//     if( !SUCCEEDED(hResult) ) {
+//         win32_log_error( true );
+//         return false;
+//     }
+//
+//     platform->direct_sound.handle          = direct_sound;
+//     platform->direct_sound.hardware_handle = direct_sound_primary_buffer;
+//     platform->direct_sound.buffer          = direct_sound_secondary_buffer;
+//     platform->direct_sound.running_sample_index = 0;
+//
+//     void* audio_ptr[2];
+//     DWORD audio_bytes[2];
+//     hResult = direct_sound_secondary_buffer->Lock(
+//         0, AUDIO_BUFFER_SIZE,
+//         &audio_ptr[0], &audio_bytes[0],
+//         &audio_ptr[1], &audio_bytes[1],
+//         DSBLOCK_ENTIREBUFFER
+//     );
+//     LOG_ASSERT( SUCCEEDED(hResult), "Failed to lock" );
+//     
+//     if( audio_ptr[0] ) {
+//         // NOTE(alicia): should probably clear to zero instead
+//         fill_sound_buffer(
+//             (i16*)audio_ptr[0],
+//             audio_bytes[0] / AUDIO_BYTES_PER_SAMPLE,
+//             &platform->direct_sound,
+//             400
+//         );
+//     }
+//
+//     hResult = direct_sound_secondary_buffer->Unlock(
+//         audio_ptr[0], audio_bytes[0],
+//         audio_ptr[1], audio_bytes[1]
+//     );
+//     LOG_ASSERT( SUCCEEDED(hResult), "Failed to unlock" );
+//
+//     direct_sound_secondary_buffer->Play(
+//         0, 0,
+//         DSBPLAY_LOOPING
+//     );
+//
+//
+//     return true;
+// }
 void platform_shutdown_audio( Platform* platform ) {
-    LPDIRECTSOUNDBUFFER buffer = ((Win32Platform*)platform)->direct_sound.buffer;
-    buffer->Stop();
+    unused(platform);
+    // LPDIRECTSOUNDBUFFER buffer = ((Win32Platform*)platform)->direct_sound.buffer;
+    // buffer->Stop();
 }
-
+//
 void platform_audio_test( Platform* generic_platform, i16 volume ) {
-    Win32DirectSound* ds = &((Win32Platform*)generic_platform)->direct_sound;
-    LPDIRECTSOUNDBUFFER buffer = ds->buffer;
-
-    DWORD play_cursor  = 0;
-    DWORD write_cursor = 0;
-
-    HRESULT hResult = buffer->GetCurrentPosition(
-        &play_cursor,
-        &write_cursor
-    );
-    LOG_ASSERT( SUCCEEDED(hResult), "Failed to get play/write cursor!" );
-
-    DWORD byte_to_lock =
-        (ds->running_sample_index * AUDIO_BYTES_PER_SAMPLE) % AUDIO_BUFFER_SIZE;
-    DWORD bytes_to_write = 0;
-    if( ds->running_sample_index == 0 ) {
-        bytes_to_write = AUDIO_BUFFER_SIZE;
-    } else {
-        if( byte_to_lock == play_cursor ) {
-            return;
-        } else if( byte_to_lock > play_cursor ) {
-            bytes_to_write = ( AUDIO_BUFFER_SIZE - byte_to_lock );
-            bytes_to_write += play_cursor;
-        } else {
-            bytes_to_write = play_cursor - byte_to_lock;
-        }
-    }
-
-    void* audio_ptr[2];
-    DWORD audio_bytes[2];
-    hResult = buffer->Lock(
-        byte_to_lock, bytes_to_write,
-        &audio_ptr[0], &audio_bytes[0],
-        &audio_ptr[1], &audio_bytes[1],
-        0
-    );
-    LOG_ASSERT( SUCCEEDED(hResult), "Failed to lock" );
-
-    i16*  sample_out   = (i16*)(audio_ptr[0]);
-    DWORD sample_count = audio_bytes[0] / AUDIO_BYTES_PER_SAMPLE;
-
-    fill_sound_buffer(
-        sample_out,
-        sample_count,
-        ds, volume
-    );
-    sample_out   = (i16*)(audio_ptr[1]);
-    sample_count = audio_bytes[1] / AUDIO_BYTES_PER_SAMPLE;
-    fill_sound_buffer(
-        sample_out,
-        sample_count,
-        ds, volume
-    );
-
-    hResult = buffer->Unlock(
-        audio_ptr[0], audio_bytes[0],
-        audio_ptr[1], audio_bytes[1]
-    );
-    LOG_ASSERT( SUCCEEDED(hResult), "Failed to unlock" );
+    unused(generic_platform);
+    unused(volume);
+//     Win32DirectSound* ds = &((Win32Platform*)generic_platform)->direct_sound;
+//     LPDIRECTSOUNDBUFFER buffer = ds->buffer;
+//
+//     DWORD play_cursor  = 0;
+//     DWORD write_cursor = 0;
+//
+//     HRESULT hResult = buffer->GetCurrentPosition(
+//         &play_cursor,
+//         &write_cursor
+//     );
+//     LOG_ASSERT( SUCCEEDED(hResult), "Failed to get play/write cursor!" );
+//
+//     DWORD byte_to_lock =
+//         (ds->running_sample_index * AUDIO_BYTES_PER_SAMPLE) % AUDIO_BUFFER_SIZE;
+//     DWORD bytes_to_write = 0;
+//     if( ds->running_sample_index == 0 ) {
+//         bytes_to_write = AUDIO_BUFFER_SIZE;
+//     } else {
+//         if( byte_to_lock == play_cursor ) {
+//             return;
+//         } else if( byte_to_lock > play_cursor ) {
+//             bytes_to_write = ( AUDIO_BUFFER_SIZE - byte_to_lock );
+//             bytes_to_write += play_cursor;
+//         } else {
+//             bytes_to_write = play_cursor - byte_to_lock;
+//         }
+//     }
+//
+//     void* audio_ptr[2];
+//     DWORD audio_bytes[2];
+//     hResult = buffer->Lock(
+//         byte_to_lock, bytes_to_write,
+//         &audio_ptr[0], &audio_bytes[0],
+//         &audio_ptr[1], &audio_bytes[1],
+//         0
+//     );
+//     LOG_ASSERT( SUCCEEDED(hResult), "Failed to lock" );
+//
+//     i16*  sample_out   = (i16*)(audio_ptr[0]);
+//     DWORD sample_count = audio_bytes[0] / AUDIO_BYTES_PER_SAMPLE;
+//
+//     fill_sound_buffer(
+//         sample_out,
+//         sample_count,
+//         ds, volume
+//     );
+//     sample_out   = (i16*)(audio_ptr[1]);
+//     sample_count = audio_bytes[1] / AUDIO_BYTES_PER_SAMPLE;
+//     fill_sound_buffer(
+//         sample_out,
+//         sample_count,
+//         ds, volume
+//     );
+//
+//     hResult = buffer->Unlock(
+//         audio_ptr[0], audio_bytes[0],
+//         audio_ptr[1], audio_bytes[1]
+//     );
+//     LOG_ASSERT( SUCCEEDED(hResult), "Failed to unlock" );
 }
 
 b32 win32_load_user32( Win32Platform* platform ) {
@@ -1935,7 +1942,7 @@ b32 win32_load_user32( Win32Platform* platform ) {
     }
 
     #define LOAD_USER32_FN(function_name) do {\
-        function_name = ( ::impl:: function_name##FN )\
+        function_name = (  function_name##FN )\
         library_load_function( &platform->lib_user32, #function_name );\
         if( !function_name ) { return false; }\
     } while(0)
@@ -1996,7 +2003,7 @@ b32 win32_load_xinput( Win32Platform* platform ) {
     }
 
     #define LOAD_XINPUT_FN(function_name) do {\
-        function_name = ( ::impl:: function_name##FN )\
+        function_name = (  function_name##FN )\
         library_load_function( &platform->lib_xinput, #function_name );\
         if( !function_name ) { return false; }\
     } while(0)
@@ -2004,8 +2011,8 @@ b32 win32_load_xinput( Win32Platform* platform ) {
     LOAD_XINPUT_FN(XInputGetState);
     LOAD_XINPUT_FN(XInputSetState);
 
-    ::impl::XInputEnableFN xinput_enable =
-    (::impl::XInputEnableFN)library_load_function(
+    XInputEnableFN xinput_enable =
+    (XInputEnableFN)library_load_function(
         &platform->lib_xinput,
         "XInputEnable"
     );
@@ -2029,13 +2036,13 @@ b32 win32_load_opengl( Win32Platform* platform ) {
     }
 
     #define LOAD_OPENGL_FN(function_name) do {\
-        function_name = ( ::impl:: function_name##FN )\
+        function_name = (  function_name##FN )\
         library_load_function( &platform->lib_gl, #function_name );\
         if( !function_name ) { return false; }\
     } while(0)
 
     #define LOAD_GDI32_FN(function_name) do {\
-        function_name = ( ::impl:: function_name##FN )\
+        function_name = (  function_name##FN )\
         library_load_function( &platform->lib_gdi32, #function_name );\
         if( !function_name ) { return false; }\
     } while(0)
@@ -2088,12 +2095,12 @@ DWORD win32_log_error( b32 present_message_box ) {
         FORMAT_MESSAGE_FROM_SYSTEM |
         FORMAT_MESSAGE_IGNORE_INSERTS |
         FORMAT_MESSAGE_MAX_WIDTH_MASK,
-        nullptr,
+        NULL,
         error_code,
         0,
         ERROR_MESSAGE_BUFFER,
         ERROR_MESSAGE_BUFFER_SIZE,
-        nullptr
+        NULL
     );
 
     if( message_length ) {
@@ -2107,7 +2114,7 @@ DWORD win32_log_error( b32 present_message_box ) {
             StringView error_message_buffer_view = {};
             error_message_buffer_view.buffer = ERROR_MESSAGE_BUFFER + message_length;
             error_message_buffer_view.len    = ERROR_MESSAGE_BUFFER_SIZE - (message_length + 1);
-            string_format(
+            sv_format(
                 error_message_buffer_view,
                 "Encountered a fatal Windows error!\n"
                 LD_CONTACT_MESSAGE "\n{c}",
@@ -2150,7 +2157,7 @@ void heap_free( void* memory ) {
 void* platform_page_alloc( usize size ) {
     // VirtualAlloc returns automatically zeroed memory.
     void* pointer = (void*)VirtualAlloc(
-        nullptr,
+        NULL,
         size,
         MEM_RESERVE | MEM_COMMIT,
         PAGE_READWRITE
@@ -2190,7 +2197,7 @@ b32 platform_thread_create(
     read_write_fence();
 
     win32_thread->thread_handle = CreateThread(
-        nullptr,
+        NULL,
         thread_stack_size,
         win32_thread_proc,
         win32_thread,
@@ -2234,9 +2241,9 @@ b32 platform_semaphore_create(
         (Win32SemaphoreHandle*)out_semaphore_handle;
 
     HANDLE result = CreateSemaphoreEx(
-        nullptr,
+        NULL,
         initial_count,
-        I32::MAX,
+        I32_MAX,
         opt_name,
         0,
         SEMAPHORE_ALL_ACCESS
@@ -2256,7 +2263,7 @@ void platform_semaphore_increment(
         (Win32SemaphoreHandle*)semaphore_handle;
     ReleaseSemaphore(
         win32_semaphore->handle,
-        1, nullptr
+        1, NULL
     );
 }
 void platform_semaphore_wait(
@@ -2278,14 +2285,14 @@ void platform_semaphore_destroy(
     Win32SemaphoreHandle* win32_semaphore =
         (Win32SemaphoreHandle*)semaphore_handle;
     CloseHandle( win32_semaphore->handle );
-    *win32_semaphore = {};
+    mem_zero( win32_semaphore, sizeof(Win32SemaphoreHandle) );
 }
 b32 platform_mutex_create( PlatformMutexHandle* out_mutex ) {
     Win32MutexHandle* win32_mutex = (Win32MutexHandle*)out_mutex;
     HANDLE result = CreateMutexA(
-        nullptr,
+        NULL,
         false,
-        nullptr
+        NULL
     );
     if( !result ) {
         return false;
@@ -2308,25 +2315,25 @@ void platform_mutex_unlock( PlatformMutexHandle* mutex ) {
 void platform_mutex_destroy( PlatformMutexHandle* mutex ) {
     Win32MutexHandle* win32_mutex = (Win32MutexHandle*)mutex;
     CloseHandle( win32_mutex->handle );
-    *win32_mutex = {};
+    mem_zero( win32_mutex, sizeof(Win32MutexHandle) );
 }
 u32 platform_interlocked_increment_u32( volatile u32* addend ) {
-    return InterlockedIncrement( addend );
+    return InterlockedIncrement( (LONG volatile*)addend );
 }
 u32 platform_interlocked_decrement_u32( volatile u32* addend ) {
-    return InterlockedDecrement( addend );
+    return InterlockedDecrement( (LONG volatile*)addend );
 }
 u32 platform_interlocked_exchange_u32( volatile u32* target, u32 value ) {
-    return InterlockedExchange( target, value );
+    return InterlockedExchange( (LONG volatile*)target, (LONG)value );
 }
 u32 platform_interlocked_compare_exchange_u32(
     volatile u32* dst,
     u32 exchange, u32 comperand
 ) {
     return InterlockedCompareExchange(
-        dst,
-        exchange,
-        comperand
+        (LONG volatile*)dst,
+        (LONG)exchange,
+        (LONG)comperand
     );
 }
 void* platform_interlocked_compare_exchange_pointer(

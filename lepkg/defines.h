@@ -122,6 +122,7 @@ typedef void* pvoid;
     (sizeof(array))
 
 #if !defined(LEPKG_COMPILER_MSVC) // not MSVC
+    
     #define PANIC() __builtin_trap()
 
     #if defined(LEPKG_COMPILER_GCC)
@@ -137,6 +138,7 @@ typedef void* pvoid;
     #define MAKE_PACKED( declaration ) declaration __attribute__((__packed__))
 
     #define unused(x) (void)((x))
+    #define UNUSED_PARAM(x) x __attribute__((__unused__))
 
 #endif
 

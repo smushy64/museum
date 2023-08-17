@@ -3,9 +3,9 @@
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: May 03, 2023
 */
-#include "input.h"
-#include "logging.h"
-#include "memory.h"
+#include "core/ldinput.h"
+#include "core/ldlog.h"
+#include "core/ldmemory.h"
 #include "platform/platform.h"
 
 #define KEY_STATE_COUNT 255
@@ -13,9 +13,9 @@
 #define DEFAULT_TRIGGER_DEADZONE 0.05f
 #define DEFAULT_TRIGGER_PRESS_THRESHOLD 0.5f
 
-struct GamepadState {
-    b8 last_buttons[PAD_CODE_COUNT];
-    b8 buttons[PAD_CODE_COUNT];
+typedef struct {
+    b8 last_buttons[GAMEPAD_CODE_COUNT];
+    b8 buttons[GAMEPAD_CODE_COUNT];
 
     f32 last_trigger_left;
     f32 trigger_left;
@@ -38,25 +38,36 @@ struct GamepadState {
 
     union {
         struct {
-            f32 stick_left_deadzone  = DEFAULT_STICK_DEADZONE;
-            f32 stick_right_deadzone = DEFAULT_STICK_DEADZONE;
+            f32 stick_left_deadzone;
+            f32 stick_right_deadzone;
         };
         f32 stick_deadzones[2];
     };
     union {
         struct {
-            f32 trigger_left_deadzone  = DEFAULT_TRIGGER_DEADZONE;
-            f32 trigger_right_deadzone = DEFAULT_TRIGGER_DEADZONE;
+            f32 trigger_left_deadzone;
+            f32 trigger_right_deadzone;
         };
         f32 trigger_deadzones[2];
     };
 
-    f32 trigger_press_threshold = DEFAULT_TRIGGER_PRESS_THRESHOLD;
+    f32 trigger_press_threshold;
 
     b32 is_active;
-};
+} GamepadState;
 
-struct InputState {
+internal GamepadState gamepad_state_default() {
+    GamepadState result = {0};
+    result.stick_left_deadzone  = DEFAULT_STICK_DEADZONE;
+    result.stick_right_deadzone = DEFAULT_STICK_DEADZONE;
+    result.trigger_left_deadzone  = DEFAULT_TRIGGER_DEADZONE;
+    result.trigger_right_deadzone = DEFAULT_TRIGGER_DEADZONE;
+    result.trigger_press_threshold = DEFAULT_TRIGGER_PRESS_THRESHOLD;
+
+    return result;
+}
+
+typedef struct {
     b8 last_keys[KEY_STATE_COUNT];
     b8 keys[KEY_STATE_COUNT];
 
@@ -74,15 +85,21 @@ struct InputState {
     GamepadState gamepads[MAX_GAMEPAD_INDEX];
 
     Platform* platform;
-};
+} InputState;
 
-global InputState* INPUT_STATE = nullptr;
-
-u32 query_input_subsystem_size() {
-    return sizeof(InputState);
+internal void input_state_init( InputState* state ) {
+    for( u32 i = 0; i < MAX_GAMEPAD_INDEX; ++i ) {
+        state->gamepads[i] = gamepad_state_default();
+    }
 }
-b32 input_init( Platform* platform, void* buffer ) {
+
+global InputState* INPUT_STATE = NULL;
+
+u32 query_input_subsystem_size() { return sizeof(InputState); }
+
+b32 input_init( struct Platform* platform, void* buffer ) {
     INPUT_STATE = (InputState*)buffer;
+    input_state_init( INPUT_STATE );
     INPUT_STATE->platform = platform;
     LOG_INFO("Input subsystem successfully initialized.");
     return true;
@@ -114,7 +131,7 @@ void input_set_horizontal_mouse_wheel( i32 delta ) {
 }
 void input_set_pad_button(
     u32 gamepad_index,
-    PadCode code,
+    GamepadCode code,
     b32 is_down
 ) {
     INPUT_STATE->gamepads[gamepad_index].buttons[code] = is_down;
@@ -169,7 +186,7 @@ void input_swap() {
             mem_copy(
                 gamepad->last_buttons,
                 gamepad->buttons,
-                PAD_CODE_COUNT
+                GAMEPAD_CODE_COUNT
             );
             gamepad->last_stick_left    = gamepad->stick_left;
             gamepad->last_stick_right   = gamepad->stick_right;
@@ -222,7 +239,7 @@ i32 input_last_horizontal_mouse_wheel() {
 
 b32 input_is_pad_button_down(
     u32 gamepad_index,
-    PadCode code
+    GamepadCode code
 ) {
     LOG_ASSERT(
         MAX_GAMEPAD_INDEX > gamepad_index,
@@ -232,7 +249,7 @@ b32 input_is_pad_button_down(
 }
 b32 input_was_pad_button_down(
     u32 gamepad_index,
-    PadCode code
+    GamepadCode code
 ) {
     LOG_ASSERT(
         MAX_GAMEPAD_INDEX > gamepad_index,

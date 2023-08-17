@@ -9,10 +9,11 @@
  *                  X: Right  Y: Top
 */
 #include "defines.h"
-#include "math/types.h"
+#include "core/ldmath/types.h"
+#include "core/ldmath/type_functions.h"
 
 /// Key Codes
-enum KeyboardCode : u8 {
+typedef enum : u8 {
     KEY_BACKSPACE  = 8,
     KEY_TAB        = 9,
 
@@ -135,10 +136,10 @@ enum KeyboardCode : u8 {
     KEY_ALT_RIGHT,
     KEY_CONTROL_RIGHT = 225,
 
-    KEY_UNKNOWN = U8::MAX,
-};
+    KEY_UNKNOWN = U8_MAX,
+} KeyboardCode;
 #define KEY_COUNT 109
-inline const char* to_string( KeyboardCode keycode ) {
+inline const char* kb_to_string( KeyboardCode keycode ) {
     switch( keycode ) {
         case KEY_SPACE:          return "Space";
         case KEY_A:              return "A";
@@ -254,8 +255,8 @@ inline const char* to_string( KeyboardCode keycode ) {
 }
 
 /// Mouse Button Codes
-enum MouseCode : u8 {
-    MOUSE_BUTTON_UNKNOWN = U8::MAX,
+typedef enum : u8 {
+    MOUSE_BUTTON_UNKNOWN = U8_MAX,
     MOUSE_BUTTON_LEFT = 0,
     MOUSE_BUTTON_MIDDLE,
     MOUSE_BUTTON_RIGHT,
@@ -263,54 +264,54 @@ enum MouseCode : u8 {
     MOUSE_BUTTON_EXTRA_2,
 
     MOUSE_BUTTON_COUNT
-};
-inline const char* to_string( MouseCode mousecode ) {
-    local const char* strings[MOUSE_BUTTON_COUNT] = {
+} MouseCode;
+inline const char* mouse_code_to_string( MouseCode mouse_code ) {
+    const char* strings[MOUSE_BUTTON_COUNT] = {
         "Mouse Button Left",
         "Mouse Button Middle",
         "Mouse Button Right",
         "Mouse Button Extra 1",
         "Mouse Button Extra 2",
     };
-    if( mousecode >= MOUSE_BUTTON_COUNT ) {
+    if( mouse_code >= MOUSE_BUTTON_COUNT ) {
         return "Unknown";
     }
-    return strings[mousecode];
+    return strings[mouse_code];
 }
 
 /// Pad Codes
-enum PadCode : u8 {
-    PAD_CODE_UNKNOWN = 0,
+typedef enum : u8 {
+    GAMEPAD_CODE_UNKNOWN = 0,
 
-    PAD_CODE_STICK_LEFT,
-    PAD_CODE_STICK_RIGHT,
+    GAMEPAD_CODE_STICK_LEFT,
+    GAMEPAD_CODE_STICK_RIGHT,
 
-    PAD_CODE_STICK_LEFT_CLICK,
-    PAD_CODE_STICK_RIGHT_CLICK,
+    GAMEPAD_CODE_STICK_LEFT_CLICK,
+    GAMEPAD_CODE_STICK_RIGHT_CLICK,
 
-    PAD_CODE_TRIGGER_LEFT,
-    PAD_CODE_TRIGGER_RIGHT,
+    GAMEPAD_CODE_TRIGGER_LEFT,
+    GAMEPAD_CODE_TRIGGER_RIGHT,
 
-    PAD_CODE_BUMPER_LEFT,
-    PAD_CODE_BUMPER_RIGHT,
+    GAMEPAD_CODE_BUMPER_LEFT,
+    GAMEPAD_CODE_BUMPER_RIGHT,
 
-    PAD_CODE_DPAD_LEFT,
-    PAD_CODE_DPAD_RIGHT,
-    PAD_CODE_DPAD_UP,
-    PAD_CODE_DPAD_DOWN,
+    GAMEPAD_CODE_DPAD_LEFT,
+    GAMEPAD_CODE_DPAD_RIGHT,
+    GAMEPAD_CODE_DPAD_UP,
+    GAMEPAD_CODE_DPAD_DOWN,
 
-    PAD_CODE_FACE_LEFT,
-    PAD_CODE_FACE_RIGHT,
-    PAD_CODE_FACE_UP,
-    PAD_CODE_FACE_DOWN,
+    GAMEPAD_CODE_FACE_LEFT,
+    GAMEPAD_CODE_FACE_RIGHT,
+    GAMEPAD_CODE_FACE_UP,
+    GAMEPAD_CODE_FACE_DOWN,
 
-    PAD_CODE_START,
-    PAD_CODE_SELECT,
+    GAMEPAD_CODE_START,
+    GAMEPAD_CODE_SELECT,
 
-    PAD_CODE_COUNT
-};
-inline const char* to_string( PadCode padcode ) {
-    local const char* strings[PAD_CODE_COUNT] = {
+    GAMEPAD_CODE_COUNT
+} GamepadCode;
+inline const char* gamepad_code_to_string( GamepadCode gamepad_code ) {
+    const char* strings[GAMEPAD_CODE_COUNT] = {
         "Unknown",
         "STICK Left",
         "STICK Right",
@@ -331,10 +332,10 @@ inline const char* to_string( PadCode padcode ) {
         "START",
         "SELECT",
     };
-    if( padcode >= PAD_CODE_COUNT ) {
+    if( gamepad_code >= GAMEPAD_CODE_COUNT ) {
         return strings[0];
     }
-    return strings[padcode];
+    return strings[gamepad_code];
 }
 
 #define GAMEPAD_MOTOR_LEFT  0
@@ -343,6 +344,8 @@ inline const char* to_string( PadCode padcode ) {
 #define MAX_GAMEPAD_INDEX 4
 
 #if defined(LD_API_INTERNAL)
+
+    struct Platform;
 
     u32  query_input_subsystem_size();
     b32  input_init( struct Platform* platform, void* buffer );
@@ -362,7 +365,7 @@ inline const char* to_string( PadCode padcode ) {
 
     void input_set_pad_button(
         u32 gamepad_index,
-        PadCode code,
+        GamepadCode code,
         b32 is_down
     );
     void input_set_pad_trigger_left(
@@ -405,14 +408,8 @@ LD_API i32 input_last_mouse_wheel();
 LD_API i32 input_horizontal_mouse_wheel();
 LD_API i32 input_last_horizontal_mouse_wheel();
 
-LD_API b32 input_is_pad_button_down(
-    u32 gamepad_index,
-    PadCode code
-);
-LD_API b32 input_was_pad_button_down(
-    u32 gamepad_index,
-    PadCode code
-);
+LD_API b32 input_is_pad_button_down( u32 gamepad_index, GamepadCode code );
+LD_API b32 input_was_pad_button_down( u32 gamepad_index, GamepadCode code );
 
 LD_API vec2 input_pad_stick_left( u32 gamepad_index );
 LD_API vec2 input_pad_last_stick_left( u32 gamepad_index );
@@ -450,7 +447,7 @@ LD_API void input_pad_write_trigger_right_deadzone( u32 gamepad_index, f32 deadz
 
 LD_API void input_pad_write_trigger_press_threshold( u32 gamepad_index, f32 threshold );
 
-inline vec2 mouse_position_to_ndc(
+internal inline vec2 mouse_position_to_ndc(
     ivec2 position,
     ivec2 surface_dimensions
 ) {
@@ -459,7 +456,7 @@ inline vec2 mouse_position_to_ndc(
         (f32)position.y / (f32)surface_dimensions.y,
     };
 
-    return (result - v2(0.5f)) * 2.0f;
+    return v2_mul( v2_sub( result, v2_scalar( 0.5f ) ), 2.0f );
 }
 
 #endif // header guard

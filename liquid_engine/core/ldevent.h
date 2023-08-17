@@ -4,13 +4,15 @@
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: June 24, 2023
 #include "defines.h"
-#include "core/logging.h"
+#include "core/ldlog.h"
 
 /// Event Callback function return codes.
-enum EventCallbackReturn : b32 {
+typedef enum : b32 {
     EVENT_CALLBACK_NOT_CONSUMED,
     EVENT_CALLBACK_CONSUMED,
-};
+} EventCallbackReturn;
+
+struct Event;
 
 /// Event Callback function.
 typedef EventCallbackReturn (*EventCallbackFN)( struct Event* event, void* params );
@@ -21,38 +23,38 @@ typedef EventCallbackReturn (*EventCallbackFN)( struct Event* event, void* param
 typedef u32 EventCode;
 /// Invalid event code.
 /// Any event code with this value will fail an assertion and crash the program.
-global const EventCode EVENT_CODE_INVALID = 0;
+#define EVENT_CODE_INVALID (0)
 /// Exit code.
 /// Triggers engine shutdown.
 /// Contains no data.
-global const EventCode EVENT_CODE_EXIT = 1;
+#define EVENT_CODE_EXIT (1)
 /// Application Active code.
 /// Tells engine when application is active/inactive.
 /// Contains 1 bool32 which is true when app is active, false when it isn't.
-global const EventCode EVENT_CODE_ACTIVE = 2;
+#define EVENT_CODE_ACTIVE (2)
 /// Surface Resize code.
 /// Tells engine when surface is resized.
 /// Contains 2 int32 which correspond to the new width and height of the surface.
-global const EventCode EVENT_CODE_RESIZE = 3;
+#define EVENT_CODE_RESIZE (3)
 /// Gamepad Active code.
 /// Tells engine when a gamepad is active/inactive.
 /// Contains 1 uint32[0] for the index of the gamepad being talked about and
 /// 1 bool32[1] for whether or not the gamepad is now active or inactive.
-global const EventCode EVENT_CODE_GAMEPAD_ACTIVE = 4;
+#define EVENT_CODE_GAMEPAD_ACTIVE (4)
 /// Max Engine Event Code.
 /// This is the maximum event code that the engine is allowed to use.
 /// Any codes greater than this are user event codes.
-global const EventCode MAX_ENGINE_EVENT_CODE = 5;
+#define MAX_ENGINE_EVENT_CODE (5)
 /// Max Event Code.
 /// This is the maximum event code that is allowed.
 /// Any event code that goes above this value will fail an assertion and crash
 /// the program.
-global const EventCode MAX_EVENT_CODE = 255;
+#define MAX_EVENT_CODE (255)
 
 /// Event.
 /// EventCode tells you what type of event it is.
 /// EventData is any data that goes along with this type of event.
-struct Event {
+typedef struct Event {
     EventCode code;
     union EventData {
         pvoid pointer[2];
@@ -75,22 +77,22 @@ struct Event {
 
         char c[16];
     } data;
-};
+} Event;
 
 /// Event Priority.
 /// Tells the event subsystem if listener callbacks should be called
 /// immediately or if they can be delayed.
-enum EventPriority : u32 {
+typedef enum EventPriority : u32 {
     EVENT_PRIORITY_IMMEDIATE,
     EVENT_PRIORITY_DELAYED
-};
+} EventPriority;
 
 /// Fire an event. All callbacks bound to this event will be called.
 /// Priority determines if callbacks will be called immediately or delayed.
-LD_API void event_fire( Event event, EventPriority priority );
+LD_API void event_fire_priority( Event event, EventPriority priority );
 /// Fire an event. All callbacks bound to this event will be called immediately.
-inline void event_fire( Event event ) {
-    event_fire( event, EVENT_PRIORITY_IMMEDIATE );
+headerfn void event_fire( Event event ) {
+    event_fire_priority( event, EVENT_PRIORITY_IMMEDIATE );
 }
 
 /// ID for referring to an event listener.

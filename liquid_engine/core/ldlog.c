@@ -3,10 +3,10 @@
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: April 27, 2023
 */
-#include "logging.h"
-#include "string.h"
-#include "memory.h"
-#include "threading.h"
+#include "core/ldlog.h"
+#include "core/ldstring.h"
+#include "core/ldmemory.h"
+#include "core/ldthread.h"
 #include "platform/platform.h"
 
 #if defined(LD_PLATFORM_WINDOWS)
@@ -32,7 +32,7 @@ global PlatformMutexHandle MUTEX = {};
 )
 
 global u32   LOGGING_BUFFER_SIZE = 0ULL;
-global char* LOGGING_BUFFER      = nullptr;
+global char* LOGGING_BUFFER      = NULL;
 
 global const char* LOG_COLOR_CODES[LOG_COLOR_COUNT] = {
     "\033[1;30m", // BLACK
@@ -52,13 +52,11 @@ internal void set_color( LogColor color ) {
 }
 
 LD_API b32 is_log_initialized() {
-    return LOGGING_BUFFER != nullptr;
+    return LOGGING_BUFFER != NULL;
 }
 
 b32 log_init(
-    [[maybe_unused]]
     LogLevel level,
-    [[maybe_unused]]
     StringView logging_buffer
 ) {
 #if defined(LD_LOGGING)
@@ -70,7 +68,7 @@ b32 log_init(
 
     ASSERT( logging_buffer.buffer );
     LOGGING_BUFFER_SIZE = logging_buffer.len;
-    LOGGING_BUFFER      = logging_buffer.buffer;
+    LOGGING_BUFFER      = (char*)logging_buffer.buffer;
 
     if( !MUTEX_CREATED ) {
         ASSERT( platform_mutex_create( &MUTEX ) );
@@ -80,7 +78,8 @@ b32 log_init(
     LOG_INFO("Logging subsystem successfully initialized.");
 
 #endif // if logging enabled
-
+    unused(level);
+    unused(logging_buffer);
     return true;
 }
 void log_shutdown() {
@@ -103,18 +102,15 @@ void log_shutdown() {
 #endif
 }
 
-internal inline b32 is_level_valid(
-    [[maybe_unused]]
-    LogLevel level
-) {
+internal b32 is_level_valid( LogLevel level ) {
     #if defined(LD_LOGGING)
         return (level & GLOBAL_LOG_LEVEL) == level;
     #endif
+    unused(level);
     return false;
 }
 
-HOT_PATH
-internal inline void log_formatted_internal(
+HOT_PATH internal void log_formatted_internal(
     LogLevel level, LogColor color, LogFlags flags,
     b32 lock, const char* format,
     va_list args
@@ -161,7 +157,7 @@ internal inline void log_formatted_internal(
     logging_buffer_view.buffer = LOGGING_BUFFER;
     logging_buffer_view.len    = LOGGING_BUFFER_SIZE;
 
-    u32 write_size = string_format_va(
+    u32 write_size = sv_format_va(
         logging_buffer_view,
         format,
         args
@@ -187,9 +183,9 @@ internal inline void log_formatted_internal(
     set_color( color );
 
     if( is_error ) {
-        output_string_stderr( LOGGING_BUFFER );
+        str_output_stderr( LOGGING_BUFFER );
     } else {
-        output_string_stdout( LOGGING_BUFFER );
+        str_output_stdout( LOGGING_BUFFER );
     }
 
     set_color( LOG_COLOR_RESET );

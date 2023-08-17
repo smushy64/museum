@@ -6,9 +6,9 @@
 #include "gl_buffer.h"
 #include "gl_backend.h"
 #include "gl_functions.h"
-#include "core/math.h"
+#include "core/ldmath.h"
 
-#include "core/memory.h"
+#include "core/ldmemory.h"
 
 // TODO(alicia): custom std args ?
 #include <stdarg.h>

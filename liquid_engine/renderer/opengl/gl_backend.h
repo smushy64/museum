@@ -11,7 +11,6 @@
 #include "gl_loader.h"
 #include "gl_shader.h"
 #include "gl_buffer.h"
-#include "core/graphics/font.h"
 
 b32 gl_renderer_backend_initialize( RendererContext* generic_ctx );
 void gl_renderer_backend_shutdown( RendererContext* ctx );
@@ -51,7 +50,7 @@ b32 gl_renderer_backend_end_frame(
 #define DEBUG_UI_IMAGE_U_TINT      (1)
 
 #define DEBUG_U_COLOR (0)
-struct OpenGLRendererContext {
+typedef struct OpenGLRendererContext {
     RendererContext ctx;
 
     GLuint u_matrices;
@@ -61,17 +60,12 @@ struct OpenGLRendererContext {
     ShaderProgram font;
     ShaderProgram ui_image;
 
-    FontData font_data;
-
     vec2 viewport;
 
 #if defined(DEBUG)
     ShaderProgram debug;
     GLuint        debug_vao, debug_vbo;
 #endif
-
-    Mesh sprite_mesh;
-    Mesh font_mesh;
 
     const char* device_vendor;
     const char* device_name;
@@ -81,7 +75,7 @@ struct OpenGLRendererContext {
     i32 extension_count;
 
     void* glrc;
-};
+} OpenGLRendererContext;
 
 #if defined(LD_LOGGING)
     #define GL_LOG_NOTE( format, ... ) \

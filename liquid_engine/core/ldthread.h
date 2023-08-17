@@ -9,9 +9,9 @@
 
 #define MAX_SEMAPHORE_SIZE (sizeof(usize))
 /// Opaque Semaphore.
-struct Semaphore {
+typedef struct {
     u8 buffer[MAX_SEMAPHORE_SIZE];
-};
+} Semaphore;
 /// Create a semaphore.
 LD_API b32 semaphore_create( Semaphore* out_semaphore );
 /// Signal a semaphore.
@@ -25,9 +25,9 @@ LD_API void semaphore_destroy( Semaphore* semaphore );
 
 #define MAX_MUTEX_SIZE (64)
 /// Opaque Mutex.
-struct Mutex {
+typedef struct {
     u8 buffer[MAX_MUTEX_SIZE];
-};
+} Mutex;
 /// Create a mutex.
 LD_API b32 mutex_create( Mutex* out_mutex );
 /// Lock a mutex.

@@ -65,7 +65,10 @@ C_FLAGS += -Wno-missing-braces -Wno-c11-extensions
 C_FLAGS += -Wno-gnu-zero-variadic-macro-arguments
 C_FLAGS += -Wno-gnu-anonymous-struct -Wno-nested-anon-types
 C_FLAGS += -Wno-unused-variable -Wno-ignored-attributes
-C_FLAGS += -Wno-gnu-case-range
+C_FLAGS += -Wno-gnu-case-range -Wno-incompatible-library-redeclaration
+C_FLAGS += -Wno-fixed-enum-extension -Wno-strict-prototypes
+C_FLAGS += -Wno-gnu-empty-initializer -Wno-static-in-inline
+C_FLAGS += -Wno-c99-extensions
 
 ifeq ($(IS_WINDOWS), true)
 	DC_FLAGS += -gcodeview
@@ -165,8 +168,8 @@ resources: shaders
 shaders:
 	@$(MAKE) --directory=shaders --no-print-directory
 
-$(corec_path): $(cpp)
-	@echo "// * Description:     Includes all cpp files" > $(corec_path)
+$(corec_path): $(c)
+	@echo "// * Description:     Includes all source files" > $(corec_path)
 	@echo "// * Author:          Alicia Amarilla (smushyaa@gmail.com)" >> $(corec_path)
 	@echo "// * File Generated:  "$(shell date) >> $(corec_path)
 	@echo "// IMPORTANT(alicia): This file should only ever be included ONCE." >> $(corec_path)

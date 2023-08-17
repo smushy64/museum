@@ -9,7 +9,6 @@
  *               <intrin.h> MSVC ONLY
  * Notes:        define LD_ASSERTIONS to enable DEBUG_ASSERT macro
 */
-
 /// compiler defines
 #if defined(__GNUC__) || defined(__GNUG__)
     #define LD_COMPILER_GCC
@@ -115,29 +114,29 @@ typedef signed long long i64;
 #endif // if x86_32
 
 #else // other
-#include <stdint.h>
-/// pointer-sized unsigned integer
-typedef uintptr_t usize;
-/// pointer-sized integer
-typedef intptr_t  isize;
+    #include <stdint.h>
+    /// pointer-sized unsigned integer
+    typedef uintptr_t usize;
+    /// pointer-sized integer
+    typedef intptr_t  isize;
 
-/// 8-bit unsigned integer
-typedef uint8_t  u8;
-/// 16-bit unsigned integer
-typedef uint16_t u16;
-/// 32-bit unsigned integer
-typedef uint32_t u32;
-/// 64-bit unsigned integer
-typedef uint64_t u64;
+    /// 8-bit unsigned integer
+    typedef uint8_t  u8;
+    /// 16-bit unsigned integer
+    typedef uint16_t u16;
+    /// 32-bit unsigned integer
+    typedef uint32_t u32;
+    /// 64-bit unsigned integer
+    typedef uint64_t u64;
 
-/// 8-bit integer
-typedef int8_t  i8;
-/// 16-bit integer
-typedef int16_t i16;
-/// 32-bit integer
-typedef int32_t i32;
-/// 64-bit integer
-typedef int64_t i64;
+    /// 8-bit integer
+    typedef int8_t  i8;
+    /// 16-bit integer
+    typedef int16_t i16;
+    /// 32-bit integer
+    typedef int32_t i32;
+    /// 64-bit integer
+    typedef int64_t i64;
 
 #endif // if other architecture
 
@@ -147,11 +146,11 @@ typedef u8  b8;
 typedef u32 b32;
 
 /// UTF-8 | 8-bit character
-typedef char c8;
+typedef char  c8;
 /// UTF-16 | 16-bit character
-typedef wchar_t c16;
+typedef short c16;
 /// UTF-32 | 32-bit character
-typedef int c32;
+typedef int   c32;
 
 /// single precision IEEE-754 floating-point number
 typedef float f32;
@@ -159,24 +158,33 @@ typedef float f32;
 typedef double f64;
 
 /// Tuple containing two single precision floats
-union tuplef32 {
+typedef union tuplef32 {
     struct {
         f32 f0;
         f32 f1;
     };
     f32 f[2];
-};
+} tuplef32;
 /// Tuple containing two double precision floats
-union tuplef64 {
+typedef union tuplef64 {
     struct {
         f64 f0;
         f64 f1;
     };
     f64 f[2];
-};
+} tuplef64;
 
 /// void* pointer alias, might come in handy at some point
 typedef void* pvoid;
+
+#if !defined( __cplusplus )
+    #define true  1
+    #define false 0
+#endif
+
+#if !defined(NULL)
+    #define NULL 0
+#endif
 
 #define LD_CONTACT_MESSAGE \
     "Please contact me at smushybusiness@gmail.com if you see this."
@@ -204,6 +212,12 @@ typedef void* pvoid;
 /// Calculate byte size of a static array
 #define STATIC_ARRAY_SIZE( array ) \
     (sizeof(array))
+
+#if defined(__cplusplus)
+    #define EXTERNC extern "C"
+#else
+    #define EXTERNC
+#endif
 
 // panic
 // export/import definitions 
@@ -245,24 +259,21 @@ typedef void* pvoid;
     #define FORCE_INLINE  __attribute__((always_inline)) inline
     #define NO_INLINE     __attribute__((noinline))
     #define MAKE_PACKED( declaration ) declaration __attribute__((__packed__))
+    #define PACKED __attribute__((__packed__))
 
     #define unused(x) (void)((x))
 
     #if defined(LD_EXPORT)
         #if defined(LD_PLATFORM_WINDOWS)
             #define LD_API __declspec(dllexport)
-            #define LD_API_STRUCT LD_API
         #else
             #define LD_API __attribute__((visibility("default")))
-            #define LD_API_STRUCT LD_API
         #endif
-    #else // import
+    #else
         #if defined(LD_PLATFORM_WINDOWS)
-            #define LD_API __declspec(dllimport) 
-            #define LD_API_STRUCT __declspec(dllimport)
+            #define LD_API __declspec(dllimport) EXTERNC
         #else
-            #define LD_API
-            #define LD_API_STRUCT
+            #define LD_API EXTERNC
         #endif
     #endif
 
@@ -307,6 +318,13 @@ STATIC_ASSERT(sizeof(c32) == 4, "Expected c32 to be 4 bytes!" );
 #define internal static
 #define local    static
 #define global   static
+
+#if defined(__cplusplus)
+    #define headerfn inline
+#else
+    #define headerfn extern inline
+#endif
+
 #define loop     for( ;; )
 
 /// Define a 24-bit RGB value (using u32)
@@ -342,166 +360,155 @@ STATIC_ASSERT(sizeof(c32) == 4, "Expected c32 to be 4 bytes!" );
 #define STACK_SIZE (MEGABYTES(1))
 
 /// 32-bit floating point constants
-namespace F32 {
-    /// Largest finite f32 value
-    global const f32 MAX = 3.40282347E+38f;
-    /// Smallest finite f32 value
-    global const f32 MIN = -3.40282347E+38f;
-    /// Not a number
-    global const f32 NaN = ( 0.0f / 0.0f );
-    /// Smallest positive f32 value
-    global const f32 MIN_POS = 1.17549435E-38f;
-    /// Positive infinity
-    global const f32 POS_INFINITY = (1.0f / 0.0f);
-    /// Positive infinity
-    global const f32 NEG_INFINITY = (-(1.0f / 0.0f));
-    /// Pi constant
-    global const f32 PI = 3.141592741f;
-    /// Tau constant
-    global const f32 TAU = PI * 2.0f;
-    /// Half Pi constant
-    global const f32 HALF_PI = PI / 2.0f;
-    /// Epsilon constant
-    global const f32 EPSILON = 1.1920929E-7f;
-    /// Approximate number of significant digits in base-10
-    global const u32 SIGNIFICANT_DIGITS = 6;
-    /// Number of significant digits in base-2
-    global const u32 MANTISSA_DIGITS = 24;
-    /// bitmask of single precision float exponent
-    global const u32 EXPONENT_MASK = ~(0xFFFFFFFF << 8) << 23;
-    /// bitmask of single precision float mantissa
-    global const u32 MANTISSA_MASK = (1 << 23) - 1;
 
+/// Largest finite f32 value
+#define F32_MAX (3.40282347E+38f)
+/// Smallest finite f32 value
+#define F32_MIN (-3.40282347E+38f)
+/// Not a number
+#define F32_NAN ( 0.0f / 0.0f )
+/// Smallest positive f32 value
+#define F32_MIN_POS (1.17549435E-38f)
+/// Positive infinity
+#define F32_POS_INFINITY (1.0f / 0.0f)
+/// Positive infinity
+#define F32_NEG_INFINITY (-(1.0f / 0.0f))
+/// Pi constant
+#define F32_PI (3.141592741f)
+/// Tau constant
+#define F32_TAU (F32_PI * 2.0f)
+/// Half Pi constant
+#define F32_HALF_PI (F32_PI / 2.0f)
+/// Epsilon constant
+#define F32_EPSILON (1.1920929E-7f)
+/// Approximate number of significant digits in base-10
+#define F32_SIGNIFICANT_DIGITS (6)
+/// Number of significant digits in base-2
+#define F32_MANTISSA_DIGITS (24)
+/// Bitmask of single precision float exponent
+#define F32_EXPONENT_MASK (~(0xFFFFFFFF << 8ul) << 23ul)
+/// Bitmask of single precision float mantissa
+#define F32_MANTISSA_MASK ((1 << 23) - 1ul)
 
-    global const f32 ONE_FACTORIAL    = 1.0f;
-    global const f32 TWO_FACTORIAL    = 2.0f  * ONE_FACTORIAL;
-    global const f32 THREE_FACTORIAL  = 3.0f  * TWO_FACTORIAL;
-    global const f32 FOUR_FACTORIAL   = 4.0f  * THREE_FACTORIAL;
-    global const f32 FIVE_FACTORIAL   = 5.0f  * FOUR_FACTORIAL;
-    global const f32 SIX_FACTORIAL    = 6.0f  * FIVE_FACTORIAL;
-    global const f32 SEVEN_FACTORIAL  = 7.0f  * SIX_FACTORIAL;
-    global const f32 EIGHT_FACTORIAL  = 8.0f  * SEVEN_FACTORIAL;
-    global const f32 NINE_FACTORIAL   = 9.0f  * EIGHT_FACTORIAL;
-    global const f32 TEN_FACTORIAL    = 10.0f * NINE_FACTORIAL;
-    global const f32 ELEVEN_FACTORIAL = 11.0f * TEN_FACTORIAL;
-    global const f32 TWELVE_FACTORIAL = 12.0f * ELEVEN_FACTORIAL;
-};
+#define F32_ONE_FACTORIAL    ( 1.0f )
+#define F32_TWO_FACTORIAL    ( 2.0f  * F32_ONE_FACTORIAL    )
+#define F32_THREE_FACTORIAL  ( 3.0f  * F32_TWO_FACTORIAL    )
+#define F32_FOUR_FACTORIAL   ( 4.0f  * F32_THREE_FACTORIAL  )
+#define F32_FIVE_FACTORIAL   ( 5.0f  * F32_FOUR_FACTORIAL   )
+#define F32_SIX_FACTORIAL    ( 6.0f  * F32_FIVE_FACTORIAL   )
+#define F32_SEVEN_FACTORIAL  ( 7.0f  * F32_SIX_FACTORIAL    )
+#define F32_EIGHT_FACTORIAL  ( 8.0f  * F32_SEVEN_FACTORIAL  )
+#define F32_NINE_FACTORIAL   ( 9.0f  * F32_EIGHT_FACTORIAL  )
+#define F32_TEN_FACTORIAL    ( 10.0f * F32_NINE_FACTORIAL   )
+#define F32_ELEVEN_FACTORIAL ( 11.0f * F32_TEN_FACTORIAL    )
+#define F32_TWELVE_FACTORIAL ( 12.0f * F32_ELEVEN_FACTORIAL )
 
 /// 64-bit floating point constants
-namespace F64 {
-    /// Largest finite f64 value
-    global const f64 MAX = 1.7976931348623157E+308;
-    /// Smallest finite f64 value
-    global const f64 MIN = -1.7976931348623157E+308;
-    /// Not a number
-    global const f64 NaN = 0.0 / 0.0;
-    /// Smallest positive f32 value
-    global const f64 MIN_POS = 2.2250738585072014E-308;
-    /// Positive infinity
-    global const f64 POS_INFINITY = (1.0 / 0.0);
-    /// Positive infinity
-    global const f64 NEG_INFINITY = (-(1.0 / 0.0));
-    /// Pi constant
-    global const f64 PI = 3.14159265358979323846;
-    /// Tau constant
-    global const f64 TAU = (PI * 2.0);
-    /// Half Pi constant
-    global const f64 HALF_PI = (PI / 2.0);
-    /// Epsilon constant
-    global const f64 EPSILON = 2.2204460492503131E-16;
-    /// Approximate number of significant digits in base-10
-    global const u32 SIGNIFICANT_DIGITS = 15;
-    /// Number of significant digits in base-2
-    global const u32 MANTISSA_DIGITS = 54;
-    /// bitmask of double precision float exponent
-    global const u64 EXPONENT_MASK = (0x7FFULL << 52);
-    /// bitmask of double precision float mantissa 
-    global const u64 MANTISSA_MASK = ((1ULL << 52) - 1);
 
-    global const f64 ONE_FACTORIAL    = 1.0;
-    global const f64 TWO_FACTORIAL    = 2.0  * ONE_FACTORIAL;
-    global const f64 THREE_FACTORIAL  = 3.0  * TWO_FACTORIAL;
-    global const f64 FOUR_FACTORIAL   = 4.0  * THREE_FACTORIAL;
-    global const f64 FIVE_FACTORIAL   = 5.0  * FOUR_FACTORIAL;
-    global const f64 SIX_FACTORIAL    = 6.0  * FIVE_FACTORIAL;
-    global const f64 SEVEN_FACTORIAL  = 7.0  * SIX_FACTORIAL;
-    global const f64 EIGHT_FACTORIAL  = 8.0  * SEVEN_FACTORIAL;
-    global const f64 NINE_FACTORIAL   = 9.0  * EIGHT_FACTORIAL;
-    global const f64 TEN_FACTORIAL    = 10.0 * NINE_FACTORIAL;
-    global const f64 ELEVEN_FACTORIAL = 11.0 * TEN_FACTORIAL;
-    global const f64 TWELVE_FACTORIAL = 12.0 * ELEVEN_FACTORIAL;
-};
+/// Largest finite f64 value
+#define F64_MAX (1.7976931348623157E+308)
+/// Smallest finite f64 value
+#define F64_MIN (-1.7976931348623157E+308)
+/// Not a number
+#define F64_NAN (0.0 / 0.0)
+/// Smallest positive f32 value
+#define F64_MIN_POS (2.2250738585072014E-308)
+/// Positive infinity
+#define F64_POS_INFINITY (1.0 / 0.0)
+/// Positive infinity
+#define F64_NEG_INFINITY (-(1.0 / 0.0))
+/// Pi constant
+#define F64_PI (3.14159265358979323846)
+/// Tau constant
+#define F64_TAU (F64_PI * 2.0)
+/// Half Pi constant
+#define F64_HALF_PI (F64_PI / 2.0)
+/// Epsilon constant
+#define F64_EPSILON (2.2204460492503131E-16)
+/// Approximate number of significant digits in base-10
+#define F64_SIGNIFICANT_DIGITS (15)
+/// Number of significant digits in base-2
+#define F64_MANTISSA_DIGITS (54)
+/// bitmask of double precision float exponent
+#define F64_EXPONENT_MASK (0x7FFULL << 52ull)
+/// bitmask of double precision float mantissa 
+#define F64_MANTISSA_MASK ((1ull << 52ull) - 1ull)
+
+#define F64_ONE_FACTORIAL    (1.0)
+#define F64_TWO_FACTORIAL    (2.0  * F64_ONE_FACTORIAL   )
+#define F64_THREE_FACTORIAL  (3.0  * F64_TWO_FACTORIAL   )
+#define F64_FOUR_FACTORIAL   (4.0  * F64_THREE_FACTORIAL )
+#define F64_FIVE_FACTORIAL   (5.0  * F64_FOUR_FACTORIAL  )
+#define F64_SIX_FACTORIAL    (6.0  * F64_FIVE_FACTORIAL  )
+#define F64_SEVEN_FACTORIAL  (7.0  * F64_SIX_FACTORIAL   )
+#define F64_EIGHT_FACTORIAL  (8.0  * F64_SEVEN_FACTORIAL )
+#define F64_NINE_FACTORIAL   (9.0  * F64_EIGHT_FACTORIAL )
+#define F64_TEN_FACTORIAL    (10.0 * F64_NINE_FACTORIAL  )
+#define F64_ELEVEN_FACTORIAL (11.0 * F64_TEN_FACTORIAL   )
+#define F64_TWELVE_FACTORIAL (12.0 * F64_ELEVEN_FACTORIAL)
 
 /// 8-bit unsigned integer constants
-namespace U8 {
-    /// Largest u8 value
-    global const u8 MAX = 255;
-    /// Smallest u8 value
-    global const u8 MIN = 0;
-};
+
+/// Largest u8 value
+#define U8_MAX (255)
+/// Smallest u8 value
+#define U8_MIN (0)
 
 /// 16-bit unsigned integer constants
-namespace U16 {
-    /// Largest u16 value
-    global const u16 MAX = 65535;
-    /// Smallest u16 value
-    global const u16 MIN = 0;
-};
+
+/// Largest u16 value
+#define U16_MAX (65535)
+/// Smallest u16 value
+#define U16_MIN (0)
 
 /// 32-bit unsigned integer constants
-namespace U32 {
-    /// Largest u32 value
-    global const u32 MAX = 4294967295;
-    /// Smallest u32 value
-    global const u32 MIN = 0;
-};
+
+/// Largest u32 value
+#define U32_MAX (4294967295ul)
+/// Smallest u32 value
+#define U32_MIN (0ul)
 
 /// 64-bit unsigned integer constants
-namespace U64 {
-    /// Largest u64 value
-    global const u64 MAX = 18446744073709551615ULL;
-    /// Smallest u64 value
-    global const u64 MIN = 0;
-};
+
+/// Largest u64 value
+#define U64_MAX (18446744073709551615ull)
+/// Smallest u64 value
+#define U64_MIN (0ull)
 
 /// 8-bit integer constants
-namespace I8 {
-    /// Largest i8 value
-    global const i8 MAX = 127;
-    /// Smallest i8 value
-    global const i8 MIN = -128;
-    /// Sign mask
-    global const u8 SIGN_MASK = (1 << 7);
-};
+
+/// Largest i8 value
+#define I8_MAX (127)
+/// Smallest i8 value
+#define I8_MIN (-128)
+/// Sign mask
+#define I8_SIGN_MASK (1 << 7)
 
 /// 16-bit integer constants
-namespace I16 {
-    /// Largest i16 value
-    global const i16 MAX = 32767;
-    /// Smallest i16 value
-    global const i16 MIN = -32768;
-    /// Sign mask
-    global const u16 SIGN_MASK = (1 << 15);
-};
+
+/// Largest i16 value
+#define I16_MAX (32767)
+/// Smallest i16 value
+#define I16_MIN (-32768)
+/// Sign mask
+#define I16_SIGN_MASK (1 << 15)
 
 /// 32-bit integer constants
-namespace I32 {
-    /// Largest i32 value
-    global const i32 MAX = 2147483647;
-    /// Smallest i32 value
-    global const i32 MIN = -2147483648;
-    /// Sign mask
-    global const u32 SIGN_MASK = (1u << 31u);
-};
+
+/// Largest i32 value
+#define I32_MAX (2147483647l)
+/// Smallest i32 value
+#define I32_MIN (-2147483648l)
+/// Sign mask
+#define I32_SIGN_MASK (1u << 31u)
 
 /// 64-bit integer constants
-namespace I64 {
-    /// Largest i64 value
-    global const i64 MAX = 9223372036854775807;
-    /// Smallest i64 value
-    global const i64 MIN = -9223372036854775807 - 1;
-    /// Sign mask
-    global const u64 SIGN_MASK = (1ull << 63ull);
-};
+
+/// Largest i64 value
+#define I64_MAX (9223372036854775807ll)
+/// Smallest i64 value
+#define I64_MIN (-9223372036854775807ll - 1)
+/// Sign mask
+#define I64_SIGN_MASK (1ull << 63ull)
 
 #endif

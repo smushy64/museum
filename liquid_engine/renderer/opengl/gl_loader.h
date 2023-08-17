@@ -8,7 +8,6 @@
 #include "defines.h"
 typedef void* (*GetProcFN)(const char* function_name);
 
-[[maybe_unused]]
 b32 gl_load( GetProcFN getproc );
 
 #endif // header guard

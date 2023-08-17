@@ -1,13 +1,13 @@
 // * Description:  Core Library Functions Implementation
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: July 22, 2023
-#include "library.h"
-#include "logging.h"
-#include "string.h"
+#include "core/ldlibrary.h"
+#include "core/ldlog.h"
+#include "core/ldstring.h"
 #include "platform/platform.h"
 
 #if defined(LD_LOGGING)
-    #include "memory.h"
+    #include "core/ldmemory.h"
 #endif
 
 #define LOG_NOTE_LIBRARY_LOAD( library_path )\
@@ -60,7 +60,7 @@
         function, file, line, function_name, library_path\
     )
 
-LD_API b32 impl::_library_load(
+LD_API b32 _library_load(
     const char*    library_path,
     LibraryHandle* out_library
 ) {
@@ -73,14 +73,11 @@ LD_API b32 impl::_library_load(
 
     return true;
 }
-LD_API b32 impl::_library_load_trace(
+LD_API b32 _library_load_trace(
     const char*    library_path,
     LibraryHandle* out_library,
-    [[maybe_unused]]
     const char* function,
-    [[maybe_unused]]
     const char* file,
-    [[maybe_unused]]
     i32 line
 ) {
 #if defined(LD_LOGGING)
@@ -92,7 +89,7 @@ LD_API b32 impl::_library_load_trace(
     out_library->path_storage[LIB_MAX_PATH_STORAGE - 1] = 0;
 #endif
 
-    b32 load_result = impl::_library_load( library_path, out_library );
+    b32 load_result = _library_load( library_path, out_library );
     if( load_result ) {
         LOG_NOTE_LIBRARY_LOAD( library_path );
     } else {
@@ -101,26 +98,23 @@ LD_API b32 impl::_library_load_trace(
 
     return load_result;
 }
-LD_API void impl::_library_free( LibraryHandle* library ) {
+LD_API void _library_free( LibraryHandle* library ) {
     platform_library_free( library->handle );
-    *library = {};
+    mem_zero( library, sizeof(LibraryHandle) );
 }
-LD_API void impl::_library_free_trace( 
+LD_API void _library_free_trace( 
     LibraryHandle* library,
-    [[maybe_unused]]
     const char* function,
-    [[maybe_unused]]
     const char* file,
-    [[maybe_unused]]
     i32 line
 ) {
     platform_library_free( library->handle );
 #if defined(LD_LOGGING)
     LOG_NOTE_LIBRARY_FREE( library->path_storage );
 #endif
-    *library = {};
+    mem_zero( library, sizeof(LibraryHandle) );
 }
-LD_API void* impl::_library_load_function(
+LD_API void* _library_load_function(
     LibraryHandle* library,
     const char* function_name
 ) {
@@ -129,17 +123,14 @@ LD_API void* impl::_library_load_function(
         function_name
     );
 }
-LD_API void* impl::_library_load_function_trace(
+LD_API void* _library_load_function_trace(
     LibraryHandle* library,
     const char* function_name,
-    [[maybe_unused]]
     const char* function,
-    [[maybe_unused]]
     const char* file,
-    [[maybe_unused]]
     i32 line
 ) {
-    void* load_result = impl::_library_load_function(
+    void* load_result = _library_load_function(
         library, function_name
     );
 

@@ -6,9 +6,10 @@
  * File Created: May 08, 2023
 */
 #include "defines.h"
-#include "math/types.h"
-#include "math/functions.h"
-#include "math/type_functions.h"
-#include "math/rand.h"
+#include "core/ldmath/types.h"
+#include "core/ldmath/functions.h"
+#include "core/ldmath/type_functions.h"
+#include "core/ldmath/rand.h"
 
 #endif // header guard
+

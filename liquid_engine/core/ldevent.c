@@ -1,35 +1,28 @@
 // * Description:  Event Subsystem Implementation
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: June 24, 2023
-#include "event.h"
-#include "collections.h"
+#include "core/ldevent.h"
+#include "core/ldcollections.h"
 
 #define MIN_LISTENERS 2
 
-struct ListenerContext {
+typedef struct ListenerContext {
     EventCallbackFN callback;
     void*           callback_params;
 
     u16 id;
+} ListenerContext;
 
-    b32 operator==(const ListenerContext& other) {
-        return id == other.id;
-    }
-    b32 operator!=(const ListenerContext& other) {
-        return !operator==(other);
-    }
-};
-
-struct ListenerRegistry {
+typedef struct ListenerRegistry {
     struct {
         ListenerContext* listeners;
     } event_listeners[MAX_EVENT_CODE];
-};
+} ListenerRegistry;
 
-global ListenerRegistry* REGISTRY = nullptr;
+global ListenerRegistry* REGISTRY = NULL;
 global EventListenerID   ID = 1;
 
-LD_API void event_fire( Event event, EventPriority priority ) {
+LD_API void event_fire_priority( Event event, EventPriority priority ) {
     // TODO(alicia): HANDLE PRIORITY
     unused( priority );
     if( !REGISTRY ) {
@@ -57,7 +50,7 @@ LD_API EventListenerID event_subscribe(
     ctx.callback        = callback;
     ctx.callback_params = callback_params;
 
-    listeners = (ListenerContext*)::impl::_list_push( listeners, &ctx );
+    listeners = (ListenerContext*)_list_push( listeners, &ctx );
 
     return result;
 }
@@ -88,7 +81,7 @@ LD_API void event_unsubscribe( EventListenerID event_listener_id ) {
     listeners = (ListenerContext*)list_remove(
         listeners,
         listener_index,
-        nullptr
+        NULL
     );
 
 }
@@ -100,7 +93,7 @@ b32 event_init( void* event_subsystem_buffer ) {
     REGISTRY = (ListenerRegistry*)event_subsystem_buffer;
 
     for( u32 i = 0; i < MAX_EVENT_CODE; ++i ) {
-        void* listener_list = ::impl::_list_create(
+        void* listener_list = _list_create(
             MIN_LISTENERS,
             sizeof(ListenerContext)
         );
@@ -116,8 +109,8 @@ b32 event_init( void* event_subsystem_buffer ) {
 }
 void event_shutdown() {
     for( u32 i = 0; i < MAX_EVENT_CODE; ++i ) {
-        ::impl::_list_free( REGISTRY->event_listeners[i].listeners );
+        _list_free( REGISTRY->event_listeners[i].listeners );
     }
-    REGISTRY = nullptr;
+    REGISTRY = NULL;
     LOG_INFO("Event subsystem shutdown.");
 }

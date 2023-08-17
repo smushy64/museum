@@ -3,8 +3,8 @@
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: April 28, 2023
 */
-#include "memory.h"
-#include "logging.h"
+#include "core/ldmemory.h"
+#include "core/ldlog.h"
 #include "platform/platform.h"
 
 #define MEMORY_FIELD_SIZE  0
@@ -16,10 +16,10 @@
 // TODO(alicia): MSVC VERSION
 #define stack_alloc(size) __builtin_alloca(size)
 
-struct MemoryUsage {
+typedef struct {
     u64 usage[MEMTYPE_COUNT];
     u64 page_usage[MEMTYPE_COUNT];
-};
+} MemoryUsage;
 global MemoryUsage USAGE = {};
 
 #define LOG_ALLOC( function, file, line, format, ... ) \
@@ -70,8 +70,6 @@ global MemoryUsage USAGE = {};
         ##__VA_ARGS__\
     )
 
-namespace impl {
-
 LD_API void* _mem_alloc_trace(
     usize size,
     MemoryType type,
@@ -86,7 +84,7 @@ LD_API void* _mem_alloc_trace(
         file,
         line,
         "Type: {cc} | Size: {u64} ({f,b,.2}) | Pointer: {u64,x}",
-        to_string(type),
+        memory_type_to_string(type),
         size,
         float_size,
         (u64)(result)
@@ -109,7 +107,7 @@ LD_API void* _mem_realloc_trace(
         file,
         line,
         "Realloc | Type: {cc} | Size: {u64} ({f,b,.2}) | Pointer: {u64,x}",
-        to_string(type),
+        memory_type_to_string(type),
         new_size, float_new_size,
         (u64)(result)
     );
@@ -122,7 +120,7 @@ LD_API void _mem_free_trace(
     int line
 ) {
     if( !memory ) {
-        LOG_WARN("Attempted to free nullptr!");
+        LOG_WARN("Attempted to free NULL!");
         return;
     }
     u64* header = ((u64*)memory) - MEMORY_FIELD_COUNT;
@@ -135,7 +133,7 @@ LD_API void _mem_free_trace(
         file,
         line,
         "Type: {cc} | Size: {u64} ({f,b,.2}) | Pointer: {u64,x}",
-        to_string(type),
+        memory_type_to_string(type),
         size, float_size,
         (u64)(memory)
     );
@@ -174,7 +172,7 @@ LD_API void* _mem_realloc( void* memory, usize new_size ) {
     usize total_size = new_size + MEMORY_HEADER_SIZE;
     void* new_buffer = heap_realloc( header, total_size );
     if( !new_buffer ) {
-        return nullptr;
+        return NULL;
     }
     
     header = (u64*)new_buffer;
@@ -252,7 +250,7 @@ internal void* internal_mem_page_alloc( usize size, MemoryType type, usize* out_
 }
 
 LD_API void* _mem_page_alloc( usize size, MemoryType type ) {
-    return internal_mem_page_alloc( size, type, nullptr );
+    return internal_mem_page_alloc( size, type, NULL );
 }
 LD_API void _mem_page_free( void* memory ) {
 #if defined(LD_PROFILING)
@@ -283,7 +281,7 @@ LD_API void* _mem_page_alloc_trace(
         file,
         line,
         "Type: {cc} | Size: {u64} ({f,b,.2}) | Pointer: {u64,x}",
-        to_string(type),
+        memory_type_to_string(type),
         actual_size, float_actual_size,
         (u64)(result)
     );
@@ -306,7 +304,7 @@ LD_API void _mem_page_free_trace(
         file,
         line,
         "Type: {cc} | Size: {u64}({f,b,.2}) | Pointer: {u64,x}",
-        to_string(type),
+        memory_type_to_string(type),
         size, float_size,
         (u64)(memory)
     );
@@ -339,7 +337,7 @@ LD_API void _stack_arena_free( StackArena* arena ) {
     if( arena->arena ) {
         _mem_page_free( arena->arena );
     }
-    *arena = {};
+    mem_zero( arena, sizeof( StackArena ) );
 }
 LD_API void* _stack_arena_push_item( StackArena* arena, u32 item_size ) {
     u32 new_stack_pointer = arena->stack_pointer + item_size;
@@ -352,7 +350,7 @@ LD_API void* _stack_arena_push_item( StackArena* arena, u32 item_size ) {
             item_size, float_item_size,
             remaining_stack_size, float_remaining_stack_size
         );
-        return nullptr;
+        return NULL;
     }
 
     void* result = (u8*)arena->arena + arena->stack_pointer;
@@ -391,7 +389,7 @@ LD_API b32 _stack_arena_create_trace(
         "Arena: {u64,x} | Type: {cc} | Size: {u} ({f,b,.2})",
         function, file, line,
         (u64)(out_arena->arena),
-        to_string( type ),
+        memory_type_to_string( type ),
         size, float_size
     );
     return success;
@@ -413,7 +411,7 @@ LD_API void _stack_arena_free_trace(
         "Arena: {u64,x} | Type: {cc} | Size: {u} ({f,b,.2})",
         function, file, line,
         (u64)(arena->arena),
-        to_string( type ),
+        memory_type_to_string( type ),
         arena->arena_size,
         float_arena_size
     );
@@ -457,9 +455,6 @@ LD_API void _stack_arena_pop_item_trace(
     );
     _stack_arena_pop_item( arena, item_size );
 }
-
-} // namespace impl
-
 
 LD_API usize query_memory_usage( MemoryType memtype ) {
     return USAGE.usage[memtype] + USAGE.page_usage[memtype];
@@ -551,3 +546,19 @@ LD_API void mem_zero( void* dst, usize size ) {
     }
 
 }
+
+LD_API const char* memory_type_to_string(MemoryType memtype) {
+    const char* strings[MEMTYPE_COUNT] = {
+        "Unknown Memory",
+        "Engine Memory",
+        "Dynamic List Memory",
+        "Renderer Memory",
+        "String Memory",
+        "User Memory"
+    };
+    if( memtype >= MEMTYPE_COUNT ) {
+        return strings[0];
+    }
+    return strings[memtype];
+}
+

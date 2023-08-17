@@ -14,7 +14,7 @@
         GL_LOG_FATAL( "Failed to load required function \"" TO_STRING(name) "\"!" );\
         return false;\
     }\
-    ::impl::in_##name = (::impl:: name##FN )proc;\
+    in_##name = ( name##FN )proc;\
 } while(0)
 
 #define LOAD_PROC( name ) do {\
@@ -22,8 +22,161 @@
     if( !proc ) {\
         GL_LOG_WARN( "Failed to load function \"" TO_STRING(name) "\"!" );\
     }\
-    ::impl::in_##name = (::impl:: name##FN )proc;\
+    in_##name = ( name##FN )proc;\
 } while(0)
+
+#define DEFINE_GL_FUNCTION( name )\
+    name##FN in_##name
+
+// Textures ------------------------------------------------------------
+DEFINE_GL_FUNCTION(glCreateTextures       ); 
+DEFINE_GL_FUNCTION(glBindTextureUnit      ); 
+DEFINE_GL_FUNCTION(glDeleteTextures       ); 
+DEFINE_GL_FUNCTION(glTextureParameterf    ); 
+DEFINE_GL_FUNCTION(glTextureParameteri    ); 
+DEFINE_GL_FUNCTION(glTextureParameterfv   ); 
+DEFINE_GL_FUNCTION(glTextureParameteriv   ); 
+DEFINE_GL_FUNCTION(glTextureParameterIiv  ); 
+DEFINE_GL_FUNCTION(glTextureParameterIuiv );
+DEFINE_GL_FUNCTION(glTextureStorage2D     ); 
+DEFINE_GL_FUNCTION(glTextureStorage3D     ); 
+DEFINE_GL_FUNCTION(glTextureSubImage2D    ); 
+DEFINE_GL_FUNCTION(glTextureSubImage3D    ); 
+// Rendering -----------------------------------------------------------
+DEFINE_GL_FUNCTION(glClear                   ); 
+DEFINE_GL_FUNCTION(glClearColor              ); 
+DEFINE_GL_FUNCTION(glClearDepth              ); 
+DEFINE_GL_FUNCTION(glClearDepthf             ); 
+DEFINE_GL_FUNCTION(glClearStencil            ); 
+DEFINE_GL_FUNCTION(glClearNamedFramebufferiv ); 
+DEFINE_GL_FUNCTION(glClearNamedFramebufferuiv); 
+DEFINE_GL_FUNCTION(glClearNamedFramebufferfv ); 
+DEFINE_GL_FUNCTION(glClearNamedFramebufferfi ); 
+// Frame Buffers -------------------------------------------------------
+DEFINE_GL_FUNCTION(glCreateFramebuffers   ); 
+DEFINE_GL_FUNCTION(glCreateRenderbuffers  ); 
+DEFINE_GL_FUNCTION(glDeleteFramebuffers   ); 
+DEFINE_GL_FUNCTION(glDeleteRenderbuffers  ); 
+DEFINE_GL_FUNCTION(glBindFramebuffer      ); 
+DEFINE_GL_FUNCTION(glBindRenderbuffer     ); 
+DEFINE_GL_FUNCTION(glGenerateTextureMipmap); 
+// Shaders -------------------------------------------------------------
+DEFINE_GL_FUNCTION(glCreateShader  );
+DEFINE_GL_FUNCTION(glCreateProgram );
+DEFINE_GL_FUNCTION(glCreateShaderProgramv);
+DEFINE_GL_FUNCTION(glUseProgram        ); 
+DEFINE_GL_FUNCTION(glShaderBinary      ); 
+DEFINE_GL_FUNCTION(glSpecializeShader  ); 
+DEFINE_GL_FUNCTION(glCompileShader     ); 
+DEFINE_GL_FUNCTION(glLinkProgram       ); 
+DEFINE_GL_FUNCTION(glGetShaderiv       ); 
+DEFINE_GL_FUNCTION(glGetProgramiv      ); 
+DEFINE_GL_FUNCTION(glDeleteShader      ); 
+DEFINE_GL_FUNCTION(glDeleteProgram     ); 
+DEFINE_GL_FUNCTION(glAttachShader      ); 
+DEFINE_GL_FUNCTION(glDetachShader      ); 
+DEFINE_GL_FUNCTION(glGetShaderInfoLog  ); 
+DEFINE_GL_FUNCTION(glGetProgramInfoLog ); 
+DEFINE_GL_FUNCTION(glGetActiveUniform  ); 
+DEFINE_GL_FUNCTION(glGetUniformLocation); 
+DEFINE_GL_FUNCTION(glProgramUniform1f         ); 
+DEFINE_GL_FUNCTION(glProgramUniform2f         ); 
+DEFINE_GL_FUNCTION(glProgramUniform3f         ); 
+DEFINE_GL_FUNCTION(glProgramUniform4f         ); 
+DEFINE_GL_FUNCTION(glProgramUniform1i         ); 
+DEFINE_GL_FUNCTION(glProgramUniform2i         ); 
+DEFINE_GL_FUNCTION(glProgramUniform3i         ); 
+DEFINE_GL_FUNCTION(glProgramUniform4i         ); 
+DEFINE_GL_FUNCTION(glProgramUniform1ui        ); 
+DEFINE_GL_FUNCTION(glProgramUniform2ui        ); 
+DEFINE_GL_FUNCTION(glProgramUniform3ui        ); 
+DEFINE_GL_FUNCTION(glProgramUniform4ui        ); 
+DEFINE_GL_FUNCTION(glProgramUniform1fv        ); 
+DEFINE_GL_FUNCTION(glProgramUniform2fv        ); 
+DEFINE_GL_FUNCTION(glProgramUniform3fv        ); 
+DEFINE_GL_FUNCTION(glProgramUniform4fv        ); 
+DEFINE_GL_FUNCTION(glProgramUniform1iv        ); 
+DEFINE_GL_FUNCTION(glProgramUniform2iv        ); 
+DEFINE_GL_FUNCTION(glProgramUniform3iv        ); 
+DEFINE_GL_FUNCTION(glProgramUniform4iv        ); 
+DEFINE_GL_FUNCTION(glProgramUniform1uiv       ); 
+DEFINE_GL_FUNCTION(glProgramUniform2uiv       ); 
+DEFINE_GL_FUNCTION(glProgramUniform3uiv       ); 
+DEFINE_GL_FUNCTION(glProgramUniform4uiv       ); 
+DEFINE_GL_FUNCTION(glProgramUniformMatrix2fv  ); 
+DEFINE_GL_FUNCTION(glProgramUniformMatrix3fv  ); 
+DEFINE_GL_FUNCTION(glProgramUniformMatrix4fv  ); 
+DEFINE_GL_FUNCTION(glProgramUniformMatrix2x3fv); 
+DEFINE_GL_FUNCTION(glProgramUniformMatrix3x2fv); 
+DEFINE_GL_FUNCTION(glProgramUniformMatrix2x4fv); 
+DEFINE_GL_FUNCTION(glProgramUniformMatrix4x2fv); 
+DEFINE_GL_FUNCTION(glProgramUniformMatrix3x4fv); 
+DEFINE_GL_FUNCTION(glProgramUniformMatrix4x3fv); 
+// Buffer Objects ------------------------------------------------------
+DEFINE_GL_FUNCTION(glCreateBuffers           ); 
+DEFINE_GL_FUNCTION(glVertexArrayVertexBuffer ); 
+DEFINE_GL_FUNCTION(glVertexArrayElementBuffer); 
+DEFINE_GL_FUNCTION(glDeleteBuffers           ); 
+DEFINE_GL_FUNCTION(glDrawArrays              ); 
+DEFINE_GL_FUNCTION(glDrawElements            ); 
+DEFINE_GL_FUNCTION(glNamedBufferData         ); 
+DEFINE_GL_FUNCTION(glNamedBufferSubData      ); 
+DEFINE_GL_FUNCTION(glBindVertexBuffer        ); 
+DEFINE_GL_FUNCTION(glBindBuffer              ); 
+DEFINE_GL_FUNCTION(glBindBufferBase          ); 
+DEFINE_GL_FUNCTION(glMapNamedBuffer          ); 
+DEFINE_GL_FUNCTION(glMapNamedBufferRange     ); 
+DEFINE_GL_FUNCTION(glUnmapNamedBuffer        );
+DEFINE_GL_FUNCTION(glNamedBufferStorage      ); 
+DEFINE_GL_FUNCTION(glCreateVertexArrays      ); 
+DEFINE_GL_FUNCTION(glEnableVertexArrayAttrib ); 
+DEFINE_GL_FUNCTION(glDisableVertexArrayAttrib); 
+DEFINE_GL_FUNCTION(glVertexArrayAttribFormat ); 
+DEFINE_GL_FUNCTION(glVertexArrayAttribIFormat); 
+DEFINE_GL_FUNCTION(glVertexArrayAttribLFormat); 
+DEFINE_GL_FUNCTION(glVertexArrayAttribBinding); 
+// State Management ----------------------------------------------------
+DEFINE_GL_FUNCTION(glBlendColor            ); 
+DEFINE_GL_FUNCTION(glBlendEquation         ); 
+DEFINE_GL_FUNCTION(glBlendEquationi        ); 
+DEFINE_GL_FUNCTION(glBlendEquationSeparate ); 
+DEFINE_GL_FUNCTION(glBlendEquationSeparatei); 
+DEFINE_GL_FUNCTION(glBlendFunc             ); 
+DEFINE_GL_FUNCTION(glBlendFunci            ); 
+DEFINE_GL_FUNCTION(glBlendFuncSeparate     ); 
+DEFINE_GL_FUNCTION(glBlendFuncSeparatei    ); 
+DEFINE_GL_FUNCTION(glCullFace              ); 
+DEFINE_GL_FUNCTION(glEnable                ); 
+DEFINE_GL_FUNCTION(glDisable               ); 
+DEFINE_GL_FUNCTION(glEnablei               ); 
+DEFINE_GL_FUNCTION(glDisablei              ); 
+DEFINE_GL_FUNCTION(glGetBooleanv           ); 
+DEFINE_GL_FUNCTION(glGetDoublev            ); 
+DEFINE_GL_FUNCTION(glGetFloatv             ); 
+DEFINE_GL_FUNCTION(glGetIntegerv           ); 
+DEFINE_GL_FUNCTION(glGetInteger64v         ); 
+DEFINE_GL_FUNCTION(glGetBooleani_v         ); 
+DEFINE_GL_FUNCTION(glGetDoublei_v          ); 
+DEFINE_GL_FUNCTION(glGetFloati_v           ); 
+DEFINE_GL_FUNCTION(glGetIntegeri_v         ); 
+DEFINE_GL_FUNCTION(glGetInteger64i_v       ); 
+DEFINE_GL_FUNCTION(glPixelStoref           ); 
+DEFINE_GL_FUNCTION(glPixelStorei           ); 
+DEFINE_GL_FUNCTION(glViewport              ); 
+DEFINE_GL_FUNCTION(glScissor               ); 
+// Transform Feedback --------------------------------------------------
+// Utility -------------------------------------------------------------
+DEFINE_GL_FUNCTION(glGetString );
+DEFINE_GL_FUNCTION(glGetStringi);
+// Queries -------------------------------------------------------------
+// Syncing -------------------------------------------------------------
+// Vertex Array Objects ------------------------------------------------
+DEFINE_GL_FUNCTION(glBindVertexArray   ); 
+DEFINE_GL_FUNCTION(glDeleteVertexArrays); 
+// Samplers ------------------------------------------------------------
+// Program Pipelines ---------------------------------------------------
+// Debug ---------------------------------------------------------------
+DEFINE_GL_FUNCTION(glDebugMessageCallback);
 
 b32 gl_load( GetProcFN getproc ) {
     LOAD_PROC_REQUIRED( glCreateTextures );

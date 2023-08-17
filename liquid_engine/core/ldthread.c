@@ -1,25 +1,25 @@
 // * Description:  Multi-Threading Implementation
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: July 22, 2023
-#include "core/threading.h"
-#include "core/memory.h"
-#include "core/logging.h"
+#include "core/ldthread.h"
+#include "core/ldmemory.h"
+#include "core/ldlog.h"
 #include "platform/platform.h"
 
 struct ThreadWorkQueue;
 
-struct ThreadInfoInternal {
+typedef struct {
     PlatformThreadHandle thread_handle;
     u32                  thread_index;
-};
+} ThreadInfoInternal;
 
-struct ThreadWorkEntry {
+typedef struct {
     ThreadWorkProcFN proc;
     void*            params;
-};
+} ThreadWorkEntry;
 
 #define MAX_WORK_ENTRY_COUNT (128)
-struct ThreadWorkQueue {
+typedef struct {
     ThreadWorkEntry work_entries[MAX_WORK_ENTRY_COUNT];
 
     PlatformSemaphoreHandle wake_semaphore;
@@ -31,9 +31,9 @@ struct ThreadWorkQueue {
     volatile u32 read_entry;
     volatile u32 entry_completion_count;
     volatile u32 pending_work_count;
-};
+} ThreadWorkQueue;
 
-global ThreadWorkQueue* WORK_QUEUE = nullptr;
+global ThreadWorkQueue* WORK_QUEUE = NULL;
 
 LD_API void thread_work_queue_push(
     ThreadWorkProcFN work_proc, void* params
@@ -113,7 +113,7 @@ b32 threading_init(
 ) {
     ThreadWorkQueue* work_queue = (ThreadWorkQueue*)buffer;
 
-    work_queue->threads = (ThreadInfoInternal*)mem_alloc(
+    work_queue->threads = mem_alloc(
         sizeof(ThreadInfoInternal) * logical_processor_count,
         MEMTYPE_ENGINE
     );
@@ -174,7 +174,7 @@ void threading_shutdown() {
         ThreadInfoInternal* current_thread_info =
             &WORK_QUEUE->threads[i];
         platform_thread_kill( &current_thread_info->thread_handle );
-        *current_thread_info = {};
+        mem_zero( current_thread_info, sizeof(ThreadInfoInternal) );
     }
     platform_semaphore_destroy( &WORK_QUEUE->wake_semaphore );
 }
@@ -241,7 +241,7 @@ LD_API void semaphore_destroy( Semaphore* semaphore ) {
     PlatformSemaphoreHandle* platform =
         (PlatformSemaphoreHandle*)semaphore;
     platform_semaphore_destroy( platform );
-    *semaphore = {};
+    mem_zero( semaphore, sizeof(Semaphore) );
 }
 
 LD_API b32 mutex_create( Mutex* out_mutex ) {
@@ -263,6 +263,6 @@ LD_API void mutex_destroy( Mutex* mutex ) {
     PlatformMutexHandle* platform =
         (PlatformMutexHandle*)mutex;
     platform_mutex_destroy( platform );
-    *mutex = {};
+    mem_zero( mutex, sizeof(Mutex) );
 }
 

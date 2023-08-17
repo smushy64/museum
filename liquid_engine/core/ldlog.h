@@ -7,11 +7,11 @@
  * Notes:        define LD_LOGGING to enable logging
 */
 #include "defines.h"
-#include "core/string.h"
+#include "core/ldstring.h"
 
 #define DEFAULT_LOGGING_BUFFER_SIZE KILOBYTES(1)
 
-enum LogColor : u32 {
+typedef enum : u32 {
     LOG_COLOR_BLACK,
     LOG_COLOR_RED,
     LOG_COLOR_GREEN,
@@ -24,7 +24,7 @@ enum LogColor : u32 {
     LOG_COLOR_DEFAULT,
 
     LOG_COLOR_COUNT
-};
+} LogColor;
 
 #define LOG_LEVEL_NONE    0
 #define LOG_LEVEL_ERROR   (1 << 0)

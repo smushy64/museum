@@ -3,9 +3,9 @@
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: May 01, 2023
 */
-#include "collections.h"
-#include "memory.h"
-#include "logging.h"
+#include "core/ldcollections.h"
+#include "core/ldmemory.h"
+#include "core/ldlog.h"
 
 #define LIST_NUM_FIELDS 3
 #define LIST_FIELDS_SIZE (LIST_NUM_FIELDS * sizeof(u64))
@@ -52,8 +52,6 @@
         line,\
         ##__VA_ARGS__\
     )
-
-namespace impl {
 
 LD_API void* _list_create_trace(
     usize capacity,
@@ -131,12 +129,12 @@ LD_API void _list_free_trace(
 
 LD_API void* _list_create( usize capacity, usize stride ) {
     usize total_size = (capacity * stride) + LIST_FIELDS_SIZE;
-    u64* base = (u64*)::impl::_mem_alloc(
+    u64* base = (u64*)_mem_alloc(
         total_size,
         MEMTYPE_DYNAMIC_LIST
     );
     if( !base ) {
-        return nullptr;
+        return NULL;
     }
 
     base[LIST_FIELD_CAPACITY] = capacity;
@@ -150,7 +148,7 @@ LD_API void  _list_free( void* list ) {
         return;
     }
     u64* base = BUFFER_TO_BASE_POINTER(list);
-    ::impl::_mem_free( base );
+    _mem_free( base );
 }
 
 LD_API void* _list_realloc( void* list, usize new_capacity ) {
@@ -158,7 +156,7 @@ LD_API void* _list_realloc( void* list, usize new_capacity ) {
 
     usize stride   = base[LIST_FIELD_STRIDE];
     usize new_size = (new_capacity * stride) + LIST_FIELDS_SIZE;
-    u64*  new_base = (u64*)::impl::_mem_realloc( base, new_size );
+    u64*  new_base = (u64*)_mem_realloc( base, new_size );
 
     if( !new_base ) {
         LOG_ERROR("Failed to realloc list!");
@@ -374,7 +372,7 @@ LD_API void* _list_insert(
             index
         );
         PANIC();
-        return nullptr;
+        return NULL;
     }
     
     if( count >= capacity ) {
@@ -425,7 +423,7 @@ LD_API void* _list_insert_trace(
             index
         );
         PANIC();
-        return nullptr;
+        return NULL;
     }
     
     if( count >= capacity ) {
@@ -459,5 +457,3 @@ LD_API void* _list_insert_trace(
 
     return list;
 }
-
-} // namespace impl

@@ -1,36 +1,30 @@
 // * Description:  Engine Implementation
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: June 18, 2023
-#include "engine.h"
+#include "core/ldengine.h"
 #include "platform/platform.h"
-#include "graphics/font.h"
 #include "renderer/renderer.h"
-#include "threading.h"
-#include "event.h"
-#include "logging.h"
-#include "input.h"
-#include "time.h"
-#include "memory.h"
-#include "string.h"
-#include "time.h"
-#include "math.h"
-#include "audio.h"
-#include "ecs.h"
-#include "collections.h"
-#include "library.h"
-#include "asset.h"
+#include "core/ldthread.h"
+#include "core/ldevent.h"
+#include "core/ldlog.h"
+#include "core/ldinput.h"
+#include "core/ldtime.h"
+#include "core/ldmemory.h"
+#include "core/ldstring.h"
+#include "core/ldmath.h"
+#include "core/ldcollections.h"
+#include "core/ldlibrary.h"
 
 #define APPLICATION_NAME_BUFFER_SIZE 255
 char APPLICATION_NAME_BUFFER[APPLICATION_NAME_BUFFER_SIZE] = {};
 
-struct EngineContext {
+typedef struct EngineContext {
     SystemInfo       system_info;       // 88 
     RenderOrder      render_order;      // 40
     Timer            time;              // 16
     StackArena       arena;             // 16
     Platform*        platform;          // 8
     RendererContext* renderer_context;  // 8
-    EntityStorage*   entity_storage;    // 8
     
     ApplicationConfigFN application_config; // 8
     ApplicationInitFN   application_init;   // 8
@@ -49,15 +43,17 @@ struct EngineContext {
     b8 cursor_is_locked;          // 1
     b8 is_running;                // 1
     b8 pause_on_surface_inactive; // 1
-};
+} EngineContextInternal;
 
-EventCallbackReturn on_app_exit( Event*, void* void_ctx ) {
-    EngineContext* ctx = (EngineContext*)void_ctx;
-    ctx->is_running    = false;
+EventCallbackReturn on_app_exit( Event* event, void* void_ctx ) {
+    unused(event);
+    EngineContextInternal* ctx = void_ctx;
+    ctx->is_running = false;
     return EVENT_CALLBACK_CONSUMED;
 }
 
-EventCallbackReturn on_active( Event* event, void* ) {
+EventCallbackReturn on_active( Event* event, void* params ) {
+    unused(params);
     b32 is_active = event->data.bool32[0];
     if( is_active ) {
         LOG_NOTE("Surface activated.");
@@ -68,20 +64,20 @@ EventCallbackReturn on_active( Event* event, void* ) {
 }
 
 EventCallbackReturn on_resize( Event* event, void* void_ctx ) {
-    EngineContext* ctx = (EngineContext*)void_ctx;
+    EngineContextInternal* ctx = void_ctx;
     i32 width  = event->data.int32[0];
     i32 height = event->data.int32[1];
     renderer_on_resize( ctx->renderer_context, width, height );
     return EVENT_CALLBACK_NOT_CONSUMED;
 }
 
-struct ArgParseResult {
+typedef struct ArgParseResult {
     b32 success;
     RendererBackend backend;
     char library_path_buffer[32];
     StringView library_path;
     b32 quit_instant;
-};
+} ArgParseResult;
 
 internal void printhelp() {
     println( "Usage: {cc} [options]", LIQUID_ENGINE_EXECUTABLE );
@@ -127,11 +123,11 @@ ArgParseResult parse_args( int argc, char** argv ) {
     result.success = true;
 
     for( i32 i = 1; i < argc; ++i ) {
-        StringView current_arg = argv[i];
+        StringView current_arg = sv_from_str( argv[i] );
 
         if(
-            string_cmp( current_arg, "--help" ) ||
-            string_cmp( current_arg, "-h" )
+            sv_cmp( current_arg, SV( "--help" ) ) ||
+            sv_cmp( current_arg, SV( "-h" ) )
         ) {
             printhelp();
             result.quit_instant = true;
@@ -139,16 +135,16 @@ ArgParseResult parse_args( int argc, char** argv ) {
         }
 
 #if defined(LD_PLATFORM_WINDOWS)
-        if( string_cmp( current_arg, "--output-debug-string" ) ) {
+        if( sv_cmp( current_arg, SV( "--output-debug-string" ) ) ) {
             log_enable_output_debug_string( true );
             continue;
         }
 #endif
-        if( string_cmp( current_arg, "--gl" ) ) {
+        if( sv_cmp( current_arg, SV( "--gl" ) ) ) {
             result.backend = RENDERER_BACKEND_OPENGL;
-        } else if( string_cmp( current_arg, "--vk" ) ) {
+        } else if( sv_cmp( current_arg, SV( "--vk" ) ) ) {
             result.backend = RENDERER_BACKEND_VULKAN;
-        } else if( string_cmp( current_arg, "--dx11" ) ) {
+        } else if( sv_cmp( current_arg, SV( "--dx11" ) ) ) {
 #if defined(LD_PLATFORM_WINDOWS)
             result.backend = RENDERER_BACKEND_DX11;
 #else
@@ -157,7 +153,7 @@ ArgParseResult parse_args( int argc, char** argv ) {
             result.quit_instant = true;
             return result;
 #endif
-        } else if( string_cmp( current_arg, "--dx12" ) ) {
+        } else if( sv_cmp( current_arg, SV( "--dx12" ) ) ) {
 #if defined(LD_PLATFORM_WINDOWS)
             result.backend = RENDERER_BACKEND_DX12;
 #else
@@ -166,7 +162,7 @@ ArgParseResult parse_args( int argc, char** argv ) {
             result.quit_instant = true;
             return result;
 #endif
-        } else if( string_contains( current_arg, "--libload=" ) ) {
+        } else if( sv_contains( current_arg, SV( "--libload=" ) ) ) {
             u32 load_string_len = str_length( "--libload=" );
             result.library_path.buffer = &current_arg.buffer[load_string_len];
             result.library_path.len    = str_length(
@@ -185,7 +181,7 @@ ArgParseResult parse_args( int argc, char** argv ) {
 
 b32 engine_entry( int argc, char** argv ) {
 
-    EngineContext ctx = {};
+    EngineContextInternal ctx = {};
 
     ArgParseResult arg_parse = parse_args( argc, argv );
     if( !arg_parse.success ) {
@@ -251,7 +247,6 @@ b32 engine_entry( int argc, char** argv ) {
         platform_subsystem_size +
         renderer_subsystem_size +
         logging_subsystem_size +
-        sizeof( EntityStorage ) +
         STACK_ARENA_SAFETY_BYTES +
         application_memory_size;
 
@@ -267,8 +262,6 @@ b32 engine_entry( int argc, char** argv ) {
         );
         return false;
     }
-
-    ctx.entity_storage = stack_arena_push( ctx.arena, EntityStorage );
 
 #if defined(LD_LOGGING)
 
@@ -330,7 +323,7 @@ b32 engine_entry( int argc, char** argv ) {
     }
 
     if( !platform_init(
-        { config.surface_dimensions.width, config.surface_dimensions.height },
+        iv2( config.surface_dimensions.width, config.surface_dimensions.height ),
         config.platform_flags,
         ctx.platform
     ) ) {
@@ -412,11 +405,13 @@ b32 engine_entry( int argc, char** argv ) {
     if( LD_SIMD_WIDTH == 4 && !sse ) {
         #define ERROR_MESSAGE_SIZE 256
         char error_message_buffer[ERROR_MESSAGE_SIZE];
-        StringView error_message_buffer_view = {};
+
+        StringView error_message_buffer_view;
         error_message_buffer_view.buffer = error_message_buffer;
         error_message_buffer_view.len    = ERROR_MESSAGE_SIZE;
+
         str_buffer_fill( ERROR_MESSAGE_SIZE, error_message_buffer, ' ' );
-        string_format(
+        sv_format(
             error_message_buffer_view,
             "Your CPU does not support SSE instructions!\n"
             "Missing instructions: {cc}{cc}{cc}{cc}{cc}{cc}",
@@ -496,7 +491,11 @@ b32 engine_entry( int argc, char** argv ) {
     for( u64 i = 0; i < MEMTYPE_COUNT; ++i ) {
         MemoryType type = (MemoryType)i;
         f64 memory_usage_f64 = (f64)query_memory_usage( type );
-        LOG_NOTE( "    {cc,-25} {f,b,4.2}", to_string(type), memory_usage_f64 );
+        LOG_NOTE(
+            "    {cc,-25} {f,b,4.2}",
+            memory_type_to_string(type),
+            memory_usage_f64
+        );
         total_memory_usage += memory_usage_f64;
     }
     LOG_NOTE("    {cc,-25} {f,b,4.2}", "Total Memory Usage", total_memory_usage);
@@ -546,14 +545,9 @@ b32 engine_entry( int argc, char** argv ) {
             platform_cursor_center( ctx.platform );
         }
 
-        ctx.render_order = {};
+        mem_zero( &ctx.render_order, sizeof(RenderOrder) );
         ctx.render_order.time = &ctx.time;
-#if defined(DEBUG)
-        ctx.render_order.list_debug_points =
-            (DebugPoints*)::impl::_list_create(
-                LIST_DEFAULT_CAPACITY, sizeof(DebugPoints)
-            );
-#endif
+
         if( !ctx.application_run( &ctx, application_memory ) ) {
             return false;
         }
@@ -569,10 +563,6 @@ b32 engine_entry( int argc, char** argv ) {
             );
             return false;
         }
-
-#if defined(DEBUG)
-        ::impl::_list_free( ctx.render_order.list_debug_points );
-#endif
 
         // audio_test( ctx.platform );
 
@@ -600,42 +590,51 @@ b32 engine_entry( int argc, char** argv ) {
 
     return true;
 }
-void engine_set_cursor_style( struct EngineContext* ctx, u32 style ) {
+void engine_set_cursor_style( EngineContext* opaque, u32 style ) {
+    EngineContextInternal* ctx = opaque;
     ctx->cursor_style = (CursorStyle)style;
     platform_cursor_set_style(
         ctx->platform,
         (CursorStyle)style
     );
 }
-void engine_set_cursor_visibility( struct EngineContext* ctx, b32 visible ) {
+void engine_set_cursor_visibility( EngineContext* opaque, b32 visible ) {
+    EngineContextInternal* ctx = opaque;
     ctx->cursor_is_visible = visible;
     platform_cursor_set_visible(
         ctx->platform,
         visible
     );
 }
-void engine_center_cursor( struct EngineContext* ctx ) {
+void engine_center_cursor( EngineContext* opaque ) {
+    EngineContextInternal* ctx = opaque;
     platform_cursor_center( ctx->platform );
 }
-void engine_lock_cursor( struct EngineContext* ctx, b32 locked ) {
+void engine_lock_cursor( EngineContext* opaque, b32 locked ) {
+    EngineContextInternal* ctx = opaque;
     ctx->cursor_is_locked = locked;
     if( locked ) {
         ctx->cursor_is_visible = false;
     }
 }
-u32 engine_query_cursor_style( struct EngineContext* ctx ) {
+u32 engine_query_cursor_style( EngineContext* opaque ) {
+    EngineContextInternal* ctx = opaque;
     return (u32)ctx->cursor_style;
 }
-b32 engine_query_cursor_visibility( struct EngineContext* ctx ) {
+b32 engine_query_cursor_visibility( EngineContext* opaque ) {
+    EngineContextInternal* ctx = opaque;
     return ctx->cursor_is_visible;
 }
-b32 engine_query_cursor_locked( struct EngineContext* ctx ) {
+b32 engine_query_cursor_locked( EngineContext* opaque ) {
+    EngineContextInternal* ctx = opaque;
     return ctx->cursor_is_locked;
 }
-void engine_set_application_name( struct EngineContext* ctx, StringView name ) {
-    StringView renderer_backend_name = to_string( ctx->renderer_backend );
+void engine_set_application_name( EngineContext* opaque, StringView name ) {
+    EngineContextInternal* ctx = opaque;
+    StringView renderer_backend_name =
+        sv_from_str( renderer_backend_to_string( ctx->renderer_backend ) );
 
-    string_format(
+    sv_format(
         ctx->application_name_view,
         "{sv} | {sv}",
         name, renderer_backend_name
@@ -646,35 +645,36 @@ void engine_set_application_name( struct EngineContext* ctx, StringView name ) {
         ctx->application_name_view
     );
 }
-StringView engine_query_application_name( struct EngineContext* ctx ) {
+StringView engine_query_application_name( EngineContext* opaque ) {
+    EngineContextInternal* ctx = opaque;
     return ctx->application_name_view;
 }
-usize engine_query_logical_processor_count( struct EngineContext* ctx ) {
+usize engine_query_logical_processor_count( EngineContext* opaque ) {
+    EngineContextInternal* ctx = opaque;
     return ctx->system_info.logical_processor_count;
 }
-usize engine_query_total_system_memory( struct EngineContext* ctx ) {
+usize engine_query_total_system_memory( EngineContext* opaque ) {
+    EngineContextInternal* ctx = opaque;
     return ctx->system_info.total_memory;
 }
-const char* engine_query_processor_name( struct EngineContext* ctx ) {
+const char* engine_query_processor_name( EngineContext* opaque ) {
+    EngineContextInternal* ctx = opaque;
     return ctx->system_info.cpu_name_buffer;
 }
-ivec2 engine_query_surface_size( struct EngineContext* ctx ) {
+ivec2 engine_query_surface_size( EngineContext* opaque ) {
+    EngineContextInternal* ctx = opaque;
     return ctx->platform->surface.dimensions;
 }
 
-LD_API struct EntityStorage* engine_get_entity_storage(
-    struct EngineContext* engine_ctx
-) {
-    return engine_ctx->entity_storage;
-}
-
-LD_API struct Timer* engine_get_time( struct EngineContext* engine_ctx ) {
-    return &engine_ctx->time;
+LD_API struct Timer* engine_get_time( EngineContext* opaque ) {
+    EngineContextInternal* ctx = opaque;
+    return &ctx->time;
 }
 
 LD_API struct RenderOrder* engine_get_render_order(
-    struct EngineContext* engine_ctx
+    EngineContext* opaque
 ) {
-    return &engine_ctx->render_order;
+    EngineContextInternal* ctx = opaque;
+    return &ctx->render_order;
 }
 

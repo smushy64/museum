@@ -6,8 +6,8 @@
 #include "gl_backend.h"
 #include "gl_shader.h"
 #include "gl_functions.h"
-#include "core/memory.h"
-#include "core/string.h"
+#include "core/ldmemory.h"
+#include "core/ldstring.h"
 
 b32 gl_shader_compile(
     u32           spirv_binary_size,
@@ -61,7 +61,7 @@ b32 gl_shader_compile(
         glGetShaderInfoLog(
             shader_handle,
             info_log_length,
-            nullptr,
+            NULL,
             info_log_buffer
         );
         GL_LOG_ERROR( "Compilation Error:\n{cc}", info_log_buffer );
@@ -108,7 +108,7 @@ b32 gl_shader_program_link(
         glGetProgramInfoLog(
             program_handle,
             info_log_length,
-            nullptr,
+            NULL,
             info_log_buffer
         );
         GL_LOG_ERROR( "Linking Error:\n{cc}", info_log_buffer );
@@ -160,7 +160,7 @@ b32 gl_shader_program_reflection( ShaderProgram* shader_program ) {
             shader_program->handle,
             i,
             shader_program->uniform_name_max_length,
-            nullptr,
+            NULL,
             &current_info->location_count,
             &current_info->type,
             (GLchar*)current_info->name
@@ -178,14 +178,15 @@ UniformInfo* gl_shader_program_uniform_info(
     ShaderProgram* shader_program,
     const char* uniform_name_str
 ) {
-    StringView uniform_name = uniform_name_str;
+    StringView uniform_name = sv_from_str( uniform_name_str );
     for( GLint i = 0; i < shader_program->uniform_count; ++i ) {
         UniformInfo* current_uniform = &shader_program->uniforms[i];
-        if( string_cmp( uniform_name, current_uniform->name ) ) {
+        StringView current_name = SV( current_uniform->name );
+        if( sv_cmp( uniform_name, current_name ) ) {
             return current_uniform;
         }
     }
-    return nullptr;
+    return NULL;
 }
 void gl_shader_delete( Shader shader ) {
     glDeleteShader( shader );
@@ -198,5 +199,5 @@ void gl_shader_program_delete( ShaderProgram* program ) {
     if( program->uniforms ) {
         mem_free( program->uniforms );
     }
-    *program = {};
+    mem_zero( program, sizeof(ShaderProgram) );
 }

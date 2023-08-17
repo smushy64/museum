@@ -8,20 +8,20 @@
 #include "gl_types.h"
 
 /// OpenGL Shader Uniform Information
-struct UniformInfo {
+typedef struct UniformInfo {
     const char* name;
     GLint       location;
     GLenum      type;
     GLsizei     location_count;
-};
+} UniformInfo;
 /// OpenGL Shader Program
-struct ShaderProgram {
+typedef struct ShaderProgram {
     GLuint handle;
     char*        uniform_names;
     UniformInfo* uniforms;
     GLint        uniform_name_max_length;
     GLint        uniform_count;
-};
+} ShaderProgram;
 typedef GLuint Shader;
 
 /// Compile SPIR-V Shader

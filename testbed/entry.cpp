@@ -2,11 +2,11 @@
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: August 09, 2023
 #include <defines.h>
-#include <core/engine.h>
-#include <core/logging.h>
+#include <core/ldengine.h>
+#include <core/ldlog.h>
 
 extern "C" void application_config( struct EngineConfig* config ) {
-    config->application_name.len = string_format(
+    config->application_name.len = sv_format(
         config->application_name,
         "Foo"
     );
@@ -16,13 +16,13 @@ extern "C" void application_config( struct EngineConfig* config ) {
     config->log_level          = LOG_LEVEL_ALL_VERBOSE;
 }
 
-extern "C" b32 application_init( struct EngineContext* ctx, void* memory ) {
+extern "C" b32 application_init( EngineContext* ctx, void* memory ) {
     unused(ctx);
     unused(memory);
     return true;
 }
 
-extern "C" b32 application_run( struct EngineContext* ctx, void* memory ) {
+extern "C" b32 application_run( EngineContext* ctx, void* memory ) {
     unused(ctx);
     unused(memory);
     return true;

@@ -12,14 +12,14 @@
 
 /// Memory arena that works like a stack.
 /// Push new items and pop old items off the top of the stack.
-struct StackArena {
+typedef struct StackArena {
     void* arena;
     u32 stack_pointer;
     u32 arena_size;
-};
+} StackArena;
 
 /// Types of memory allocations
-enum MemoryType : u64 {
+typedef enum : u64 {
     MEMTYPE_UNKNOWN,
     MEMTYPE_ENGINE,
     MEMTYPE_DYNAMIC_LIST,
@@ -28,23 +28,9 @@ enum MemoryType : u64 {
     MEMTYPE_USER,
 
     MEMTYPE_COUNT
-};
-inline const char* to_string(MemoryType memtype) {
-    local const char* strings[MEMTYPE_COUNT] = {
-        "Unknown Memory",
-        "Engine Memory",
-        "Dynamic List Memory",
-        "Renderer Memory",
-        "String Memory",
-        "User Memory"
-    };
-    if( memtype >= MEMTYPE_COUNT ) {
-        return strings[0];
-    }
-    return strings[memtype];
-}
-
-namespace impl {
+} MemoryType;
+/// Memory type to string
+LD_API const char* memory_type_to_string( MemoryType type );
 
 /// Allocate memory.
 LD_API void* _mem_alloc( usize size, MemoryType type );
@@ -139,11 +125,9 @@ LD_API void _stack_arena_pop_item_trace(
     int line
 );
 
-}; // namespace impl
-
 #if defined(LD_LOGGING)
     #define mem_alloc( size, type )\
-        ::impl::_mem_alloc_trace(\
+        _mem_alloc_trace(\
             size,\
             type,\
             __FUNCTION__,\
@@ -151,7 +135,7 @@ LD_API void _stack_arena_pop_item_trace(
             __LINE__\
         )
     #define mem_realloc( memory, new_size )\
-        ::impl::_mem_realloc_trace(\
+        _mem_realloc_trace(\
             memory,\
             new_size,\
             __FUNCTION__,\
@@ -159,49 +143,49 @@ LD_API void _stack_arena_pop_item_trace(
             __LINE__\
         )
     #define mem_free( memory )\
-        ::impl::_mem_free_trace(\
+        _mem_free_trace(\
             memory,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__\
         )
     #define mem_page_alloc( size, type )\
-        ::impl::_mem_page_alloc_trace(\
+        _mem_page_alloc_trace(\
             size, type,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__\
         )
     #define mem_page_free( memory )\
-        ::impl::_mem_page_free_trace(\
+        _mem_page_free_trace(\
             memory,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__\
         )
     #define stack_arena_create( size, type, out_arena )\
-        ::impl::_stack_arena_create_trace(\
+        _stack_arena_create_trace(\
             size, type, out_arena,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__\
         )
     #define stack_arena_free( arena )\
-        ::impl::_stack_arena_free_trace(\
+        _stack_arena_free_trace(\
             arena,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__\
         )
     #define stack_arena_push_item( arena, item_size )\
-        ::impl::_stack_arena_push_item_trace(\
+        _stack_arena_push_item_trace(\
             arena, item_size,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__\
         )
     #define stack_arena_pop_item( arena, item_size )\
-        ::impl::_stack_arena_pop_item_trace(\
+        _stack_arena_pop_item_trace(\
             arena, item_size,\
             __FUNCTION__,\
             __FILE__,\
@@ -210,23 +194,23 @@ LD_API void _stack_arena_pop_item_trace(
 
 #else
     #define mem_alloc( size, type )\
-        ::impl::_mem_alloc( size, type )
+        _mem_alloc( size, type )
     #define mem_realloc( memory, new_size )\
-        ::impl::_mem_realloc( memory, new_size )
+        _mem_realloc( memory, new_size )
     #define mem_free( memory )\
-        ::impl::_mem_free( memory )
+        _mem_free( memory )
     #define mem_page_alloc( size, type )\
-        ::impl::_mem_page_alloc( size, type )
+        _mem_page_alloc( size, type )
     #define mem_page_free( memory )\
-        ::impl::_mem_page_free( memory )
+        _mem_page_free( memory )
     #define stack_arena_create( size, type, out_arena )\
-        ::impl::_stack_arena_create( size, type, out_arena )
+        _stack_arena_create( size, type, out_arena )
     #define stack_arena_free( arena )\
-        ::impl::_stack_arena_free( arena )
+        _stack_arena_free( arena )
     #define stack_arena_push_item( arena, item_size )\
-        ::impl::_stack_arena_push_item( arena, item_size )
+        _stack_arena_push_item( arena, item_size )
     #define stack_arena_pop_item( arena, item_size )\
-        ::impl::_stack_arena_pop_item( arena, item_size )
+        _stack_arena_pop_item( arena, item_size )
 #endif
 
 #define stack_arena_push( arena, type )\

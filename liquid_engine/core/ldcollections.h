@@ -9,8 +9,6 @@
 
 // LIST | BEGIN -------------------------------------------
 
-namespace impl {
-
 #define LIST_FIELD_CAPACITY 0
 #define LIST_FIELD_COUNT    1
 #define LIST_FIELD_STRIDE   2
@@ -96,13 +94,11 @@ LD_API void _list_free_trace(
     int line
 );
 
-} // namespace impl
-
 #define LIST_DEFAULT_CAPACITY 1
 
 #if defined(LD_LOGGING)
     #define list_create(type)\
-        (type*) ::impl::_list_create_trace(\
+        (type*) _list_create_trace(\
             LIST_DEFAULT_CAPACITY,\
             sizeof(type),\
             __FUNCTION__,\
@@ -111,7 +107,7 @@ LD_API void _list_free_trace(
         )
 
     #define list_realloc(list, new_capacity)\
-        (__typeof(list)) ::impl::_list_realloc_trace(\
+        (__typeof(list)) _list_realloc_trace(\
             list,\
             new_capacity,\
             __FUNCTION__,\
@@ -120,7 +116,7 @@ LD_API void _list_free_trace(
         )
 
     #define list_free(list)\
-        ::impl::_list_free_trace(\
+        _list_free_trace(\
             list,\
             __FUNCTION__,\
             __FILE__,\
@@ -128,7 +124,7 @@ LD_API void _list_free_trace(
         )
 
     #define list_reserve(type, capacity)\
-        (type*) ::impl::_list_create_trace(\
+        (type*) _list_create_trace(\
             capacity,\
             sizeof(type),\
             __FUNCTION__,\
@@ -138,7 +134,7 @@ LD_API void _list_free_trace(
 
     #define list_push(list, value) do {\
         __typeof(value) temp = value;\
-        list = (__typeof(list)) ::impl::_list_push_trace(\
+        list = (__typeof(list)) _list_push_trace(\
             list,\
             &temp,\
             __FUNCTION__,\
@@ -148,7 +144,7 @@ LD_API void _list_free_trace(
     } while(0)
 
     #define list_append(list, append_count, pvalue) do {\
-        list = (__typeof(list)) ::impl::_list_append_trace(\
+        list = (__typeof(list)) _list_append_trace(\
             list,\
             append_count,\
             pvalue,\
@@ -160,7 +156,7 @@ LD_API void _list_free_trace(
 
     #define list_insert(list, index, value) do {\
         __typeof(value) temp = value;\
-        list = (__typeof(list)) ::impl::_list_insert_trace(\
+        list = (__typeof(list)) _list_insert_trace(\
             list,\
             index,\
             &temp,\
@@ -173,31 +169,31 @@ LD_API void _list_free_trace(
 #else
 
     #define list_create(type)\
-        (type*) ::impl::_list_create(\
+        (type*) _list_create(\
             LIST_DEFAULT_CAPACITY,\
             sizeof(type)\
         )
 
     #define list_realloc(list, new_capacity)\
-        ::impl::_list_realloc( list, new_capacity )
+        _list_realloc( list, new_capacity )
 
     #define list_free(list)\
-        ::impl::_list_free(list)
+        _list_free(list)
 
     #define list_reserve(type, capacity)\
-        (type*) ::impl::_list_create(\
+        (type*) _list_create(\
             capacity,\
             sizeof(type)\
         )
 
     #define list_push(list, value) do {\
         __typeof(value) temp = value;\
-        list = (__typeof(list)) ::impl::_list_push(\
+        list = (__typeof(list)) _list_push(\
             list, &temp);\
     } while(0)
 
     #define list_append(list, append_count, pvalue) do {\
-        list = (__typeof(list)) ::impl::_list_append(\
+        list = (__typeof(list)) _list_append(\
             list,\
             append_count,\
             pvalue\
@@ -206,7 +202,7 @@ LD_API void _list_free_trace(
 
     #define list_insert(list, index, value) do {\
         __typeof(value) temp = value;\
-        list = (__typeof(list)) ::impl::_list_insert(\
+        list = (__typeof(list)) _list_insert(\
             list,\
             index,\
             &temp\
@@ -217,32 +213,32 @@ LD_API void _list_free_trace(
 
 
 #define list_pop(list, pvalue)\
-    ::impl::_list_pop( list, pvalue )
+    _list_pop( list, pvalue )
 
 #define list_remove(list, index, opt_dst)\
-    ::impl::_list_remove( list, index, opt_dst )
+    _list_remove( list, index, opt_dst )
 
 #define list_clear(list)\
-    ::impl::_list_field_write(\
+    _list_field_write(\
         list,\
         LIST_FIELD_COUNT,\
         0\
     )\
 
 #define list_count(list)\
-    ::impl::_list_field_read(\
+    _list_field_read(\
         list,\
         LIST_FIELD_COUNT\
     )
 
 #define list_capacity(list)\
-    ::impl::_list_field_read(\
+    _list_field_read(\
         list,\
         LIST_FIELD_CAPACITY\
     )
 
 #define list_stride(list)\
-    ::impl::_list_field_read(\
+    _list_field_read(\
         list,\
         LIST_FIELD_STRIDE\
     )
@@ -251,7 +247,7 @@ LD_API void _list_free_trace(
     (list_capacity(list) * list_stride(list))
 
 #define list_set_count(list, value)\
-    ::impl::_list_field_write(\
+    _list_field_write(\
         list,\
         LIST_FIELD_COUNT,\
         value\

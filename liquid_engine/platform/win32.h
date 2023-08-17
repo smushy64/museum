@@ -8,9 +8,8 @@
 #include "defines.h"
 #if defined(LD_PLATFORM_WINDOWS)
 
-#include "core/audio.h"
-#include "core/logging.h"
-#include "core/library.h"
+#include "core/ldlog.h"
+#include "core/ldlibrary.h"
 #include "platform/platform.h"
 
 #define NOGDI
@@ -20,37 +19,38 @@
 #include <xinput.h>
 #include <dsound.h>
 
-struct Win32MutexHandle {
+typedef struct {
     HANDLE handle;
-};
-STATIC_ASSERT( sizeof(Win32MutexHandle) == MUTEX_HANDLE_SIZE );
+} Win32MutexHandle;
+STATIC_ASSERT( sizeof(Win32MutexHandle) == MUTEX_HANDLE_SIZE, "Win32 mutex handle size is not equal to common mutex handle size!" );
 
-struct Win32SemaphoreHandle {
+typedef struct {
     HANDLE handle;
-};
-STATIC_ASSERT( sizeof(Win32SemaphoreHandle) == SEMAPHORE_HANDLE_SIZE );
+} Win32SemaphoreHandle;
+STATIC_ASSERT( sizeof(Win32SemaphoreHandle) == SEMAPHORE_HANDLE_SIZE, "Win32 semaphore handle size is not equal to common semaphore handle size!" );
 
-struct Win32FileHandle {
+typedef struct {
     HANDLE handle;
-};
-STATIC_ASSERT( sizeof(Win32FileHandle) == FILE_HANDLE_SIZE );
+} Win32FileHandle;
+STATIC_ASSERT( sizeof(Win32FileHandle) == FILE_HANDLE_SIZE, "Win32 file handle size is not equal to common file handle size!" );
 
-struct Win32ThreadHandle {
+typedef struct {
     HANDLE       thread_handle;
     ThreadProcFN thread_proc;
     void*        thread_proc_user_params;
     DWORD        thread_id;
-};
+} Win32ThreadHandle;
 
-struct Win32DirectSound {
+typedef struct {
     LPDIRECTSOUND handle;
     LPDIRECTSOUNDBUFFER hardware_handle;
     LPDIRECTSOUNDBUFFER buffer;
 
     u32 running_sample_index;
-};
+} Win32DirectSound;
 #define LIBRARY_COUNT (5)
-struct Win32Platform {
+
+typedef struct {
     Platform platform;
     struct Win32Window {
         HWND handle;
@@ -81,7 +81,7 @@ struct Win32Platform {
     Win32ThreadHandle       xinput_polling_thread;
     PlatformSemaphoreHandle xinput_polling_thread_semaphore;
     u32 event_pump_count;
-};
+} Win32Platform;
 
 
 global const char* WIN32_VULKAN_EXTENSIONS[] = {
@@ -341,17 +341,13 @@ typedef struct tagPIXELFORMATDESCRIPTOR {
 
 #define DEFFUNC_( return_name, function_name, ... )\
     typedef return_name ( * function_name##FN )( __VA_ARGS__ );\
-    [[maybe_unused]]\
-    global function_name##FN in_##function_name = nullptr
+    global function_name##FN in_##function_name = NULL
 
 #define DEFFUNC_STUB( return_name, function_name, return_value, ... )\
     typedef return_name ( * function_name##FN )( __VA_ARGS__ );\
     internal return_name function_name##_stub( __VA_ARGS__ ) { return return_value; }\
-    [[maybe_unused]]\
     global function_name##FN in_##function_name = function_name##_stub
 
-namespace impl {
-    
     DEFFUNC_( BOOL, SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT );
     DEFFUNC_( UINT, GetDpiForSystem );
     DEFFUNC_( BOOL, AdjustWindowRectExForDpi, LPRECT, DWORD, BOOL, DWORD, UINT );
@@ -367,7 +363,7 @@ namespace impl {
     DEFFUNC_( int, ChoosePixelFormat, HDC, const PIXELFORMATDESCRIPTOR* );
     DEFFUNC_( BOOL, SetPixelFormat, HDC, int, const PIXELFORMATDESCRIPTOR* );
     DEFFUNC_( BOOL, SwapBuffers, HDC );
-    DEFFUNC_STUB( void, XInputEnable, , BOOL );
+    DEFFUNC_STUB( void, XInputEnable, , BOOL foo __attribute__((__unused__)) );
     DEFFUNC_( HRESULT WINAPI, DirectSoundCreate, LPGUID, LPDIRECTSOUND*, LPUNKNOWN );
     DEFFUNC_( HANDLE, LoadImageA, HINSTANCE, LPCSTR, UINT, int, int, UINT );
     DEFFUNC_( LONG_PTR, GetWindowLongPtrA, HWND, int );
@@ -396,51 +392,49 @@ namespace impl {
     DEFFUNC_( BOOL, AdjustWindowRectEx, LPRECT, DWORD, BOOL, DWORD );
     DEFFUNC_( int, GetSystemMetrics, int );
 
-} // namespace impl
-
-#define GetSystemMetrics              ::impl::in_GetSystemMetrics
-#define AdjustWindowRectEx            ::impl::in_AdjustWindowRectEx
-#define RegisterClassExA              ::impl::in_RegisterClassExA
-#define LoadCursorA                   ::impl::in_LoadCursorA
-#define CreateWindowExA               ::impl::in_CreateWindowExA
-#define SetCursor                     ::impl::in_SetCursor
-#define ShowCursor                    ::impl::in_ShowCursor
-#define ClientToScreen                ::impl::in_ClientToScreen
-#define SetCursorPos                  ::impl::in_SetCursorPos
-#define GetWindowTextA                ::impl::in_GetWindowTextA
-#define GetWindowTextLengthA          ::impl::in_GetWindowTextLengthA
-#define SetWindowTextA                ::impl::in_SetWindowTextA
-#define DispatchMessageA              ::impl::in_DispatchMessageA
-#define MessageBoxA                   ::impl::in_MessageBoxA
-#define SetWindowLongPtrA             ::impl::in_SetWindowLongPtrA
-#define ShowWindow                    ::impl::in_ShowWindow
-#define GetDC                         ::impl::in_GetDC
-#define DestroyIcon                   ::impl::in_DestroyIcon
-#define TranslateMessage              ::impl::in_TranslateMessage
-#define PeekMessageA                  ::impl::in_PeekMessageA
-#define DestroyWindow                 ::impl::in_DestroyWindow
-#define MapVirtualKeyA                ::impl::in_MapVirtualKeyA
-#define GetClientRect                 ::impl::in_GetClientRect
-#define DefWindowProcA                ::impl::in_DefWindowProcA
-#define GetWindowLongPtrA             ::impl::in_GetWindowLongPtrA
-#define LoadImageA                    ::impl::in_LoadImageA
-#define DirectSoundCreate             ::impl::in_DirectSoundCreate
-#define SetProcessDpiAwarenessContext ::impl::in_SetProcessDpiAwarenessContext
-#define GetDpiForSystem               ::impl::in_GetDpiForSystem
-#define AdjustWindowRectExForDpi      ::impl::in_AdjustWindowRectExForDpi
-#define XInputGetState                ::impl::in_XInputGetState
-#define XInputSetState                ::impl::in_XInputSetState
-#define XInputEnable                  ::impl::in_XInputEnable
-#define wglCreateContext              ::impl::in_wglCreateContext
-#define wglMakeCurrent                ::impl::in_wglMakeCurrent
-#define wglDeleteContext              ::impl::in_wglDeleteContext
-#define wglGetProcAddress             ::impl::in_wglGetProcAddress
-#define wglCreateContextAttribsARB    ::impl::in_wglCreateContextAttribsARB
-#define DescribePixelFormat           ::impl::in_DescribePixelFormat
-#define ChoosePixelFormat             ::impl::in_ChoosePixelFormat
-#define SetPixelFormat                ::impl::in_SetPixelFormat
-#define SwapBuffers                   ::impl::in_SwapBuffers
-#define GetStockObject                ::impl::in_GetStockObject
+#define GetSystemMetrics              in_GetSystemMetrics
+#define AdjustWindowRectEx            in_AdjustWindowRectEx
+#define RegisterClassExA              in_RegisterClassExA
+#define LoadCursorA                   in_LoadCursorA
+#define CreateWindowExA               in_CreateWindowExA
+#define SetCursor                     in_SetCursor
+#define ShowCursor                    in_ShowCursor
+#define ClientToScreen                in_ClientToScreen
+#define SetCursorPos                  in_SetCursorPos
+#define GetWindowTextA                in_GetWindowTextA
+#define GetWindowTextLengthA          in_GetWindowTextLengthA
+#define SetWindowTextA                in_SetWindowTextA
+#define DispatchMessageA              in_DispatchMessageA
+#define MessageBoxA                   in_MessageBoxA
+#define SetWindowLongPtrA             in_SetWindowLongPtrA
+#define ShowWindow                    in_ShowWindow
+#define GetDC                         in_GetDC
+#define DestroyIcon                   in_DestroyIcon
+#define TranslateMessage              in_TranslateMessage
+#define PeekMessageA                  in_PeekMessageA
+#define DestroyWindow                 in_DestroyWindow
+#define MapVirtualKeyA                in_MapVirtualKeyA
+#define GetClientRect                 in_GetClientRect
+#define DefWindowProcA                in_DefWindowProcA
+#define GetWindowLongPtrA             in_GetWindowLongPtrA
+#define LoadImageA                    in_LoadImageA
+#define DirectSoundCreate             in_DirectSoundCreate
+#define SetProcessDpiAwarenessContext in_SetProcessDpiAwarenessContext
+#define GetDpiForSystem               in_GetDpiForSystem
+#define AdjustWindowRectExForDpi      in_AdjustWindowRectExForDpi
+#define XInputGetState                in_XInputGetState
+#define XInputSetState                in_XInputSetState
+#define XInputEnable                  in_XInputEnable
+#define wglCreateContext              in_wglCreateContext
+#define wglMakeCurrent                in_wglMakeCurrent
+#define wglDeleteContext              in_wglDeleteContext
+#define wglGetProcAddress             in_wglGetProcAddress
+#define wglCreateContextAttribsARB    in_wglCreateContextAttribsARB
+#define DescribePixelFormat           in_DescribePixelFormat
+#define ChoosePixelFormat             in_ChoosePixelFormat
+#define SetPixelFormat                in_SetPixelFormat
+#define SwapBuffers                   in_SwapBuffers
+#define GetStockObject                in_GetStockObject
 
 #define WGL_CONTEXT_MAJOR_VERSION_ARB             0x2091
 #define WGL_CONTEXT_MINOR_VERSION_ARB             0x2092

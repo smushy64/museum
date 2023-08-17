@@ -7,7 +7,6 @@
 */
 #include "defines.h"
 
-typedef u32 PlatformFlags;
 /// Try to make application DPI aware.
 #define PLATFORM_DPI_AWARE ( 1 << 0 )
 /// Pause application when surface is inactive.

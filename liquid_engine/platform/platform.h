@@ -6,23 +6,23 @@
  * File Created: April 27, 2023
 */
 #include "defines.h"
-#include "core/math/types.h"
-#include "core/input.h"
-#include "core/engine.h"
-#include "core/string.h"
-#include "core/threading.h"
+#include "core/ldmath/types.h"
+#include "core/ldinput.h"
+#include "core/ldengine.h"
+#include "core/ldstring.h"
+#include "core/ldthread.h"
 #include "flags.h"
 
 #define MAX_PLATFORM_SURFACE_TITLE_SIZE 255
 
 /// Platform state
-struct Platform {
+typedef struct Platform {
     union Surface {
         ivec2  dimensions;
         struct { i32 width, height; };
     } surface;
     b32 is_active;
-};
+} Platform;
 /// Returns how many bytes the current platform requires.
 u32 query_platform_subsystem_size();
 /// Initialize platform state. Returns true if successful.
@@ -58,9 +58,7 @@ i32 platform_surface_read_name(
 );
 /// Set cursor style.
 /// Does nothing on platforms that don't use a cursor.
-void platform_cursor_set_style(
-    Platform* platform, CursorStyle cursor_style
-);
+void platform_cursor_set_style( Platform* platform, CursorStyle cursor_style );
 /// Set cursor visibility.
 /// Does nothing on platforms that don't use a cursor.
 void platform_cursor_set_visible( Platform* platform, b32 visible );
@@ -122,9 +120,9 @@ void* platform_library_load_function(
 #endif
 
 /// Platform file handle
-struct PlatformFileHandle {
+typedef struct PlatformFileHandle {
     u8 platform[FILE_HANDLE_SIZE];
-};
+} PlatformFileHandle;
 
 typedef u32 PlatformFileOpenFlags;
 
@@ -172,9 +170,9 @@ b32 platform_file_set_offset( PlatformFileHandle* handle, usize offset );
 #endif
 
 /// Opaque handle to a thread.
-struct PlatformThreadHandle {
+typedef struct PlatformThreadHandle {
     u8 platform[THREAD_HANDLE_SIZE];
-};
+} PlatformThreadHandle;
 
 /// Thread Proc definition.
 typedef b32 (*ThreadProcFN)( void* user_params );
@@ -205,18 +203,18 @@ void platform_thread_kill( PlatformThreadHandle* thread_handle );
     #define MUTEX_HANDLE_SIZE (40)
 #endif
 
-STATIC_ASSERT( SEMAPHORE_HANDLE_SIZE <= MAX_SEMAPHORE_SIZE );
-STATIC_ASSERT( MUTEX_HANDLE_SIZE <= MAX_MUTEX_SIZE );
+STATIC_ASSERT( SEMAPHORE_HANDLE_SIZE <= MAX_SEMAPHORE_SIZE, "Semaphore handle size must be less than or equals to max size!" );
+STATIC_ASSERT( MUTEX_HANDLE_SIZE <= MAX_MUTEX_SIZE, "Mutex handle size must be less than or equals to max size!" );
 
 /// Opaque handle to a semaphore object.
-struct PlatformSemaphoreHandle {
+typedef struct PlatformSemaphoreHandle {
     u8 buffer[SEMAPHORE_HANDLE_SIZE];
-};
+} PlatformSemaphoreHandle;
 
 /// Opaque handle to a mutex object.
-struct PlatformMutexHandle {
+typedef struct PlatformMutexHandle {
     u8 buffer[MUTEX_HANDLE_SIZE];
-};
+} PlatformMutexHandle;
 
 /// Create a semaphore.
 b32 platform_semaphore_create(
@@ -267,44 +265,43 @@ void* platform_interlocked_compare_exchange_pointer(
 );
 
 /// Types of message boxes
-enum MessageBoxType : u32 {
-    MBTYPE_OK,
-    MBTYPE_OKCANCEL,
-    MBTYPE_RETRYCANCEL,
-    MBTYPE_YESNO,
-    MBTYPE_YESNOCANCEL,
-
-    MBTYPE_COUNT
-};
-inline const char* to_string( MessageBoxType type ) {
-    static const char* strings[MBTYPE_COUNT] = {
+typedef enum : u32 {
+    MESSAGE_BOX_TYPE_OK,
+    MESSAGE_BOX_TYPE_OKCANCEL,
+    MESSAGE_BOX_TYPE_RETRYCANCEL,
+    MESSAGE_BOX_TYPE_YESNO,
+    MESSAGE_BOX_TYPE_YESNOCANCEL,
+    MESSAGE_BOX_TYPE_COUNT
+} MessageBoxType;
+inline const char* message_box_type_to_string( MessageBoxType type ) {
+    const char* strings[MESSAGE_BOX_TYPE_COUNT] = {
         "Message Box with OK button.",
         "Message Box with OK and CANCEL buttons.",
         "Message Box with RETRY and CANCEL buttons.",
         "Message Box with YES and NO buttons.",
         "Message Box with YES, NO and CANCEL buttons.",
     };
-    if( type >= MBTYPE_COUNT ) {
+    if( type >= MESSAGE_BOX_TYPE_COUNT ) {
         return "Unknown Message Box type.";
     }
     return strings[type];
 }
 
 /// Message box icons
-enum MessageBoxIcon : u32 {
-    MBICON_INFORMATION,
-    MBICON_WARNING,
-    MBICON_ERROR,
+typedef enum : u32 {
+    MESSAGE_BOX_ICON_INFORMATION,
+    MESSAGE_BOX_ICON_WARNING,
+    MESSAGE_BOX_ICON_ERROR,
 
-    MBICON_COUNT
-};
-inline const char* to_string( MessageBoxIcon icon ) {
-    static const char* strings[MBICON_COUNT] = {
+    MESSAGE_BOX_ICON_COUNT
+} MessageBoxIcon;
+inline const char* message_box_icon_to_string( MessageBoxIcon icon ) {
+    const char* strings[MESSAGE_BOX_ICON_COUNT] = {
         "Message Box \"information\" icon.",
         "Message Box \"warning\" icon.",
         "Message Box \"error\" icon.",
     };
-    if( icon >= MBICON_COUNT ) {
+    if( icon >= MESSAGE_BOX_ICON_COUNT ) {
         return "Unknown Message Box icon.";
     }
     return strings[icon];
@@ -312,19 +309,19 @@ inline const char* to_string( MessageBoxIcon icon ) {
 
 /// User selection from a message box or an error
 /// from creating message box.
-enum MessageBoxResult : u32 {
-    MBRESULT_OK,
-    MBRESULT_CANCEL,
-    MBRESULT_RETRY,
-    MBRESULT_YES,
-    MBRESULT_NO,
+typedef enum : u32 {
+    MESSAGE_BOX_RESULT_OK,
+    MESSAGE_BOX_RESULT_CANCEL,
+    MESSAGE_BOX_RESULT_RETRY,
+    MESSAGE_BOX_RESULT_YES,
+    MESSAGE_BOX_RESULT_NO,
 
-    MBRESULT_UNKNOWN_ERROR,
+    MESSAGE_BOX_RESULT_UNKNOWN_ERROR,
 
-    MBRESULT_COUNT
-};
-inline const char* to_string( MessageBoxResult result ) {
-    static const char* strings[MBRESULT_COUNT] = {
+    MESSAGE_BOX_RESULT_COUNT
+} MessageBoxResult;
+inline const char* message_box_result_to_string( MessageBoxResult result ) {
+    const char* strings[MESSAGE_BOX_RESULT_COUNT] = {
         "Message Box OK selected.",
         "Message Box CANCEL selected.",
         "Message Box RETRY selected.",
@@ -332,7 +329,7 @@ inline const char* to_string( MessageBoxResult result ) {
         "Message Box NO selected.",
         "An unknown error occurred.",
     };
-    if( result >= MBRESULT_COUNT ) {
+    if( result >= MESSAGE_BOX_RESULT_COUNT ) {
         return "Unknown Message Box result.";
     }
     return strings[result];
@@ -350,8 +347,8 @@ MessageBoxResult message_box(
     message_box(\
         title,\
         message,\
-        MBTYPE_OK,\
-        MBICON_ERROR\
+        MESSAGE_BOX_TYPE_OK,\
+        MESSAGE_BOX_ICON_ERROR\
     )
 
 /// Allocate memory on the heap.
@@ -380,12 +377,12 @@ typedef u16 ProcessorFeatures;
 #define AVX_MASK    (1 << 6)
 #define AVX2_MASK   (1 << 7)
 #define AVX512_MASK (1 << 8)
-struct SystemInfo {
+typedef struct SystemInfo {
     usize logical_processor_count;
     usize total_memory;
     char  cpu_name_buffer[CPU_NAME_BUFFER_SIZE];
     ProcessorFeatures features;
-};
+} SystemInfo;
 /// Query CPU and memory information.
 struct SystemInfo query_system_info();
 
