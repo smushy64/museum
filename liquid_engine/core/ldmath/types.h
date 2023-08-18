@@ -20,7 +20,7 @@ typedef union vec2 {
     struct { f32 width, height; };
     f32 c[VEC2_COMPONENT_COUNT];
 } vec2;
-#define VEC2_ZERO  (vec2){};
+#define VEC2_ZERO  (vec2){}
 #define VEC2_ONE   (vec2){  1.0f,  1.0f }
 #define VEC2_LEFT  (vec2){ -1.0f,  0.0f }
 #define VEC2_RIGHT (vec2){  1.0f,  0.0f }
@@ -466,19 +466,19 @@ typedef struct {
     f32 top,  bottom;
 } Rect2D;
 
-FORCE_INLINE vec2 rect2d_top_left( const Rect2D* rect ) {
+headerfn vec2 rect2d_top_left( const Rect2D* rect ) {
     vec2 result = { rect->left, rect->top };
     return result;
 }
-FORCE_INLINE vec2 rect2d_top_right( const Rect2D* rect ) {
+headerfn vec2 rect2d_top_right( const Rect2D* rect ) {
     vec2 result = { rect->right, rect->top };
     return result;
 }
-FORCE_INLINE vec2 rect2d_bottom_left( const Rect2D* rect ) {
+headerfn vec2 rect2d_bottom_left( const Rect2D* rect ) {
     vec2 result = { rect->left, rect->bottom };
     return result;
 }
-FORCE_INLINE vec2 rect2d_bottom_right( const Rect2D* rect ) {
+headerfn vec2 rect2d_bottom_right( const Rect2D* rect ) {
     vec2 result = { rect->right, rect->bottom };
     return result;
 }

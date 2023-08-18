@@ -9,25 +9,9 @@
 #include "core/ldmath/types.h"
 
 typedef u32 PlatformFlags;
-
 typedef void EngineContext;
 
 LD_API struct Timer* engine_get_time( EngineContext* engine_ctx );
-LD_API struct RenderOrder* engine_get_render_order( EngineContext* engine_ctx );
-
-/// Supported renderer backends
-typedef enum : u32 {
-    RENDERER_BACKEND_OPENGL,
-    RENDERER_BACKEND_VULKAN,
-    RENDERER_BACKEND_DX11,
-    RENDERER_BACKEND_DX12,
-
-    RENDERER_BACKEND_COUNT
-} RendererBackend;
-/// Convert renderer backend to const char*
-const char* renderer_backend_to_string( RendererBackend backend );
-/// Check if renderer backend is supported on the current platform.
-b32 renderer_backend_is_supported( RendererBackend backend );
 
 /// Engine Configuration
 typedef struct EngineConfig {

@@ -5,51 +5,51 @@
 // * File Created: July 22, 2023
 #include "defines.h"
 
-typedef void* OpaqueLibraryHandle;
+typedef void OpaqueDynamicLibrary;
 
 #if defined(LD_LOGGING)
     #define LIB_MAX_PATH_STORAGE (255)
 #endif
 
-typedef struct {
+typedef struct DynamicLibrary {
 
 #if defined(LD_LOGGING)
     char path_storage[LIB_MAX_PATH_STORAGE];
 #endif
-    OpaqueLibraryHandle handle;
+    OpaqueDynamicLibrary* handle;
 
-} LibraryHandle;
+} DynamicLibrary;
 
 /// Load local library or from environment path.
 LD_API b32 _library_load(
     const char*    library_path,
-    LibraryHandle* out_library
+    DynamicLibrary* out_library
 );
 /// Load local library or from environment path.
 LD_API b32 _library_load_trace(
     const char*    library_path,
-    LibraryHandle* out_library,
+    DynamicLibrary* out_library,
     const char* function,
     const char* file,
     i32 line
 );
 /// Free a library handle.
-LD_API void _library_free( LibraryHandle* library );
+LD_API void _library_free( DynamicLibrary* library );
 /// Free a library handle.
 LD_API void _library_free_trace( 
-    LibraryHandle* library,
+    DynamicLibrary* library,
     const char* function,
     const char* file,
     i32 line
 );
 /// Load a function from a library.
 LD_API void* _library_load_function(
-    LibraryHandle* library,
+    DynamicLibrary* library,
     const char* function_name
 );
 /// Load a function from a library.
 LD_API void* _library_load_function_trace(
-    LibraryHandle* library,
+    DynamicLibrary* library,
     const char* function_name,
     const char* function,
     const char* file,

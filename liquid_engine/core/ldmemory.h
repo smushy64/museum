@@ -10,218 +10,170 @@
 */
 #include "defines.h"
 
-/// Memory arena that works like a stack.
-/// Push new items and pop old items off the top of the stack.
-typedef struct StackArena {
-    void* arena;
-    u32 stack_pointer;
-    u32 arena_size;
-} StackArena;
+// TODO(alicia): check to see if this needs to be changed for other platforms
+#define MEMORY_PAGE_SIZE (KILOBYTES(4))
 
 /// Types of memory allocations
-typedef enum : u64 {
-    MEMTYPE_UNKNOWN,
-    MEMTYPE_ENGINE,
-    MEMTYPE_DYNAMIC_LIST,
-    MEMTYPE_RENDERER,
-    MEMTYPE_STRING,
-    MEMTYPE_USER,
+typedef enum MemoryType : u8 {
+    MEMORY_TYPE_UNKNOWN,
+    MEMORY_TYPE_ENGINE,
+    MEMORY_TYPE_DYNAMIC_LIST,
+    MEMORY_TYPE_RENDERER,
+    MEMORY_TYPE_STRING,
+    MEMORY_TYPE_USER,
 
-    MEMTYPE_COUNT
+    MEMORY_TYPE_COUNT
 } MemoryType;
 /// Memory type to string
-LD_API const char* memory_type_to_string( MemoryType type );
+headerfn const char* memory_type_to_string( MemoryType type ) {
+    const char* strings[MEMORY_TYPE_COUNT] = {
+        "Unknown Memory",
+        "Engine Memory",
+        "Dynamic List Memory",
+        "Renderer Memory",
+        "String Memory",
+        "User Memory"
+    };
+    if( type >= MEMORY_TYPE_COUNT ) {
+        return strings[0];
+    }
+    return strings[type];
+}
 
+/// IMPORTANT(alicia): Internal use only!
 /// Allocate memory.
-LD_API void* _mem_alloc( usize size, MemoryType type );
-/// Reallocate memory.
-LD_API void* _mem_realloc( void* memory, usize new_size );
-/// Free memory.
-LD_API void _mem_free( void* memory );
+LD_API void* internal_ldalloc( usize size, MemoryType type );
+// IMPORTANT(alicia): Internal use only!
+// Allocate aligned memory.
+LD_API void* internal_ldalloc_aligned(
+    usize size, MemoryType type, usize alignment
+);
+// IMPORTANT(alicia): Internal use only!
+// Reallocate memory.
+LD_API void* internal_ldrealloc(
+    void* memory, usize old_size, usize new_size, MemoryType type
+);
+// IMPORTANT(alicia): Internal use only!
+// Free allocated memory.
+LD_API void internal_ldfree( void* memory, usize size, MemoryType type );
+// IMPORTANT(alicia): Internal use only!
+// Free allocated aligned memory.
+LD_API void internal_ldfree_aligned(
+    void* memory, usize size, MemoryType type, usize alignment
+);
 
+/// IMPORTANT(alicia): Internal use only!
 /// Allocate memory.
-LD_API void* _mem_alloc_trace(
-    usize size,
-    MemoryType type,
-    const char* function,
-    const char* file,
-    int line
-);
-/// Reallocate memory.
-LD_API void* _mem_realloc_trace(
-    void* memory,
-    usize new_size,
-    const char* function,
-    const char* file,
-    int line
-);
-/// Free memory.
-LD_API void _mem_free_trace(
-    void* memory,
-    const char* function,
-    const char* file,
-    int line
-);
-
-/// Page allocate memory.
-LD_API void* _mem_page_alloc( usize size, MemoryType type );
-/// Free page allocated memory.
-LD_API void _mem_page_free( void* memory );
-
-/// Page allocate memory.
-LD_API void* _mem_page_alloc_trace(
+LD_API void* internal_ldalloc_trace(
     usize size, MemoryType type,
     const char* function,
     const char* file,
     int line
 );
-/// Free page allocated memory.
-LD_API void _mem_page_free_trace(
-    void* memory,
+// IMPORTANT(alicia): Internal use only!
+// Allocate aligned memory.
+LD_API void* internal_ldalloc_aligned_trace(
+    usize size, MemoryType type, u8 alignment,
     const char* function,
     const char* file,
     int line
 );
-
-/// Create a stack arena.
-LD_API b32 _stack_arena_create(
-    u32 size, MemoryType type,
-    StackArena* out_arena
-);
-/// Free a stack arena.
-LD_API void _stack_arena_free( StackArena* arena );
-/// Push an item into stack arena.
-LD_API void* _stack_arena_push_item( StackArena* arena, u32 item_size );
-/// Pop an item from stack arena.
-LD_API void _stack_arena_pop_item( StackArena* arena, u32 item_size );
-
-/// Create a stack arena.
-LD_API b32 _stack_arena_create_trace(
-    u32 size, MemoryType type,
-    StackArena* out_arena,
+// IMPORTANT(alicia): Internal use only!
+// Reallocate memory.
+LD_API void* internal_ldrealloc_trace(
+    void* memory, usize old_size, usize new_size, MemoryType type,
     const char* function,
     const char* file,
     int line
 );
-/// Free a stack arena.
-LD_API void _stack_arena_free_trace(
-    StackArena* arena,
+// IMPORTANT(alicia): Internal use only!
+// Free allocated memory.
+LD_API void internal_ldfree_trace(
+    void* memory, usize size, MemoryType type,
     const char* function,
     const char* file,
     int line
 );
-/// Push an item into stack arena.
-LD_API void* _stack_arena_push_item_trace(
-    StackArena* arena, u32 item_size,
-    const char* function,
-    const char* file,
-    int line
-);
-/// Pop an item from stack arena.
-LD_API void _stack_arena_pop_item_trace(
-    StackArena* arena, u32 item_size,
+// IMPORTANT(alicia): Internal use only!
+// Free allocated aligned memory.
+LD_API void internal_ldfree_aligned_trace(
+    void* memory, usize size, MemoryType type, usize alignment,
     const char* function,
     const char* file,
     int line
 );
 
 #if defined(LD_LOGGING)
-    #define mem_alloc( size, type )\
-        _mem_alloc_trace(\
-            size,\
-            type,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__\
-        )
-    #define mem_realloc( memory, new_size )\
-        _mem_realloc_trace(\
-            memory,\
-            new_size,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__\
-        )
-    #define mem_free( memory )\
-        _mem_free_trace(\
-            memory,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__\
-        )
-    #define mem_page_alloc( size, type )\
-        _mem_page_alloc_trace(\
-            size, type,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__\
-        )
-    #define mem_page_free( memory )\
-        _mem_page_free_trace(\
-            memory,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__\
-        )
-    #define stack_arena_create( size, type, out_arena )\
-        _stack_arena_create_trace(\
-            size, type, out_arena,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__\
-        )
-    #define stack_arena_free( arena )\
-        _stack_arena_free_trace(\
-            arena,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__\
-        )
-    #define stack_arena_push_item( arena, item_size )\
-        _stack_arena_push_item_trace(\
-            arena, item_size,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__\
-        )
-    #define stack_arena_pop_item( arena, item_size )\
-        _stack_arena_pop_item_trace(\
-            arena, item_size,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__\
-        )
-
+    #define ldalloc( size, type )\
+        internal_ldalloc_trace( size, type, __FUNCTION__, __FILE__, __LINE__ )
+    #define ldalloc_aligned( size, type )\
+        internal_ldalloc_aligned_trace(\
+            size, type, __FUNCTION__, __FILE__, __LINE__ )
+    #define ldrealloc( memory, old_size, new_size, type )\
+        internal_ldrealloc_trace(\
+            memory, old_size, new_size, type, __FUNCTION__, __FILE__, __LINE__ )
+    #define ldfree( memory, size, type )\
+        internal_ldfree_trace(\
+            memory, size, type, __FUNCTION__, __FILE__, __LINE__ )
+    #define ldfree_aligned( memory, size, type, alignment )\
+        internal_ldfree_trace(\
+            memory, size, type, alignment, __FUNCTION__, __FILE__, __LINE__ )
 #else
-    #define mem_alloc( size, type )\
-        _mem_alloc( size, type )
-    #define mem_realloc( memory, new_size )\
-        _mem_realloc( memory, new_size )
-    #define mem_free( memory )\
-        _mem_free( memory )
-    #define mem_page_alloc( size, type )\
-        _mem_page_alloc( size, type )
-    #define mem_page_free( memory )\
-        _mem_page_free( memory )
-    #define stack_arena_create( size, type, out_arena )\
-        _stack_arena_create( size, type, out_arena )
-    #define stack_arena_free( arena )\
-        _stack_arena_free( arena )
-    #define stack_arena_push_item( arena, item_size )\
-        _stack_arena_push_item( arena, item_size )
-    #define stack_arena_pop_item( arena, item_size )\
-        _stack_arena_pop_item( arena, item_size )
+    #define ldalloc( size, type ) internal_ldalloc( size, type )
+    #define ldalloc_aligned( size, type )\
+        internal_ldalloc_aligned( size, type )
+    #define ldrealloc( memory, old_size, new_size, type )
+        internal_ldrealloc( memory, old_size, new_size, type )
+    #define ldfree( memory, size, type )
+        internal_ldfree( memory, size, type )
+    #define ldfree_aligned( memory, size, type, alignment )
+        internal_ldfree_aligned( memory, size, type, alignment )
 #endif
 
-#define stack_arena_push( arena, type )\
-    (type*)stack_arena_push_item( &(arena), sizeof(type) )
-#define stack_arena_pop( arena, type )\
-    stack_arena_pop_item( &(arena), sizeof(type) )
+/// Calculate number of pages required for bytes.
+headerfn usize calculate_page_size( usize byte_size ) {
+    usize required = byte_size / MEMORY_PAGE_SIZE;
+    required += byte_size % MEMORY_PAGE_SIZE ? 1 : 0;
+    return required;
+}
+// IMPORTANT(alicia): Internal use only!
+/// Allocate memory by pages.
+/// Size of each page is defined as MEMORY_PAGE_SIZE.
+LD_API void* internal_ldpage_alloc( usize pages, MemoryType type );
+// IMPORTANT(alicia): Internal use only!
+/// Free memory pages.
+LD_API void internal_ldpage_free( void* memory, usize pages, MemoryType type );
+// IMPORTANT(alicia): Internal use only!
+/// Allocate memory by pages.
+/// Size of each page is defined as MEMORY_PAGE_SIZE.
+LD_API void* internal_ldpage_alloc_trace(
+    usize pages, MemoryType type,
+    const char* function,
+    const char* file,
+    int line
+);
+// IMPORTANT(alicia): Internal use only!
+/// Free memory pages.
+LD_API void internal_ldpage_free_trace(
+    void* memory, usize pages, MemoryType type,
+    const char* function,
+    const char* file,
+    int line
+);
 
-/// Query the size of a memory block
-LD_API usize mem_query_size( void* memory );
-/// Query the type of a memory block
-LD_API MemoryType mem_query_type( void* memory );
+#if defined(LD_LOGGING)
+    #define ldpage_alloc( pages, type )\
+        internal_ldpage_alloc_trace(\
+            pages, type, __FUNCTION__, __FILE__, __LINE__ )
+    #define ldpage_free( memory, pages, type )\
+        internal_ldpage_free_trace(\
+            memory, pages, type, __FUNCTION__, __FILE__, __LINE__ )
+#else
+    #define ldpage_alloc( pages, type )\
+        internal_ldpage_alloc( pages, type )
+    #define ldpage_free( memory, pages, type )\
+        internal_ldpage_free( memory, pages, type )
+#endif
 
 /// Query memory usage for each memory type.
 LD_API usize query_memory_usage( MemoryType memtype );
@@ -237,6 +189,5 @@ LD_API void mem_copy_overlapped( void* dst, const void* src, usize size );
 LD_API void* mem_set( void* dst, int value, usize n );
 /// Zero out memory.
 LD_API void mem_zero( void* ptr, usize size );
-
 
 #endif

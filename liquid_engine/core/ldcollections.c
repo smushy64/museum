@@ -6,6 +6,20 @@
 #include "core/ldcollections.h"
 #include "core/ldmemory.h"
 #include "core/ldlog.h"
+#include "core/ldstring.h"
+
+LD_API u64 hash( StringView sv ) {
+    local const u64 multiplier = 97;
+
+    u64 result = 0;
+    for( usize i = 0; i < sv.len; ++i ) {
+        result = result * multiplier + sv.str[i];
+    }
+
+    result %= sv.len;
+
+    return result;
+}
 
 #define LIST_NUM_FIELDS 3
 #define LIST_FIELDS_SIZE (LIST_NUM_FIELDS * sizeof(u64))
@@ -22,7 +36,7 @@
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
         LOG_COLOR_GREEN,\
         LOG_FLAG_NEW_LINE,\
-        "[LIST ALLOC   | {cc}() | {cc}:{i}] " format,\
+        "[LIST ALLOC | {cc}() | {cc}:{i}] " format,\
         function,\
         file,\
         line,\
@@ -46,7 +60,7 @@
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
         LOG_COLOR_CYAN,\
         LOG_FLAG_NEW_LINE,\
-        "[LIST FREE    | {cc}() | {cc}:{i}] " format,\
+        "[LIST FREE | {cc}() | {cc}:{i}] " format,\
         function,\
         file,\
         line,\
@@ -129,9 +143,9 @@ LD_API void _list_free_trace(
 
 LD_API void* _list_create( usize capacity, usize stride ) {
     usize total_size = (capacity * stride) + LIST_FIELDS_SIZE;
-    u64* base = (u64*)_mem_alloc(
+    u64* base = (u64*)internal_ldalloc(
         total_size,
-        MEMTYPE_DYNAMIC_LIST
+        MEMORY_TYPE_DYNAMIC_LIST
     );
     if( !base ) {
         return NULL;
@@ -148,15 +162,24 @@ LD_API void  _list_free( void* list ) {
         return;
     }
     u64* base = BUFFER_TO_BASE_POINTER(list);
-    _mem_free( base );
+    u64 capacity = base[LIST_FIELD_CAPACITY];
+    u64 stride   = base[LIST_FIELD_STRIDE];
+    usize size = capacity * stride + LIST_FIELDS_SIZE;
+    internal_ldfree( base, size, MEMORY_TYPE_DYNAMIC_LIST );
 }
 
 LD_API void* _list_realloc( void* list, usize new_capacity ) {
     u64* base = BUFFER_TO_BASE_POINTER(list);
 
+    usize capacity = base[LIST_FIELD_CAPACITY];
     usize stride   = base[LIST_FIELD_STRIDE];
     usize new_size = (new_capacity * stride) + LIST_FIELDS_SIZE;
-    u64*  new_base = (u64*)_mem_realloc( base, new_size );
+    usize old_size = (capacity * stride) + LIST_FIELDS_SIZE;
+    u64*  new_base = (u64*)internal_ldrealloc(
+        base,
+        old_size, new_size,
+        MEMORY_TYPE_DYNAMIC_LIST
+    );
 
     if( !new_base ) {
         LOG_ERROR("Failed to realloc list!");

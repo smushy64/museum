@@ -7,19 +7,18 @@
 #include "core/ldstring.h"
 #include "core/ldmemory.h"
 #include "core/ldthread.h"
-#include "platform/platform.h"
 
 #if defined(LD_PLATFORM_WINDOWS)
-    #include "platform/platform.h"
+    #include "ldplatform.h"
     global b32 OUTPUT_DEBUG_STRING_ENABLED = false;
     void log_enable_output_debug_string( b32 enable ) {
         OUTPUT_DEBUG_STRING_ENABLED = enable;
     }
 #endif
 
-global LogLevel            GLOBAL_LOG_LEVEL = LOG_LEVEL_NONE;
-global b32                 MUTEX_CREATED;
-global PlatformMutexHandle MUTEX = {};
+global LogLevel GLOBAL_LOG_LEVEL = LOG_LEVEL_NONE;
+global b32      MUTEX_CREATED;
+global Mutex*   MUTEX = NULL;
 
 #define MAX_LOG_LEVEL (\
     LOG_LEVEL_NONE    |\
@@ -71,7 +70,8 @@ b32 log_init(
     LOGGING_BUFFER      = (char*)logging_buffer.buffer;
 
     if( !MUTEX_CREATED ) {
-        ASSERT( platform_mutex_create( &MUTEX ) );
+        MUTEX = mutex_create();
+        ASSERT(MUTEX);
         MUTEX_CREATED = true;
     }
 
@@ -98,7 +98,7 @@ void log_shutdown() {
     }
 #endif
 
-    platform_mutex_destroy( &MUTEX );
+    mutex_destroy( MUTEX );
 #endif
 }
 
@@ -120,26 +120,27 @@ HOT_PATH internal void log_formatted_internal(
 #if defined(LD_LOGGING)
     b32 is_error = CHECK_BITS( level, LOG_LEVEL_ERROR );
     if( !is_log_initialized() ) {
-        ASSERT( platform_mutex_create( &MUTEX ) );
+        MUTEX = mutex_create();
+        ASSERT( MUTEX );
         MUTEX_CREATED = true;
         if( lock ) {
-            platform_mutex_lock( &MUTEX );
+            mutex_lock( MUTEX );
         }
         set_color( color );
         if( is_error ) {
-            printlnerr_va( format, args );
+            println_err_va( format, args );
         } else {
             println_va( format, args );
         }
         set_color( LOG_COLOR_RESET );
         if( lock ) {
-            platform_mutex_unlock( &MUTEX );
+            mutex_unlock( MUTEX );
         }
         return;
     }
 
     if( lock ) {
-        platform_mutex_lock( &MUTEX );
+        mutex_lock( MUTEX );
     }
 
     read_write_fence();
@@ -148,7 +149,7 @@ HOT_PATH internal void log_formatted_internal(
 
     if( !(always_print || is_level_valid( level )) ) {
         if( lock ) {
-            platform_mutex_unlock( &MUTEX );
+            mutex_unlock( MUTEX );
         }
         return;
     }
@@ -168,7 +169,7 @@ HOT_PATH internal void log_formatted_internal(
         (((usize)write_size) >= (LOGGING_BUFFER_SIZE - 1))
     ) {
         if( lock ) {
-            platform_mutex_unlock( &MUTEX );
+            mutex_unlock( MUTEX );
         }
         return;
     }
@@ -198,14 +199,14 @@ HOT_PATH internal void log_formatted_internal(
 
     read_write_fence();
     if( lock ) {
-        platform_mutex_unlock( &MUTEX );
+        mutex_unlock( MUTEX );
     }
 
 #else // if logging enabled
     b32 is_error = CHECK_BITS( level, LOG_LEVEL_ERROR );
     if( always_print ) {
         if( lock ) {
-            platform_mutex_lock( &MUTEX );
+            mutex_lock( MUTEX );
         }
 
         read_write_fence();
@@ -223,7 +224,7 @@ HOT_PATH internal void log_formatted_internal(
         read_write_fence();
 
         if( lock ) {
-            platform_mutex_unlock( &MUTEX );
+            mutex_unlock( MUTEX );
         }
     }
 #endif // if logging disabled

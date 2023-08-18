@@ -7,14 +7,15 @@
 
 #if LD_SIMD_WIDTH == 1
 
-#include "functions.h"
+#include "core/ldmath/functions.h"
 
 #define lane1f_sqrt( x ) sqrt( x )
 
-namespace impl {
-    union four_wide { f32 f[4]; struct { f32 f0, f1, f2, f3; }; };
-};
-typedef ::impl::four_wide Lane4f;
+typedef union four_wide {
+    f32 f[4];
+    struct { f32 f0, f1, f2, f3; };
+} four_wide;
+typedef four_wide Lane4f;
 
 #define lane4f_set1( f ) { f, f, f, f }
 #define lane4f_set0() { 0, 0, 0, 0 }
@@ -53,10 +54,10 @@ typedef ::impl::four_wide Lane4f;
     a.f[3] / b.f[3]\
 }
 #define lane4f_sqrt( a ) {\
-    ::impl::_sqrtf_(a.f[0]),\
-    ::impl::_sqrtf_(a.f[1]),\
-    ::impl::_sqrtf_(a.f[2]),\
-    ::impl::_sqrtf_(a.f[3]),\
+    _sqrtf_(a.f[0]),\
+    _sqrtf_(a.f[1]),\
+    _sqrtf_(a.f[2]),\
+    _sqrtf_(a.f[3]),\
 }
 
 #endif // LD_SIMD_WIDTH == 1
@@ -64,7 +65,7 @@ typedef ::impl::four_wide Lane4f;
 #if LD_SIMD_WIDTH >= 4
 
 #if defined(LD_ARCH_X86)
-#include "simd_sse.h"
+#include "core/ldmath/simd_sse.h"
 
 #define lane1f_sqrt( x ) _mm_cvtss_f32( _mm_sqrt_ss( _mm_set_ss( x ) ) )
 #define lane1f_inv_sqrt( x ) _mm_cvtss_f32( _mm_rsqrt_ss( _mm_set_ss( x ) ) )

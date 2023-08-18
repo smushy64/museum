@@ -8,7 +8,7 @@
 #include "gl_buffer.h"
 #include "renderer/primitives.h"
 
-#include "platform/platform.h"
+#include "ldplatform.h"
 #include "core/ldmemory.h"
 #include "core/ldcollections.h"
 #include "core/ldtime.h"

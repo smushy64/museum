@@ -7,6 +7,11 @@
 */
 #include "defines.h"
 
+struct StringView;
+
+/// Hash a string view.
+LD_API u64 hash( struct StringView sv );
+
 // LIST | BEGIN -------------------------------------------
 
 #define LIST_FIELD_CAPACITY 0

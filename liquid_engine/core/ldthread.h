@@ -7,13 +7,20 @@
 */
 #include "defines.h"
 
-#define MAX_SEMAPHORE_SIZE (sizeof(usize))
-/// Opaque Semaphore.
-typedef struct {
-    u8 buffer[MAX_SEMAPHORE_SIZE];
-} Semaphore;
+/// Opaque thread info.
+typedef void ThreadInfo;
+/// Thread work function.
+typedef void (*ThreadWorkProcFN)( ThreadInfo* thread_info, void* params );
+/// Push a new work proc into the work queue.
+LD_API void thread_work_queue_push( ThreadWorkProcFN work_proc, void* params );
+/// Get the current thread's index.
+LD_API u32 thread_info_index( ThreadInfo* thread_info );
+
+/// Opaque Semaphore
+typedef void Semaphore;
+
 /// Create a semaphore.
-LD_API b32 semaphore_create( Semaphore* out_semaphore );
+LD_API Semaphore* semaphore_create();
 /// Signal a semaphore.
 LD_API void semaphore_signal( Semaphore* semaphore );
 /// Wait for a semaphore to be signaled.
@@ -23,29 +30,16 @@ LD_API void semaphore_wait_for( Semaphore* semaphore, u32 ms );
 /// Destroy a semaphore.
 LD_API void semaphore_destroy( Semaphore* semaphore );
 
-#define MAX_MUTEX_SIZE (64)
-/// Opaque Mutex.
-typedef struct {
-    u8 buffer[MAX_MUTEX_SIZE];
-} Mutex;
+/// Opaque Mutex
+typedef void Mutex;
 /// Create a mutex.
-LD_API b32 mutex_create( Mutex* out_mutex );
+LD_API Mutex* mutex_create();
 /// Lock a mutex.
 LD_API void mutex_lock( Mutex* mutex );
 /// Unlock a mutex.
 LD_API void mutex_unlock( Mutex* mutex );
 /// Destroy a mutex.
 LD_API void mutex_destroy( Mutex* mutex );
-
-/// Opaque thread info.
-typedef void ThreadInfo;
-/// Thread work function.
-typedef void (*ThreadWorkProcFN)( ThreadInfo* thread_info, void* params );
-
-/// Push a new work proc into the work queue.
-LD_API void thread_work_queue_push( ThreadWorkProcFN work_proc, void* params );
-/// Get the current thread's index.
-LD_API u32 thread_info_index( ThreadInfo* thread_info );
 
 /// Multi-Threading safe increment.
 LD_API u32 interlocked_increment_u32( volatile u32* addend );
@@ -92,12 +86,9 @@ LD_API void* interlocked_compare_exchange_pointer(
 
 #if defined(LD_API_INTERNAL)
 
-u32 query_threading_subsystem_size();
-b32 threading_init(
-    u32   logical_processor_count,
-    void* buffer
-);
-void threading_shutdown();
+    u32 query_threading_subsystem_size();
+    b32 threading_init( u32 logical_processor_count, void* buffer );
+    void threading_shutdown();
 
 #endif
 

@@ -6,7 +6,7 @@
 #include "core/ldinput.h"
 #include "core/ldlog.h"
 #include "core/ldmemory.h"
-#include "platform/platform.h"
+#include "ldplatform.h"
 
 #define KEY_STATE_COUNT 255
 #define DEFAULT_STICK_DEADZONE   0.05f

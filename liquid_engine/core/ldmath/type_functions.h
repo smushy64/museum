@@ -6,9 +6,9 @@
  * File Created: May 08, 2023
 */
 #include "defines.h"
-#include "functions.h"
-#include "types.h"
-#include "simd.h"
+#include "core/ldmath/functions.h"
+#include "core/ldmath/types.h"
+#include "core/ldmath/simd.h"
 
 /// Negate vector
 headerfn vec2 v2_neg( vec2 v ) {
@@ -239,7 +239,7 @@ headerfn ivec2 iv2_normalize( ivec2 x ) {
         iv2_div( x, magnitude );
 }
 /// angle(radians) between two vectors
-headerfn f32 angle( ivec2 a, ivec2 b ) {
+headerfn f32 iv2_angle( ivec2 a, ivec2 b ) {
     return acos( iv2_dot( a, b ) );
 }
 /// compare two vectors for equality
@@ -275,8 +275,8 @@ headerfn vec3 v3_div( vec3 lhs, f32 rhs ) {
 headerfn hsv v3_hsv( f32 hue, f32 saturation, f32 value ) {
     hsv result = {
         wrap_degrees( hue ),
-        clamp01( saturation ),
-        clamp01( value )
+        (f32)clamp01( saturation ),
+        (f32)clamp01( value )
     };
     return result;
 }
@@ -314,7 +314,7 @@ headerfn rgb hsv_to_rgb( hsv col ) {
 
     f32 x = chroma * ( 1.0f - absof( mod( hue, 2.0f ) - 1.0f ) );
 
-    rgb result = {0};
+    rgb result = {};
 
     if( hue_index < 1 ) {
         result.r = chroma;
@@ -1935,5 +1935,253 @@ headerfn b32 circle2d_overlap_circle2d( Circle2D a, Circle2D b ) {
     f32 dist = v2_mag( v2_sub( a.position, b.position ) );
     return dist < ( a.radius + b.radius );
 }
+
+#if defined(__cplusplus)
+
+inline vec2 operator+( vec2 lhs, vec2 rhs ) {
+    return v2_add( lhs, rhs );
+}
+inline vec2 operator-( vec2 lhs, vec2 rhs ) {
+    return v2_sub( lhs, rhs );
+}
+inline vec2 operator*( vec2 lhs, f32 rhs ) {
+    return v2_mul( lhs, rhs );
+}
+inline vec2 operator*( f32 lhs, vec2 rhs ) {
+    return v2_mul( rhs, lhs );
+}
+inline vec2 operator/( vec2 lhs, f32 rhs ) {
+    return v2_div( lhs, rhs );
+}
+inline vec2 operator-( vec2 v ) {
+    return v2_neg( v );
+}
+inline b32 operator==( vec2 lhs, vec2 rhs ) {
+    return v2_cmp_eq( lhs, rhs );
+}
+inline b32 operator!=( vec2 lhs, vec2 rhs ) {
+    return !v2_cmp_eq( lhs, rhs );
+}
+
+inline ivec2 operator+( ivec2 lhs, ivec2 rhs ) {
+    return iv2_add( lhs, rhs );
+}
+inline ivec2 operator-( ivec2 lhs, ivec2 rhs ) {
+    return iv2_sub( lhs, rhs );
+}
+inline ivec2 operator*( ivec2 lhs, i32 rhs ) {
+    return iv2_mul( lhs, rhs );
+}
+inline ivec2 operator*( i32 lhs, ivec2 rhs ) {
+    return iv2_mul( rhs, lhs );
+}
+inline ivec2 operator/( ivec2 lhs, i32 rhs ) {
+    return iv2_div( lhs, rhs );
+}
+inline ivec2 operator-( ivec2 v ) {
+    return iv2_neg( v );
+}
+inline b32 operator==( ivec2 lhs, ivec2 rhs ) {
+    return iv2_cmp_eq( lhs, rhs );
+}
+inline b32 operator!=( ivec2 lhs, ivec2 rhs ) {
+    return !iv2_cmp_eq( lhs, rhs );
+}
+
+inline vec3 operator+( vec3 lhs, vec3 rhs ) {
+    return v3_add( lhs, rhs );
+}
+inline vec3 operator-( vec3 lhs, vec3 rhs ) {
+    return v3_sub( lhs, rhs );
+}
+inline vec3 operator*( vec3 lhs, f32 rhs ) {
+    return v3_mul( lhs, rhs );
+}
+inline vec3 operator*( f32 lhs, vec3 rhs ) {
+    return v3_mul( rhs, lhs );
+}
+inline vec3 operator/( vec3 lhs, f32 rhs ) {
+    return v3_div( lhs, rhs );
+}
+inline vec3 operator-( vec3 v ) {
+    return v3_neg( v );
+}
+inline b32 operator==( vec3 lhs, vec3 rhs ) {
+    return v3_cmp_eq( lhs, rhs );
+}
+inline b32 operator!=( vec3 lhs, vec3 rhs ) {
+    return !v3_cmp_eq( lhs, rhs );
+}
+
+inline ivec3 operator+( ivec3 lhs, ivec3 rhs ) {
+    return iv3_add( lhs, rhs );
+}
+inline ivec3 operator-( ivec3 lhs, ivec3 rhs ) {
+    return iv3_sub( lhs, rhs );
+}
+inline ivec3 operator*( ivec3 lhs, i32 rhs ) {
+    return iv3_mul( lhs, rhs );
+}
+inline ivec3 operator*( i32 lhs, ivec3 rhs ) {
+    return iv3_mul( rhs, lhs );
+}
+inline ivec3 operator/( ivec3 lhs, i32 rhs ) {
+    return iv3_div( lhs, rhs );
+}
+inline ivec3 operator-( ivec3 v ) {
+    return iv3_neg( v );
+}
+inline b32 operator==( ivec3 lhs, ivec3 rhs ) {
+    return iv3_cmp_eq( lhs, rhs );
+}
+inline b32 operator!=( ivec3 lhs, ivec3 rhs ) {
+    return !iv3_cmp_eq( lhs, rhs );
+}
+
+inline vec4 operator+( vec4 lhs, vec4 rhs ) {
+    return v4_add( lhs, rhs );
+}
+inline vec4 operator-( vec4 lhs, vec4 rhs ) {
+    return v4_sub( lhs, rhs );
+}
+inline vec4 operator*( vec4 lhs, f32 rhs ) {
+    return v4_mul( lhs, rhs );
+}
+inline vec4 operator*( f32 lhs, vec4 rhs ) {
+    return v4_mul( rhs, lhs );
+}
+inline vec4 operator/( vec4 lhs, f32 rhs ) {
+    return v4_div( lhs, rhs );
+}
+inline vec4 operator-( vec4 v ) {
+    return v4_neg( v );
+}
+inline b32 operator==( vec4 lhs, vec4 rhs ) {
+    return v4_cmp_eq( lhs, rhs );
+}
+inline b32 operator!=( vec4 lhs, vec4 rhs ) {
+    return !v4_cmp_eq( lhs, rhs );
+}
+
+inline ivec4 operator+( ivec4 lhs, ivec4 rhs ) {
+    return iv4_add( lhs, rhs );
+}
+inline ivec4 operator-( ivec4 lhs, ivec4 rhs ) {
+    return iv4_sub( lhs, rhs );
+}
+inline ivec4 operator*( ivec4 lhs, i32 rhs ) {
+    return iv4_mul( lhs, rhs );
+}
+inline ivec4 operator*( i32 lhs, ivec4 rhs ) {
+    return iv4_mul( rhs, lhs );
+}
+inline ivec4 operator/( ivec4 lhs, i32 rhs ) {
+    return iv4_div( lhs, rhs );
+}
+inline ivec4 operator-( ivec4 v ) {
+    return iv4_neg( v );
+}
+inline b32 operator==( ivec4 lhs, ivec4 rhs ) {
+    return iv4_cmp_eq( lhs, rhs );
+}
+inline b32 operator!=( ivec4 lhs, ivec4 rhs ) {
+    return !iv4_cmp_eq( lhs, rhs );
+}
+
+inline quat operator+( quat lhs, quat rhs ) {
+    return q_add( lhs, rhs );
+}
+inline quat operator-( quat lhs, quat rhs ) {
+    return q_sub( lhs, rhs );
+}
+inline quat operator*( quat lhs, f32 rhs ) {
+    return q_mul( lhs, rhs );
+}
+inline quat operator*( f32 lhs, quat rhs ) {
+    return q_mul( rhs, lhs );
+}
+inline quat operator*( quat lhs, quat rhs ) {
+    return q_mul_q( lhs, rhs );
+}
+inline vec3 operator*( quat lhs, vec3 rhs ) {
+    return q_mul_v3( lhs, rhs );
+}
+inline quat operator/( quat lhs, f32 rhs ) {
+    return q_div( lhs, rhs );
+}
+inline quat operator-( quat v ) {
+    return q_neg( v );
+}
+inline b32 operator==( quat lhs, quat rhs ) {
+    return q_cmp_eq( lhs, rhs );
+}
+inline b32 operator!=( quat lhs, quat rhs ) {
+    return !q_cmp_eq( lhs, rhs );
+}
+
+inline mat2 operator+( mat2 lhs, mat2 rhs ) {
+    return m2_add( lhs, rhs );
+}
+inline mat2 operator-( mat2 lhs, mat2 rhs ) {
+    return m2_sub( lhs, rhs );
+}
+inline mat2 operator*( mat2 lhs, f32 rhs ) {
+    return m2_mul( lhs, rhs );
+}
+inline mat2 operator*( f32 lhs, mat2 rhs ) {
+    return m2_mul( rhs, lhs );
+}
+inline mat2 operator*( mat2 lhs, mat2 rhs ) {
+    return m2_mul_m2( lhs, rhs );
+}
+inline mat2 operator/( mat2 lhs, f32 rhs ) {
+    return m2_div( lhs, rhs );
+}
+
+inline mat3 operator+( const mat3& lhs, const mat3& rhs ) {
+    return m3_add( &lhs, &rhs );
+}
+inline mat3 operator-( const mat3& lhs, const mat3& rhs ) {
+    return m3_sub( &lhs, &rhs );
+}
+inline mat3 operator*( const mat3& lhs, f32 rhs ) {
+    return m3_mul( &lhs, rhs );
+}
+inline mat3 operator*( f32 lhs, const mat3& rhs ) {
+    return m3_mul( &rhs, lhs );
+}
+inline mat3 operator*( const mat3& lhs, const mat3& rhs ) {
+    return m3_mul_m3( &lhs, &rhs );
+}
+inline mat3 operator/( const mat3& lhs, f32 rhs ) {
+    return m3_div( &lhs, rhs );
+}
+
+inline mat4 operator+( const mat4& lhs, const mat4& rhs ) {
+    return m4_add( &lhs, &rhs );
+}
+inline mat4 operator-( const mat4& lhs, const mat4& rhs ) {
+    return m4_sub( &lhs, &rhs );
+}
+inline mat4 operator*( const mat4& lhs, f32 rhs ) {
+    return m4_mul( &lhs, rhs );
+}
+inline mat4 operator*( f32 lhs, const mat4& rhs ) {
+    return m4_mul( &rhs, lhs );
+}
+inline mat4 operator*( const mat4& lhs, const mat4& rhs ) {
+    return m4_mul_m4( &lhs, &rhs );
+}
+inline vec3 operator*( const mat4& lhs, vec3 rhs ) {
+    return m4_mul_v3( &lhs, rhs );
+}
+inline vec4 operator*( const mat4& lhs, vec4 rhs ) {
+    return m4_mul_v4( &lhs, rhs );
+}
+inline mat4 operator/( const mat4& lhs, f32 rhs ) {
+    return m4_div( &lhs, rhs );
+}
+
+#endif // c++ operator overloads
 
 #endif // header guard

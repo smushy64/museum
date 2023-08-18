@@ -5,22 +5,27 @@
 // * File Created: June 24, 2023
 #include "defines.h"
 #include "core/ldlog.h"
+#include "core/ldmath/types.h"
 
 /// Event Callback function return codes.
-typedef enum : b32 {
+typedef enum EventCallbackResult : b32 {
+    /// Other listeners will also receive this event.
     EVENT_CALLBACK_NOT_CONSUMED,
+    /// Othere listeners will not receive this event.
     EVENT_CALLBACK_CONSUMED,
-} EventCallbackReturn;
+} EventCallbackResult;
 
 struct Event;
 
 /// Event Callback function.
-typedef EventCallbackReturn (*EventCallbackFN)( struct Event* event, void* params );
+typedef EventCallbackResult (*EventCallbackFN)(
+    struct Event* event, void* params
+);
 
 /// Event Code.
 /// User defined event codes must be greater than MAX_ENGINE_EVENT_CODE 
 /// and less than MAX_EVENT_CODE.
-typedef u32 EventCode;
+typedef u8 EventCode;
 /// Invalid event code.
 /// Any event code with this value will fail an assertion and crash the program.
 #define EVENT_CODE_INVALID (0)
@@ -44,12 +49,12 @@ typedef u32 EventCode;
 /// Max Engine Event Code.
 /// This is the maximum event code that the engine is allowed to use.
 /// Any codes greater than this are user event codes.
-#define MAX_ENGINE_EVENT_CODE (5)
+#define EVENT_CODE_MAX_ENGINE_CODE (5)
 /// Max Event Code.
 /// This is the maximum event code that is allowed.
 /// Any event code that goes above this value will fail an assertion and crash
 /// the program.
-#define MAX_EVENT_CODE (255)
+#define EVENT_CODE_MAX (U8_MAX)
 
 /// Event.
 /// EventCode tells you what type of event it is.
@@ -59,9 +64,20 @@ typedef struct Event {
     union EventData {
         pvoid pointer[2];
 
+        mat2 m2;
+
+        vec4  v4;
+        ivec4 iv4;
+
+        vec3  v3;
+        ivec3 iv3;
+
         i64 int64[2];
         u64 uint64[2];
         f64 float64[2];
+
+        vec2  v2[2];
+        ivec2 iv2[2];
 
         i32 int32[4];
         u32 uint32[4];
@@ -75,16 +91,19 @@ typedef struct Event {
         u8 uint8[16];
         b8 bool8[16];
 
-        char c[16];
+        char char8[16];
     } data;
 } Event;
 
 /// Event Priority.
-/// Tells the event subsystem if listener callbacks should be called
-/// immediately or if they can be delayed.
+/// Tells the event subsystem when callbacks should be run.
 typedef enum EventPriority : u32 {
+    /// Immediate events are always run on the main thread.
     EVENT_PRIORITY_IMMEDIATE,
-    EVENT_PRIORITY_DELAYED
+    /// Delayed events are always run on worker threads.
+    EVENT_PRIORITY_CONCURRENT,
+    /// End of frame events run only at the end of frame.
+    EVENT_PRIORITY_END_OF_FRAME,
 } EventPriority;
 
 /// Fire an event. All callbacks bound to this event will be called.
@@ -100,8 +119,8 @@ headerfn void event_fire( Event event ) {
 /// the listener lives until the end of the program.
 typedef u16 EventListenerID;
 /// Event Listener Invalid ID.
-/// If event_subscribe returns this id, it is an error and the program should
-/// shutdown.
+/// If event_subscribe returns this id,
+/// it is a fatal error and the program should shutdown.
 global const EventListenerID EVENT_LISTENER_INVALID_ID = 0;
 
 /// Subscribe a listener callback to an event.
@@ -122,6 +141,8 @@ LD_API void event_unsubscribe( EventListenerID id );
     b32 event_init( void* event_subsystem_buffer );
     /// Shutdown Event Subsystem.
     void event_shutdown();
+    /// Fire end of frame events.
+    void event_fire_end_of_frame();
 
 #endif
 

@@ -4,6 +4,7 @@
 #include <defines.h>
 #include <core/ldengine.h>
 #include <core/ldlog.h>
+#include <core/ldmath.h>
 
 extern "C" void application_config( struct EngineConfig* config ) {
     config->application_name.len = sv_format(

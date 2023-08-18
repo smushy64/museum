@@ -4,13 +4,13 @@
 #include "core/ldthread.h"
 #include "core/ldmemory.h"
 #include "core/ldlog.h"
-#include "platform/platform.h"
+#include "ldplatform.h"
 
 struct ThreadWorkQueue;
 
 typedef struct {
-    PlatformThreadHandle thread_handle;
-    u32                  thread_index;
+    PlatformThread* thread;
+    u32             thread_index;
 } ThreadInfoInternal;
 
 typedef struct {
@@ -22,7 +22,7 @@ typedef struct {
 typedef struct {
     ThreadWorkEntry work_entries[MAX_WORK_ENTRY_COUNT];
 
-    PlatformSemaphoreHandle wake_semaphore;
+    Semaphore* wake_semaphore;
 
     ThreadInfoInternal* threads;
     u32                 thread_count;
@@ -57,7 +57,7 @@ LD_API void thread_work_queue_push(
     );
 
     read_write_fence();
-    platform_semaphore_increment( &WORK_QUEUE->wake_semaphore );
+    semaphore_signal( WORK_QUEUE->wake_semaphore );
 
 }
 
@@ -86,10 +86,7 @@ internal b32 thread_proc( void* params ) {
 
     loop {
         ThreadWorkEntry entry = {};
-        platform_semaphore_wait(
-            &WORK_QUEUE->wake_semaphore,
-            true, 0
-        );
+        semaphore_wait( WORK_QUEUE->wake_semaphore );
         read_write_fence();
 
         if( thread_work_queue_pop( &entry ) ) {
@@ -113,9 +110,11 @@ b32 threading_init(
 ) {
     ThreadWorkQueue* work_queue = (ThreadWorkQueue*)buffer;
 
-    work_queue->threads = mem_alloc(
-        sizeof(ThreadInfoInternal) * logical_processor_count,
-        MEMTYPE_ENGINE
+    usize thread_buffer_size =
+        sizeof(ThreadInfoInternal) * logical_processor_count;
+    work_queue->threads = ldalloc(
+        thread_buffer_size,
+        MEMORY_TYPE_ENGINE
     );
 
     read_write_fence();
@@ -127,15 +126,17 @@ b32 threading_init(
             &work_queue->threads[thread_count];
         current_thread_info->thread_index = thread_count;
 
-        if( !platform_thread_create(
+        PlatformThread* thread = platform_thread_create(
             thread_proc,
             current_thread_info,
             STACK_SIZE,
-            THREAD_CREATE_SUSPENDED,
-            &current_thread_info->thread_handle
-        ) ) {
+            THREAD_CREATE_SUSPENDED
+        );
+        if( !thread ) {
             break;
         }
+
+        current_thread_info->thread = thread;
 
         thread_count++;
     }
@@ -149,10 +150,8 @@ b32 threading_init(
 
     LOG_NOTE( "Instantiated {u} threads.", work_queue->thread_count );
 
-    if( !platform_semaphore_create(
-        0, thread_count,
-        &work_queue->wake_semaphore
-    ) ) {
+    work_queue->wake_semaphore = semaphore_create();
+    if( !work_queue->wake_semaphore ) {
         LOG_FATAL( "Failed to create wake semaphore!" );
         return false;
     }
@@ -164,7 +163,7 @@ b32 threading_init(
     for( u32 i = 0; i < work_queue->thread_count; ++i ) {
         ThreadInfoInternal* current_thread_info =
             &work_queue->threads[i];
-        platform_thread_resume( &current_thread_info->thread_handle );
+        platform_thread_resume( current_thread_info->thread );
     }
 
     return true;
@@ -173,10 +172,10 @@ void threading_shutdown() {
     for( u32 i = 0; i < WORK_QUEUE->thread_count; ++i ) {
         ThreadInfoInternal* current_thread_info =
             &WORK_QUEUE->threads[i];
-        platform_thread_kill( &current_thread_info->thread_handle );
+        platform_thread_kill( current_thread_info->thread );
         mem_zero( current_thread_info, sizeof(ThreadInfoInternal) );
     }
-    platform_semaphore_destroy( &WORK_QUEUE->wake_semaphore );
+    semaphore_destroy( WORK_QUEUE->wake_semaphore );
 }
 
 u32 query_threading_subsystem_size() {
@@ -215,54 +214,32 @@ LD_API void* interlocked_compare_exchange_pointer(
     );
 }
 
-LD_API b32 semaphore_create( Semaphore* out_semaphore ) {
-    PlatformSemaphoreHandle* platform =
-        (PlatformSemaphoreHandle*)out_semaphore;
-    return platform_semaphore_create(
-        0, 0, platform
-    );
+LD_API Semaphore* semaphore_create() {
+    return platform_semaphore_create( NULL, 0 );
 }
 LD_API void semaphore_signal( Semaphore* semaphore ) {
-    PlatformSemaphoreHandle* platform =
-        (PlatformSemaphoreHandle*)semaphore;
-    platform_semaphore_increment( platform );
+    platform_semaphore_increment( semaphore );
 }
 LD_API void semaphore_wait( Semaphore* semaphore ) {
-    PlatformSemaphoreHandle* platform =
-        (PlatformSemaphoreHandle*)semaphore;
-    platform_semaphore_wait( platform, true, 0 );
+    platform_semaphore_wait( semaphore, true, 0 );
 }
 LD_API void semaphore_wait_for( Semaphore* semaphore, u32 ms ) {
-    PlatformSemaphoreHandle* platform =
-        (PlatformSemaphoreHandle*)semaphore;
-    platform_semaphore_wait( platform, false, ms );
+    platform_semaphore_wait( semaphore, false, ms );
 }
 LD_API void semaphore_destroy( Semaphore* semaphore ) {
-    PlatformSemaphoreHandle* platform =
-        (PlatformSemaphoreHandle*)semaphore;
-    platform_semaphore_destroy( platform );
-    mem_zero( semaphore, sizeof(Semaphore) );
+    platform_semaphore_destroy( semaphore );
 }
 
-LD_API b32 mutex_create( Mutex* out_mutex ) {
-    PlatformMutexHandle* platform =
-        (PlatformMutexHandle*)out_mutex;
-    return platform_mutex_create( platform );
+LD_API Mutex* mutex_create() {
+    return platform_mutex_create();
 }
 LD_API void mutex_lock( Mutex* mutex ) {
-    PlatformMutexHandle* platform =
-        (PlatformMutexHandle*)mutex;
-    platform_mutex_lock( platform );
+    platform_mutex_lock( mutex );
 }
 LD_API void mutex_unlock( Mutex* mutex ) {
-    PlatformMutexHandle* platform =
-        (PlatformMutexHandle*)mutex;
-    platform_mutex_unlock( platform );
+    platform_mutex_unlock( mutex );
 }
 LD_API void mutex_destroy( Mutex* mutex ) {
-    PlatformMutexHandle* platform =
-        (PlatformMutexHandle*)mutex;
-    platform_mutex_destroy( platform );
-    mem_zero( mutex, sizeof(Mutex) );
+    platform_mutex_destroy( mutex );
 }
 

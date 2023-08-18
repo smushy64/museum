@@ -134,7 +134,7 @@ LIQUID_ENGINE_FLAGS += -DLD_EXPORT -MF $(object_path)/$(LIQUID_NAME).d
 ifeq ($(IS_WINDOWS), true)
 	LIQUID_ENGINE_FLAGS += -Wl,--out-implib=$(BUILD_PATH)/$(EXE_NAME).lib
 
-	LIQUID_COMPILE_FILE   := liquid_engine/platform/win32.c
+	LIQUID_COMPILE_FILE   := liquid_engine/platform/ldwin32main.c
 	LIQUID_RESOURCES_PATH := win32/resources.rc
 	LIQUID_RESOURCES_FILE := $(object_path)/win32_resources.o
 endif
@@ -143,7 +143,7 @@ recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
 deps := $(call recurse,$(object_path),*.d)
 
-c := $(call recurse,liquid_engine/core/,*.c) $(call recurse,liquid_engine/renderer/,*.c)
+c := $(call recurse,liquid_engine/core/,*.c) $(call recurse,liquid_engine/ldrenderer/,*.c)
 h := $(call recurse,liquid_engine,*.h)
 
 corec := $(c)

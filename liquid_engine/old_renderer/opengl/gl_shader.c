@@ -54,9 +54,9 @@ b32 gl_shader_compile(
             GL_INFO_LOG_LENGTH,
             &info_log_length
         );
-        char* info_log_buffer = (char*)mem_alloc(
+        char* info_log_buffer = ldalloc(
             info_log_length,
-            MEMTYPE_RENDERER
+            MEMORY_TYPE_RENDERER
         );
         glGetShaderInfoLog(
             shader_handle,
@@ -65,7 +65,7 @@ b32 gl_shader_compile(
             info_log_buffer
         );
         GL_LOG_ERROR( "Compilation Error:\n{cc}", info_log_buffer );
-        mem_free( info_log_buffer );
+        ldfree( info_log_buffer, info_log_length, MEMORY_TYPE_RENDERER );
         return false;
     }
 }
@@ -101,9 +101,9 @@ b32 gl_shader_program_link(
             GL_INFO_LOG_LENGTH,
             &info_log_length
         );
-        char* info_log_buffer = (char*)mem_alloc(
+        char* info_log_buffer = ldalloc(
             info_log_length,
-            MEMTYPE_RENDERER
+            MEMORY_TYPE_RENDERER
         );
         glGetProgramInfoLog(
             program_handle,
@@ -112,7 +112,7 @@ b32 gl_shader_program_link(
             info_log_buffer
         );
         GL_LOG_ERROR( "Linking Error:\n{cc}", info_log_buffer );
-        mem_free( info_log_buffer );
+        ldfree( info_log_buffer, info_log_length, MEMORY_TYPE_RENDERER );
         return false;
     }
 
@@ -132,14 +132,18 @@ b32 gl_shader_program_reflection( ShaderProgram* shader_program ) {
         &shader_program->uniform_name_max_length
     );
 
-    UniformInfo* uniforms_buffer = (UniformInfo*)mem_alloc(
-        sizeof(UniformInfo) * shader_program->uniform_count,
-        MEMTYPE_RENDERER
+    usize uniform_buffer_size =
+        sizeof(UniformInfo) * shader_program->uniform_count;
+    UniformInfo* uniforms_buffer = ldalloc(
+        uniform_buffer_size,
+        MEMORY_TYPE_RENDERER
     );
-    char* uniform_names_buffer = (char*)mem_alloc(
+    usize uniform_names_buffer_size =
         shader_program->uniform_name_max_length *
-            shader_program->uniform_count,
-        MEMTYPE_RENDERER
+            shader_program->uniform_count;
+    char* uniform_names_buffer = ldalloc(
+        uniform_names_buffer_size,
+        MEMORY_TYPE_RENDERER
     );
 
     if( !uniforms_buffer || !uniform_names_buffer ) {
@@ -193,11 +197,26 @@ void gl_shader_delete( Shader shader ) {
 }
 void gl_shader_program_delete( ShaderProgram* program ) {
     glDeleteProgram( program->handle );
+
+    usize uniform_buffer_size =
+        sizeof(UniformInfo) * program->uniform_count;
+    usize uniform_names_buffer_size =
+        program->uniform_name_max_length *
+            program->uniform_count;
+
     if( program->uniform_names ) {
-        mem_free( program->uniform_names );
+        ldfree(
+            program->uniform_names,
+            uniform_names_buffer_size,
+            MEMORY_TYPE_RENDERER
+        );
     }
     if( program->uniforms ) {
-        mem_free( program->uniforms );
+        ldfree(
+            program->uniforms,
+            uniform_buffer_size,
+            MEMORY_TYPE_RENDERER
+        );
     }
     mem_zero( program, sizeof(ShaderProgram) );
 }

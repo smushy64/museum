@@ -22,31 +22,29 @@ headerfn b32 char_is_whitespace( char character ) {
 headerfn b32 char_is_digit( char character ) {
     return character >= '0' && character <= '9';
 }
-/// Calculate string length
+/// Calculate null-terminated string length
 LD_API usize str_length( const char* str );
-/// Fills a character buffer with given character
-/// and appends a null-terminator at the end.
-LD_API void str_buffer_fill( usize buffer_size, char* buffer, char character );
 /// Output a null-terminated string to the console without formatting.
 LD_API void str_output_stdout( const char* str );
 /// Output a null-terminated string to the console without formatting.
 LD_API void str_output_stderr( const char* str );
 
 /// Dynamic heap allocated string that owns its buffer.
-typedef struct {
+typedef struct String {
     char* buffer;
     usize len;
     usize capacity;
 } String;
 
 /// View into existing string. Does not own its buffer.
-typedef struct {
+typedef struct StringView {
     union {
         const char* str;
         char* buffer;
     };
     usize len;
 } StringView;
+
 /// Create a string view into const char str
 headerfn StringView sv_from_str( const char* str ) {
     StringView result = {};
@@ -92,6 +90,8 @@ LD_API u32 sv_parse_u32( StringView s );
 LD_API b32 sv_contains( StringView s, StringView phrase );
 /// Copy contents from src to dst. Copies up to destination length.
 LD_API void sv_copy( StringView src, StringView dst );
+/// Set all characters in string view to given character
+LD_API void sv_fill( StringView s, char character );
 /// Clone string view
 headerfn StringView sv_clone( StringView sv ) {
     StringView result;
@@ -99,8 +99,8 @@ headerfn StringView sv_clone( StringView sv ) {
     result.buffer = sv.buffer;
     return result;
 }
-
-#define SV( string ) sv_from_str( string )
+/// Make a string view from const char* 
+#define SV( str ) sv_from_str( str )
 
 /// Create new dynamic string from string view.
 LD_API b32 dstring_new( StringView view, String* out_string );
@@ -112,7 +112,7 @@ LD_API b32 dstring_reserve( String* string, usize new_capacity );
 /// Clear a string.
 /// All this does is set the length of a string to zero.
 /// It does not deallocate.
-FORCE_INLINE void dstring_clear( String* string ) { string->len = 0; }
+headerfn void dstring_clear( String* string ) { string->len = 0; }
 /// Append a string to existing string.
 /// Alloc determines if will fill to the end of the existing buffer
 /// or if it will reallocate.
@@ -146,13 +146,13 @@ LD_API void dstring_free( String* string );
 LD_API void print( const char* format, ... );
 /// Print to stderr.
 /// Format specifiers are in docs/format.md
-LD_API void printerr( const char* format, ... );
+LD_API void print_err( const char* format, ... );
 /// Print to stdout using variadic list.
 /// Format specifiers are in docs/format.md
 LD_API void print_va( const char* format, va_list variadic );
 /// Print to stderr using variadic list.
 /// Format specifiers are in docs/format.md
-LD_API void printerr_va( const char* format, va_list variadic );
+LD_API void print_err_va( const char* format, va_list variadic );
 
 /// Print to stdout with a new line at the end.
 #define println( format, ... )\
@@ -166,14 +166,14 @@ LD_API void printerr_va( const char* format, va_list variadic );
     char_output_stdout( '\n' )
 
 /// Print to stderr with a new line at the end.
-#define printlnerr( format, ... )\
-    printerr( format, ##__VA_ARGS__ );\
+#define println_err( format, ... )\
+    print_err( format, ##__VA_ARGS__ );\
     char_output_stderr( '\n' )
 
 /// Print to stderr with a new line at the end.
 /// Variadic arguments come from va_list.
-#define printlnerr_va( format, variadic )\
-    printerr_va( format, variadic );\
+#define println_err_va( format, variadic )\
+    print_err_va( format, variadic );\
     char_output_stderr( '\n' )
 
 #endif

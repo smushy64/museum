@@ -10,7 +10,7 @@
 
 #include "core/ldlog.h"
 #include "core/ldlibrary.h"
-#include "platform/platform.h"
+#include "ldplatform.h"
 
 #define NOGDI
 #include <windows.h>
@@ -19,27 +19,12 @@
 #include <xinput.h>
 #include <dsound.h>
 
-typedef struct {
-    HANDLE handle;
-} Win32MutexHandle;
-STATIC_ASSERT( sizeof(Win32MutexHandle) == MUTEX_HANDLE_SIZE, "Win32 mutex handle size is not equal to common mutex handle size!" );
-
-typedef struct {
-    HANDLE handle;
-} Win32SemaphoreHandle;
-STATIC_ASSERT( sizeof(Win32SemaphoreHandle) == SEMAPHORE_HANDLE_SIZE, "Win32 semaphore handle size is not equal to common semaphore handle size!" );
-
-typedef struct {
-    HANDLE handle;
-} Win32FileHandle;
-STATIC_ASSERT( sizeof(Win32FileHandle) == FILE_HANDLE_SIZE, "Win32 file handle size is not equal to common file handle size!" );
-
-typedef struct {
+typedef struct Win32Thread {
     HANDLE       thread_handle;
     ThreadProcFN thread_proc;
     void*        thread_proc_user_params;
     DWORD        thread_id;
-} Win32ThreadHandle;
+} Win32Thread;
 
 typedef struct {
     LPDIRECTSOUND handle;
@@ -64,13 +49,13 @@ typedef struct {
 
     union {
         struct {
-            LibraryHandle lib_user32;
-            LibraryHandle lib_xinput;
-            LibraryHandle lib_gl;
-            LibraryHandle lib_gdi32;
-            LibraryHandle lib_dsound;
+            DynamicLibrary lib_user32;
+            DynamicLibrary lib_xinput;
+            DynamicLibrary lib_gl;
+            DynamicLibrary lib_gdi32;
+            DynamicLibrary lib_dsound;
         };
-        LibraryHandle libraries[LIBRARY_COUNT];
+        DynamicLibrary libraries[LIBRARY_COUNT];
     };
 
     Win32DirectSound direct_sound;
@@ -78,8 +63,8 @@ typedef struct {
     LARGE_INTEGER performance_frequency;
     LARGE_INTEGER performance_counter;
 
-    Win32ThreadHandle       xinput_polling_thread;
-    PlatformSemaphoreHandle xinput_polling_thread_semaphore;
+    Win32Thread xinput_polling_thread;
+    PlatformSemaphore* xinput_polling_thread_semaphore;
     u32 event_pump_count;
 } Win32Platform;
 
@@ -98,7 +83,7 @@ LRESULT win32_winproc( HWND, UINT, WPARAM, LPARAM );
             LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE,\
             LOG_COLOR_RESET,\
             LOG_FLAG_NEW_LINE,\
-            "[NOTE WIN32  ] " format,\
+            "[NOTE WIN32] " format,\
             ##__VA_ARGS__\
         )
     #define WIN32_LOG_INFO( format, ... ) \
@@ -106,7 +91,7 @@ LRESULT win32_winproc( HWND, UINT, WPARAM, LPARAM );
             LOG_LEVEL_INFO,\
             LOG_COLOR_WHITE,\
             LOG_FLAG_NEW_LINE,\
-            "[INFO WIN32  ] " format,\
+            "[INFO WIN32] " format,\
             ##__VA_ARGS__\
         )
     #define WIN32_LOG_DEBUG( format, ... ) \
@@ -114,7 +99,7 @@ LRESULT win32_winproc( HWND, UINT, WPARAM, LPARAM );
             LOG_LEVEL_DEBUG,\
             LOG_COLOR_BLUE,\
             LOG_FLAG_NEW_LINE,\
-            "[DEBUG WIN32 ] " format,\
+            "[DEBUG WIN32] " format,\
             ##__VA_ARGS__\
         )
     #define WIN32_LOG_WARN( format, ... ) \
@@ -122,7 +107,7 @@ LRESULT win32_winproc( HWND, UINT, WPARAM, LPARAM );
             LOG_LEVEL_WARN,\
             LOG_COLOR_YELLOW,\
             LOG_FLAG_NEW_LINE,\
-            "[WARN WIN32  ] " format,\
+            "[WARN WIN32] " format,\
             ##__VA_ARGS__\
         )
     #define WIN32_LOG_ERROR( format, ... ) \
@@ -130,7 +115,7 @@ LRESULT win32_winproc( HWND, UINT, WPARAM, LPARAM );
             LOG_LEVEL_ERROR,\
             LOG_COLOR_RED,\
             LOG_FLAG_NEW_LINE,\
-            "[ERROR WIN32 ] " format,\
+            "[ERROR WIN32] " format,\
             ##__VA_ARGS__\
         )
 
@@ -139,7 +124,7 @@ LRESULT win32_winproc( HWND, UINT, WPARAM, LPARAM );
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,\
             LOG_COLOR_RESET,\
             LOG_FLAG_NEW_LINE,\
-            "[NOTE WIN32  | {cc}() | {cc}:{i}] " format,\
+            "[NOTE WIN32 | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -151,7 +136,7 @@ LRESULT win32_winproc( HWND, UINT, WPARAM, LPARAM );
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
             LOG_COLOR_WHITE,\
             LOG_FLAG_NEW_LINE,\
-            "[INFO WIN32  | {cc}() | {cc}:{i}] " format,\
+            "[INFO WIN32 | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -175,7 +160,7 @@ LRESULT win32_winproc( HWND, UINT, WPARAM, LPARAM );
             LOG_LEVEL_WARN | LOG_LEVEL_TRACE,\
             LOG_COLOR_YELLOW,\
             LOG_FLAG_NEW_LINE,\
-            "[WARN WIN32  | {cc}() | {cc}:{i}] " format,\
+            "[WARN WIN32 | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -348,49 +333,49 @@ typedef struct tagPIXELFORMATDESCRIPTOR {
     internal return_name function_name##_stub( __VA_ARGS__ ) { return return_value; }\
     global function_name##FN in_##function_name = function_name##_stub
 
-    DEFFUNC_( BOOL, SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT );
-    DEFFUNC_( UINT, GetDpiForSystem );
-    DEFFUNC_( BOOL, AdjustWindowRectExForDpi, LPRECT, DWORD, BOOL, DWORD, UINT );
-    DEFFUNC_( DWORD, XInputGetState, DWORD, XINPUT_STATE* );
-    DEFFUNC_( DWORD, XInputSetState, DWORD, XINPUT_VIBRATION* );
-    DEFFUNC_( HGDIOBJ, GetStockObject, int );
-    DEFFUNC_( HGLRC, wglCreateContext, HDC );
-    DEFFUNC_( BOOL, wglMakeCurrent, HDC, HGLRC );
-    DEFFUNC_( BOOL, wglDeleteContext, HGLRC );
-    DEFFUNC_( PROC, wglGetProcAddress, LPCSTR );
-    DEFFUNC_( HGLRC, wglCreateContextAttribsARB, HDC, HGLRC, const int* );
-    DEFFUNC_( int, DescribePixelFormat, HDC, int, UINT, LPPIXELFORMATDESCRIPTOR );
-    DEFFUNC_( int, ChoosePixelFormat, HDC, const PIXELFORMATDESCRIPTOR* );
-    DEFFUNC_( BOOL, SetPixelFormat, HDC, int, const PIXELFORMATDESCRIPTOR* );
-    DEFFUNC_( BOOL, SwapBuffers, HDC );
-    DEFFUNC_STUB( void, XInputEnable, , BOOL foo __attribute__((__unused__)) );
-    DEFFUNC_( HRESULT WINAPI, DirectSoundCreate, LPGUID, LPDIRECTSOUND*, LPUNKNOWN );
-    DEFFUNC_( HANDLE, LoadImageA, HINSTANCE, LPCSTR, UINT, int, int, UINT );
-    DEFFUNC_( LONG_PTR, GetWindowLongPtrA, HWND, int );
-    DEFFUNC_( LRESULT, DefWindowProcA, HWND, UINT, WPARAM, LPARAM );
-    DEFFUNC_( BOOL, GetClientRect, HWND, LPRECT );
-    DEFFUNC_( UINT, MapVirtualKeyA, UINT, UINT );
-    DEFFUNC_( BOOL, DestroyWindow, HWND );
-    DEFFUNC_( BOOL, PeekMessageA, LPMSG, HWND, UINT, UINT, UINT );
-    DEFFUNC_( BOOL, TranslateMessage, const MSG* );
-    DEFFUNC_( BOOL, DestroyIcon, HICON );
-    DEFFUNC_( HDC, GetDC, HWND );
-    DEFFUNC_( BOOL, ShowWindow, HWND, int );
-    DEFFUNC_( LONG_PTR, SetWindowLongPtrA, HWND, int, LONG_PTR );
-    DEFFUNC_( int, MessageBoxA, HWND, LPCSTR, LPCSTR, UINT );
-    DEFFUNC_( LRESULT, DispatchMessageA, const MSG* );
-    DEFFUNC_( BOOL, SetWindowTextA, HWND, LPCSTR );
-    DEFFUNC_( int, GetWindowTextLengthA, HWND );
-    DEFFUNC_( int, GetWindowTextA, HWND, LPSTR, int );
-    DEFFUNC_( BOOL, SetCursorPos, int, int );
-    DEFFUNC_( BOOL, ClientToScreen, HWND, LPPOINT );
-    DEFFUNC_( int, ShowCursor, BOOL );
-    DEFFUNC_( HCURSOR, SetCursor, HCURSOR );
-    DEFFUNC_( HWND, CreateWindowExA, DWORD, LPCSTR, LPCSTR, DWORD, int, int, int, int, HWND, HMENU, HINSTANCE, LPVOID );
-    DEFFUNC_( HCURSOR, LoadCursorA, HINSTANCE, LPCSTR );
-    DEFFUNC_( ATOM, RegisterClassExA, const WNDCLASSEXA* );
-    DEFFUNC_( BOOL, AdjustWindowRectEx, LPRECT, DWORD, BOOL, DWORD );
-    DEFFUNC_( int, GetSystemMetrics, int );
+DEFFUNC_( BOOL, SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT );
+DEFFUNC_( UINT, GetDpiForSystem );
+DEFFUNC_( BOOL, AdjustWindowRectExForDpi, LPRECT, DWORD, BOOL, DWORD, UINT );
+DEFFUNC_( DWORD, XInputGetState, DWORD, XINPUT_STATE* );
+DEFFUNC_( DWORD, XInputSetState, DWORD, XINPUT_VIBRATION* );
+DEFFUNC_( HGDIOBJ, GetStockObject, int );
+DEFFUNC_( HGLRC, wglCreateContext, HDC );
+DEFFUNC_( BOOL, wglMakeCurrent, HDC, HGLRC );
+DEFFUNC_( BOOL, wglDeleteContext, HGLRC );
+DEFFUNC_( PROC, wglGetProcAddress, LPCSTR );
+DEFFUNC_( HGLRC, wglCreateContextAttribsARB, HDC, HGLRC, const int* );
+DEFFUNC_( int, DescribePixelFormat, HDC, int, UINT, LPPIXELFORMATDESCRIPTOR );
+DEFFUNC_( int, ChoosePixelFormat, HDC, const PIXELFORMATDESCRIPTOR* );
+DEFFUNC_( BOOL, SetPixelFormat, HDC, int, const PIXELFORMATDESCRIPTOR* );
+DEFFUNC_( BOOL, SwapBuffers, HDC );
+DEFFUNC_STUB( void, XInputEnable, , BOOL foo __attribute__((__unused__)) );
+DEFFUNC_( HRESULT WINAPI, DirectSoundCreate, LPGUID, LPDIRECTSOUND*, LPUNKNOWN );
+DEFFUNC_( HANDLE, LoadImageA, HINSTANCE, LPCSTR, UINT, int, int, UINT );
+DEFFUNC_( LONG_PTR, GetWindowLongPtrA, HWND, int );
+DEFFUNC_( LRESULT, DefWindowProcA, HWND, UINT, WPARAM, LPARAM );
+DEFFUNC_( BOOL, GetClientRect, HWND, LPRECT );
+DEFFUNC_( UINT, MapVirtualKeyA, UINT, UINT );
+DEFFUNC_( BOOL, DestroyWindow, HWND );
+DEFFUNC_( BOOL, PeekMessageA, LPMSG, HWND, UINT, UINT, UINT );
+DEFFUNC_( BOOL, TranslateMessage, const MSG* );
+DEFFUNC_( BOOL, DestroyIcon, HICON );
+DEFFUNC_( HDC, GetDC, HWND );
+DEFFUNC_( BOOL, ShowWindow, HWND, int );
+DEFFUNC_( LONG_PTR, SetWindowLongPtrA, HWND, int, LONG_PTR );
+DEFFUNC_( int, MessageBoxA, HWND, LPCSTR, LPCSTR, UINT );
+DEFFUNC_( LRESULT, DispatchMessageA, const MSG* );
+DEFFUNC_( BOOL, SetWindowTextA, HWND, LPCSTR );
+DEFFUNC_( int, GetWindowTextLengthA, HWND );
+DEFFUNC_( int, GetWindowTextA, HWND, LPSTR, int );
+DEFFUNC_( BOOL, SetCursorPos, int, int );
+DEFFUNC_( BOOL, ClientToScreen, HWND, LPPOINT );
+DEFFUNC_( int, ShowCursor, BOOL );
+DEFFUNC_( HCURSOR, SetCursor, HCURSOR );
+DEFFUNC_( HWND, CreateWindowExA, DWORD, LPCSTR, LPCSTR, DWORD, int, int, int, int, HWND, HMENU, HINSTANCE, LPVOID );
+DEFFUNC_( HCURSOR, LoadCursorA, HINSTANCE, LPCSTR );
+DEFFUNC_( ATOM, RegisterClassExA, const WNDCLASSEXA* );
+DEFFUNC_( BOOL, AdjustWindowRectEx, LPRECT, DWORD, BOOL, DWORD );
+DEFFUNC_( int, GetSystemMetrics, int );
 
 #define GetSystemMetrics              in_GetSystemMetrics
 #define AdjustWindowRectEx            in_AdjustWindowRectEx

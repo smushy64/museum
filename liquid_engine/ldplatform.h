@@ -6,12 +6,15 @@
  * File Created: April 27, 2023
 */
 #include "defines.h"
+
+#if defined(LD_API_INTERNAL)
+
 #include "core/ldmath/types.h"
 #include "core/ldinput.h"
 #include "core/ldengine.h"
 #include "core/ldstring.h"
 #include "core/ldthread.h"
-#include "flags.h"
+#include "platform/flags.h"
 
 #define MAX_PLATFORM_SURFACE_TITLE_SIZE 255
 
@@ -23,6 +26,7 @@ typedef struct Platform {
     } surface;
     b32 is_active;
 } Platform;
+
 /// Returns how many bytes the current platform requires.
 u32 query_platform_subsystem_size();
 /// Initialize platform state. Returns true if successful.
@@ -103,149 +107,108 @@ void platform_write_console(
     const char* buffer
 );
 
-typedef void* PlatformLibraryHandle;
+typedef void PlatformLibrary;
 
 /// Load library from path.
-PlatformLibraryHandle platform_library_load( const char* library_path );
+PlatformLibrary* platform_library_load( const char* library_path );
 /// Free a library handle.
-void platform_library_free( PlatformLibraryHandle library );
+void platform_library_free( PlatformLibrary* library );
 /// Load a function from a library.
 void* platform_library_load_function(
-    PlatformLibraryHandle library,
-    const char*           function_name
+    PlatformLibrary* library,
+    const char*      function_name
 );
 
-#if defined(LD_PLATFORM_WINDOWS) || defined(LD_PLATFORM_LINUX)
-    #define FILE_HANDLE_SIZE (sizeof(usize))
-#endif
+/// Platform File handle
+typedef void PlatformFile;
 
-/// Platform file handle
-typedef struct PlatformFileHandle {
-    u8 platform[FILE_HANDLE_SIZE];
-} PlatformFileHandle;
+typedef u32 PlatformFileOpenFlag;
 
-typedef u32 PlatformFileOpenFlags;
-
-#define PLATFORM_FILE_OPEN_READ        ( 1 << 0 )
-#define PLATFORM_FILE_OPEN_WRITE       ( 1 << 1 )
-#define PLATFORM_FILE_OPEN_SHARE_READ  ( 1 << 2 )
-#define PLATFORM_FILE_OPEN_SHARE_WRITE ( 1 << 3 )
-#define PLATFORM_FILE_OPEN_EXISTING    ( 1 << 4 )
+#define PLATFORM_FILE_OPEN_READ        ((PlatformFileOpenFlag)( 1 << 0 ))
+#define PLATFORM_FILE_OPEN_WRITE       ((PlatformFileOpenFlag)( 1 << 1 ))
+#define PLATFORM_FILE_OPEN_SHARE_READ  ((PlatformFileOpenFlag)( 1 << 2 ))
+#define PLATFORM_FILE_OPEN_SHARE_WRITE ((PlatformFileOpenFlag)( 1 << 3 ))
+#define PLATFORM_FILE_OPEN_EXISTING    ((PlatformFileOpenFlag)( 1 << 4 ))
 
 /// Open file from path.
-b32 platform_file_open(
-    const char*           path,
-    PlatformFileOpenFlags flags,
-    PlatformFileHandle*   out_handle
+PlatformFile* platform_file_open(
+    const char*          path,
+    PlatformFileOpenFlag flags
 );
 /// Close file handle.
-void platform_file_close( PlatformFileHandle* handle );
+void platform_file_close( PlatformFile* file );
 /// Read file into buffer.
 b32 platform_file_read(
-    PlatformFileHandle* handle,
+    PlatformFile* file,
     usize read_size,
     usize buffer_size,
     void* buffer
 );
 /// Write buffer into file.
 b32 platform_file_write(
-    PlatformFileHandle* handle,
+    PlatformFile* file,
     usize write_size,
     usize buffer_size,
     void* buffer
 );
 /// Query size of file in bytes.
-usize platform_file_query_size( PlatformFileHandle* handle );
+usize platform_file_query_size( PlatformFile* file );
 /// Query where in the file the handle is at.
-usize platform_file_query_offset( PlatformFileHandle* handle );
+usize platform_file_query_offset( PlatformFile* file );
 /// Set file offset. Returns true if successful.
-b32 platform_file_set_offset( PlatformFileHandle* handle, usize offset );
-
-#if defined(LD_PLATFORM_WINDOWS)
-    #define THREAD_HANDLE_SIZE (32)
-#elif defined(LD_PLATFORM_LINUX)
-    #define THREAD_HANDLE_SIZE (24)
-#else
-    #define THREAD_HANDLE_SIZE (sizeof(usize))
-#endif
+b32 platform_file_set_offset( PlatformFile* file, usize offset );
 
 /// Opaque handle to a thread.
-typedef struct PlatformThreadHandle {
-    u8 platform[THREAD_HANDLE_SIZE];
-} PlatformThreadHandle;
+typedef void PlatformThread;
 
 /// Thread Proc definition.
 typedef b32 (*ThreadProcFN)( void* user_params );
 
 /// Create a thread.
-b32 platform_thread_create(
+PlatformThread* platform_thread_create(
     ThreadProcFN thread_proc,
     void*        user_params,
     usize        thread_stack_size,
-    b32          create_suspended,
-    PlatformThreadHandle* out_thread_handle
+    b32          create_suspended
 );
 /// Resume a suspended thread.
-void platform_thread_resume( PlatformThreadHandle* thread_handle );
+void platform_thread_resume( PlatformThread* thread );
 /// Suspend a thread.
-void platform_thread_suspend( PlatformThreadHandle* thread_handle );
+void platform_thread_suspend( PlatformThread* thread );
 /// Kill a thread.
-void platform_thread_kill( PlatformThreadHandle* thread_handle );
-
-#if defined(LD_PLATFORM_WINDOWS) || defined(LD_PLATFORM_LINUX)
-    #define SEMAPHORE_HANDLE_SIZE (sizeof(usize))
-#endif
-
-#if defined(LD_PLATFORM_WINDOWS)
-    #define MUTEX_HANDLE_SIZE (sizeof(usize))
-#elif defined(LD_PLATFORM_LINUX)
-    /// sizeof(pthread_mutex_t)
-    #define MUTEX_HANDLE_SIZE (40)
-#endif
-
-STATIC_ASSERT( SEMAPHORE_HANDLE_SIZE <= MAX_SEMAPHORE_SIZE, "Semaphore handle size must be less than or equals to max size!" );
-STATIC_ASSERT( MUTEX_HANDLE_SIZE <= MAX_MUTEX_SIZE, "Mutex handle size must be less than or equals to max size!" );
+void platform_thread_kill( PlatformThread* thread );
 
 /// Opaque handle to a semaphore object.
-typedef struct PlatformSemaphoreHandle {
-    u8 buffer[SEMAPHORE_HANDLE_SIZE];
-} PlatformSemaphoreHandle;
+typedef void PlatformSemaphore;
 
 /// Opaque handle to a mutex object.
-typedef struct PlatformMutexHandle {
-    u8 buffer[MUTEX_HANDLE_SIZE];
-} PlatformMutexHandle;
+typedef void PlatformMutex;
 
 /// Create a semaphore.
-b32 platform_semaphore_create(
-    const char* opt_name, u32 initial_count,
-    PlatformSemaphoreHandle* out_semaphore_handle
+PlatformSemaphore* platform_semaphore_create(
+    const char* opt_name, u32 initial_count
 );
 /// Increment a semaphore.
-void platform_semaphore_increment(
-    PlatformSemaphoreHandle* semaphore_handle
-);
+void platform_semaphore_increment( PlatformSemaphore* semaphore );
 /// Wait for semaphore to be incremented.
 /// Semaphore is decremented when it is signaled.
 /// If infinite timeout is true, timeout ms is ignored.
 void platform_semaphore_wait(
-    PlatformSemaphoreHandle* semaphore_handle,
+    PlatformSemaphore* semaphore,
     b32 infinite_timeout, u32 opt_timeout_ms
 );
 /// Destroy a semaphore handle.
-void platform_semaphore_destroy(
-    PlatformSemaphoreHandle* semaphore_handle
-);
+void platform_semaphore_destroy( PlatformSemaphore* semaphore );
 
 /// Create a mutex.
-b32 platform_mutex_create( PlatformMutexHandle* out_mutex );
+PlatformMutex* platform_mutex_create();
 /// Lock a mutex. Stalls until the mutex is available if another
 /// thread already has ownership of it.
-void platform_mutex_lock( PlatformMutexHandle* mutex );
+void platform_mutex_lock( PlatformMutex* mutex );
 /// Unlock a mutex.
-void platform_mutex_unlock( PlatformMutexHandle* mutex );
+void platform_mutex_unlock( PlatformMutex* mutex );
 /// Destroy a mutex handle.
-void platform_mutex_destroy( PlatformMutexHandle* mutex );
+void platform_mutex_destroy( PlatformMutex* mutex );
 
 /// Multi-Threading safe increment.
 u32 platform_interlocked_increment_u32( volatile u32* addend );
@@ -265,7 +228,7 @@ void* platform_interlocked_compare_exchange_pointer(
 );
 
 /// Types of message boxes
-typedef enum : u32 {
+typedef enum MessageBoxType : u32 {
     MESSAGE_BOX_TYPE_OK,
     MESSAGE_BOX_TYPE_OKCANCEL,
     MESSAGE_BOX_TYPE_RETRYCANCEL,
@@ -288,7 +251,7 @@ inline const char* message_box_type_to_string( MessageBoxType type ) {
 }
 
 /// Message box icons
-typedef enum : u32 {
+typedef enum MessageBoxIcon : u32 {
     MESSAGE_BOX_ICON_INFORMATION,
     MESSAGE_BOX_ICON_WARNING,
     MESSAGE_BOX_ICON_ERROR,
@@ -309,7 +272,7 @@ inline const char* message_box_icon_to_string( MessageBoxIcon icon ) {
 
 /// User selection from a message box or an error
 /// from creating message box.
-typedef enum : u32 {
+typedef enum MessageBoxResult : u32 {
     MESSAGE_BOX_RESULT_OK,
     MESSAGE_BOX_RESULT_CANCEL,
     MESSAGE_BOX_RESULT_RETRY,
@@ -353,12 +316,12 @@ MessageBoxResult message_box(
 
 /// Allocate memory on the heap.
 /// All platforms must zero out memory before returning pointer.
-void* heap_alloc( usize size );
+void* platform_heap_alloc( usize size );
 /// Reallocate memory on the heap.
 /// All platforms must zero out new memory before returning pointer.
-void* heap_realloc( void* memory, usize new_size );
+void* platform_heap_realloc( void* memory, usize new_size );
 /// Free heap allocated memory.
-void heap_free( void* memory );
+void platform_heap_free( void* memory );
 
 /// Page allocate memory.
 /// All platforms must zero out memory before returning pointer.
@@ -368,15 +331,17 @@ void platform_page_free( void* memory );
 
 #define CPU_NAME_BUFFER_SIZE 68
 typedef u16 ProcessorFeatures;
-#define SSE_MASK    (1 << 0)
-#define SSE2_MASK   (1 << 1)
-#define SSE3_MASK   (1 << 2)
-#define SSSE3_MASK  (1 << 3)
-#define SSE4_1_MASK (1 << 4)
-#define SSE4_2_MASK (1 << 5)
-#define AVX_MASK    (1 << 6)
-#define AVX2_MASK   (1 << 7)
-#define AVX512_MASK (1 << 8)
+
+#define SSE_MASK    ((ProcessorFeatures)(1 << 0))
+#define SSE2_MASK   ((ProcessorFeatures)(1 << 1))
+#define SSE3_MASK   ((ProcessorFeatures)(1 << 2))
+#define SSSE3_MASK  ((ProcessorFeatures)(1 << 3))
+#define SSE4_1_MASK ((ProcessorFeatures)(1 << 4))
+#define SSE4_2_MASK ((ProcessorFeatures)(1 << 5))
+#define AVX_MASK    ((ProcessorFeatures)(1 << 6))
+#define AVX2_MASK   ((ProcessorFeatures)(1 << 7))
+#define AVX512_MASK ((ProcessorFeatures)(1 << 8))
+
 typedef struct SystemInfo {
     usize logical_processor_count;
     usize total_memory;
@@ -384,12 +349,14 @@ typedef struct SystemInfo {
     ProcessorFeatures features;
 } SystemInfo;
 /// Query CPU and memory information.
-struct SystemInfo query_system_info();
+SystemInfo query_system_info();
 
 #if defined(LD_PLATFORM_WINDOWS)
-void platform_win32_output_debug_string( const char* str );
+    void platform_win32_output_debug_string( const char* str );
 #endif
 
 #define SURFACE_ICON_PATH "./icon.ico"
+
+#endif // internal
 
 #endif

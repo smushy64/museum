@@ -11,7 +11,7 @@
 
 #define DEFAULT_LOGGING_BUFFER_SIZE KILOBYTES(1)
 
-typedef enum : u32 {
+typedef enum LogColor : u32 {
     LOG_COLOR_BLACK,
     LOG_COLOR_RED,
     LOG_COLOR_GREEN,
@@ -26,7 +26,9 @@ typedef enum : u32 {
     LOG_COLOR_COUNT
 } LogColor;
 
-#define LOG_LEVEL_NONE    0
+typedef u32 LogLevel;
+
+#define LOG_LEVEL_NONE    (0)
 #define LOG_LEVEL_ERROR   (1 << 0)
 #define LOG_LEVEL_WARN    (1 << 1)
 #define LOG_LEVEL_DEBUG   (1 << 2)
@@ -58,12 +60,10 @@ typedef enum : u32 {
     LOG_LEVEL_VERBOSE  \
 )
 
-typedef u32 LogLevel;
+typedef u32 LogFlags;
 
 #define LOG_FLAG_ALWAYS_PRINT (1 << 0)
 #define LOG_FLAG_NEW_LINE     (1 << 1)
-
-typedef u32 LogFlags;
 
 /// Query if logging subsystem is already initialized.
 LD_API b32 is_log_initialized();
@@ -120,7 +120,7 @@ LD_API void log_formatted_unlocked(
             LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE,\
             LOG_COLOR_RESET,\
             LOG_FLAG_NEW_LINE,\
-            "[NOTE  ] " format,\
+            "[NOTE] " format,\
             ##__VA_ARGS__\
         )
     #define LOG_INFO( format, ... ) \
@@ -128,7 +128,7 @@ LD_API void log_formatted_unlocked(
             LOG_LEVEL_INFO,\
             LOG_COLOR_WHITE,\
             LOG_FLAG_NEW_LINE,\
-            "[INFO  ] " format,\
+            "[INFO] " format,\
             ##__VA_ARGS__\
         )
     #define LOG_DEBUG( format, ... ) \
@@ -136,7 +136,7 @@ LD_API void log_formatted_unlocked(
             LOG_LEVEL_DEBUG,\
             LOG_COLOR_BLUE,\
             LOG_FLAG_NEW_LINE,\
-            "[DEBUG ] " format,\
+            "[DEBUG] " format,\
             ##__VA_ARGS__\
         )
     #define LOG_WARN( format, ... ) \
@@ -144,7 +144,7 @@ LD_API void log_formatted_unlocked(
             LOG_LEVEL_WARN,\
             LOG_COLOR_YELLOW,\
             LOG_FLAG_NEW_LINE,\
-            "[WARN  ] " format,\
+            "[WARN] " format,\
             ##__VA_ARGS__\
         )
     #define LOG_ERROR( format, ... ) \
@@ -152,7 +152,7 @@ LD_API void log_formatted_unlocked(
             LOG_LEVEL_ERROR,\
             LOG_COLOR_RED,\
             LOG_FLAG_NEW_LINE,\
-            "[ERROR ] " format,\
+            "[ERROR] " format,\
             ##__VA_ARGS__\
         )
 
@@ -161,7 +161,7 @@ LD_API void log_formatted_unlocked(
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,\
             LOG_COLOR_RESET,\
             LOG_FLAG_NEW_LINE,\
-            "[NOTE  | {cc}() | {cc}:{i}] " format,\
+            "[NOTE | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -173,7 +173,7 @@ LD_API void log_formatted_unlocked(
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
             LOG_COLOR_WHITE,\
             LOG_FLAG_NEW_LINE,\
-            "[INFO  | {cc}() | {cc}:{i}] " format,\
+            "[INFO | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -197,7 +197,7 @@ LD_API void log_formatted_unlocked(
             LOG_LEVEL_WARN | LOG_LEVEL_TRACE,\
             LOG_COLOR_YELLOW,\
             LOG_FLAG_NEW_LINE,\
-            "[WARN  | {cc}() | {cc}:{i}] " format,\
+            "[WARN | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\

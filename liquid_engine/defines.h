@@ -95,23 +95,23 @@
 
 #if defined(LD_ARCH_X86)
 
-typedef unsigned char       u8;
-typedef unsigned short     u16;
-typedef unsigned int       u32;
-typedef unsigned long long u64;
+    typedef unsigned char       u8;
+    typedef unsigned short     u16;
+    typedef unsigned int       u32;
+    typedef unsigned long long u64;
 
-typedef signed char       i8;
-typedef signed short     i16;
-typedef signed int       i32;
-typedef signed long long i64;
+    typedef signed char       i8;
+    typedef signed short     i16;
+    typedef signed int       i32;
+    typedef signed long long i64;
 
-#if defined(LD_ARCH_64_BIT)
-    typedef u64 usize;
-    typedef i64 isize;
-#else // if x86_64
-    typedef u32 usize;
-    typedef i32 isize;
-#endif // if x86_32
+    #if defined(LD_ARCH_64_BIT)
+        typedef u64 usize;
+        typedef i64 isize;
+    #else // if x86_64
+        typedef u32 usize;
+        typedef i32 isize;
+    #endif // if x86_32
 
 #else // other
     #include <stdint.h>
@@ -325,7 +325,7 @@ STATIC_ASSERT(sizeof(c32) == 4, "Expected c32 to be 4 bytes!" );
     #define headerfn extern inline
 #endif
 
-#define loop     for( ;; )
+#define loop for( ;; )
 
 /// Define a 24-bit RGB value (using u32)
 #define RGB_U32( r, g, b )\
@@ -352,9 +352,9 @@ STATIC_ASSERT(sizeof(c32) == 4, "Expected c32 to be 4 bytes!" );
     bits &= ~(mask);\
 } while(0)
 
-#define KILOBYTES(num) ( num * 1024ULL )
-#define MEGABYTES(num) ( KILOBYTES( num ) * 1024ULL )
-#define GIGABYTES(num) ( MEGABYTES( num ) * 1024ULL )
+#define KILOBYTES(num) ( (num) * 1024ULL )
+#define MEGABYTES(num) ( KILOBYTES( (num) ) * 1024ULL )
+#define GIGABYTES(num) ( MEGABYTES( (num) ) * 1024ULL )
 
 /// Size of the stack. Must always compile with this value.
 #define STACK_SIZE (MEGABYTES(1))

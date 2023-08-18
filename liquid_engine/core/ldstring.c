@@ -9,7 +9,7 @@
 
 #include "core/ldmath.h"
 
-#include "platform/platform.h"
+#include "ldplatform.h"
 
 #if defined(USE_STD_LIB)
 #include <stdio.h>
@@ -78,16 +78,6 @@ LD_API usize str_length( const char* string ) {
     }
 
     return result;
-}
-LD_API void str_buffer_fill(
-    usize buffer_size,
-    char* buffer,
-    char character
-) {
-    for( usize i = 0; i < buffer_size; ++i ) {
-        buffer[i] = character;
-    }
-    buffer[buffer_size - 1] = 0;
 }
 HOT_PATH LD_API void str_output_stdout( const char* str ) {
     usize str_len = str_length( str );
@@ -200,10 +190,14 @@ LD_API void sv_copy( StringView src, StringView dst ) {
         dst.len, (char*)dst.buffer
     );
 }
-
+LD_API void sv_fill( StringView s, char character ) {
+    for( usize i = 0; i < s.len; ++i ) {
+        s.buffer[i] = character;
+    }
+}
 
 internal b32 dstring_allocate( u32 capacity, String* out_string ) {
-    void* buffer = mem_alloc( capacity, MEMTYPE_STRING );
+    void* buffer = ldalloc( capacity, MEMORY_TYPE_STRING );
     if( !buffer ) {
         return false;
     }
@@ -212,7 +206,10 @@ internal b32 dstring_allocate( u32 capacity, String* out_string ) {
     return true;
 }
 internal b32 dstring_reallocate( String* string, u32 new_capacity ) {
-    void* new_buffer = mem_realloc( string->buffer, new_capacity );
+    void* new_buffer = ldrealloc(
+        string->buffer, string->capacity,
+        new_capacity, MEMORY_TYPE_STRING
+    );
     if( !new_buffer ) {
         return false;
     }
@@ -320,7 +317,7 @@ LD_API StringView dstring_view_len_bounds(
 }
 LD_API void dstring_free( String* string ) {
     if( string->buffer ) {
-        mem_free( string->buffer );
+        ldfree( string->buffer, string->capacity, MEMORY_TYPE_STRING );
     }
     mem_zero( string, sizeof( String ) );
 }
@@ -1150,7 +1147,7 @@ LD_API void print( const char* format, ... ) {
     va_end( list );
     char_output_stderr(0);
 }
-LD_API void printerr( const char* format, ... ) {
+LD_API void print_err( const char* format, ... ) {
     StringView buffer = {};
     buffer.len = U32_MAX;
     va_list list;
@@ -1170,7 +1167,7 @@ LD_API void print_va( const char* format, va_list variadic ) {
     );
     char_output_stderr(0);
 }
-LD_API void printerr_va( const char* format, va_list variadic ) {
+LD_API void print_err_va( const char* format, va_list variadic ) {
     StringView buffer = {};
     buffer.len = U32_MAX;
     format_internal(
