@@ -4,4 +4,4 @@ build
 resources/shaders/*.spv
 *.rdbg
 **/corecpp.inl
-
+**/corec.inl
