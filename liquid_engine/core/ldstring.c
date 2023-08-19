@@ -422,7 +422,7 @@ internal u32 float_to_string(
     }
     char* view_buffer = (char*)view.buffer;
 
-    if( is_nan( value ) ) {
+    if( is_nan32( value ) ) {
         view_buffer[0] = 'N';
         view_buffer[1] = 'A';
         view_buffer[2] = 'N';

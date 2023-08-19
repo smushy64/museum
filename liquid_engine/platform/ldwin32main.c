@@ -876,7 +876,7 @@ void platform_poll_gamepad( Platform* platform ) {
         f32 trigger_right = normalize_range_u8_f32( gamepad.bRightTrigger );
 
         if( trigger_left >= trigger_left_deadzone ) {
-            trigger_left = remap(
+            trigger_left = remap32(
                 trigger_left_deadzone, 1.0f,
                 0.0f, 1.0f,
                 trigger_left
@@ -885,7 +885,7 @@ void platform_poll_gamepad( Platform* platform ) {
             trigger_left = 0;
         }
         if( trigger_right >= trigger_right_deadzone ) {
-            trigger_right = remap(
+            trigger_right = remap32(
                 trigger_right_deadzone, 1.0f,
                 0.0f, 1.0f,
                 trigger_right
@@ -937,7 +937,7 @@ void platform_poll_gamepad( Platform* platform ) {
             input_pad_read_stick_right_deadzone( gamepad_index );
 
         if( stick_left_magnitude >= stick_left_deadzone ) {
-            stick_left_magnitude = remap(
+            stick_left_magnitude = remap32(
                 stick_left_deadzone, 1.0f,
                 0.0f, 1.0f,
                 stick_left_magnitude
@@ -946,7 +946,7 @@ void platform_poll_gamepad( Platform* platform ) {
             stick_left_magnitude = 0;
         }
         if( stick_right_magnitude >= stick_right_deadzone ) {
-            stick_right_magnitude = remap(
+            stick_right_magnitude = remap32(
                 stick_right_deadzone, 1.0f,
                 0.0f, 1.0f,
                 stick_right_magnitude

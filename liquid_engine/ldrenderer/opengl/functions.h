@@ -46,6 +46,7 @@ DECLARE_GL_FUNCTION( void, glGenerateTextureMipmap, GLuint );
 DECLARE_GL_FUNCTION( GLuint, glCreateShader, GLenum );
 DECLARE_GL_FUNCTION( GLuint, glCreateProgram );
 DECLARE_GL_FUNCTION( GLuint, glCreateShaderProgramv, GLenum, GLsizei, const char** );
+DECLARE_GL_FUNCTION( void, glShaderSource, GLuint, GLsizei, const GLchar**, const GLint* );
 DECLARE_GL_FUNCTION( void, glUseProgram, GLuint );
 DECLARE_GL_FUNCTION( void, glShaderBinary, GLsizei, const GLuint*, GLenum, const void*, GLsizei );
 DECLARE_GL_FUNCTION( void, glSpecializeShader, GLuint, const GLchar*, GLuint, const GLuint*, const GLuint* );
@@ -193,36 +194,16 @@ IMPLEMENT_GL_FUNCTION( void, glTextureParameterIuiv, GLuint texture, GLenum pnam
     ___internal_glTextureParameterIuiv( texture, pname, params );
 }
 IMPLEMENT_GL_FUNCTION( void, glTextureStorage2D, GLuint texture, GLsizei levels, GLenum internalFormat, GLsizei width, GLsizei height ) {
-    ___internal_glTextureStorage2D(
-        texture, levels,
-        internalFormat,
-        width, height
-    );
+    ___internal_glTextureStorage2D( texture, levels, internalFormat, width, height );
 }
 IMPLEMENT_GL_FUNCTION( void, glTextureStorage3D, GLuint texture, GLsizei levels, GLenum internalFormat, GLsizei width, GLsizei height, GLsizei depth ) {
-    ___internal_glTextureStorage3D(
-        texture, levels,
-        internalFormat,
-        width, height, depth
-    );
+    ___internal_glTextureStorage3D( texture, levels, internalFormat, width, height, depth );
 }
 IMPLEMENT_GL_FUNCTION( void, glTextureSubImage2D, GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const void* pixels ) {
-    ___internal_glTextureSubImage2D(
-        texture, level,
-        xoffset, yoffset,
-        width, height,
-        format, type,
-        pixels
-    );
+    ___internal_glTextureSubImage2D( texture, level, xoffset, yoffset, width, height, format, type, pixels );
 }
 IMPLEMENT_GL_FUNCTION( void, glTextureSubImage3D, GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void* pixels ) {
-    ___internal_glTextureSubImage3D(
-        texture, level,
-        xoffset, yoffset, zoffset,
-        width, height, depth,
-        format, type,
-        pixels
-    );
+    ___internal_glTextureSubImage3D( texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels );
 }
 // Rendering -----------------------------------------------------------
 IMPLEMENT_GL_FUNCTION( void, glClear, GLbitfield mask ) {
@@ -282,6 +263,9 @@ IMPLEMENT_GL_FUNCTION( GLuint, glCreateShader, GLenum shaderType ) {
 }
 IMPLEMENT_GL_FUNCTION( GLuint, glCreateProgram ) {
     return ___internal_glCreateProgram();
+}
+IMPLEMENT_GL_FUNCTION( void, glShaderSource, GLuint shader, GLsizei count, const GLchar** string, const GLint* length ) {
+    ___internal_glShaderSource( shader, count, string, length );
 }
 IMPLEMENT_GL_FUNCTION( GLuint, glCreateShaderProgramv, GLenum type, GLsizei count, const char** strings ) {
     return ___internal_glCreateShaderProgramv( type, count, strings );

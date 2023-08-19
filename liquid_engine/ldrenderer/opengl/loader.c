@@ -62,6 +62,7 @@ DEFINE_GL_FUNCTION(glGenerateTextureMipmap);
 // Shaders -------------------------------------------------------------
 DEFINE_GL_FUNCTION(glCreateShader  );
 DEFINE_GL_FUNCTION(glCreateProgram );
+DEFINE_GL_FUNCTION(glShaderSource  );
 DEFINE_GL_FUNCTION(glCreateShaderProgramv);
 DEFINE_GL_FUNCTION(glUseProgram        ); 
 DEFINE_GL_FUNCTION(glShaderBinary      ); 
@@ -212,6 +213,7 @@ b32 gl_load_functions( GetProcAddressFN get_proc_address ) {
 
     LOAD_PROC_REQUIRED( glCreateShader );
     LOAD_PROC_REQUIRED( glCreateProgram );
+    LOAD_PROC_REQUIRED( glShaderSource );
     LOAD_PROC_REQUIRED( glCreateShaderProgramv );
     LOAD_PROC_REQUIRED( glUseProgram );
     LOAD_PROC_REQUIRED( glShaderBinary );

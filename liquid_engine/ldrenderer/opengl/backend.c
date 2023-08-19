@@ -57,7 +57,7 @@ b32 gl_renderer_backend_init( RendererContext* renderer_ctx ) {
     ctx->ctx.begin_frame = gl_renderer_backend_begin_frame;
     ctx->ctx.end_frame   = gl_renderer_backend_end_frame;
 
-    glClearColor( 0.0f, 0.0f, 1.0f, 1.0f );
+    glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
 
     ctx->viewport = (ivec2){
         ctx->ctx.platform->surface.width,

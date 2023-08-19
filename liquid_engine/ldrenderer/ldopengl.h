@@ -9,8 +9,10 @@
 #include "core/ldmath/types.h"
 #include "core/ldlog.h"
 
+/// GLRC Handle
 typedef void OpenGLRenderContextHandle;
 
+/// Device info from OpenGL driver
 typedef struct OpenGLDeviceInfo {
     const char* vendor;
     const char* name;
@@ -20,6 +22,7 @@ typedef struct OpenGLDeviceInfo {
     i32 extension_count;
 } OpenGLDeviceInfo;
 
+/// OpenGL Renderer Context
 typedef struct OpenGLRendererContext {
     InternalRendererContext ctx;
 
