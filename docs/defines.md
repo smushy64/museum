@@ -47,18 +47,19 @@ Include in engine:
 | pvoid | void pointer                             |
 
 ## Attributes
-| Attribute       | Description                                    |
-| --------------- | ---------------------------------------------- |
-| internal        | static - for functions in one translation unit |
-| local           | static - for local static variables            |
-| global          | static - for global static variables           |
-| NO_OPTIMIZE     | do not optimize following function             |
-| HOT_PATH        | always optimize following function             |
-| FORCE_INLINE    | always inline following function               |
-| NO_INLINE       | never inline following function                |
-| MAKE_PACKED()   | define a struct without any padding            |
-| LD_API          | export/import function                         |
-| LD_API_STRUCT   | export/import struct                           |
+| Attribute       | Description                                              |
+| --------------- | -------------------------------------------------------- |
+| internal        | static - function is internal to translation unit        |
+| local           | static - for local static variables                      |
+| global          | static - for global static variables                     |
+| NO_OPTIMIZE     | do not optimize following function                       |
+| HOT_PATH        | always optimize following function                       |
+| FORCE_INLINE    | always inline following function                         |
+| PACKED          | struct is packed (no C padding)                          |
+| NO_INLINE       | never inline following function                          |
+| LD_API          | export/import function                                   |
+| headerfn        | mark header function (extern inline in C, inline in C++) |
+| EXTERNC         | mark function as extern "C" (C++ only)                   |
 
 ## Macros
 | Macro                               | Description                        |
@@ -68,7 +69,7 @@ Include in engine:
 | LD_GET_MINOR( version )             | minor version from u32 identifier  |
 | unused( x )                         | mark value as unused               |
 | loop                                | for( ; ; ) infinite loop           |
-| PANIC()                             | debugbreak/trap alias              |
+| PANIC()                             | crash program                      |
 | STATIC_ASSERT( condition, message ) | compile time assertion             |
 | ASSERT( condition )                 | runtime assertion                  |
 | CHECK_BITS( bits, mask )            | check if bits are set in bitfield  |
@@ -85,87 +86,93 @@ Include in engine:
 | STATIC_ARRAY_COUNT( array )         | number of elements in static array |
 | STATIC_ARRAY_SIZE( array )          | byte size of static array          |
 | LD_API_INTERNAL                     | only defined in internal source    |
+| REINTERPRET( type, value )          | reinterpret cast                   |
 
 ## Constants
+| Misc Constant | Description                |
+| ------------- | -------------------------- |
+| true/false    | boolean constants (C only) |
+| NULL          | null constant (C only)     |
+
 | Float 32 Constant           | Description                                    |
 | --------------------------- | ---------------------------------------------- |
-| F32::MIN                    | smallest finite single-precision float value   |
-| F32::MIN_POS                | smallest positive single-precision float value |
-| F32::MAX                    | largest finite single-precision float value    |
-| F32::NAN                    | not a number                                   |
-| F32::NEG_INFINITY           | negative infinity                              |
-| F32::POS_INFINITY           | positive infinity                              |
-| F32::PI                     | pi constant                                    |
-| F32::TAU                    | tau (2 * pi) constant                          |
-| F32::HALF_PI                | pi / 2 constant                                |
-| F32::EPSILON                | epsilon constant                               |
-| F32::SIGNIFICANT_DIGITS     | number of significant digits in base-10        |
-| F32::MANTISSA_DIGITS        | number of signicant digits in base-2           |
-| F32::EXPONENT_MASK          | bitmask of single-precision float exponent     |
-| F32::MANTISSA_MASK          | bitmask of single-precision float mantissa     |
-| F32::(ONE-TWELVE)_FACTORIAL | 1-12 factorial constants                       |
+| F32_MIN                     | smallest finite single-precision float value   |
+| F32_MIN_POS                 | smallest positive single-precision float value |
+| F32_MAX                     | largest finite single-precision float value    |
+| F32_NAN                     | not a number                                   |
+| F32_NEG_INFINITY            | negative infinity                              |
+| F32_POS_INFINITY            | positive infinity                              |
+| F32_PI                      | pi constant                                    |
+| F32_TAU                     | tau (2 * pi) constant                          |
+| F32_HALF_PI                 | pi / 2 constant                                |
+| F32_EPSILON                 | epsilon constant                               |
+| F32_SIGNIFICANT_DIGITS      | number of significant digits in base-10        |
+| F32_MANTISSA_DIGITS         | number of signicant digits in base-2           |
+| F32_EXPONENT_MASK           | bitmask of single-precision float exponent     |
+| F32_MANTISSA_MASK           | bitmask of single-precision float mantissa     |
+| F32_(ONE-TWELVE)_FACTORIAL  | 1-12 factorial constants                       |
 
 | Float 64 Constant           | Description                                    |
 | --------------------------- | ---------------------------------------------- |
-| F64::MIN                    | smallest finite double-precision float value   |
-| F64::MIN_POS                | smallest positive double-precision float value |
-| F64::MAX                    | largest finite double-precision float value    |
-| F64::NAN                    | not a number                                   |
-| F64::NEG_INFINITY           | negative infinity                              |
-| F64::POS_INFINITY           | positive infinity                              |
-| F64::PI                     | pi constant                                    |
-| F64::TAU                    | tau (2 * pi) constant                          |
-| F64::HALF_PI                | pi / 2 constant                                |
-| F64::EPSILON                | epsilon constant                               |
-| F64::SIGNIFICANT_DIGITS     | number of significant digits in base-10        |
-| F64::MANTISSA_DIGITS        | number of signicant digits in base-2           |
-| F64::EXPONENT_MASK          | bitmask of double-precision float exponent     |
-| F64::MANTISSA_MASK          | bitmask of double-precision float mantissa     |
-| F64::(ONE-TWELVE)_FACTORIAL | 1-12 factorial constants                       |
+| F64_MIN                     | smallest finite double-precision float value   |
+| F64_MIN_POS                 | smallest positive double-precision float value |
+| F64_MAX                     | largest finite double-precision float value    |
+| F64_NAN                     | not a number                                   |
+| F64_NEG_INFINITY            | negative infinity                              |
+| F64_POS_INFINITY            | positive infinity                              |
+| F64_PI                      | pi constant                                    |
+| F64_TAU                     | tau (2 * pi) constant                          |
+| F64_HALF_PI                 | pi / 2 constant                                |
+| F64_EPSILON                 | epsilon constant                               |
+| F64_SIGNIFICANT_DIGITS      | number of significant digits in base-10        |
+| F64_MANTISSA_DIGITS         | number of signicant digits in base-2           |
+| F64_EXPONENT_MASK           | bitmask of double-precision float exponent     |
+| F64_MANTISSA_MASK           | bitmask of double-precision float mantissa     |
+| F64_(ONE-TWELVE)_FACTORIAL  | 1-12 factorial constants                       |
 
 | Unsigned 8-bit Integer Constant | Description                     |
 | ------------------------------- | ------------------------------- |
-| U8::MIN                         | smallest unsigned 8-bit integer |
-| U8::MAX                         | largest unsigned 8-bit integer  |
+| U8_MIN                          | smallest unsigned 8-bit integer |
+| U8_MAX                          | largest unsigned 8-bit integer  |
 
 | Unsigned 16-bit Integer Constant | Description                      |
 | -------------------------------- | -------------------------------- |
-| U16::MIN                         | smallest unsigned 16-bit integer |
-| U16::MAX                         | largest unsigned  16-bit integer |
+| U16_MIN                          | smallest unsigned 16-bit integer |
+| U16_MAX                          | largest unsigned  16-bit integer |
 
 | Unsigned 32-bit Integer Constant | Description                      |
 | -------------------------------- | -------------------------------- |
-| U32::MIN                         | smallest unsigned 32-bit integer |
-| U32::MAX                         | largest unsigned  32-bit integer |
+| U32_MIN                          | smallest unsigned 32-bit integer |
+| U32_MAX                          | largest unsigned  32-bit integer |
 
 | Unsigned 64-bit Integer Constant | Description                      |
 | -------------------------------- | -------------------------------- |
-| U64::MIN                         | smallest unsigned 64-bit integer |
-| U64::MAX                         | largest unsigned  64-bit integer |
+| U64_MIN                          | smallest unsigned 64-bit integer |
+| U64_MAX                          | largest unsigned  64-bit integer |
 
 | 8-bit Integer Constant | Description             |
 | ---------------------- | ----------------------- |
-| I8::MIN                | smallest 8-bit integer  |
-| I8::MAX                | largest  8-bit integer  |
-| I8::SIGN_MASK          | sign bitmask            |
+| I8_MIN                 | smallest 8-bit integer  |
+| I8_MAX                 | largest  8-bit integer  |
+| I8_SIGN_MASK           | sign bitmask            |
 
 | 16-bit Integer Constant | Description              |
 | ----------------------- | ------------------------ |
-| I16::MIN                | smallest  16-bit integer |
-| I16::MAX                | largest   16-bit integer |
-| I16::SIGN_MASK          | sign bitmask             |
+| I16_MIN                 | smallest  16-bit integer |
+| I16_MAX                 | largest   16-bit integer |
+| I16_SIGN_MASK           | sign bitmask             |
 
 | 32-bit Integer Constant | Description              |
 | ----------------------- | ------------------------ |
-| I32::MIN                | smallest  32-bit integer |
-| I32::MAX                | largest   32-bit integer |
-| I32::SIGN_MASK          | sign bitmask             |
+| I32_MIN                 | smallest  32-bit integer |
+| I32_MAX                 | largest   32-bit integer |
+| I32_SIGN_MASK           | sign bitmask             |
 
 | 64-bit Integer Constant | Description              |
 | ----------------------- | ------------------------ |
-| I64::MIN                | smallest  64-bit integer |
-| I64::MAX                | largest   64-bit integer |
-| I64::SIGN_MASK          | sign bitmask             |
+| I64_MIN                 | smallest  64-bit integer |
+| I64_MAX                 | largest   64-bit integer |
+| I64_SIGN_MASK           | sign bitmask             |
 
 
 ## Platform Identifiers
@@ -173,7 +180,7 @@ Include in engine:
 | ----------------------- | ----------------------------------------- |
 | LD_COMPILER_GCC         | GNU Compiler Collection is in use         |
 | LD_COMPILER_CLANG       | Clang compiler is in use                  |
-| LD_COMPILER_MSVC[^1]    | Microsoft Visual C++ compiler is in use   |
+| LD_COMPILER_MSVC[^3]    | Microsoft Visual C++ compiler is in use   |
 | LD_COMPILER_UNKNOWN[^1] | Unknown C++ compiler is in use            |
 
 | Platform                   | Description                       |
@@ -199,3 +206,6 @@ Include in engine:
 [^1]: not currently supported
 
 [^2]: not currently defined
+
+[^3]: will not be supported
+

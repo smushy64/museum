@@ -5,9 +5,8 @@
  *               Compiler independent asserts
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: February 24, 2023
- * Includes:     <stdint.h>
- *               <intrin.h> MSVC ONLY
- * Notes:        define LD_ASSERTIONS to enable DEBUG_ASSERT macro
+ * Includes:     <TargetConditionals.h> (APPLE ONLY)
+ * Notes:        define LD_ASSERTIONS to enable ASSERT macro
 */
 /// compiler defines
 #if defined(__GNUC__) || defined(__GNUG__)
@@ -189,7 +188,6 @@ typedef void* pvoid;
 #define LD_CONTACT_MESSAGE \
     "Please contact me at smushybusiness@gmail.com if you see this."
 
-
 /// Convert macro to const char*
 #define TO_STRING( foo ) #foo
 /// Convert macro value to const char*
@@ -197,134 +195,86 @@ typedef void* pvoid;
 
 /// Make a version uint32
 #define LD_MAKE_VERSION( major, minor )\
-    ((u32)major << 15u) | ((u32)minor)
+    ((u32)( major ) << 15u) | ((u32)( minor ))
 /// Get major version from uint32 version
 #define LD_GET_MAJOR( version )\
-    ((u32)version >> 15u)
+    ((u32)( version ) >> 15u)
 /// Get minor version from uint32 version
 #define LD_GET_MINOR( version )\
-    ((u32)version & 0x0000FFFF)
+    ((u32)( version ) & 0x0000FFFF)
 
 /// Calculate number of elements in a static array
 #define STATIC_ARRAY_COUNT( array ) \
-    ( sizeof(array) / sizeof((array)[0]) )
+    ( sizeof(( array )) / sizeof((array)[0]) )
 
 /// Calculate byte size of a static array
 #define STATIC_ARRAY_SIZE( array ) \
-    (sizeof(array))
+    (sizeof(( array )))
+
+/// Reinterpret value as a different type
+#define REINTERPRET( type, value )\
+    (*(type*)&( value ))
 
 #if defined(__cplusplus)
+    /// External C linkage
     #define EXTERNC extern "C"
 #else
+    /// External C linkage
     #define EXTERNC
 #endif
 
-// panic
-// export/import definitions 
-// static assertions
-// always/never inline
-// never optimize away
-// packed struct declaration
-#if defined(LD_COMPILER_MSVC)
-    #include <intrin.h>
-    #define PANIC() __debugbreak()
+/// Crash the program >:)
+#define PANIC() __builtin_trap()
 
-    #define STATIC_ASSERT static_assert
-    // TODO(alicia): HOTPATH/NOOPTIMIZE FOR MSVC
-
-    #define FORCE_INLINE __forceinline
-    #define NO_INLINE    __declspec(noinline)
-
-    #define MAKE_PACKED( declaration ) __pragma( pack(push, 1) ) declaration __pragma( pack(pop) )
-
-    #if defined(LD_EXPORT)
-        #define LD_API __declspec(dllexport)
-    #else // import
-        #define LD_API __declspec(dllimport)
-    #endif
-
-    #define unused(x) (void)(x)
-
-#else // not MSVC
-    #define PANIC() __builtin_trap()
-
-    #if defined(LD_COMPILER_GCC)
-        #define NO_OPTIMIZE __attribute__((optimize("O0")))
-    #else // clang
-        #define NO_OPTIMIZE __attribute__((optnone))
-    #endif
-
-    #define STATIC_ASSERT _Static_assert
-    #define HOT_PATH      __attribute__((hot))
-    #define FORCE_INLINE  __attribute__((always_inline)) inline
-    #define NO_INLINE     __attribute__((noinline))
-    #define MAKE_PACKED( declaration ) declaration __attribute__((__packed__))
-    #define PACKED __attribute__((__packed__))
-
-    #define unused(x) (void)((x))
-
-    #if defined(LD_EXPORT)
-        #if defined(LD_PLATFORM_WINDOWS)
-            #define LD_API __declspec(dllexport)
-        #else
-            #define LD_API __attribute__((visibility("default")))
-        #endif
-    #else
-        #if defined(LD_PLATFORM_WINDOWS)
-            #define LD_API __declspec(dllimport) EXTERNC
-        #else
-            #define LD_API EXTERNC
-        #endif
-    #endif
-
+#if defined(LD_COMPILER_GCC)
+    /// Do not optimize regardless of optimization level
+    #define NO_OPTIMIZE __attribute__((optimize("O0")))
+#else // clang
+    /// Do not optimize regardless of optimization level
+    #define NO_OPTIMIZE __attribute__((optnone))
 #endif
 
-#if defined(LD_EXPORT)
-    #define LD_API_INTERNAL
-#endif
+/// Compile-time assertion
+#define STATIC_ASSERT _Static_assert
 
-// assert that type sizes are correct
-STATIC_ASSERT(sizeof(u8)  == 1, "Expected u8 to be 1 byte!");
-STATIC_ASSERT(sizeof(u16) == 2, "Expected u16 to be 2 bytes!");
-STATIC_ASSERT(sizeof(u32) == 4, "Expected u32 to be 4 bytes!");
-STATIC_ASSERT(sizeof(u64) == 8, "Expected u64 to be 8 bytes!");
-STATIC_ASSERT(sizeof(i8)  == 1, "Expected i8 to be 1 byte!");
-STATIC_ASSERT(sizeof(i16) == 2, "Expected i16 to be 2 bytes!");
-STATIC_ASSERT(sizeof(i32) == 4, "Expected i32 to be 4 bytes!");
-STATIC_ASSERT(sizeof(i64) == 8, "Expected i64 to be 8 bytes!");
-STATIC_ASSERT(sizeof(f32) == 4, "Expected f32 to be 4 bytes!");
-STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes!");
-STATIC_ASSERT(sizeof(c8)  == 1, "Expected c8 to be 1 byte!" );
-STATIC_ASSERT(sizeof(c16) == 2, "Expected c16 to be 2 bytes!" );
-STATIC_ASSERT(sizeof(c32) == 4, "Expected c32 to be 4 bytes!" );
-
-#if defined(LD_ARCH_32_BIT)
-    STATIC_ASSERT(sizeof(usize) == sizeof(u32), "Expected to be running on 32 bit architecture!");
-#elif defined(LD_ARCH_64_BIT)
-    STATIC_ASSERT(sizeof(usize) == sizeof(u64), "Expected to be running on 64 bit architecture!");
-#endif // if arch64/32
-
-/// debug assertions
 #if defined(LD_ASSERTIONS)
+    /// Runtime assertion
     #define ASSERT(condition) do {\
         if(!(condition)) {\
             PANIC();\
         }\
     } while(0)
 #else
+    /// Runtime assertion
     #define ASSERT(condition) (condition)
 #endif
 
+/// Always optimize regardless of optimization level
+#define HOT_PATH      __attribute__((hot))
+/// Always inline function
+#define FORCE_INLINE  __attribute__((always_inline)) inline
+/// Never inline function
+#define NO_INLINE     __attribute__((noinline))
+/// Don't pad struct
+#define PACKED __attribute__((__packed__))
+/// Value is unused
+#define unused(x) (void)((x))
+/// Function is internal to translation unit
 #define internal static
-#define local    static
-#define global   static
+/// Value is local to function
+#define local static
+/// Value is global
+#define global static
 
 #if defined(__cplusplus)
+    /// Header inline function
     #define headerfn inline
 #else
+    /// Header inline function
     #define headerfn extern inline
 #endif
 
+/// Infinite loop
 #define loop for( ;; )
 
 /// Define a 24-bit RGB value (using u32)
@@ -352,12 +302,63 @@ STATIC_ASSERT(sizeof(c32) == 4, "Expected c32 to be 4 bytes!" );
     bits &= ~(mask);\
 } while(0)
 
+/// Kilobytes to bytes
 #define KILOBYTES(num) ( (num) * 1024ULL )
+/// Megabytes to bytes
 #define MEGABYTES(num) ( KILOBYTES( (num) ) * 1024ULL )
+/// Gigabytes to bytes
 #define GIGABYTES(num) ( MEGABYTES( (num) ) * 1024ULL )
 
 /// Size of the stack. Must always compile with this value.
 #define STACK_SIZE (MEGABYTES(1))
+
+#if defined(LD_EXPORT)
+    #if defined(LD_PLATFORM_WINDOWS)
+        /// Import/Export function
+        #define LD_API __declspec(dllexport)
+    #else
+        /// Import/Export function
+        #define LD_API __attribute__((visibility("default")))
+    #endif
+#else
+    #if defined(LD_PLATFORM_WINDOWS)
+        /// Import/Export function
+        #define LD_API __declspec(dllimport) EXTERNC
+    #else
+        /// Import/Export function
+        #define LD_API EXTERNC
+    #endif
+#endif
+
+#if defined(LD_COMPILER_MSVC)
+    #error "MSVC compiler is not supported!"
+#endif
+
+#if defined(LD_EXPORT)
+    /// Internal definition
+    #define LD_API_INTERNAL
+#endif
+
+// assert that type sizes are correct
+STATIC_ASSERT(sizeof(u8)  == 1, "Expected u8 to be 1 byte!");
+STATIC_ASSERT(sizeof(u16) == 2, "Expected u16 to be 2 bytes!");
+STATIC_ASSERT(sizeof(u32) == 4, "Expected u32 to be 4 bytes!");
+STATIC_ASSERT(sizeof(u64) == 8, "Expected u64 to be 8 bytes!");
+STATIC_ASSERT(sizeof(i8)  == 1, "Expected i8 to be 1 byte!");
+STATIC_ASSERT(sizeof(i16) == 2, "Expected i16 to be 2 bytes!");
+STATIC_ASSERT(sizeof(i32) == 4, "Expected i32 to be 4 bytes!");
+STATIC_ASSERT(sizeof(i64) == 8, "Expected i64 to be 8 bytes!");
+STATIC_ASSERT(sizeof(f32) == 4, "Expected f32 to be 4 bytes!");
+STATIC_ASSERT(sizeof(f64) == 8, "Expected f64 to be 8 bytes!");
+STATIC_ASSERT(sizeof(c8)  == 1, "Expected c8 to be 1 byte!" );
+STATIC_ASSERT(sizeof(c16) == 2, "Expected c16 to be 2 bytes!" );
+STATIC_ASSERT(sizeof(c32) == 4, "Expected c32 to be 4 bytes!" );
+
+#if defined(LD_ARCH_32_BIT)
+    STATIC_ASSERT(sizeof(usize) == sizeof(u32), "Expected to be running on 32 bit architecture!");
+#elif defined(LD_ARCH_64_BIT)
+    STATIC_ASSERT(sizeof(usize) == sizeof(u64), "Expected to be running on 64 bit architecture!");
+#endif // if arch64/32
 
 /// 32-bit floating point constants
 
@@ -388,7 +389,7 @@ STATIC_ASSERT(sizeof(c32) == 4, "Expected c32 to be 4 bytes!" );
 /// Bitmask of single precision float exponent
 #define F32_EXPONENT_MASK (~(0xFFFFFFFF << 8ul) << 23ul)
 /// Bitmask of single precision float mantissa
-#define F32_MANTISSA_MASK ((1 << 23) - 1ul)
+#define F32_MANTISSA_MASK ((1ul << 23ul) - 1ul)
 
 #define F32_ONE_FACTORIAL    ( 1.0f )
 #define F32_TWO_FACTORIAL    ( 2.0f  * F32_ONE_FACTORIAL    )
