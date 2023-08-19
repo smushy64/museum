@@ -19,7 +19,7 @@ No libraries are used with the exception of system libraries ( Win32, OpenGL etc
 - Cross platform game engine (Windows, Linux, Mac, WebAssembly)
 - 3D Action RPG (think Dark Souls and Zelda)
 
-## Building
+## Build
 
 ### Requirements
 Currently, only Windows is supported as a build target
