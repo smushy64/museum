@@ -22,12 +22,12 @@
 Currently, only Windows is supported as a build target
 
 ### Common requirements
-- clang 16.0.1 [^1]
+- clang 16.0.5 [^1]
 - GNU Make 4.4.1 [^1]
 - [glslc v2023.1](https://github.com/google/shaderc/blob/main/downloads.md) [^1]
 ### Windows requirements
-- [msys2](https://www.msys2.org/wiki/MSYS2-installation/)
-- windres 2.40 [^1]
+- [mingw](https://www.mingw-w64.org/)
+- windres 2.41 [^1]
     - should be installed with mingw by default
 ### Linux requirements
 - libX11
