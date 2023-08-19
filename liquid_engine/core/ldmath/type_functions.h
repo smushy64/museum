@@ -72,7 +72,7 @@ headerfn f32 v2_sqrmag( vec2 x ) {
 }
 /// calculate the magnitude of vector
 headerfn f32 v2_mag( vec2 x ) {
-    return sqrt( v2_sqrmag( x ) );
+    return sqrt32( v2_sqrmag( x ) );
 }
 /// normalize vector
 headerfn vec2 v2_normalize( vec2 x ) {
@@ -82,7 +82,7 @@ headerfn vec2 v2_normalize( vec2 x ) {
 }
 /// angle(radians) between two vectors
 headerfn f32 v2_angle( vec2 a, vec2 b ) {
-    return acos( v2_dot( a, b ) );
+    return acos32( v2_dot( a, b ) );
 }
 /// linear interpolation
 headerfn vec2 v2_lerp( vec2 a, vec2 b, f32 t ) {
@@ -137,8 +137,8 @@ headerfn vec2 v2_smoother_step_clamped(
 }
 /// rotate vector by theta radians
 headerfn vec2 v2_rotate( vec2 x, f32 theta ) {
-    f32 theta_sin = sin( theta );
-    f32 theta_cos = cos( theta );
+    f32 theta_sin = sin32( theta );
+    f32 theta_cos = cos32( theta );
     vec2 a = {  theta_cos, theta_sin };
     vec2 b = { -theta_sin, theta_cos };
 
@@ -227,7 +227,7 @@ headerfn f32 iv2_sqrmag( ivec2 x ) {
 }
 /// calculate the magnitude of vector
 headerfn f32 iv2_mag( ivec2 x ) {
-    return sqrt( iv2_sqrmag( x ) );
+    return sqrt32( iv2_sqrmag( x ) );
 
 }
 /// normalize vector
@@ -240,7 +240,7 @@ headerfn ivec2 iv2_normalize( ivec2 x ) {
 }
 /// angle(radians) between two vectors
 headerfn f32 iv2_angle( ivec2 a, ivec2 b ) {
-    return acos( iv2_dot( a, b ) );
+    return acos32( iv2_dot( a, b ) );
 }
 /// compare two vectors for equality
 headerfn b32 iv2_cmp_eq( ivec2 a, ivec2 b ) {
@@ -274,7 +274,7 @@ headerfn vec3 v3_div( vec3 lhs, f32 rhs ) {
 /// Create HSV from hue, saturation and value.
 headerfn hsv v3_hsv( f32 hue, f32 saturation, f32 value ) {
     hsv result = {
-        wrap_degrees( hue ),
+        wrap_degrees32( hue ),
         (f32)clamp01( saturation ),
         (f32)clamp01( value )
     };
@@ -312,7 +312,7 @@ headerfn rgb hsv_to_rgb( hsv col ) {
     f32 hue       = col.hue / 60.0f;
     i32 hue_index = floor_i32( hue );
 
-    f32 x = chroma * ( 1.0f - absof( mod( hue, 2.0f ) - 1.0f ) );
+    f32 x = chroma * ( 1.0f - absof( mod32( hue, 2.0f ) - 1.0f ) );
 
     rgb result = {};
 
@@ -348,18 +348,18 @@ headerfn rgb hsv_to_rgb( hsv col ) {
 headerfn rgb linear_to_srgb( rgb linear ) {
     const f32 power = 1.0f / 2.2f;
     rgb result = {
-        pow( linear.r, power ),
-        pow( linear.g, power ),
-        pow( linear.b, power ),
+        pow32( linear.r, power ),
+        pow32( linear.g, power ),
+        pow32( linear.b, power ),
     };
     return result;
 }
 /// convert srgb color space to linear color space
 headerfn rgb srgb_to_linear( rgb srgb ) {
     rgb result = {
-        pow( srgb.r, 2.2f ),
-        pow( srgb.g, 2.2f ),
-        pow( srgb.b, 2.2f ),
+        pow32( srgb.r, 2.2f ),
+        pow32( srgb.g, 2.2f ),
+        pow32( srgb.b, 2.2f ),
     };
     return result;
 }
@@ -402,7 +402,7 @@ headerfn f32 v3_sqrmag( vec3 x ) {
 }
 /// calculate magnitude of vector
 headerfn f32 v3_mag( vec3 x ) {
-    return sqrt( v3_sqrmag( x ) );
+    return sqrt32( v3_sqrmag( x ) );
 }
 /// inner product
 headerfn f32 v3_dot( vec3 lhs, vec3 rhs ) {
@@ -429,7 +429,7 @@ headerfn vec3 v3_reflect( vec3 direction, vec3 normal ) {
 }
 /// calculate the angle(radians) between two vectors
 headerfn f32 v3_angle( vec3 a, vec3 b ) {
-    return acos( v3_dot( a, b ) );
+    return acos32( v3_dot( a, b ) );
 }
 /// linear interpolation
 headerfn vec3 v3_lerp( vec3 a, vec3 b, f32 t ) {
@@ -547,7 +547,7 @@ headerfn f32 iv3_sqrmag( ivec3 x ) {
 }
 /// calculate the magnitude of vector
 headerfn f32 iv3_mag( ivec3 x ) {
-    return sqrt( iv3_sqrmag( x ) );
+    return sqrt32( iv3_sqrmag( x ) );
 }
 /// normalize vector
 headerfn ivec3 iv3_normalize( ivec3 x ) {
@@ -556,7 +556,7 @@ headerfn ivec3 iv3_normalize( ivec3 x ) {
 }
 /// angle(radians) between two vectors
 headerfn f32 iv3_angle( ivec3 a, ivec3 b ) {
-    return acos( iv3_dot( a, b ) );
+    return acos32( iv3_dot( a, b ) );
 }
 /// compare two vectors for equality
 headerfn b32 iv3_cmp_eq( ivec3 a, ivec3 b ) {
@@ -662,7 +662,7 @@ headerfn f32 v4_sqrmag( vec4 x ) {
 }
 /// calculate magnitude of vector
 headerfn f32 v4_mag( vec4 x ) {
-    return sqrt( v4_sqrmag( x ) );
+    return sqrt32( v4_sqrmag( x ) );
 }
 /// normalize vector
 headerfn vec4 v4_normalize( vec4 x ) {
@@ -812,7 +812,7 @@ headerfn f32 iv4_sqrmag( ivec4 x ) {
 }
 /// calculate the magnitude of vector
 headerfn f32 iv4_mag( ivec4 x ) {
-    return sqrt( iv4_sqrmag( x ) );
+    return sqrt32( iv4_sqrmag( x ) );
 }
 /// normalize vector
 headerfn ivec4 iv4_normalize( ivec4 x ) {
@@ -821,7 +821,7 @@ headerfn ivec4 iv4_normalize( ivec4 x ) {
 }
 /// angle(radians) between two vectors
 headerfn f32 iv4_angle( ivec4 a, ivec4 b ) {
-    return acos( iv4_dot( a, b ) );
+    return acos32( iv4_dot( a, b ) );
 }
 /// compare two vectors for equality
 headerfn b32 iv4_cmp_eq( ivec4 a, ivec4 b ) {
@@ -910,7 +910,7 @@ headerfn quat q_div( quat lhs, f32 rhs ) {
 /// Create quaternion from angle and axis.
 headerfn quat q_angle_axis( f32 theta, vec3 axis ) {
     f32 half_theta   = theta / 2.0f;
-    tuplef32 sinecos = sincos( half_theta );
+    tuplef32 sinecos = sincos32( half_theta );
     return (quat){
         sinecos.f1,
         axis.x * sinecos.f0,
@@ -924,13 +924,13 @@ headerfn quat q_euler( f32 pitch, f32 yaw, f32 roll ) {
     f32 half_y = yaw   / 2.0f;
     f32 half_z = roll  / 2.0f;
 
-    f32 x_sin = sin( half_x );
-    f32 y_sin = sin( half_y );
-    f32 z_sin = sin( half_z );
+    f32 x_sin = sin32( half_x );
+    f32 y_sin = sin32( half_y );
+    f32 z_sin = sin32( half_z );
 
-    f32 x_cos = cos( half_x );
-    f32 y_cos = cos( half_y );
-    f32 z_cos = cos( half_z );
+    f32 x_cos = cos32( half_x );
+    f32 y_cos = cos32( half_y );
+    f32 z_cos = cos32( half_z );
 
     f32 xyz_cos = x_cos * y_cos * z_cos;
     f32 xyz_sin = x_sin * y_sin * z_sin;
@@ -961,7 +961,7 @@ headerfn f32 q_sqrmag( quat q ) {
 }
 /// calculate magnitude of quaternion
 headerfn f32 q_mag( quat q ) {
-    return sqrt( q_sqrmag( q ) );
+    return sqrt32( q_sqrmag( q ) );
 }
 /// normalize quaternion
 headerfn quat q_normalize( quat q ) {
@@ -979,7 +979,7 @@ headerfn quat q_inverse( quat q ) {
 /// angle between quaternions
 headerfn f32 q_angle( quat a, quat b ) {
     quat qd = q_mul_q( q_inverse( a ), b );
-    return 2.0f * atan2( v3_mag( qd.xyz ), qd.w );
+    return 2.0f * atan2_32( v3_mag( qd.xyz ), qd.w );
 }
 /// inner product
 headerfn f32 q_dot( quat lhs, quat rhs ) {
@@ -1004,7 +1004,7 @@ headerfn quat q_lerp_clamped( quat a, quat b, f32 t ) {
 headerfn quat q_slerp( quat a, quat b, f32 t ) {
     quat _b = b;
     f32 theta = q_dot(a, b);
-    f32 cos_theta = cos( theta );
+    f32 cos_theta = cos32( theta );
     if( cos_theta < 0.0f ) {
         _b = q_neg( _b );
         cos_theta = -cos_theta;
@@ -1015,10 +1015,10 @@ headerfn quat q_slerp( quat a, quat b, f32 t ) {
         return q_normalize(
             q_div(
                 q_add(
-                    q_mul( a, sin( (1.0f - t) * theta ) ),
-                    q_mul( _b, sin( t * theta ) )
+                    q_mul( a, sin32( (1.0f - t) * theta ) ),
+                    q_mul( _b, sin32( t * theta ) )
                 ),
-                sin( theta )
+                sin32( theta )
             )
         );
     }
@@ -1460,7 +1460,7 @@ headerfn mat4 m4_perspective(
 ) {
     mat4 result = {};
     
-    f32 half_fov_tan = tan( fov / 2.0f );
+    f32 half_fov_tan = tan32( fov / 2.0f );
     f32 f_sub_n      = far_ - near_;
 
     result.c[ 0] = 1.0f / ( aspect_ratio * half_fov_tan );
@@ -1494,7 +1494,7 @@ headerfn mat4 m4_translate_v2( vec2 translation ) {
 }
 /// create rotation matrix around x axis
 headerfn mat4 m4_rotate_pitch( f32 pitch ) {
-    tuplef32 sin_cos = sincos( pitch );
+    tuplef32 sin_cos = sincos32( pitch );
 
     return (mat4){
         1.0f,        0.0f,       0.0f, 0.0f,
@@ -1505,8 +1505,8 @@ headerfn mat4 m4_rotate_pitch( f32 pitch ) {
 }
 /// create rotation matrix around y axis
 headerfn mat4 m4_rotate_yaw( f32 yaw ) {
-    f32 cosine = cos( yaw );
-    f32 sine   = sin( yaw );
+    f32 cosine = cos32( yaw );
+    f32 sine   = sin32( yaw );
 
     return (mat4){
         cosine, 0.0f,  -sine, 0.0f,
@@ -1517,8 +1517,8 @@ headerfn mat4 m4_rotate_yaw( f32 yaw ) {
 }
 /// create rotation matrix around z axis
 headerfn mat4 m4_rotate_roll( f32 roll ) {
-    f32 cosine = cos( roll );
-    f32 sine   = sin( roll );
+    f32 cosine = cos32( roll );
+    f32 sine   = sin32( roll );
 
     return (mat4){
         cosine,   sine, 0.0f, 0.0f,
@@ -1662,7 +1662,7 @@ headerfn f32 m4_minor( const mat4* m, u32 row, u32 col ) {
 /// calculate the cofactor of minor at given coordinates
 headerfn f32 m4_cofactor( const mat4* m, u32 row, u32 col ) {
     f32 minor = m4_minor( m, row, col );
-    return minor * powi(
+    return minor * powi32(
         -1.0f,
         ( row + 1 ) + ( col + 1 )
     );
@@ -1738,12 +1738,12 @@ headerfn rgba rgb_to_rgba( rgb rgb ) {
 /// convert quaternion to euler angles
 headerfn euler_angles quat_to_euler( quat q ) {
     return (euler_angles){
-        atan2(
+        atan2_32(
             2.0f * (( q.w * q.x ) + ( q.y * q.z )),
             1.0f - 2.0f * ( ( q.x * q.x ) + ( q.y * q.y ) )
         ),
-        asin_real( 2.0f * (( q.w * q.y ) - ( q.z * q.x )) ),
-        atan2(
+        asin32_real( 2.0f * (( q.w * q.y ) - ( q.z * q.x )) ),
+        atan2_32(
             2.0f * (( q.w * q.z ) + ( q.x * q.y )),
             1.0f - 2.0f * ( ( q.y * q.y ) + ( q.z * q.z ) )
         ),
@@ -1755,9 +1755,9 @@ headerfn void quat_to_angle_axis(
     f32* out_angle_radians,
     vec3* out_axis
 ) {
-    f32 inv_w2_sqrt = sqrt( 1.0f - ( q.w * q.w ) );
+    f32 inv_w2_sqrt = sqrt32( 1.0f - ( q.w * q.w ) );
     *out_axis = v3_div( q.xyz, inv_w2_sqrt );
-    *out_angle_radians = 2.0f * acos( q.w );
+    *out_angle_radians = 2.0f * acos32( q.w );
 }
 
 headerfn vec2 v3_to_v2( vec3 v ) { return v.xy; }

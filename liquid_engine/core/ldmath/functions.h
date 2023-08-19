@@ -158,7 +158,7 @@
     ((i8)( absof( (f) ) * (f32)I64_MAX ) * (i8)(signof((f))))
 
 /// square root
-headerfn f32 sqrt( f32 x ) {
+headerfn f32 sqrt32( f32 x ) {
 #if LD_SIMD_WIDTH == 1
 #if defined(LD_ARCH_X86)
     f32 result;
@@ -196,7 +196,7 @@ headerfn f64 sqrt64( f64 x ) {
 #endif
 }
 /// inverse sqrt
-headerfn f32 inv_sqrt( f32 x ) {
+headerfn f32 inv_sqrt32( f32 x ) {
 #if LD_SIMD_WIDTH != 1
     return lane1f_inv_sqrt( x );
 #else
@@ -209,7 +209,7 @@ headerfn f64 inv_sqrt64( f64 x ) {
 }
 
 /// raise to the power, integer exponent
-headerfn f32 powi( f32 base, i32 exponent ) {
+headerfn f32 powi32( f32 base, i32 exponent ) {
     u32 exponent_abs = absof( exponent );
     f32 result = base;
     for( u32 i = 1; i < exponent_abs; ++i ) {
@@ -236,20 +236,18 @@ headerfn f64 powi64( f64 base, i32 exponent ) {
 }
 
 /// raise to the power, float exponent
-headerfn f32 pow( f32 base, f32 exponent ) {
+headerfn f32 pow32( f32 base, f32 exponent ) {
     // TODO(alicia): REPLACE
-    return powi( base, (i32)exponent );
-    // return impl::_powf_( base, exponent );
+    return powi32( base, (i32)exponent );
 }
 /// raise to the power, float exponent
 headerfn f64 pow64( f64 base, f64 exponent ) {
     // TODO(alicia): REPLACE
     return powi64( base, (i32)exponent );
-    // return impl::_pow_( base, exponent );
 }
 
 /// float modulus
-headerfn f32 mod( f32 lhs, f32 rhs ) {
+headerfn f32 mod32( f32 lhs, f32 rhs ) {
     if(0.0f == rhs) {
         return lhs;
     }
@@ -320,7 +318,7 @@ headerfn f64 mod64( f64 lhs, f64 rhs ) {
 }
 
 /// check if single-precision is not a number
-headerfn b32 is_nan( f32 x ) {
+headerfn b32 is_nan32( f32 x ) {
     u32 bitpattern = *(u32*)&x;
 
     u32 exp = bitpattern & F32_EXPONENT_MASK;
@@ -329,7 +327,7 @@ headerfn b32 is_nan( f32 x ) {
     return exp == F32_EXPONENT_MASK && man != 0;
 }
 /// check if single-precision float is zero
-headerfn b32 is_zero( f32 x ) {
+headerfn b32 is_zero32( f32 x ) {
     u32 bitpattern = *(u32*)&x;
     return (bitpattern & 0x7FFFFFFF) == 0 || (bitpattern == 0x80000000);
 }
@@ -349,8 +347,8 @@ headerfn b32 is_zero64( f64 x ) {
 }
 
 /// Wrap a degree value into 0.0 -> 360.0 range
-headerfn f32 wrap_degrees( f32 degrees ) {
-    f32 result = mod( degrees, 360.0f );
+headerfn f32 wrap_degrees32( f32 degrees ) {
+    f32 result = mod32( degrees, 360.0f );
     if( result < 0.0f ) {
         result += 360.0f;
     }
@@ -365,8 +363,8 @@ headerfn f64 wrap_degrees64( f64 degrees ) {
     return result;
 }
 /// Wrap a radians value into -Pi -> Pi range
-headerfn f32 wrap_pi( f32 radians ) {
-    return mod( radians + F32_PI, F32_TAU ) - F32_PI;
+headerfn f32 wrap_pi32( f32 radians ) {
+    return mod32( radians + F32_PI, F32_TAU ) - F32_PI;
 }
 /// Wrap a radians value into -Pi -> Pi range
 headerfn f64 wrap_pi64( f64 radians ) {
@@ -374,14 +372,14 @@ headerfn f64 wrap_pi64( f64 radians ) {
 }
 
 /// sine function
-headerfn f32 sin( f32 x ) {
-    x = wrap_pi(x);
+headerfn f32 sin32( f32 x ) {
+    x = wrap_pi32(x);
     return x -
-        ( powi( x, 3 ) / F32_THREE_FACTORIAL ) +
-        ( powi( x, 5 ) / F32_FIVE_FACTORIAL  ) -
-        ( powi( x, 7 ) / F32_SEVEN_FACTORIAL ) +
-        ( powi( x, 9 ) / F32_NINE_FACTORIAL  );
-        // - ( powi( x, 11 ) / F32_ELEVEN_FACTORIAL )
+        ( powi32( x, 3 ) / F32_THREE_FACTORIAL ) +
+        ( powi32( x, 5 ) / F32_FIVE_FACTORIAL  ) -
+        ( powi32( x, 7 ) / F32_SEVEN_FACTORIAL ) +
+        ( powi32( x, 9 ) / F32_NINE_FACTORIAL  );
+        // - ( powi32( x, 11 ) / F32_ELEVEN_FACTORIAL )
 }
 /// sine function
 headerfn f64 sin64( f64 x ) {
@@ -394,7 +392,7 @@ headerfn f64 sin64( f64 x ) {
         // - ( powi( x, 11 ) / F64_ELEVEN_FACTORIAL )
 }
 /// arc-sine function
-headerfn f32 asin( f32 x ) {
+headerfn f32 asin32( f32 x ) {
     // don't ask me how i figured this shit out
     // i don't even know
     f32 sign_of_x = signof( x );
@@ -406,7 +404,7 @@ headerfn f32 asin( f32 x ) {
     const f32 magic_2 =  0.0742610f;
     const f32 magic_3 = -0.0187293f;
 
-    f32 result = F32_HALF_PI - sqrt( 1.0f - x_abs ) * (
+    f32 result = F32_HALF_PI - sqrt32( 1.0f - x_abs ) * (
         magic_0 +
         ( magic_1 * x_abs ) +
         ( magic_2 * x_sqr ) +
@@ -437,23 +435,23 @@ headerfn f64 asin64( f64 x ) {
 }
 
 /// arc-sine function, does not return NAN
-headerfn f32 asin_real( f32 x ) {
-    return absof(x) >= 1.0f ? F32_HALF_PI * signof(x) : asin(x);
+headerfn f32 asin32_real( f32 x ) {
+    return absof(x) >= 1.0f ? F32_HALF_PI * signof(x) : asin32(x);
 }
 /// arc-sine function, does not return NAN
-headerfn f64 asin_real64( f64 x ) {
+headerfn f64 asin64_real( f64 x ) {
     return absof(x) >= 1.0 ? F64_HALF_PI * signof(x) : asin64(x);
 }
 
 /// cosine function
-headerfn f32 cos( f32 x ) {
-    x = wrap_pi(x);
+headerfn f32 cos32( f32 x ) {
+    x = wrap_pi32(x);
     return 1.0f -
-        ( powi( x, 2 ) / F32_TWO_FACTORIAL ) +
-        ( powi( x, 4 ) / F32_FOUR_FACTORIAL )  -
-        ( powi( x, 6 ) / F32_SIX_FACTORIAL ) +
-        ( powi( x, 8 ) / F32_EIGHT_FACTORIAL );
-        // - ( pow( x, 10 ) / F32_TEN_FACTORIAL )
+        ( powi32( x, 2 ) / F32_TWO_FACTORIAL ) +
+        ( powi32( x, 4 ) / F32_FOUR_FACTORIAL )  -
+        ( powi32( x, 6 ) / F32_SIX_FACTORIAL ) +
+        ( powi32( x, 8 ) / F32_EIGHT_FACTORIAL );
+        // - ( pow32( x, 10 ) / F32_TEN_FACTORIAL )
 }
 /// cosine function
 headerfn f64 cos64( f64 x ) {
@@ -463,11 +461,11 @@ headerfn f64 cos64( f64 x ) {
         ( powi64( x, 4 ) / F64_FOUR_FACTORIAL )  -
         ( powi64( x, 6 ) / F64_SIX_FACTORIAL ) +
         ( powi64( x, 8 ) / F64_EIGHT_FACTORIAL );
-        // - ( powi( x, 10) / F64_TEN_FACTORIAL )
+        // - ( powi64( x, 10 ) / F64_TEN_FACTORIAL )
 }
 /// arc-cosine function
-headerfn f32 acos( f32 x ) {
-    return -asin(x) + F32_HALF_PI;
+headerfn f32 acos32( f32 x ) {
+    return -asin32(x) + F32_HALF_PI;
 }
 /// arc-cosine function
 headerfn f64 acos64( f64 x ) {
@@ -475,8 +473,8 @@ headerfn f64 acos64( f64 x ) {
 }
 
 // sin-cos function
-headerfn tuplef32 sincos( f32 x ) {
-    tuplef32 result = { sin(x), cos(x) };
+headerfn tuplef32 sincos32( f32 x ) {
+    tuplef32 result = { sin32(x), cos32(x) };
     return result;
 }
 // sin-cos function
@@ -486,9 +484,9 @@ headerfn tuplef64 sincos64( f64 x ) {
 }
 
 /// tangent function
-headerfn f32 tan( f32 x ) {
-    tuplef32 sc = sincos( x );
-    return is_zero(sc.f1) ? F32_NAN : sc.f0 / sc.f1;
+headerfn f32 tan32( f32 x ) {
+    tuplef32 sc = sincos32( x );
+    return is_zero32(sc.f1) ? F32_NAN : sc.f0 / sc.f1;
 }
 /// tangent function
 headerfn f64 tan64( f64 x ) {
@@ -496,14 +494,14 @@ headerfn f64 tan64( f64 x ) {
     return is_zero64(sc.f1) ? F64_NAN : sc.f0 / sc.f1;
 }
 /// arc-tangent function
-headerfn f32 atan( f32 x ) {
+headerfn f32 atan32( f32 x ) {
     return x -
-        ( powi( x, 3 )  / 3.0f ) +
-        ( powi( x, 5 )  / 5.0f ) -
-        ( powi( x, 7 )  / 7.0f ) +
-        ( powi( x, 9 )  / 9.0f ) -
-        ( powi( x, 11 ) / 11.0f ) +
-        ( powi( x, 13 ) / 13.0f );
+        ( powi32( x, 3 )  / 3.0f ) +
+        ( powi32( x, 5 )  / 5.0f ) -
+        ( powi32( x, 7 )  / 7.0f ) +
+        ( powi32( x, 9 )  / 9.0f ) -
+        ( powi32( x, 11 ) / 11.0f ) +
+        ( powi32( x, 13 ) / 13.0f );
 }
 /// arc-tangent function
 headerfn f64 atan64( f64 x ) {
@@ -517,7 +515,7 @@ headerfn f64 atan64( f64 x ) {
 }
 
 /// two argument arc-tangent function
-headerfn f32 atan2( f32 y, f32 x ) {
+headerfn f32 atan2_32( f32 y, f32 x ) {
     if( y == 0.0f ) {
         if( x < 0.0f ) {
             return F32_PI;
@@ -528,10 +526,10 @@ headerfn f32 atan2( f32 y, f32 x ) {
 
     f32 x_sqr = x * x;
     f32 y_sqr = y * y;
-    return 2.0f * atan( y / ( sqrt( x_sqr + y_sqr ) + x ) );
+    return 2.0f * atan32( y / ( sqrt32( x_sqr + y_sqr ) + x ) );
 }
 /// two argument arc-tangent function
-headerfn f64 atan264( f64 y, f64 x ) {
+headerfn f64 atan2_64( f64 y, f64 x ) {
     if( y == 0.0 ) {
         if( x < 0.0 ) {
             return F64_PI;
@@ -544,39 +542,30 @@ headerfn f64 atan264( f64 y, f64 x ) {
     f64 y_sqr = y * y;
     return 2.0 * atan64( y / ( sqrt64( x_sqr + y_sqr ) + x ) );
 }
+ 
+/// convert degrees to radians
+#define to_rad( theta )\
+    ( theta * ( __typeof(theta)(F64_PI) / __typeof(theta)(180.0) ) )
 
-/// convert degrees to radians
-headerfn f32 to_rad( f32 theta ) {
-    return theta * ( F32_PI / 180.0f );
-}
-/// convert degrees to radians
-headerfn f64 to_rad64( f64 theta ) {
-    return theta * ( F64_PI / 180.0 );
-}
 /// convert radians to degrees 
-headerfn f32 to_deg( f32 theta ) {
-    return theta * ( 180.0f / F32_PI );
-}
-/// convert radians to degrees 
-headerfn f64 to_deg64( f64 theta ) {
-    return theta * ( 180.0 / F64_PI );
-}
+#define to_deg( theta )\
+    ( theta * ( __typeof(theta)(180.0) / __typeof(theta)(F64_PI) ) )
 
 /// natural logarithm
-headerfn f32 logarithm( f32 x ) {
+headerfn f32 log32( f32 x ) {
     // TODO(alicia): replace with an actual function!
     return F32_NAN * x;
     // return impl::_logf_( x );
 }
 /// natural logarithm
-headerfn f64 logarithm64( f64 x ) {
+headerfn f64 log64( f64 x ) {
     // TODO(alicia): replace with an actual function!
     return F64_NAN * x;
     // return impl::_log_( x );
 }
 
 /// linear interpolation
-headerfn f32 lerp( f32 a, f32 b, f32 t ) {
+headerfn f32 lerp32( f32 a, f32 b, f32 t ) {
     return ( 1.0f - t ) * a + b * t;
 }
 /// linear interpolation
@@ -584,15 +573,15 @@ headerfn f64 lerp64( f64 a, f64 b, f64 t ) {
     return ( 1.0 - t ) * a + b * t;
 }
 /// linear interpolation, t clamped to 0-1
-headerfn f32 lerp_clamped( f32 a, f32 b, f32 t ) {
-    return lerp( a, b, clamp01(t) );
+headerfn f32 lerp32_clamped( f32 a, f32 b, f32 t ) {
+    return lerp32( a, b, clamp01(t) );
 }
 /// linear interpolation, t clamped to 0-1
-headerfn f64 lerp_clamped64( f64 a, f64 b, f64 t ) {
+headerfn f64 lerp64_clamped( f64 a, f64 b, f64 t ) {
     return lerp64( a, b, clamp01(t) );
 }
 /// inverse linear interpolation
-headerfn f32 inverse_lerp( f32 a, f32 b, f32 v ) {
+headerfn f32 inverse_lerp32( f32 a, f32 b, f32 v ) {
     return ( v - a ) / ( b - a );
 }
 /// inverse linear interpolation
@@ -600,18 +589,18 @@ headerfn f64 inverse_lerp64( f64 a, f64 b, f64 v ) {
     return ( v - a ) / ( b - a );
 }
 /// remap value from input min/max to output min/max
-headerfn f32 remap( f32 imin, f32 imax, f32 omin, f32 omax, f32 v ) {
-    const f32 t = inverse_lerp( imin, imax, v );
-    return lerp( omin, omax, t );
+headerfn f32 remap32( f32 imin, f32 imax, f32 omin, f32 omax, f32 v ) {
+    const f32 t = inverse_lerp32( imin, imax, v );
+    return lerp32( omin, omax, t );
 }
 /// remap value from input min/max to output min/max
 headerfn f64 remap64( f64 imin, f64 imax, f64 omin, f64 omax, f64 v ) {
-    const f64 t = inverse_lerp( imin, imax, v );
+    const f64 t = inverse_lerp64( imin, imax, v );
     return lerp64( omin, omax, t );
 }
 
 /// smooth step interpolation
-headerfn f32 smooth_step( f32 a, f32 b, f32 t ) {
+headerfn f32 smooth_step32( f32 a, f32 b, f32 t ) {
     return ( b - a ) * ( 3.0f - t * 2.0f ) * t * t + a;
 }
 /// smooth step interpolation
@@ -619,15 +608,15 @@ headerfn f64 smooth_step64( f64 a, f64 b, f64 t ) {
     return ( b - a ) * ( 3.0 - t * 2.0 ) * t * t + a;
 }
 /// smooth step interpolation, t clamped to 0-1
-headerfn f32 smooth_step_clamped( f32 a, f32 b, f32 t ) {
-    return smooth_step( a, b, clamp01(t) );
+headerfn f32 smooth_step32_clamped( f32 a, f32 b, f32 t ) {
+    return smooth_step32( a, b, clamp01(t) );
 }
 /// smooth step interpolation, t clamped to 0-1
-headerfn f64 smooth_step_clamped64( f64 a, f64 b, f64 t ) {
+headerfn f64 smooth_step64_clamped( f64 a, f64 b, f64 t ) {
     return smooth_step64( a, b, clamp01(t) );
 }
 /// smoother step interpolation
-headerfn f32 smoother_step( f32 a, f32 b, f32 t ) {
+headerfn f32 smoother_step32( f32 a, f32 b, f32 t ) {
     return ( b - a ) *
         ( ( t * ( t * 6.0f - 15.0f ) + 10.0f ) * t * t * t ) + a;
 }
@@ -637,11 +626,11 @@ headerfn f64 smoother_step64( f64 a, f64 b, f64 t ) {
         ( ( t * ( t * 6.0 - 15.0 ) + 10.0 ) * t * t * t ) + a;
 }
 /// smoother step interpolation, t clamped to 0-1
-headerfn f32 smoother_step_clamped( f32 a, f32 b, f32 t ) {
-    return smoother_step( a, b, clamp01(t) );
+headerfn f32 smoother_step32_clamped( f32 a, f32 b, f32 t ) {
+    return smoother_step32( a, b, clamp01(t) );
 }
 /// smoother step interpolation, t clamped to 0-1
-headerfn f64 smoother_step_clamped64( f64 a, f64 b, f64 t ) {
+headerfn f64 smoother_step64_clamped( f64 a, f64 b, f64 t ) {
     return smoother_step64( a, b, clamp01(t) );
 }
 

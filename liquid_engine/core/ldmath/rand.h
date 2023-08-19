@@ -9,10 +9,10 @@
 #include "core/ldmath/functions.h"
 
 #define RAND_INT_TO_FLOAT( x )\
-    lerp(\
+    lerp32(\
         -1.0f,\
         1.0f,\
-        inverse_lerp(\
+        inverse_lerp32(\
             (f32)I32_MIN,\
             (f32)I32_MAX,\
             (f32)(x)\
@@ -20,7 +20,7 @@
     )
 
 #define RAND_INT_TO_FLOAT_01( x )\
-    inverse_lerp(\
+    inverse_lerp32(\
         (f32)U32_MIN,\
         (f32)U32_MAX,\
         (f32)(x)\
