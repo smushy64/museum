@@ -18,7 +18,7 @@ typedef enum EventCallbackResult : b32 {
 struct Event;
 
 /// Event Callback function.
-typedef EventCallbackResult (*EventCallbackFN)(
+typedef EventCallbackResult EventCallbackFN(
     struct Event* event, void* params
 );
 
@@ -28,33 +28,30 @@ typedef EventCallbackResult (*EventCallbackFN)(
 typedef u8 EventCode;
 /// Invalid event code.
 /// Any event code with this value will fail an assertion and crash the program.
-#define EVENT_CODE_INVALID (0)
+#define EVENT_CODE_INVALID ((EventCode)(0))
 /// Exit code.
 /// Triggers engine shutdown.
 /// Contains no data.
-#define EVENT_CODE_EXIT (1)
+#define EVENT_CODE_EXIT ((EventCode)(1))
 /// Application Active code.
 /// Tells engine when application is active/inactive.
-/// Contains 1 bool32 which is true when app is active, false when it isn't.
-#define EVENT_CODE_ACTIVE (2)
+/// Contains struct EventAppActive.
+#define EVENT_CODE_APP_ACTIVE ((EventCode)(2))
 /// Surface Resize code.
 /// Tells engine when surface is resized.
-/// Contains 2 int32 which correspond to the new width and height of the surface.
-#define EVENT_CODE_RESIZE (3)
+/// Contains struct EventResize.
+#define EVENT_CODE_SURFACE_RESIZE ((EventCode)(3))
 /// Gamepad Active code.
 /// Tells engine when a gamepad is active/inactive.
-/// Contains 1 uint32[0] for the index of the gamepad being talked about and
-/// 1 bool32[1] for whether or not the gamepad is now active or inactive.
-#define EVENT_CODE_GAMEPAD_ACTIVE (4)
+/// Contains struct EventGamepadActive.
+#define EVENT_CODE_GAMEPAD_ACTIVE ((EventCode)(4))
 /// Max Engine Event Code.
 /// This is the maximum event code that the engine is allowed to use.
 /// Any codes greater than this are user event codes.
-#define EVENT_CODE_MAX_ENGINE_CODE (5)
+#define EVENT_CODE_MAX_ENGINE_CODE ((EventCode)(5))
 /// Max Event Code.
 /// This is the maximum event code that is allowed.
-/// Any event code that goes above this value will fail an assertion and crash
-/// the program.
-#define EVENT_CODE_MAX (U8_MAX)
+#define EVENT_CODE_MAX ((EventCode)(U8_MAX))
 
 /// Event.
 /// EventCode tells you what type of event it is.
@@ -92,6 +89,20 @@ typedef struct Event {
         b8 bool8[16];
 
         char char8[16];
+
+        struct EventAppActive {
+            b32 active;
+        } app_active;
+
+        struct EventResize {
+            ivec2 new_dimensions;
+        } resize;
+
+        struct EventGamepadActive {
+            u32 index;
+            b32 active;
+        } gamepad_active;
+
     } data;
 } Event;
 
@@ -121,14 +132,14 @@ typedef u16 EventListenerID;
 /// Event Listener Invalid ID.
 /// If event_subscribe returns this id,
 /// it is a fatal error and the program should shutdown.
-global const EventListenerID EVENT_LISTENER_INVALID_ID = 0;
+#define EVENT_LISTENER_INVALID_ID ((EventListenerID)(0))
 
 /// Subscribe a listener callback to an event.
 /// Returns an id that must be cached in order to unsubscribe.
 LD_API EventListenerID event_subscribe(
-    EventCode       event_code,
-    EventCallbackFN callback,
-    void*           callback_params
+    EventCode        event_code,
+    EventCallbackFN* callback,
+    void*            callback_params
 );
 /// Unsubscribe listener from event.
 LD_API void event_unsubscribe( EventListenerID id );
@@ -136,11 +147,9 @@ LD_API void event_unsubscribe( EventListenerID id );
 #if defined(LD_API_INTERNAL)
 
     /// Size of event subsystem.
-    u32 query_event_subsystem_size();
+    usize event_query_subsystem_size();
     /// Initialize Event Subsystem.
-    b32 event_init( void* event_subsystem_buffer );
-    /// Shutdown Event Subsystem.
-    void event_shutdown();
+    b32 event_subsystem_init( void* event_subsystem_buffer );
     /// Fire end of frame events.
     void event_fire_end_of_frame();
 

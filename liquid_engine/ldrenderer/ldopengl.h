@@ -38,49 +38,52 @@ b32 gl_renderer_backend_init( RendererContext* ctx );
     #define GL_LOG_NOTE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE,\
-            LOG_COLOR_RESET,\
-            LOG_FLAG_NEW_LINE,\
+            false, true,\
             "[GL NOTE] " format,\
             ##__VA_ARGS__\
         )
     #define GL_LOG_INFO( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_INFO,\
-            LOG_COLOR_WHITE,\
-            LOG_FLAG_NEW_LINE,\
-            "[GL INFO] " format,\
+            false, true,\
+            LOG_COLOR_WHITE\
+            "[GL INFO] " format\
+            LOG_COLOR_RESET,\
             ##__VA_ARGS__\
         )
     #define GL_LOG_DEBUG( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_DEBUG,\
-            LOG_COLOR_BLUE,\
-            LOG_FLAG_NEW_LINE,\
-            "[GL DEBUG] " format,\
+            false, true,\
+            LOG_COLOR_BLUE\
+            "[GL DEBUG] " format\
+            LOG_COLOR_RESET,\
             ##__VA_ARGS__\
         )
     #define GL_LOG_WARN( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_WARN,\
-            LOG_COLOR_YELLOW,\
-            LOG_FLAG_NEW_LINE,\
-            "[GL WARN] " format,\
+            false, true,\
+            LOG_COLOR_YELLOW\
+            "[GL WARN] " format\
+            LOG_COLOR_RESET,\
             ##__VA_ARGS__\
         )
     #define GL_LOG_ERROR( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_ERROR,\
-            LOG_COLOR_RED,\
-            LOG_FLAG_NEW_LINE,\
-            "[GL ERROR] " format,\
+            false, true,\
+            LOG_COLOR_RED\
+            "[GL ERROR] " format\
+            LOG_COLOR_RESET,\
             ##__VA_ARGS__\
         )
 
     #define GL_LOG_NOTE_TRACE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,\
-            LOG_COLOR_RESET,\
-            LOG_FLAG_NEW_LINE,\
+            false, true,\
+            LOG_COLOR_RESET\
             "[GL NOTE | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
@@ -91,9 +94,10 @@ b32 gl_renderer_backend_init( RendererContext* ctx );
     #define GL_LOG_INFO_TRACE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
-            LOG_COLOR_WHITE,\
-            LOG_FLAG_NEW_LINE,\
-            "[GL INFO | {cc}() | {cc}:{i}] " format,\
+            false, true,\
+            LOG_COLOR_WHITE\
+            "[GL INFO | {cc}() | {cc}:{i}] " format\
+            LOG_COLOR_RESET,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -103,9 +107,10 @@ b32 gl_renderer_backend_init( RendererContext* ctx );
     #define GL_LOG_DEBUG_TRACE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_DEBUG | LOG_LEVEL_TRACE,\
-            LOG_COLOR_BLUE,\
-            LOG_FLAG_NEW_LINE,\
-            "[GL DEBUG | {cc}() | {cc}:{i}] " format,\
+            false, true,\
+            LOG_COLOR_BLUE\
+            "[GL DEBUG | {cc}() | {cc}:{i}] " format\
+            LOG_COLOR_RESET,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -115,9 +120,10 @@ b32 gl_renderer_backend_init( RendererContext* ctx );
     #define GL_LOG_WARN_TRACE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_WARN | LOG_LEVEL_TRACE,\
-            LOG_COLOR_YELLOW,\
-            LOG_FLAG_NEW_LINE,\
-            "[GL WARN | {cc}() | {cc}:{i}] " format,\
+            false, true,\
+            LOG_COLOR_YELLOW\
+            "[GL WARN | {cc}() | {cc}:{i}] " format\
+            LOG_COLOR_RESET,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -127,9 +133,10 @@ b32 gl_renderer_backend_init( RendererContext* ctx );
     #define GL_LOG_ERROR_TRACE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
-            LOG_COLOR_RED,\
-            LOG_FLAG_NEW_LINE,\
-            "[GL ERROR | {cc}() | {cc}:{i}] " format,\
+            false, true,\
+            LOG_COLOR_RED\
+            "[GL ERROR | {cc}() | {cc}:{i}] " format\
+            LOG_COLOR_RESET,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -139,26 +146,27 @@ b32 gl_renderer_backend_init( RendererContext* ctx );
     #define GL_LOG_FATAL( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
-            LOG_COLOR_RED,\
-            LOG_FLAG_NEW_LINE | LOG_FLAG_ALWAYS_PRINT,\
-            "[GL FATAL | {cc}() | {cc}:{i}] " format,\
+            true, true,\
+            LOG_COLOR_RED\
+            "[GL FATAL | {cc}() | {cc}:{i}] " format\
+            LOG_COLOR_RESET,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
             ##__VA_ARGS__\
         )
 #else
-    #define GL_LOG_NOTE( format, ... )
-    #define GL_LOG_INFO( format, ... )
-    #define GL_LOG_DEBUG( format, ... )
-    #define GL_LOG_WARN( format, ... )
-    #define GL_LOG_ERROR( format, ... )
-    #define GL_LOG_NOTE_TRACE( format, ... )
-    #define GL_LOG_INFO_TRACE( format, ... )
-    #define GL_LOG_DEBUG_TRACE( format, ... )
-    #define GL_LOG_WARN_TRACE( format, ... )
-    #define GL_LOG_ERROR_TRACE( format, ... )
-    #define GL_LOG_FATAL( format, ... )
+    #define GL_LOG_NOTE( format, ... )        unused(format)
+    #define GL_LOG_INFO( format, ... )        unused(format) 
+    #define GL_LOG_DEBUG( format, ... )       unused(format)  
+    #define GL_LOG_WARN( format, ... )        unused(format)   
+    #define GL_LOG_ERROR( format, ... )       unused(format)    
+    #define GL_LOG_NOTE_TRACE( format, ... )  unused(format)      
+    #define GL_LOG_INFO_TRACE( format, ... )  unused(format)         
+    #define GL_LOG_DEBUG_TRACE( format, ... ) unused(format)        
+    #define GL_LOG_WARN_TRACE( format, ... )  unused(format)         
+    #define GL_LOG_ERROR_TRACE( format, ... ) unused(format)            
+    #define GL_LOG_FATAL( format, ... )       unused(format)        
 #endif
 
 

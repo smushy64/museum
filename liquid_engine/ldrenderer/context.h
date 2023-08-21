@@ -9,7 +9,6 @@
 enum RendererBackend : u32;
 
 typedef struct InternalRendererContext {
-    struct Platform*            platform;
     enum RendererBackend        backend;
 
     RendererBackendShutdownFN   shutdown;

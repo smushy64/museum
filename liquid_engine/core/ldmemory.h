@@ -46,21 +46,18 @@ LD_API void* internal_ldalloc( usize size, MemoryType type );
 // IMPORTANT(alicia): Internal use only!
 // Allocate aligned memory.
 LD_API void* internal_ldalloc_aligned(
-    usize size, MemoryType type, usize alignment
-);
+    usize size, MemoryType type, usize alignment );
 // IMPORTANT(alicia): Internal use only!
 // Reallocate memory.
 LD_API void* internal_ldrealloc(
-    void* memory, usize old_size, usize new_size, MemoryType type
-);
+    void* memory, usize old_size, usize new_size, MemoryType type );
 // IMPORTANT(alicia): Internal use only!
 // Free allocated memory.
 LD_API void internal_ldfree( void* memory, usize size, MemoryType type );
 // IMPORTANT(alicia): Internal use only!
 // Free allocated aligned memory.
 LD_API void internal_ldfree_aligned(
-    void* memory, usize size, MemoryType type, usize alignment
-);
+    void* memory, usize size, MemoryType type, usize alignment );
 
 /// IMPORTANT(alicia): Internal use only!
 /// Allocate memory.
@@ -122,11 +119,11 @@ LD_API void internal_ldfree_aligned_trace(
     #define ldalloc( size, type ) internal_ldalloc( size, type )
     #define ldalloc_aligned( size, type )\
         internal_ldalloc_aligned( size, type )
-    #define ldrealloc( memory, old_size, new_size, type )
+    #define ldrealloc( memory, old_size, new_size, type )\
         internal_ldrealloc( memory, old_size, new_size, type )
-    #define ldfree( memory, size, type )
+    #define ldfree( memory, size, type )\
         internal_ldfree( memory, size, type )
-    #define ldfree_aligned( memory, size, type, alignment )
+    #define ldfree_aligned( memory, size, type, alignment )\
         internal_ldfree_aligned( memory, size, type, alignment )
 #endif
 

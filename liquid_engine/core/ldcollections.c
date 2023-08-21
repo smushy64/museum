@@ -34,9 +34,10 @@ LD_API u64 hash( StringView sv ) {
 #define LOG_LIST_ALLOC( function, file, line, format, ... ) \
     log_formatted_locked(\
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
-        LOG_COLOR_GREEN,\
-        LOG_FLAG_NEW_LINE,\
-        "[LIST ALLOC | {cc}() | {cc}:{i}] " format,\
+        false, true,\
+        LOG_COLOR_GREEN\
+        "[LIST ALLOC | {cc}() | {cc}:{i}] " format\
+        LOG_COLOR_RESET,\
         function,\
         file,\
         line,\
@@ -46,9 +47,10 @@ LD_API u64 hash( StringView sv ) {
 #define LOG_LIST_REALLOC( function, file, line, format, ... ) \
     log_formatted_locked(\
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
-        LOG_COLOR_GREEN,\
-        LOG_FLAG_NEW_LINE,\
-        "[LIST REALLOC | {cc}() | {cc}:{i}] " format,\
+        false, true,\
+        LOG_COLOR_GREEN\
+        "[LIST REALLOC | {cc}() | {cc}:{i}] " format\
+        LOG_COLOR_RESET,\
         function,\
         file,\
         line,\
@@ -58,9 +60,10 @@ LD_API u64 hash( StringView sv ) {
 #define LOG_LIST_FREE( function, file, line, format, ... ) \
     log_formatted_locked(\
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
-        LOG_COLOR_CYAN,\
-        LOG_FLAG_NEW_LINE,\
-        "[LIST FREE | {cc}() | {cc}:{i}] " format,\
+        false, true,\
+        LOG_COLOR_CYAN\
+        "[LIST FREE | {cc}() | {cc}:{i}] " format\
+        LOG_COLOR_RESET,\
         function,\
         file,\
         line,\

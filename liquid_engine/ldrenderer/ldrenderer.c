@@ -10,7 +10,7 @@
 
 global InternalRendererContext* RENDERER_CONTEXT = NULL;
 
-usize renderer_subsystem_context_size( enum RendererBackend backend ) {
+usize renderer_query_subsystem_size( enum RendererBackend backend ) {
     local const usize backend_sizes[] = {
         sizeof(OpenGLRendererContext), // OpenGL
         0, // Vulkan
@@ -20,14 +20,12 @@ usize renderer_subsystem_context_size( enum RendererBackend backend ) {
     ASSERT( backend < RENDERER_BACKEND_COUNT );
     return backend_sizes[backend];
 }
-b32 renderer_subystem_init(
+b32 renderer_subsystem_init(
     enum RendererBackend backend,
-    struct Platform* platform,
     void* context_buffer
 ) {
-    RENDERER_CONTEXT = context_buffer;
-    RENDERER_CONTEXT->backend  = backend;
-    RENDERER_CONTEXT->platform = platform;
+    RENDERER_CONTEXT          = context_buffer;
+    RENDERER_CONTEXT->backend = backend;
 
     switch( backend ) {
         case RENDERER_BACKEND_OPENGL: {

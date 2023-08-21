@@ -21,24 +21,10 @@
 char APPLICATION_NAME_BUFFER[APPLICATION_NAME_BUFFER_SIZE] = {};
 
 typedef struct InternalEngineContext {
-    SystemInfo       system_info;       // 88
-    StackAllocator   stack;             // 32
-    Timer            time;              // 16
-    Platform*        platform;          // 8
-    
-    ApplicationConfigFN application_config; // 8
-    ApplicationInitFN   application_init;   // 8
-    ApplicationRunFN    application_run;    // 8
+    SystemInfo     system_info; // 88
+    StackAllocator stack;       // 32
+    Timer          time;        // 16
 
-    StringView application_name_view;
-    StringView application_name_writable_view;
-
-    u32 application_title_buffer_writable_offset; // 4
-    
-    CursorStyle cursor_style;
-
-    b8 cursor_is_visible;         // 1
-    b8 cursor_is_locked;          // 1
     b8 is_running;                // 1
     b8 pause_on_surface_inactive; // 1
 } InternalEngineContext;
@@ -47,37 +33,39 @@ EventCallbackResult on_app_exit( Event* event, void* void_ctx ) {
     unused(event);
     InternalEngineContext* ctx = void_ctx;
     ctx->is_running = false;
+    LOG_INFO( "Application requested engine exit." );
     return EVENT_CALLBACK_CONSUMED;
 }
-
 EventCallbackResult on_active( Event* event, void* params ) {
     unused(params);
-    b32 is_active = event->data.bool32[0];
-    if( is_active ) {
+    if( event->data.app_active.active ) {
         LOG_NOTE("Surface activated.");
     } else {
         LOG_NOTE("Surface deactivated.");
     }
     return EVENT_CALLBACK_CONSUMED;
 }
-
 EventCallbackResult on_resize( Event* event, void* params ) {
     unused(params);
-    ivec2 dimensions = event->data.iv2[0];
-    renderer_subsystem_on_resize( dimensions );
+    renderer_subsystem_on_resize( event->data.resize.new_dimensions );
     return EVENT_CALLBACK_NOT_CONSUMED;
 }
 
 typedef struct ArgParseResult {
     b32 success;
     RendererBackend backend;
-    char library_path_buffer[32];
     StringView library_path;
     b32 quit_instant;
 } ArgParseResult;
 
 internal void print_help() {
-    println( "Usage: {cc} [options]", LIQUID_ENGINE_EXECUTABLE );
+    println(
+        "OVERVIEW: Liquid Engine {i}.{i}\n",
+        LIQUID_ENGINE_VERSION_MAJOR,
+        LIQUID_ENGINE_VERSION_MINOR
+    );
+    println("USAGE: {cc} [options]\n", LIQUID_ENGINE_EXECUTABLE );
+    println("OPTIONS:");
     println("  --output-debug-string  "
         "enable output debug string (windows only)"
     );
@@ -106,17 +94,12 @@ internal void print_help() {
 ArgParseResult parse_args( int argc, char** argv ) {
     ArgParseResult result = {};
 
-    const char* default_library_path = DEFAULT_LIBRARY_PATH;
-    result.library_path.buffer = result.library_path_buffer;
-    result.library_path.len    = str_length( default_library_path );
-    mem_copy(
-        result.library_path.buffer,
-        default_library_path,
-        result.library_path.len + 1
-    );
+    result.library_path = SV( DEFAULT_LIBRARY_PATH );
 
     result.backend = RENDERER_BACKEND_OPENGL;
     result.success = true;
+
+    StringView libload = SV("--libload=");
 
     for( i32 i = 1; i < argc; ++i ) {
         StringView current_arg = SV( argv[i] );
@@ -132,7 +115,7 @@ ArgParseResult parse_args( int argc, char** argv ) {
 
 #if defined(LD_PLATFORM_WINDOWS)
         if( sv_cmp( current_arg, SV( "--output-debug-string" ) ) ) {
-            log_enable_output_debug_string( true );
+            log_subsystem_win32_enable_output_debug_string();
             continue;
         }
 #endif
@@ -158,12 +141,9 @@ ArgParseResult parse_args( int argc, char** argv ) {
             result.quit_instant = true;
             return result;
 #endif
-        } else if( sv_contains( current_arg, SV( "--libload=" ) ) ) {
-            u32 load_string_len = str_length( "--libload=" );
-            result.library_path.buffer = &current_arg.buffer[load_string_len];
-            result.library_path.len    = str_length(
-                result.library_path.buffer
-            );
+        } else if( sv_contains( current_arg, libload ) ) {
+            result.library_path.str = &current_arg.str[libload.len];
+            result.library_path.len = current_arg.len - libload.len;
         } else {
             println_err( "Unrecognized argument: {sv}", current_arg );
             print_help();
@@ -176,6 +156,25 @@ ArgParseResult parse_args( int argc, char** argv ) {
 }
 
 b32 engine_entry( int argc, char** argv ) {
+
+#if defined(LD_LOGGING)
+
+    usize log_subsystem_size = KILOBYTES(1);
+    void* log_subsystem_buffer = ldalloc( log_subsystem_size, MEMORY_TYPE_ENGINE );
+    if( log_subsystem_buffer ) {
+        if( !log_subsystem_init(
+            DEFAULT_LOG_LEVEL, log_subsystem_size, log_subsystem_buffer
+        ) ) {
+            MESSAGE_BOX_FATAL(
+                "Subsystem Failure",
+                "Failed to initialize logging subsystem!\n "
+                LD_CONTACT_MESSAGE
+            );
+            return false;
+        }
+    }
+
+#endif
 
     InternalEngineContext ctx = {};
 
@@ -193,56 +192,45 @@ b32 engine_entry( int argc, char** argv ) {
     if( !library_load( arg_parse.library_path.buffer, &application_lib ) ) {
         return false;
     }
-    ctx.application_config = (ApplicationConfigFN)library_load_function(
-        &application_lib,
-        APPLICATION_CONFIG_NAME
+    ApplicationQueryMemoryRequirementFN* application_query_memory_requirement =
+    (ApplicationQueryMemoryRequirementFN*)library_load_function(
+        &application_lib, "application_query_memory_requirement"
     );
-    if( !ctx.application_config ) {
-        return false;
-    }
-    ctx.application_init = (ApplicationInitFN)library_load_function(
-        &application_lib,
-        APPLICATION_INIT_NAME
-    );
-    if( !ctx.application_init ) {
-        return false;
-    }
-    ctx.application_run = (ApplicationRunFN)library_load_function(
-        &application_lib,
-        APPLICATION_RUN_NAME
-    );
-    if( !ctx.application_run ) {
+    if( !application_query_memory_requirement ) {
         return false;
     }
 
-    EngineConfig config = {};
-    config.application_name.buffer = APPLICATION_NAME_BUFFER;
-    config.application_name.len    = APPLICATION_NAME_BUFFER_SIZE;
-    ctx.application_config( &config );
+    ApplicationInitFN* application_init =
+        (ApplicationInitFN*)library_load_function(
+            &application_lib, "application_init" );
+    if( !application_init ) {
+        return false;
+    }
+    ApplicationRunFN* application_run =
+        (ApplicationRunFN*)library_load_function(
+            &application_lib, "application_run" );
+    if( !application_run ) {
+        return false;
+    }
 
-    RendererBackend backend = arg_parse.backend;
+    usize application_memory_size = application_query_memory_requirement();
 
-    ctx.system_info   = query_system_info();
+    platform_query_system_info( &ctx.system_info );
 
-    u32 threading_subsystem_size = query_threading_subsystem_size();
-    u32 event_subsystem_size     = query_event_subsystem_size();
-    u32 input_subsystem_size     = query_input_subsystem_size();
-    u32 platform_subsystem_size  = query_platform_subsystem_size();
-    usize renderer_subsystem_size =
-        renderer_subsystem_context_size( arg_parse.backend );
-    
-    u32 logging_subsystem_size = DEFAULT_LOGGING_BUFFER_SIZE;
-
-    u32 application_memory_size = config.memory_size;
+    usize thread_subsystem_size    = thread_query_subsystem_size();
+    usize event_subsystem_size     = event_query_subsystem_size();
+    usize input_subsystem_size     = input_query_subsystem_size();
+    usize platform_subsystem_size  = platform_query_subsystem_size();
+    usize renderer_subsystem_size  =
+        renderer_query_subsystem_size( arg_parse.backend );
 
     // calculate required stack arena size
     usize required_stack_size =
-        threading_subsystem_size +
-        event_subsystem_size     +
-        input_subsystem_size     +
-        platform_subsystem_size  +
-        renderer_subsystem_size  +
-        logging_subsystem_size   +
+        thread_subsystem_size   +
+        event_subsystem_size    +
+        input_subsystem_size    +
+        platform_subsystem_size +
+        renderer_subsystem_size +
         application_memory_size;
 
     usize stack_allocator_pages  = calculate_page_size( required_stack_size );
@@ -260,39 +248,17 @@ b32 engine_entry( int argc, char** argv ) {
         required_stack_size, stack_allocator_buffer, MEMORY_TYPE_ENGINE
     );
 
-#if defined(LD_LOGGING)
-
-    if( !is_log_initialized() ) {
-        StringView logging_buffer = {};
-        logging_buffer.len = logging_subsystem_size;
-        logging_buffer.buffer =
-            (char*)stack_allocator_push( &ctx.stack, logging_subsystem_size );
-        if( !log_init( config.log_level, logging_buffer ) ) {
-            MESSAGE_BOX_FATAL(
-                "Subsystem Failure",
-                "Failed to initialize logging subsystem!\n "
-                LD_CONTACT_MESSAGE
-            );
-            return false;
-        }
-    }
-
-#endif
-
     LOG_INFO("Liquid Engine Version: {i}.{i}",
         LIQUID_ENGINE_VERSION_MAJOR,
         LIQUID_ENGINE_VERSION_MINOR
     );
-
-    ctx.application_name_view.len    = APPLICATION_NAME_BUFFER_SIZE;
-    ctx.application_name_view.buffer = APPLICATION_NAME_BUFFER;
 
     void* event_subsystem_data = stack_allocator_push(
         &ctx.stack,
         event_subsystem_size
     );
 
-    if( !event_init( event_subsystem_data ) ) {
+    if( !event_subsystem_init( event_subsystem_data ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
             "Failed to initialize event subsystem!\n "
@@ -301,16 +267,11 @@ b32 engine_entry( int argc, char** argv ) {
         return false;
     }
 
-    ctx.platform = (Platform*)stack_allocator_push(
-        &ctx.stack,
-        platform_subsystem_size
-    );
-
     void* input_subsystem_buffer = stack_allocator_push(
         &ctx.stack,
         input_subsystem_size
     );
-    if( !input_init( ctx.platform, input_subsystem_buffer ) ) {
+    if( !input_subsystem_init( input_subsystem_buffer ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
             "Failed to initialize input subsystem!\n "
@@ -319,10 +280,10 @@ b32 engine_entry( int argc, char** argv ) {
         return false;
     }
 
-    if( !platform_init(
-        iv2( config.surface_dimensions.width, config.surface_dimensions.height ),
-        config.platform_flags,
-        ctx.platform
+    void* platform_buffer =
+        stack_allocator_push( &ctx.stack, platform_subsystem_size );
+    if( !platform_subsystem_init(
+        DEFAULT_SURFACE_DIMENSIONS, platform_buffer
     ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
@@ -331,25 +292,14 @@ b32 engine_entry( int argc, char** argv ) {
         );
         return false;
     }
-    engine_set_application_name( &ctx, config.application_name );
 
-    ctx.pause_on_surface_inactive = CHECK_BITS(
-        config.platform_flags,
-        PLATFORM_PAUSE_ON_SURFACE_INACTIVE
-    );
-    RendererContext* renderer_ctx_buffer = stack_allocator_push(
-        &ctx.stack, renderer_subsystem_size
-    );
-    LOG_ASSERT(
-        renderer_ctx_buffer,
-        "Stack Arena of size {u} is not enough to initialize engine!",
-        ctx.stack.size
-    );
+    ctx.pause_on_surface_inactive = true;
+    void* renderer_subsystem_buffer =
+        stack_allocator_push( &ctx.stack, renderer_subsystem_size );
 
-    if( !renderer_subystem_init(
+    if( !renderer_subsystem_init(
         arg_parse.backend,
-        ctx.platform,
-        renderer_ctx_buffer
+        renderer_subsystem_buffer
     ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
@@ -359,19 +309,18 @@ b32 engine_entry( int argc, char** argv ) {
         return false;
     }
 
-    void* threading_buffer = stack_allocator_push(
-        &ctx.stack, threading_subsystem_size
-    );
+    void* thread_subsystem_buffer =
+        stack_allocator_push( &ctx.stack, thread_subsystem_size );
     LOG_ASSERT(
-        threading_buffer,
+        thread_subsystem_buffer,
         "Stack Arena of size {u} is not enough to initialize engine!",
         ctx.stack.size
     );
 
-    u32 thread_count  = ctx.system_info.logical_processor_count;
+    u32 thread_count = ctx.system_info.logical_processor_count;
     thread_count = (thread_count == 1 ? thread_count : thread_count - 1);
 
-    if( !threading_init( thread_count, threading_buffer ) ) {
+    if( !thread_subsystem_init( thread_count, thread_subsystem_buffer ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
             "Failed to initialize threading subsystem!\n"
@@ -381,7 +330,7 @@ b32 engine_entry( int argc, char** argv ) {
     }
 
     LOG_NOTE("CPU: {cc}", ctx.system_info.cpu_name_buffer);
-    LOG_NOTE("  Logical Processors: {u64}",
+    LOG_NOTE("  Logical Processors: {u16}",
         ctx.system_info.logical_processor_count
     );
 
@@ -428,22 +377,18 @@ b32 engine_entry( int argc, char** argv ) {
         return false;
     }
 
-
     LOG_NOTE(
         "  Features: {cc}{cc}{cc}{cc}",
-        sse    ? "SSE1-4 " : "",
-        avx    ? "AVX " : "",
-        avx2   ? "AVX2 " : "",
-        avx512 ? "AVX-512 " : ""
+        sse    ? "[SSE1-4] " : "",
+        avx    ? "[AVX] " : "",
+        avx2   ? "[AVX2] " : "",
+        avx512 ? "[AVX-512] " : ""
     );
+#endif // x86
 
-#endif
-
-    if(!event_subscribe(
-        EVENT_CODE_EXIT,
-        on_app_exit,
-        &ctx
-    )) {
+    EventListenerID event_exit_id = event_subscribe(
+        EVENT_CODE_EXIT, on_app_exit, &ctx );
+    if( !event_exit_id ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
             "Failed to initialize event subsystem!\n "
@@ -451,11 +396,9 @@ b32 engine_entry( int argc, char** argv ) {
         );
         return false;
     }
-    if(!event_subscribe(
-        EVENT_CODE_ACTIVE,
-        on_active,
-        &ctx
-    )) {
+    EventListenerID event_on_active_id = event_subscribe(
+        EVENT_CODE_APP_ACTIVE, on_active, &ctx );
+    if( !event_on_active_id ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
             "Failed to initialize event subsystem!\n "
@@ -463,11 +406,9 @@ b32 engine_entry( int argc, char** argv ) {
         );
         return false;
     }
-    if(!event_subscribe(
-        EVENT_CODE_RESIZE,
-        on_resize,
-        &ctx
-    )) {
+    EventListenerID event_on_surface_resize_id = event_subscribe(
+        EVENT_CODE_SURFACE_RESIZE, on_resize, &ctx );
+    if( !event_on_surface_resize_id ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
             "Failed to initialize event subsystem!\n "
@@ -495,30 +436,19 @@ b32 engine_entry( int argc, char** argv ) {
     LOG_NOTE("Engine stack pointer: {u64}", (u64)ctx.stack.current);
 #endif
 
-    ctx.cursor_style      = CURSOR_ARROW;
-    ctx.cursor_is_visible = true;
-
-    // if( !audio_init( ctx.platform ) ) {
-    //     return false;
-    // }
-
-    void* application_memory = stack_allocator_push(
-        &ctx.stack, config.memory_size
-    );
-    if( !ctx.application_init( &ctx, application_memory ) ) {
+    ctx.is_running = true;
+    void* application_memory =
+        stack_allocator_push( &ctx.stack, application_memory_size );
+    if( !application_init( &ctx, application_memory ) ) {
         return false;
     }
 
-    ctx.is_running = true;
     while( ctx.is_running ) {
         input_swap();
-        platform_poll_gamepad( ctx.platform );
-        platform_pump_events( ctx.platform );
+        platform_poll_gamepad();
+        platform_pump_events();
 
-        if(
-            !ctx.platform->is_active &&
-            ctx.pause_on_surface_inactive
-        ) {
+        if( !platform_is_active() && ctx.pause_on_surface_inactive ) {
             continue;
         }
 
@@ -532,14 +462,10 @@ b32 engine_entry( int argc, char** argv ) {
             }
         }
 
-        if( ctx.cursor_is_locked ) {
-            platform_cursor_center( ctx.platform );
-        }
-
         RenderData render_data = {};
         render_data.time = &ctx.time;
 
-        if( !ctx.application_run( &ctx, application_memory ) ) {
+        if( !application_run( &ctx, application_memory ) ) {
             return false;
         }
 
@@ -551,112 +477,73 @@ b32 engine_entry( int argc, char** argv ) {
             );
             return false;
         }
-        
-        // audio_test( ctx.platform );
 
         event_fire_end_of_frame();
 
-        ctx.time.frame_count++;
+        ++ctx.time.frame_count;
 
         f64 seconds_elapsed = platform_s_elapsed();
         ctx.time.delta_seconds =
             seconds_elapsed - ctx.time.elapsed_seconds;
         ctx.time.elapsed_seconds = seconds_elapsed;
-
     }
 
-    ctx.is_running = false; 
+    event_unsubscribe( event_exit_id );
+    event_unsubscribe( event_on_surface_resize_id );
+    event_unsubscribe( event_on_active_id );
 
-    library_free( &application_lib );
-
-    // audio_shutdown( ctx.platform );
-
-    event_shutdown();
-    input_shutdown();
     renderer_subsystem_shutdown();
-    platform_shutdown( ctx.platform );
-    threading_shutdown();
-    log_shutdown();
+    platform_subsystem_shutdown();
+    thread_subsystem_shutdown();
+    log_subsystem_shutdown();
 
     return true;
 }
-void engine_set_cursor_style( EngineContext* opaque, u32 style ) {
-    InternalEngineContext* ctx = opaque;
-    ctx->cursor_style = (CursorStyle)style;
-    platform_cursor_set_style(
-        ctx->platform,
-        (CursorStyle)style
-    );
+LD_API void engine_cursor_set_style( CursorStyle style ) {
+    platform_cursor_set_style( style );
 }
-void engine_set_cursor_visibility( EngineContext* opaque, b32 visible ) {
-    InternalEngineContext* ctx = opaque;
-    ctx->cursor_is_visible = visible;
-    platform_cursor_set_visible(
-        ctx->platform,
-        visible
-    );
+LD_API void engine_cursor_set_visibility( b32 visible ) {
+    platform_cursor_set_visible( visible );
 }
-void engine_center_cursor( EngineContext* opaque ) {
-    InternalEngineContext* ctx = opaque;
-    platform_cursor_center( ctx->platform );
+LD_API void engine_cursor_center() {
+    platform_cursor_center();
 }
-void engine_lock_cursor( EngineContext* opaque, b32 locked ) {
-    InternalEngineContext* ctx = opaque;
-    ctx->cursor_is_locked = locked;
-    if( locked ) {
-        ctx->cursor_is_visible = false;
-    }
+LD_API CursorStyle engine_cursor_style() {
+    return platform_cursor_style();
 }
-u32 engine_query_cursor_style( EngineContext* opaque ) {
-    InternalEngineContext* ctx = opaque;
-    return (u32)ctx->cursor_style;
+LD_API b32 engine_cursor_visible() {
+    return platform_cursor_visible();
 }
-b32 engine_query_cursor_visibility( EngineContext* opaque ) {
-    InternalEngineContext* ctx = opaque;
-    return ctx->cursor_is_visible;
+LD_API void engine_set_application_name( const char* name ) {
+    LOG_NOTE( "Application name set: {cc}", name );
+    platform_set_application_name( name );
 }
-b32 engine_query_cursor_locked( EngineContext* opaque ) {
-    InternalEngineContext* ctx = opaque;
-    return ctx->cursor_is_locked;
+LD_API StringView engine_application_name() {
+    StringView name = SV( platform_application_name() );
+    return name;
 }
-void engine_set_application_name( EngineContext* opaque, StringView name ) {
-    InternalEngineContext* ctx = opaque;
-
-    RendererBackend backend = renderer_subsystem_query_backend();
-
-    StringView renderer_backend_name =
-        SV( renderer_backend_to_string( backend ) );
-
-    sv_format(
-        ctx->application_name_view,
-        "{sv} | {sv}",
-        name, renderer_backend_name
-    );
-
-    platform_surface_set_name(
-        ctx->platform,
-        ctx->application_name_view
-    );
-}
-StringView engine_query_application_name( EngineContext* opaque ) {
-    InternalEngineContext* ctx = opaque;
-    return ctx->application_name_view;
-}
-usize engine_query_logical_processor_count( EngineContext* opaque ) {
+LD_API usize engine_query_logical_processor_count( EngineContext* opaque ) {
     InternalEngineContext* ctx = opaque;
     return ctx->system_info.logical_processor_count;
 }
-usize engine_query_total_system_memory( EngineContext* opaque ) {
+LD_API usize engine_query_total_system_memory( EngineContext* opaque ) {
     InternalEngineContext* ctx = opaque;
     return ctx->system_info.total_memory;
 }
-const char* engine_query_processor_name( EngineContext* opaque ) {
+LD_API const char* engine_query_processor_name( EngineContext* opaque ) {
     InternalEngineContext* ctx = opaque;
     return ctx->system_info.cpu_name_buffer;
 }
-ivec2 engine_query_surface_size( EngineContext* opaque ) {
-    InternalEngineContext* ctx = opaque;
-    return ctx->platform->surface.dimensions;
+LD_API void engine_surface_set_dimensions( ivec2 new_dimensions ) {
+    LOG_NOTE( "Set surface dimensions: {iv2}", new_dimensions );
+    platform_surface_set_dimensions( new_dimensions );
+}
+LD_API ivec2 engine_query_surface_dimensions() {
+    return platform_surface_dimensions();
+}
+LD_API void engine_surface_center() {
+    LOG_NOTE( "Surface centered." );
+    platform_surface_center();
 }
 
 LD_API struct Timer* engine_get_time( EngineContext* opaque ) {

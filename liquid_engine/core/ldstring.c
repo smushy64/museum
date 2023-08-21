@@ -11,25 +11,6 @@
 
 #include "ldplatform.h"
 
-#if defined(USE_STD_LIB)
-#include <stdio.h>
-
-#define WRITE_CONSOLE( stream, count, buffer )\
-    fprintf( (FILE*)stream, "%.*s", count, buffer )
-
-#define STANDARD_OUT_HANDLE stdout
-#define STANDARD_ERROR_HANDLE stderr
-
-#else
-
-#define WRITE_CONSOLE( stream, count, buffer )\
-    platform_write_console( stream, count, buffer )
-
-#define STANDARD_OUT_HANDLE   platform_stdout_handle()
-#define STANDARD_ERROR_HANDLE platform_stderr_handle()
-
-#endif
-
 internal b32 string_cmp_internal(
     usize a_len, const char* a_buffer,
     usize b_len, const char* b_buffer
@@ -56,16 +37,10 @@ internal void string_copy_internal(
 }
 
 LD_API void char_output_stdout( char character ) {
-    WRITE_CONSOLE(
-        STANDARD_OUT_HANDLE,
-        1, &character
-    );
+    platform_write_console( platform_stdout_handle(), 1, &character );
 }
 LD_API void char_output_stderr( char character ) {
-    WRITE_CONSOLE(
-        STANDARD_ERROR_HANDLE,
-        1, &character
-    );
+    platform_write_console( platform_stderr_handle(), 1, &character );
 }
 
 LD_API usize str_length( const char* string ) {
@@ -81,19 +56,17 @@ LD_API usize str_length( const char* string ) {
 }
 HOT_PATH LD_API void str_output_stdout( const char* str ) {
     usize str_len = str_length( str );
-    WRITE_CONSOLE(
-        STANDARD_OUT_HANDLE,
+    platform_write_console(
+        platform_stdout_handle(),
         str_len, str
     );
-    char_output_stdout( 0 );
 }
 HOT_PATH LD_API void str_output_stderr( const char* str ) {
     usize str_len = str_length( str );
-    WRITE_CONSOLE(
-        STANDARD_ERROR_HANDLE,
+    platform_write_console(
+        platform_stderr_handle(),
         str_len, str
     );
-    char_output_stderr( 0 );
 }
 
 internal i32 parse_i32_internal( char** at_init ) {
@@ -113,18 +86,16 @@ internal i32 parse_i32_internal( char** at_init ) {
     return result * (is_negative ? -1 : 1);
 }
 HOT_PATH LD_API void sv_output_stdout( StringView string_view ) {
-    WRITE_CONSOLE(
-        STANDARD_OUT_HANDLE,
+    platform_write_console(
+        platform_stdout_handle(),
         string_view.len, string_view.buffer
     );
-    char_output_stderr( 0 );
 }
 HOT_PATH LD_API void sv_output_stderr( StringView string_view ) {
-    WRITE_CONSOLE(
-        STANDARD_ERROR_HANDLE,
+    platform_write_console(
+        platform_stderr_handle(),
         string_view.len, string_view.buffer
     );
-    char_output_stderr( 0 );
 }
 LD_API b32 sv_cmp( StringView  a, StringView  b ) {
     return string_cmp_internal(

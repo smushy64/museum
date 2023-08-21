@@ -21,7 +21,7 @@
 
 #include <intrin.h>
 
-global b32 IS_DPI_AWARE = false;
+global Win32Platform* PLATFORM = NULL;
 
 #if defined(LD_COMPILER_MSVC)
     #pragma function(memset)
@@ -301,13 +301,12 @@ void __stdcall WinMainCRTStartup() {
 }
 
 // BOOL WINAPI DllMainCRTStartup(
-//     [[maybe_unused]]
 //     HINSTANCE const instance,
-//     [[maybe_unused]]
 //     DWORD     const reason,
-//     [[maybe_unused]]
 //     LPVOID    const reserved
 // ) {
+//     unused(instance);
+//     unused(reserved);
 //     switch( reason ) {
 //         case DLL_PROCESS_ATTACH:
 //         case DLL_THREAD_ATTACH:
@@ -330,13 +329,14 @@ internal DWORD WINAPI win32_xinput_polling_thread( void* params ) {
         platform_semaphore_wait( semaphore, true, 0 );
 
         Event event = {};
-        event.data.bool32[1] = true;
+        event.data.gamepad_active.active = true;
+
         XINPUT_STATE unused_gamepad_state = {};
-        for( u32 i = 0; i < MAX_GAMEPAD_INDEX; ++i ) {
-            if( !input_pad_is_active( i ) ) {
+        for( u32 i = 0; i < GAMEPAD_MAX_INDEX; ++i ) {
+            if( !input_gamepad_is_active( i ) ) {
                 if( SUCCEEDED(XInputGetState( i, &unused_gamepad_state )) ) {
-                    input_set_pad_active( i, true );
-                    event.data.uint32[0] = i;
+                    input_set_gamepad_active( i, true );
+                    event.data.gamepad_active.index = i;
                     event_fire( event );
                 }
             }
@@ -345,25 +345,21 @@ internal DWORD WINAPI win32_xinput_polling_thread( void* params ) {
     return 0;
 }
 
-u32 query_platform_subsystem_size() {
+usize platform_query_subsystem_size() {
     return sizeof(Win32Platform);
 }
-b32 platform_init(
-    ivec2 surface_dimensions,
-    PlatformFlags flags,
-    Platform* out_platform
-) {
+b32 platform_subsystem_init( ivec2 surface_dimensions, void* buffer ) {
 
-    ASSERT( out_platform );
-    Win32Platform* win32_platform = (Win32Platform*)out_platform;
+    ASSERT( buffer );
+    PLATFORM = buffer;
 
-    IS_DPI_AWARE = CHECK_BITS( flags, PLATFORM_DPI_AWARE );
+    PLATFORM->is_dpi_aware = true;
 
     // load libraries
-    if( !win32_load_user32( win32_platform ) ) {
+    if( !win32_load_user32( PLATFORM ) ) {
         return false;
     }
-    if( !win32_load_xinput( win32_platform ) ) {
+    if( !win32_load_xinput( PLATFORM ) ) {
         return false;
     }
 
@@ -376,7 +372,8 @@ b32 platform_init(
     if( !xinput_polling_thread_semaphore ) {
         return false;
     }
-    win32_platform->xinput_polling_thread_semaphore = xinput_polling_thread_semaphore;
+    PLATFORM->xinput_polling_thread_semaphore =
+        xinput_polling_thread_semaphore;
 
     read_write_fence();
 
@@ -385,7 +382,7 @@ b32 platform_init(
         NULL,
         STACK_SIZE,
         win32_xinput_polling_thread,
-        &win32_platform->xinput_polling_thread_semaphore,
+        &PLATFORM->xinput_polling_thread_semaphore,
         0,
         &xinput_polling_thread_handle.thread_id
     );
@@ -393,16 +390,16 @@ b32 platform_init(
         win32_log_error( true );
         return false;
     }
-    win32_platform->xinput_polling_thread = xinput_polling_thread_handle;
+    PLATFORM->xinput_polling_thread = xinput_polling_thread_handle;
 
     WIN32_LOG_NOTE(
         "Created XInput polling thread. ID: {u}",
-        win32_platform->xinput_polling_thread.thread_id
+        PLATFORM->xinput_polling_thread.thread_id
     );
 
     if( !library_load(
         "GDI32.DLL",
-        &win32_platform->lib_gdi32
+        &PLATFORM->lib_gdi32
     ) ) {
         MESSAGE_BOX_FATAL(
             "Failed to load library!",
@@ -410,8 +407,8 @@ b32 platform_init(
         );
         return false;
     }
-    GetStockObject = (GetStockObjectFN)library_load_function(
-        &win32_platform->lib_gdi32,
+    GetStockObject = (GetStockObjectFN*)library_load_function(
+        &PLATFORM->lib_gdi32,
         "GetStockObject"
     );
     if( !GetStockObject ) {
@@ -422,7 +419,7 @@ b32 platform_init(
         return false;
     }
 
-    win32_platform->instance = GetModuleHandle( NULL );
+    PLATFORM->instance = GetModuleHandle( NULL );
 
     HICON window_icon = NULL;
     window_icon = (HICON)LoadImageA(
@@ -440,12 +437,12 @@ b32 platform_init(
     WNDCLASSEX windowClass    = {};
     windowClass.cbSize        = sizeof(WNDCLASSEX);
     windowClass.lpfnWndProc   = win32_winproc;
-    windowClass.hInstance     = win32_platform->instance;
+    windowClass.hInstance     = PLATFORM->instance;
     windowClass.lpszClassName = "LiquidEngineWindowClass";
     windowClass.hbrBackground = (HBRUSH)GetStockBrush(BLACK_BRUSH);
     windowClass.hIcon         = window_icon;
     windowClass.hCursor       = LoadCursor(
-        win32_platform->instance,
+        PLATFORM->instance,
         IDC_ARROW
     );
 
@@ -454,43 +451,44 @@ b32 platform_init(
         return false;
     }
 
-    DWORD dwStyle;
-    DWORD dwExStyle = WS_EX_OVERLAPPEDWINDOW;
+    PLATFORM->window.dwExStyle = WS_EX_OVERLAPPEDWINDOW;
 
-    if( CHECK_BITS( flags, PLATFORM_RESIZEABLE ) ) {
-        dwStyle = WS_OVERLAPPEDWINDOW;
+    b32 is_resizeable = true;
+
+    if( is_resizeable ) {
+        PLATFORM->window.dwStyle = WS_OVERLAPPEDWINDOW;
     } else {
-        dwStyle =
-            WS_OVERLAPPED  |
-            WS_CAPTION     |
+        PLATFORM->window.dwStyle =
+            WS_OVERLAPPED |
+            WS_CAPTION    |
             WS_SYSMENU;
     }
 
     i32 width = 0, height = 0;
     RECT window_rect = {};
-    if( IS_DPI_AWARE ) {
+    if( PLATFORM->is_dpi_aware ) {
         SetProcessDpiAwarenessContext(
             DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
         );
-        UINT dpi = GetDpiForSystem();
+        PLATFORM->dpi = GetDpiForSystem();
 
         width = MulDiv(
             surface_dimensions.width,
-            dpi, 96
+            PLATFORM->dpi, 96
         );
         height = MulDiv(
             surface_dimensions.height,
-            dpi, 96
+            PLATFORM->dpi, 96
         );
 
         window_rect.right  = width;
         window_rect.bottom = height;
         if( !AdjustWindowRectExForDpi(
             &window_rect,
-            dwStyle,
+            PLATFORM->window.dwStyle,
             FALSE,
-            dwExStyle,
-            dpi
+            PLATFORM->window.dwExStyle,
+            PLATFORM->dpi
         ) ) {
             win32_log_error( true );
             return false;
@@ -503,9 +501,9 @@ b32 platform_init(
         window_rect.bottom = surface_dimensions.height;
         if( !AdjustWindowRectEx(
             &window_rect,
-            dwStyle,
+            PLATFORM->window.dwStyle,
             FALSE,
-            dwExStyle
+            PLATFORM->window.dwExStyle
         ) ) {
             win32_log_error( true );
             return false;
@@ -513,10 +511,10 @@ b32 platform_init(
     }
 
     i32 x = 0, y = 0; {
-        ivec2 screen_center = (ivec2){
+        ivec2 screen_center = iv2(
             GetSystemMetrics( SM_CXSCREEN ),
             GetSystemMetrics( SM_CYSCREEN )
-        };
+        );
         screen_center = iv2_div( screen_center, 2 );
 
         x = screen_center.x - (width / 2);
@@ -524,16 +522,16 @@ b32 platform_init(
     }
     
     HWND hWnd = CreateWindowEx(
-        dwExStyle,
+        PLATFORM->window.dwExStyle,
         windowClass.lpszClassName,
         "Liquid Engine",
-        dwStyle,
+        PLATFORM->window.dwStyle,
         x, y,
         window_rect.right - window_rect.left,
         window_rect.bottom - window_rect.top,
         NULL,
         NULL,
-        win32_platform->instance,
+        PLATFORM->instance,
         NULL
     );
     if( !hWnd ) {
@@ -548,51 +546,32 @@ b32 platform_init(
         return false;
     }
 
-    win32_platform->window.handle         = hWnd;
-    win32_platform->window.device_context = dc;
-    win32_platform->cursor.style      = CURSOR_ARROW;
-    win32_platform->cursor.is_visible = true;
+    PLATFORM->window.handle         = hWnd;
+    PLATFORM->window.device_context = dc;
+    PLATFORM->cursor_style   = CURSOR_STYLE_ARROW;
+    PLATFORM->cursor_visible = true;
 
-    ShowWindow(
-        win32_platform->window.handle,
-        SW_SHOW
-    );
+    ShowWindow( PLATFORM->window.handle, SW_SHOW );
 
     QueryPerformanceFrequency(
-        &win32_platform->performance_frequency
+        &PLATFORM->performance_frequency
     );
-    PERFORMANCE_FREQUENCY = win32_platform->performance_frequency;
+    PERFORMANCE_FREQUENCY = PLATFORM->performance_frequency;
     QueryPerformanceCounter(
-        &win32_platform->performance_counter
+        &PLATFORM->performance_counter
     );
-    PERFORMANCE_COUNTER = win32_platform->performance_counter;
+    PERFORMANCE_COUNTER = PLATFORM->performance_counter;
 
-    out_platform->surface.dimensions = (ivec2){ width, height };
-    out_platform->is_active = true;
-
-    SetWindowLongPtr(
-        win32_platform->window.handle,
-        GWLP_USERDATA,
-        (LONG_PTR)out_platform
-    );
+    PLATFORM->window.dimensions = iv2(width, height);
+    PLATFORM->is_active = true;
 
     WIN32_LOG_INFO( "Platform subsystem successfully initialized." );
     return true;
 }
-void platform_shutdown( Platform* platform ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform;
-
-    platform_semaphore_destroy(
-        &win32_platform->xinput_polling_thread_semaphore
-    );
-
-    for( u32 i = 0; i < LIBRARY_COUNT; ++i ) {
-        if( win32_platform->libraries[i].handle ) {
-            library_free( &win32_platform->libraries[i] );
-        }
-    }
-
-    DestroyWindow( win32_platform->window.handle );
+void platform_subsystem_shutdown() {
+    TerminateThread( PLATFORM->xinput_polling_thread.thread_handle, 0 );
+    platform_semaphore_destroy( &PLATFORM->xinput_polling_thread_semaphore );
+    DestroyWindow( PLATFORM->window.handle );
 }
 
 f64 platform_us_elapsed() {
@@ -622,12 +601,11 @@ f64 platform_s_elapsed() {
     return (f64)(ticks_elapsed) /
         (f64)PERFORMANCE_FREQUENCY.QuadPart;
 }
-b32 platform_pump_events( Platform* platform ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform;
+b32 platform_pump_events() {
     MSG message = {};
     while( PeekMessage(
         &message,
-        win32_platform->window.handle,
+        PLATFORM->window.handle,
         0, 0,
         PM_REMOVE
     ) ) {
@@ -635,51 +613,96 @@ b32 platform_pump_events( Platform* platform ) {
         DispatchMessage( &message );
     }
 
-    if( ( win32_platform->event_pump_count %
+    if( ( PLATFORM->event_pump_count %
         POLL_FOR_NEW_XINPUT_GAMEPAD_RATE
     ) == 0 ) {
         platform_semaphore_increment(
-            &win32_platform->xinput_polling_thread_semaphore
+            &PLATFORM->xinput_polling_thread_semaphore
         );
     }
 
-    win32_platform->event_pump_count++;
+    PLATFORM->event_pump_count++;
 
     return true;
 }
-void platform_surface_set_name(
-    Platform* platform,
-    StringView name
-) {
-    Win32Platform* win32_platform = (Win32Platform*)platform;
-    SetWindowTextA(
-        win32_platform->window.handle,
-        name.buffer
+void platform_set_application_name( const char* str ) {
+    usize copy_length = str_length( str ) + 1;
+    b32 is_name_too_long = copy_length >= WIN32_MAX_WINDOW_TEXT_LENGTH;
+    if( is_name_too_long ) {
+        copy_length = WIN32_MAX_WINDOW_TEXT_LENGTH;
+    }
+    mem_copy( PLATFORM->window.text, str, str_length( str ) + 1 );
+    if( is_name_too_long ) {
+        PLATFORM->window.text[copy_length - 1] = 0;
+    }
+
+    SetWindowText( PLATFORM->window.handle, str );
+}
+const char* platform_application_name() {
+    return PLATFORM->window.text;
+}
+void platform_surface_center() {
+    i32 x = 0, y = 0;
+    i32 center_x = GetSystemMetrics( SM_CXSCREEN );
+    i32 center_y = GetSystemMetrics( SM_CYSCREEN );
+    center_x /= 2;
+    center_y /= 2;
+
+    x = center_x - ( PLATFORM->window.dimensions.width / 2 );
+    y = center_y - ( PLATFORM->window.dimensions.height / 2 );
+
+    SetWindowPos(
+        PLATFORM->window.handle,
+        NULL,
+        x, y,
+        0, 0,
+        SWP_NOSIZE
     );
 }
-i32 platform_surface_read_name(
-    Platform* platform,
-    char* buffer, usize max_buffer_size
-) {
-    Win32Platform* win32_platform = (Win32Platform*)platform;
-    usize text_length = GetWindowTextLengthA(
-        win32_platform->window.handle
-    );
-    b32 window_text_longer_than_buffer = text_length > max_buffer_size;
+void platform_surface_set_dimensions( ivec2 dimensions ) {
+    RECT window_rect = {};
 
-    GetWindowTextA(
-        win32_platform->window.handle,
-        buffer,
-        window_text_longer_than_buffer ?
-            max_buffer_size : text_length
-    );
+    if( PLATFORM->is_dpi_aware ) {
+        UINT dpi = PLATFORM->dpi;
+        window_rect.right  = MulDiv( dimensions.width, dpi, 96 );
+        window_rect.bottom = MulDiv( dimensions.height, dpi, 96 );
 
-    return window_text_longer_than_buffer ? text_length : 0;
+        PLATFORM->window.dimensions = iv2(
+            window_rect.right,
+            window_rect.bottom
+        );
+        AdjustWindowRectExForDpi(
+            &window_rect,
+            PLATFORM->window.dwStyle,
+            FALSE,
+            PLATFORM->window.dwExStyle,
+            dpi
+        );
+    } else {
+        window_rect.right  = dimensions.width;
+        window_rect.bottom = dimensions.height;
+
+        PLATFORM->window.dimensions = dimensions;
+
+        AdjustWindowRectEx(
+            &window_rect,
+            PLATFORM->window.dwStyle,
+            FALSE,
+            PLATFORM->window.dwExStyle
+        );
+    }
+
+    SetWindowPos(
+        PLATFORM->window.handle,
+        NULL,
+        0, 0,
+        window_rect.right - window_rect.left,
+        window_rect.bottom - window_rect.top,
+        SWP_NOMOVE | SWP_NOREPOSITION
+    );
 }
-inline internal LPCTSTR cursor_style_to_win32_style(
-    CursorStyle style
-) {
-    local const LPCTSTR styles[CURSOR_COUNT] = {
+internal inline LPCTSTR cursor_style_to_win32_style( CursorStyle style ) {
+    const LPCTSTR styles[CURSOR_STYLE_COUNT] = {
         IDC_ARROW,
         IDC_SIZENS,
         IDC_SIZEWE,
@@ -690,59 +713,54 @@ inline internal LPCTSTR cursor_style_to_win32_style(
         IDC_WAIT,
         IDC_NO
     };
-    if( style >= CURSOR_COUNT ) {
-        return IDC_ARROW;
-    }
+    ASSERT( style < CURSOR_STYLE_COUNT );
     return styles[style];
 }
-void platform_cursor_set_style(
-    Platform* platform, CursorStyle cursor_style
-) {
-    Win32Platform* win32_platform = (Win32Platform*)platform;
-    win32_platform->cursor.style = cursor_style;
+CursorStyle platform_cursor_style() {
+    return PLATFORM->cursor_style;
+}
+b32 platform_cursor_visible() {
+    return PLATFORM->cursor_visible;
+}
+void platform_cursor_set_style( CursorStyle cursor_style ) {
+    PLATFORM->cursor_style = cursor_style;
 
     LPCTSTR win32_style = cursor_style_to_win32_style( cursor_style );
-    SetCursor(
-        LoadCursor( NULL, win32_style )
-    );
+    SetCursor( LoadCursor( NULL, win32_style ) );
 }
-void platform_cursor_set_visible( Platform* platform, b32 visible ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform;
+void platform_cursor_set_visible( b32 visible ) {
+    PLATFORM->cursor_visible = visible;
     ShowCursor( visible );
-    win32_platform->cursor.is_visible = visible;
 }
-void platform_cursor_center( Platform* platform ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform;
+void platform_cursor_center() {
+
     POINT center = {};
-    center.x = platform->surface.width  / 2;
-    center.y = platform->surface.height / 2;
+    center.x = PLATFORM->window.dimensions.width  / 2;
+    center.y = PLATFORM->window.dimensions.height / 2;
 
     ClientToScreen(
-        win32_platform->window.handle,
+        PLATFORM->window.handle,
         &center
     );
     SetCursorPos( center.x, center.y );
 }
-void platform_sleep( Platform* platform, u32 ms ) {
-    unused(platform);
+void platform_sleep( u32 ms ) {
     DWORD dwMilliseconds = ms;
     Sleep( dwMilliseconds );
 }
-void platform_set_pad_motor_state(
-    Platform* platform,
+void platform_set_gamepad_motor_state(
     u32 gamepad_index, u32 motor, f32 value
 ) {
-    unused(platform);
     XINPUT_VIBRATION vibration = {};
     if( motor == GAMEPAD_MOTOR_LEFT ) {
-        f32 right_motor = input_pad_read_motor_state(
+        f32 right_motor = input_gamepad_motor_state(
             gamepad_index,
             GAMEPAD_MOTOR_RIGHT
         );
         vibration.wLeftMotorSpeed  = (WORD)( value * (f32)U16_MAX );
         vibration.wRightMotorSpeed = (WORD)( right_motor * (f32)U16_MAX );
     } else {
-        f32 left_motor = input_pad_read_motor_state(
+        f32 left_motor = input_gamepad_motor_state(
             gamepad_index,
             GAMEPAD_MOTOR_LEFT
         );
@@ -752,14 +770,14 @@ void platform_set_pad_motor_state(
 
     XInputSetState( gamepad_index, &vibration );
 }
-void platform_poll_gamepad( Platform* platform ) {
-    if( !platform->is_active ) {
+void platform_poll_gamepad() {
+    if( !PLATFORM->is_active ) {
         return;
     }
 
     XINPUT_STATE gamepad_state = {};
-    DWORD max_index = XUSER_MAX_COUNT > MAX_GAMEPAD_INDEX ?
-        MAX_GAMEPAD_INDEX : XUSER_MAX_COUNT;
+    DWORD max_index = XUSER_MAX_COUNT > GAMEPAD_MAX_INDEX ?
+        GAMEPAD_MAX_INDEX : XUSER_MAX_COUNT;
 
     Event event = {};
     for(
@@ -768,7 +786,7 @@ void platform_poll_gamepad( Platform* platform ) {
         ++gamepad_index
     ) {
 
-        b32 is_active = input_pad_is_active( gamepad_index );
+        b32 is_active = input_gamepad_is_active( gamepad_index );
         if( !is_active ) {
             continue;
         }
@@ -780,97 +798,97 @@ void platform_poll_gamepad( Platform* platform ) {
         // if failed to get xinput state, fire an event
         if( !xinput_get_state_success ) {
             event.code = EVENT_CODE_GAMEPAD_ACTIVE;
-            event.data.uint32[0] = gamepad_index;
-            event.data.bool32[1] = false;
+            event.data.gamepad_active.index  = gamepad_index;
+            event.data.gamepad_active.active = false;
             event_fire( event );
-            input_set_pad_active( gamepad_index, false );
+            input_set_gamepad_active( gamepad_index, false );
             continue;
         }
 
         XINPUT_GAMEPAD gamepad = gamepad_state.Gamepad;
 
-        input_set_pad_button(
+        input_set_gamepad_button(
             gamepad_index,
             GAMEPAD_CODE_DPAD_LEFT,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_LEFT )
         );
-        input_set_pad_button(
+        input_set_gamepad_button(
             gamepad_index,
             GAMEPAD_CODE_DPAD_RIGHT,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_RIGHT )
         );
-        input_set_pad_button(
+        input_set_gamepad_button(
             gamepad_index,
             GAMEPAD_CODE_DPAD_UP,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_UP )
         );
-        input_set_pad_button(
+        input_set_gamepad_button(
             gamepad_index,
             GAMEPAD_CODE_DPAD_DOWN,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_DPAD_DOWN )
         );
 
-        input_set_pad_button(
+        input_set_gamepad_button(
             gamepad_index,
             GAMEPAD_CODE_FACE_LEFT,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_X )
         );
-        input_set_pad_button(
+        input_set_gamepad_button(
             gamepad_index,
             GAMEPAD_CODE_FACE_RIGHT,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_B )
         );
-        input_set_pad_button(
+        input_set_gamepad_button(
             gamepad_index,
             GAMEPAD_CODE_FACE_UP,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_Y )
         );
-        input_set_pad_button(
+        input_set_gamepad_button(
             gamepad_index,
             GAMEPAD_CODE_FACE_DOWN,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_A )
         );
 
-        input_set_pad_button(
+        input_set_gamepad_button(
             gamepad_index,
             GAMEPAD_CODE_START,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_START )
         );
-        input_set_pad_button(
+        input_set_gamepad_button(
             gamepad_index,
             GAMEPAD_CODE_SELECT,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_BACK )
         );
 
-        input_set_pad_button(
+        input_set_gamepad_button(
             gamepad_index,
             GAMEPAD_CODE_BUMPER_LEFT,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_LEFT_SHOULDER )
         );
-        input_set_pad_button(
+        input_set_gamepad_button(
             gamepad_index,
             GAMEPAD_CODE_BUMPER_RIGHT,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_RIGHT_SHOULDER )
         );
 
-        input_set_pad_button(
+        input_set_gamepad_button(
             gamepad_index,
             GAMEPAD_CODE_STICK_LEFT_CLICK,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_LEFT_THUMB )
         );
-        input_set_pad_button(
+        input_set_gamepad_button(
             gamepad_index,
             GAMEPAD_CODE_STICK_RIGHT_CLICK,
             CHECK_BITS( gamepad.wButtons, XINPUT_GAMEPAD_RIGHT_THUMB )
         );
 
         f32 trigger_press_threshold =
-            input_pad_read_trigger_press_threshold( gamepad_index );
+            input_gamepad_trigger_press_threshold( gamepad_index );
 
         f32 trigger_left_deadzone =
-            input_pad_read_trigger_left_deadzone( gamepad_index );
+            input_gamepad_trigger_left_deadzone( gamepad_index );
         f32 trigger_right_deadzone =
-            input_pad_read_trigger_right_deadzone( gamepad_index );
+            input_gamepad_trigger_right_deadzone( gamepad_index );
 
         f32 trigger_left  = normalize_range_u8_f32( gamepad.bLeftTrigger );
         f32 trigger_right = normalize_range_u8_f32( gamepad.bRightTrigger );
@@ -894,22 +912,22 @@ void platform_poll_gamepad( Platform* platform ) {
             trigger_right = 0;
         }
 
-        input_set_pad_button(
+        input_set_gamepad_button(
             gamepad_index,
             GAMEPAD_CODE_TRIGGER_LEFT,
             trigger_left >= trigger_press_threshold
         );
-        input_set_pad_button(
+        input_set_gamepad_button(
             gamepad_index,
             GAMEPAD_CODE_TRIGGER_RIGHT,
             trigger_right >= trigger_press_threshold
         );
 
-        input_set_pad_trigger_left(
+        input_set_gamepad_trigger_left(
             gamepad_index,
             trigger_left
         );
-        input_set_pad_trigger_right(
+        input_set_gamepad_trigger_right(
             gamepad_index,
             trigger_right
         );
@@ -932,9 +950,9 @@ void platform_poll_gamepad( Platform* platform ) {
             v2_div( stick_right, stick_right_magnitude ) : VEC2_ZERO;
 
         f32 stick_left_deadzone  =
-            input_pad_read_stick_left_deadzone( gamepad_index );
+            input_gamepad_stick_left_deadzone( gamepad_index );
         f32 stick_right_deadzone =
-            input_pad_read_stick_right_deadzone( gamepad_index );
+            input_gamepad_stick_right_deadzone( gamepad_index );
 
         if( stick_left_magnitude >= stick_left_deadzone ) {
             stick_left_magnitude = remap32(
@@ -958,34 +976,32 @@ void platform_poll_gamepad( Platform* platform ) {
         stick_left  = v2_mul( stick_left_direction, stick_left_magnitude );
         stick_right = v2_mul( stick_right_direction, stick_right_magnitude );
         
-        input_set_pad_button(
+        input_set_gamepad_button(
             gamepad_index,
             GAMEPAD_CODE_STICK_LEFT,
             stick_left_magnitude  >= 0
         );
-        input_set_pad_button(
+        input_set_gamepad_button(
             gamepad_index,
             GAMEPAD_CODE_STICK_RIGHT,
             stick_right_magnitude >= 0
         );
         
-        input_set_pad_stick_left(
+        input_set_gamepad_stick_left(
             gamepad_index,
             stick_left
         );
 
-        input_set_pad_stick_right(
+        input_set_gamepad_stick_right(
             gamepad_index,
             stick_right
         );
     }
 }
-void platform_gl_swap_buffers( Platform* platform ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform;
-    SwapBuffers( win32_platform->window.device_context );
+void platform_gl_swap_buffers() {
+    SwapBuffers( PLATFORM->window.device_context );
 }
-internal HGLRC win32_gl_create_context( Platform* platform ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform;
+internal HGLRC win32_gl_create_context() {
 
     PIXELFORMATDESCRIPTOR desired_pixel_format = {};
     u16 pixel_format_size = sizeof( PIXELFORMATDESCRIPTOR );
@@ -999,17 +1015,17 @@ internal HGLRC win32_gl_create_context( Platform* platform ) {
     desired_pixel_format.iLayerType = PFD_MAIN_PLANE;
 
     i32 pixelFormatIndex = ChoosePixelFormat(
-        win32_platform->window.device_context,
+        PLATFORM->window.device_context,
         &desired_pixel_format
     );
     PIXELFORMATDESCRIPTOR suggested_pixel_format = {};
     DescribePixelFormat(
-        win32_platform->window.device_context, pixelFormatIndex,
+        PLATFORM->window.device_context, pixelFormatIndex,
         pixel_format_size, &suggested_pixel_format
     );
 
     if( SetPixelFormat(
-        win32_platform->window.device_context,
+        PLATFORM->window.device_context,
         pixelFormatIndex,
         &suggested_pixel_format
     ) == FALSE ) {
@@ -1017,21 +1033,21 @@ internal HGLRC win32_gl_create_context( Platform* platform ) {
         return NULL;
     }
 
-    HGLRC temp = wglCreateContext( win32_platform->window.device_context );
+    HGLRC temp = wglCreateContext( PLATFORM->window.device_context );
     if(!temp) {
         win32_log_error( false );
         return NULL;
     }
 
     if( wglMakeCurrent(
-        win32_platform->window.device_context,
+        PLATFORM->window.device_context,
         temp ) == FALSE
     ) {
         WIN32_LOG_ERROR("Failed to make temp OpenGL context current!");
         return NULL;
     }
 
-    wglCreateContextAttribsARB = (wglCreateContextAttribsARBFN)
+    wglCreateContextAttribsARB = (wglCreateContextAttribsARBFN*)
         wglGetProcAddress("wglCreateContextAttribsARB");
 
     if(!wglCreateContextAttribsARB) {
@@ -1051,7 +1067,7 @@ internal HGLRC win32_gl_create_context( Platform* platform ) {
     };
 
     HGLRC result = wglCreateContextAttribsARB(
-        win32_platform->window.device_context, NULL, attribs
+        PLATFORM->window.device_context, NULL, attribs
     );
     wglDeleteContext( temp );
     if(!result) {
@@ -1061,7 +1077,7 @@ internal HGLRC win32_gl_create_context( Platform* platform ) {
         );
         return NULL;
     }
-    wglMakeCurrent( win32_platform->window.device_context, result );
+    wglMakeCurrent( PLATFORM->window.device_context, result );
 
     return result;
 }
@@ -1087,14 +1103,12 @@ void* win32_gl_load_proc( const char* function_name ) {
 
     return function;
 }
-void* platform_gl_init( Platform* platform ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform;
-
-    if( !win32_load_opengl( win32_platform ) ) {
+void* platform_gl_init() {
+    if( !win32_load_opengl( PLATFORM ) ) {
         return NULL;
     }
 
-    HGLRC gl_context = win32_gl_create_context( platform );
+    HGLRC gl_context = win32_gl_create_context();
     if( !gl_context ) {
         return NULL;
     }
@@ -1106,106 +1120,98 @@ void* platform_gl_init( Platform* platform ) {
 
     return (void*)gl_context;
 }
-void platform_gl_shutdown( Platform* platform, void* glrc ) {
-    Win32Platform* win32_platform = (Win32Platform*)platform;
+void platform_gl_shutdown( void* glrc ) {
     wglMakeCurrent(
-        win32_platform->window.device_context,
+        PLATFORM->window.device_context,
         NULL
     );
     wglDeleteContext( (HGLRC)glrc );
 }
-SystemInfo query_system_info() {
-    SystemInfo result = {};
-
+void platform_query_system_info( struct SystemInfo* sysinfo ) {
     SYSTEM_INFO win32_info = {};
     GetSystemInfo( &win32_info );
 
     if( IsProcessorFeaturePresent(
         PF_XMMI_INSTRUCTIONS_AVAILABLE
     ) ) {
-        result.features |= SSE_MASK;
+        sysinfo->features |= SSE_MASK;
     }
     if( IsProcessorFeaturePresent(
         PF_XMMI64_INSTRUCTIONS_AVAILABLE
     ) ) {
-        result.features |= SSE2_MASK;
+        sysinfo->features |= SSE2_MASK;
     }
     if( IsProcessorFeaturePresent(
         PF_SSE3_INSTRUCTIONS_AVAILABLE
     ) ) {
-        result.features |= SSE3_MASK;
+        sysinfo->features |= SSE3_MASK;
     }
     if( IsProcessorFeaturePresent(
         PF_SSSE3_INSTRUCTIONS_AVAILABLE
     ) ) {
-        result.features |= SSSE3_MASK;
+        sysinfo->features |= SSSE3_MASK;
     }
     if( IsProcessorFeaturePresent(
         PF_SSE4_1_INSTRUCTIONS_AVAILABLE
     ) ) {
-        result.features |= SSE4_1_MASK;
+        sysinfo->features |= SSE4_1_MASK;
     }
     if( IsProcessorFeaturePresent(
         PF_SSE4_2_INSTRUCTIONS_AVAILABLE
     ) ) {
-        result.features |= SSE4_2_MASK;
+        sysinfo->features |= SSE4_2_MASK;
     }
     if( IsProcessorFeaturePresent(
         PF_AVX_INSTRUCTIONS_AVAILABLE
     ) ) {
-        result.features |= AVX_MASK;
+        sysinfo->features |= AVX_MASK;
     }
     if( IsProcessorFeaturePresent(
         PF_AVX2_INSTRUCTIONS_AVAILABLE
     ) ) {
-        result.features |= AVX2_MASK;
+        sysinfo->features |= AVX2_MASK;
     }
     if( IsProcessorFeaturePresent(
         PF_AVX512F_INSTRUCTIONS_AVAILABLE
     ) ) {
-        result.features |= AVX512_MASK;
+        sysinfo->features |= AVX512_MASK;
     }
 
     MEMORYSTATUSEX memory_status = {};
     memory_status.dwLength = sizeof(MEMORYSTATUSEX);
     GlobalMemoryStatusEx( &memory_status );
 
-    result.total_memory = memory_status.ullTotalPhys;
-    result.logical_processor_count = win32_info.dwNumberOfProcessors;
+    sysinfo->total_memory = memory_status.ullTotalPhys;
+    sysinfo->logical_processor_count = win32_info.dwNumberOfProcessors;
 
 #if defined(LD_ARCH_X86)
     mem_set(
-        result.cpu_name_buffer,
+        sysinfo->cpu_name_buffer,
         ' ',
         CPU_NAME_BUFFER_SIZE
     );
-    result.cpu_name_buffer[CPU_NAME_BUFFER_SIZE - 1] = 0;
+    sysinfo->cpu_name_buffer[CPU_NAME_BUFFER_SIZE - 1] = 0;
 
     int cpu_info[4] = {};
     __cpuid( cpu_info, 0x80000002 );
     mem_copy(
-        result.cpu_name_buffer,
+        sysinfo->cpu_name_buffer,
         cpu_info,
         sizeof(cpu_info)
     );
     __cpuid( cpu_info, 0x80000003 );
     mem_copy(
-        result.cpu_name_buffer + 16,
+        sysinfo->cpu_name_buffer + 16,
         cpu_info,
         sizeof(cpu_info)
     );
     __cpuid( cpu_info, 0x80000004 );
     mem_copy(
-        result.cpu_name_buffer + 32,
+        sysinfo->cpu_name_buffer + 32,
         cpu_info,
         sizeof(cpu_info)
     );
-
-    StringView cpu_name = sv_from_str( result.cpu_name_buffer );
-    sv_trim_trailing_whitespace( cpu_name );
 #endif
-
-    return result;
 }
 
 LRESULT win32_winproc(
@@ -1215,20 +1221,6 @@ LRESULT win32_winproc(
     #define TRANSITION_STATE_MASK (1 << 31)
     #define EXTENDED_KEY_MASK     (1 << 24)
     #define SCANCODE_MASK         0x00FF0000
-
-    Platform* platform = (Platform*)GetWindowLongPtr(
-        hWnd,
-        GWLP_USERDATA
-    );
-
-    if( !platform ) {
-        return DefWindowProc(
-            hWnd,
-            Msg,
-            wParam,
-            lParam
-        );
-    }
 
     Event event = {};
     switch( Msg ) {
@@ -1243,14 +1235,14 @@ LRESULT win32_winproc(
                 wParam == WA_CLICKACTIVE;
 
             XInputEnable( (BOOL)is_active );
-            event.code = EVENT_CODE_ACTIVE;
-            event.data.bool32[0] = is_active;
+            event.code = EVENT_CODE_APP_ACTIVE;
+            event.data.app_active.active = is_active;
             event_fire( event );
 
             if( !is_active ) {
-                platform_cursor_set_visible( platform, true );
+                platform_cursor_set_visible( true );
             }
-            platform->is_active = is_active;
+            PLATFORM->is_active = is_active;
         } break;
 
         case WM_WINDOWPOSCHANGED: {
@@ -1270,11 +1262,10 @@ LRESULT win32_winproc(
                     max( rect.right, MIN_DIMENSIONS ),
                     max( rect.bottom, MIN_DIMENSIONS ),
                 };
+                PLATFORM->window.dimensions = dimensions;
 
-                platform->surface.dimensions = dimensions;
-                event.code = EVENT_CODE_RESIZE;
-                event.data.int32[0] = dimensions.width;
-                event.data.int32[1] = dimensions.height;
+                event.code = EVENT_CODE_SURFACE_RESIZE;
+                event.data.resize.new_dimensions = dimensions;
                 event_fire( event );
 
                 last_rect = rect;
@@ -1286,7 +1277,7 @@ LRESULT win32_winproc(
         case WM_KEYDOWN:
         case WM_KEYUP: {
 
-            if( !platform->is_active ) {
+            if( !PLATFORM->is_active ) {
                 break;
             }
 
@@ -1322,7 +1313,7 @@ LRESULT win32_winproc(
         
         case WM_MOUSEMOVE: {
 
-            if( !platform->is_active ) {
+            if( !PLATFORM->is_active ) {
                 break;
             }
 
@@ -1343,7 +1334,7 @@ LRESULT win32_winproc(
         case WM_MBUTTONDOWN:
         case WM_MBUTTONUP: {
 
-            if( !platform->is_active ) {
+            if( !PLATFORM->is_active ) {
                 break;
             }
 
@@ -1369,7 +1360,7 @@ LRESULT win32_winproc(
         case WM_XBUTTONDOWN:
         case WM_XBUTTONUP: {
 
-            if( !platform->is_active ) {
+            if( !PLATFORM->is_active ) {
                 break;
             }
 
@@ -1384,7 +1375,7 @@ LRESULT win32_winproc(
         case WM_MOUSEHWHEEL:
         case WM_MOUSEWHEEL: {
 
-            if( !platform->is_active ) {
+            if( !PLATFORM->is_active ) {
                 break;
             }
 
@@ -1404,39 +1395,34 @@ LRESULT win32_winproc(
             case HTRIGHT:
             case HTLEFT: {
                 platform_cursor_set_style(
-                    platform,
-                    CURSOR_RESIZE_HORIZONTAL
+                    CURSOR_STYLE_RESIZE_HORIZONTAL
                 );
             } break;
 
             case HTTOP:
             case HTBOTTOM: {
                 platform_cursor_set_style(
-                    platform,
-                    CURSOR_RESIZE_VERTICAL
+                    CURSOR_STYLE_RESIZE_VERTICAL
                 );
             } break;
 
             case HTBOTTOMLEFT:
             case HTTOPRIGHT: {
                 platform_cursor_set_style(
-                    platform,
-                    CURSOR_RESIZE_TOP_RIGHT_BOTTOM_LEFT
+                    CURSOR_STYLE_RESIZE_TOP_RIGHT_BOTTOM_LEFT
                 );
             } break;
 
             case HTBOTTOMRIGHT:
             case HTTOPLEFT: {
                 platform_cursor_set_style(
-                    platform,
-                    CURSOR_RESIZE_TOP_LEFT_BOTTOM_RIGHT
+                    CURSOR_STYLE_RESIZE_TOP_LEFT_BOTTOM_RIGHT
                 );
             } break;
 
             default: {
                 platform_cursor_set_style(
-                    platform,
-                    CURSOR_ARROW
+                    CURSOR_STYLE_ARROW
                 );
             } break;
         } return TRUE;
@@ -1689,230 +1675,6 @@ b32 platform_file_set_offset( PlatformFile* file, usize offset ) {
         return true;
     }
 }
-// internal inline void fill_sound_buffer(
-//     i16* sample_out,
-//     DWORD sample_count,
-//     Win32DirectSound* ds,
-//     i16 volume
-// ) {
-//     f32 wave_period = (f32)AUDIO_KHZ / (f32)256;
-//     for(
-//         DWORD sample_index = 0;
-//         sample_index < sample_count;
-//         ++sample_index
-//     ) {
-//         f32 t = F32_TAU * ((f32)ds->running_sample_index / wave_period);
-//         f32 sine_value = sin(t);
-//         i16 sample_value = (i16)(sine_value * volume);
-//         *sample_out++ = sample_value;
-//         *sample_out++ = sample_value;
-//
-//         ds->running_sample_index++;
-//     }
-// }
-b32 platform_init_audio( Platform* generic_platform ) {
-    unused(generic_platform);
-    return true;
-}
-//     Win32Platform* platform = (Win32Platform*)generic_platform;
-//
-//     if( !library_load(
-//         "DSOUND.DLL",
-//         &platform->lib_dsound
-//     ) ) {
-//         MESSAGE_BOX_FATAL(
-//             "Failed to load library!",
-//             "Failed to load user32.dll!"
-//         );
-//         return false;
-//     }
-//     DirectSoundCreate =
-//     (DirectSoundCreateFN)library_load_function(
-//         &platform->lib_dsound,
-//         "DirectSoundCreate"
-//     );
-//     if( !DirectSoundCreate ) {
-//         return false;
-//     }
-//
-//     LPDIRECTSOUND direct_sound = NULL;
-//     HRESULT hResult = DirectSoundCreate(
-//         NULL, &direct_sound, NULL
-//     );
-//     if( !SUCCEEDED(hResult) ) {
-//         win32_log_error( true );
-//         return false;
-//     }
-//
-//     // Set cooperative level
-//     hResult = direct_sound->SetCooperativeLevel(
-//         platform->window.handle,
-//         DSSCL_PRIORITY
-//     );
-//     if( !SUCCEEDED(hResult) ) {
-//         win32_log_error( true );
-//         return false;
-//     }
-//
-//     /// Create primary buffer
-//     DSBUFFERDESC buffer_description = {};
-//     buffer_description.dwSize  = sizeof(buffer_description);
-//     buffer_description.dwFlags = DSBCAPS_PRIMARYBUFFER;
-//
-//     LPDIRECTSOUNDBUFFER direct_sound_primary_buffer = {};
-//     hResult = direct_sound->CreateSoundBuffer(
-//         &buffer_description,
-//         &direct_sound_primary_buffer,
-//         NULL
-//     );
-//     if( !SUCCEEDED( hResult ) ) {
-//         win32_log_error( true );
-//         return false;
-//     }
-//
-//     /// Set primary buffer format
-//     WAVEFORMATEX wave_format = {};
-//     wave_format.wFormatTag     = WAVE_FORMAT_PCM;
-//     wave_format.nChannels      = AUDIO_CHANNEL_COUNT;
-//     wave_format.wBitsPerSample = AUDIO_BITS_PER_SAMPLE;
-//     wave_format.nSamplesPerSec = AUDIO_KHZ;
-//     wave_format.nBlockAlign =
-//         (wave_format.nChannels * wave_format.wBitsPerSample) / 8;
-//     wave_format.nAvgBytesPerSec =
-//         wave_format.nSamplesPerSec * wave_format.nBlockAlign;
-//
-//     hResult = direct_sound_primary_buffer->SetFormat( &wave_format );
-//     if( !SUCCEEDED( hResult ) ) {
-//         win32_log_error( true );
-//         return false;
-//     }
-//
-//     /// Create secondary buffer
-//     buffer_description = {};
-//     buffer_description.dwSize        = sizeof(buffer_description);
-//     buffer_description.dwBufferBytes = AUDIO_BUFFER_SIZE;
-//     buffer_description.lpwfxFormat   = &wave_format;
-//     LPDIRECTSOUNDBUFFER direct_sound_secondary_buffer = {};
-//     hResult = direct_sound->CreateSoundBuffer(
-//         &buffer_description,
-//         &direct_sound_secondary_buffer,
-//         NULL
-//     );
-//
-//     if( !SUCCEEDED(hResult) ) {
-//         win32_log_error( true );
-//         return false;
-//     }
-//
-//     platform->direct_sound.handle          = direct_sound;
-//     platform->direct_sound.hardware_handle = direct_sound_primary_buffer;
-//     platform->direct_sound.buffer          = direct_sound_secondary_buffer;
-//     platform->direct_sound.running_sample_index = 0;
-//
-//     void* audio_ptr[2];
-//     DWORD audio_bytes[2];
-//     hResult = direct_sound_secondary_buffer->Lock(
-//         0, AUDIO_BUFFER_SIZE,
-//         &audio_ptr[0], &audio_bytes[0],
-//         &audio_ptr[1], &audio_bytes[1],
-//         DSBLOCK_ENTIREBUFFER
-//     );
-//     LOG_ASSERT( SUCCEEDED(hResult), "Failed to lock" );
-//     
-//     if( audio_ptr[0] ) {
-//         // NOTE(alicia): should probably clear to zero instead
-//         fill_sound_buffer(
-//             (i16*)audio_ptr[0],
-//             audio_bytes[0] / AUDIO_BYTES_PER_SAMPLE,
-//             &platform->direct_sound,
-//             400
-//         );
-//     }
-//
-//     hResult = direct_sound_secondary_buffer->Unlock(
-//         audio_ptr[0], audio_bytes[0],
-//         audio_ptr[1], audio_bytes[1]
-//     );
-//     LOG_ASSERT( SUCCEEDED(hResult), "Failed to unlock" );
-//
-//     direct_sound_secondary_buffer->Play(
-//         0, 0,
-//         DSBPLAY_LOOPING
-//     );
-//
-//
-//     return true;
-// }
-void platform_shutdown_audio( Platform* platform ) {
-    unused(platform);
-    // LPDIRECTSOUNDBUFFER buffer = ((Win32Platform*)platform)->direct_sound.buffer;
-    // buffer->Stop();
-}
-//
-void platform_audio_test( Platform* generic_platform, i16 volume ) {
-    unused(generic_platform);
-    unused(volume);
-//     Win32DirectSound* ds = &((Win32Platform*)generic_platform)->direct_sound;
-//     LPDIRECTSOUNDBUFFER buffer = ds->buffer;
-//
-//     DWORD play_cursor  = 0;
-//     DWORD write_cursor = 0;
-//
-//     HRESULT hResult = buffer->GetCurrentPosition(
-//         &play_cursor,
-//         &write_cursor
-//     );
-//     LOG_ASSERT( SUCCEEDED(hResult), "Failed to get play/write cursor!" );
-//
-//     DWORD byte_to_lock =
-//         (ds->running_sample_index * AUDIO_BYTES_PER_SAMPLE) % AUDIO_BUFFER_SIZE;
-//     DWORD bytes_to_write = 0;
-//     if( ds->running_sample_index == 0 ) {
-//         bytes_to_write = AUDIO_BUFFER_SIZE;
-//     } else {
-//         if( byte_to_lock == play_cursor ) {
-//             return;
-//         } else if( byte_to_lock > play_cursor ) {
-//             bytes_to_write = ( AUDIO_BUFFER_SIZE - byte_to_lock );
-//             bytes_to_write += play_cursor;
-//         } else {
-//             bytes_to_write = play_cursor - byte_to_lock;
-//         }
-//     }
-//
-//     void* audio_ptr[2];
-//     DWORD audio_bytes[2];
-//     hResult = buffer->Lock(
-//         byte_to_lock, bytes_to_write,
-//         &audio_ptr[0], &audio_bytes[0],
-//         &audio_ptr[1], &audio_bytes[1],
-//         0
-//     );
-//     LOG_ASSERT( SUCCEEDED(hResult), "Failed to lock" );
-//
-//     i16*  sample_out   = (i16*)(audio_ptr[0]);
-//     DWORD sample_count = audio_bytes[0] / AUDIO_BYTES_PER_SAMPLE;
-//
-//     fill_sound_buffer(
-//         sample_out,
-//         sample_count,
-//         ds, volume
-//     );
-//     sample_out   = (i16*)(audio_ptr[1]);
-//     sample_count = audio_bytes[1] / AUDIO_BYTES_PER_SAMPLE;
-//     fill_sound_buffer(
-//         sample_out,
-//         sample_count,
-//         ds, volume
-//     );
-//
-//     hResult = buffer->Unlock(
-//         audio_ptr[0], audio_bytes[0],
-//         audio_ptr[1], audio_bytes[1]
-//     );
-//     LOG_ASSERT( SUCCEEDED(hResult), "Failed to unlock" );
-}
-
 b32 win32_load_user32( Win32Platform* platform ) {
     if( !library_load(
         "USER32.DLL",
@@ -1926,11 +1688,12 @@ b32 win32_load_user32( Win32Platform* platform ) {
     }
 
     #define LOAD_USER32_FN(function_name) do {\
-        function_name = (  function_name##FN )\
+        function_name = (function_name##FN*)\
         library_load_function( &platform->lib_user32, #function_name );\
         if( !function_name ) { return false; }\
     } while(0)
 
+    LOAD_USER32_FN(SetWindowPos);
     LOAD_USER32_FN(CreateWindowExA);
     LOAD_USER32_FN(RegisterClassExA);
     LOAD_USER32_FN(AdjustWindowRectEx);
@@ -1987,7 +1750,7 @@ b32 win32_load_xinput( Win32Platform* platform ) {
     }
 
     #define LOAD_XINPUT_FN(function_name) do {\
-        function_name = (  function_name##FN )\
+        function_name = (function_name##FN*)\
         library_load_function( &platform->lib_xinput, #function_name );\
         if( !function_name ) { return false; }\
     } while(0)
@@ -1995,8 +1758,8 @@ b32 win32_load_xinput( Win32Platform* platform ) {
     LOAD_XINPUT_FN(XInputGetState);
     LOAD_XINPUT_FN(XInputSetState);
 
-    XInputEnableFN xinput_enable =
-    (XInputEnableFN)library_load_function(
+    XInputEnableFN* xinput_enable =
+    (XInputEnableFN*)library_load_function(
         &platform->lib_xinput,
         "XInputEnable"
     );
@@ -2020,13 +1783,13 @@ b32 win32_load_opengl( Win32Platform* platform ) {
     }
 
     #define LOAD_OPENGL_FN(function_name) do {\
-        function_name = (  function_name##FN )\
+        function_name = (function_name##FN*)\
         library_load_function( &platform->lib_gl, #function_name );\
         if( !function_name ) { return false; }\
     } while(0)
 
     #define LOAD_GDI32_FN(function_name) do {\
-        function_name = (  function_name##FN )\
+        function_name = (function_name##FN*)\
         library_load_function( &platform->lib_gdi32, #function_name );\
         if( !function_name ) { return false; }\
     } while(0)
@@ -2164,10 +1927,10 @@ internal DWORD WINAPI win32_thread_proc( void* params ) {
     return result ? ERROR_SUCCESS : -1;
 }
 PlatformThread* platform_thread_create(
-    ThreadProcFN thread_proc,
-    void*        user_params,
-    usize        thread_stack_size,
-    b32          create_suspended
+    ThreadProcFN* thread_proc,
+    void*         user_params,
+    usize         thread_stack_size,
+    b32           create_suspended
 ) {
     Win32Thread* win32_thread = platform_heap_alloc( sizeof(Win32Thread) );
 
@@ -2309,14 +2072,14 @@ void* platform_stderr_handle() {
 }
 void platform_write_console(
     void* output_handle,
-    u32 write_count,
+    usize write_count,
     const char* buffer
 ) {
     WriteConsole(
         output_handle,
         buffer,
         write_count,
-        0, 0
+        NULL, NULL
     );
 }
 
@@ -2324,5 +2087,12 @@ void platform_win32_output_debug_string( const char* str ) {
     OutputDebugStringA( str );
 }
 
+b32 platform_is_active() {
+    return PLATFORM->is_active;
+}
+
+ivec2 platform_surface_dimensions() {
+    return PLATFORM->window.dimensions;
+}
 
 #endif // LD_PLATFORM_WINDOWS

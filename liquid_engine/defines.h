@@ -234,6 +234,9 @@ typedef void* pvoid;
     #define NO_OPTIMIZE __attribute__((optnone))
 #endif
 
+/// Value is unused
+#define unused(x) (void)((x))
+
 /// Compile-time assertion
 #define STATIC_ASSERT _Static_assert
 
@@ -246,7 +249,7 @@ typedef void* pvoid;
     } while(0)
 #else
     /// Runtime assertion
-    #define ASSERT(condition) (condition)
+    #define ASSERT(condition) unused((condition))
 #endif
 
 /// Always optimize regardless of optimization level
@@ -257,8 +260,6 @@ typedef void* pvoid;
 #define NO_INLINE     __attribute__((noinline))
 /// Don't pad struct
 #define PACKED __attribute__((__packed__))
-/// Value is unused
-#define unused(x) (void)((x))
 /// Function is internal to translation unit
 #define internal static
 /// Value is local to function

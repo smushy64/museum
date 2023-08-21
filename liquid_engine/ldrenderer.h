@@ -31,11 +31,10 @@ typedef b32 (*RendererBackendEndFrameFN)(
     RendererContext* ctx, struct RenderData* render_data );
 
 /// Query required buffer size for renderer subsystem.
-usize renderer_subsystem_context_size( enum RendererBackend backend );
+usize renderer_query_subsystem_size( enum RendererBackend backend );
 /// Initialize renderer subsystem.
-b32 renderer_subystem_init(
+b32 renderer_subsystem_init(
     enum RendererBackend backend,
-    struct Platform* platform,
     void* context_buffer
 );
 /// Shutdown renderer subsystem.

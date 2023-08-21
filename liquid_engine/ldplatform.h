@@ -14,29 +14,15 @@
 #include "core/ldengine.h"
 #include "core/ldstring.h"
 #include "core/ldthread.h"
-#include "platform/flags.h"
-
-#define MAX_PLATFORM_SURFACE_TITLE_SIZE 255
-
-/// Platform state
-typedef struct Platform {
-    union Surface {
-        ivec2  dimensions;
-        struct { i32 width, height; };
-    } surface;
-    b32 is_active;
-} Platform;
 
 /// Returns how many bytes the current platform requires.
-u32 query_platform_subsystem_size();
+usize platform_query_subsystem_size();
 /// Initialize platform state. Returns true if successful.
-b32 platform_init(
-    ivec2 surface_dimensions,
-    PlatformFlags flags,
-    Platform* out_platform
-);
+b32 platform_subsystem_init( ivec2 surface_dimensions, void* buffer );
 /// Shutdown platform subsystem.
-void platform_shutdown( Platform* platform );
+void platform_subsystem_shutdown();
+/// Query if application is active.
+b32 platform_is_active();
 /// Get microseconds (μs) elapsed since start of the program.
 f64 platform_us_elapsed();
 /// Get milliseconds elapsed since start of the program.
@@ -44,69 +30,63 @@ f64 platform_ms_elapsed();
 /// Get seconds elapsed since start of the program.
 f64 platform_s_elapsed();
 /// Pump platform events.
-b32 platform_pump_events( Platform* platform );
-/// Set platform surface name.
-/// StringView MUST have a null-terminator
+b32 platform_pump_events();
+/// Set application name.
+/// String must be a null-terminated string.
+void platform_set_application_name( const char* str );
+/// Get application name.
+/// Returns a null-terminated string.
+const char* platform_application_name();
+/// Set surface dimensions.
+void platform_surface_set_dimensions( ivec2 dimensions );
+/// Query surface dimensions.
+ivec2 platform_surface_dimensions();
+/// Center surface on screen.
 /// Does nothing on platforms that don't use windows.
-void platform_surface_set_name(
-    Platform* platform,
-    StringView name
-);
-/// Read platform surface name.
-/// Returns:
-///          >Zero: required buffer size. writes up to buffer size.
-///          Zero:  success.
-i32 platform_surface_read_name(
-    Platform* platform,
-    char* buffer, usize max_buffer_size
-);
+void platform_surface_center();
+/// Query cursor style.
+CursorStyle platform_cursor_style();
+/// Query if cursor is visible.
+b32 platform_cursor_visible();
 /// Set cursor style.
 /// Does nothing on platforms that don't use a cursor.
-void platform_cursor_set_style( Platform* platform, CursorStyle cursor_style );
+void platform_cursor_set_style( CursorStyle cursor_style );
 /// Set cursor visibility.
 /// Does nothing on platforms that don't use a cursor.
-void platform_cursor_set_visible( Platform* platform, b32 visible );
+void platform_cursor_set_visible( b32 visible );
 /// Set cursor position to surface center.
 /// Does nothing on platforms that don't use a cursor.
-void platform_cursor_center( Platform* platform );
+void platform_cursor_center();
 /// Put the current thread to sleep
 /// for the specified amount of milliseconds.
-void platform_sleep( Platform* platform, u32 ms );
+void platform_sleep( u32 ms );
 /// Set given gamepad motor state.
-void platform_set_pad_motor_state(
-    Platform* platform,
-    u32 gamepad_index, u32 motor, f32 value
-);
+void platform_set_gamepad_motor_state(
+    u32 gamepad_index, u32 motor, f32 value );
 /// Poll gamepad.
-void platform_poll_gamepad( Platform* platform );
+void platform_poll_gamepad();
 /// Swap buffers. OpenGL only.
-void platform_gl_swap_buffers( Platform* platform );
+void platform_gl_swap_buffers();
 /// Initialize OpenGL.
-void* platform_gl_init( Platform* platform );
+void* platform_gl_init();
 /// Shutdown OpenGL.
-void platform_gl_shutdown( Platform* platform, void* glrc );
-
-/// Initialize Audio backend.
-b32 platform_init_audio( Platform* platform );
-/// Shutdown Audio backend.
-void platform_shutdown_audio( Platform* platform );
-
-void platform_audio_test( Platform* platform, i16 volume );
+void platform_gl_shutdown( void* glrc );
 
 /// Get stdout handle.
 void* platform_stdout_handle();
 /// Get stderr handle.
 void* platform_stderr_handle();
 
-/// Write a null-terminated string to the console.
+/// Write a string to the console.
 /// Get console handle using platform_stdout_handle() or
 /// platform_stderr_handle().
 void platform_write_console(
     void* output_handle,
-    u32 write_count,
+    usize write_count,
     const char* buffer
 );
 
+/// Opaque handle to library.
 typedef void PlatformLibrary;
 
 /// Load library from path.
@@ -119,7 +99,7 @@ void* platform_library_load_function(
     const char*      function_name
 );
 
-/// Platform File handle
+/// Opaque handle to file. 
 typedef void PlatformFile;
 
 typedef u32 PlatformFileOpenFlag;
@@ -162,14 +142,14 @@ b32 platform_file_set_offset( PlatformFile* file, usize offset );
 typedef void PlatformThread;
 
 /// Thread Proc definition.
-typedef b32 (*ThreadProcFN)( void* user_params );
+typedef b32 ThreadProcFN( void* user_params );
 
 /// Create a thread.
 PlatformThread* platform_thread_create(
-    ThreadProcFN thread_proc,
-    void*        user_params,
-    usize        thread_stack_size,
-    b32          create_suspended
+    ThreadProcFN* thread_proc,
+    void*         user_params,
+    usize         thread_stack_size,
+    b32           create_suspended
 );
 /// Resume a suspended thread.
 void platform_thread_resume( PlatformThread* thread );
@@ -329,7 +309,7 @@ void* platform_page_alloc( usize size );
 /// Free page allocated memory.
 void platform_page_free( void* memory );
 
-#define CPU_NAME_BUFFER_SIZE 68
+#define CPU_NAME_BUFFER_SIZE (72)
 typedef u16 ProcessorFeatures;
 
 #define SSE_MASK    ((ProcessorFeatures)(1 << 0))
@@ -343,13 +323,13 @@ typedef u16 ProcessorFeatures;
 #define AVX512_MASK ((ProcessorFeatures)(1 << 8))
 
 typedef struct SystemInfo {
-    usize logical_processor_count;
-    usize total_memory;
     char  cpu_name_buffer[CPU_NAME_BUFFER_SIZE];
+    usize total_memory;
+    u16   logical_processor_count;
     ProcessorFeatures features;
 } SystemInfo;
-/// Query CPU and memory information.
-SystemInfo query_system_info();
+/// Query information about the current platform.
+void platform_query_system_info( struct SystemInfo* sysinfo );
 
 #if defined(LD_PLATFORM_WINDOWS)
     void platform_win32_output_debug_string( const char* str );

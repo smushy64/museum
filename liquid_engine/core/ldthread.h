@@ -9,10 +9,11 @@
 
 /// Opaque thread info.
 typedef void ThreadInfo;
+
 /// Thread work function.
-typedef void (*ThreadWorkProcFN)( ThreadInfo* thread_info, void* params );
+typedef void ThreadWorkProcFN( ThreadInfo* thread_info, void* params );
 /// Push a new work proc into the work queue.
-LD_API void thread_work_queue_push( ThreadWorkProcFN work_proc, void* params );
+LD_API void thread_work_queue_push( ThreadWorkProcFN* work_proc, void* params );
 /// Get the current thread's index.
 LD_API u32 thread_info_index( ThreadInfo* thread_info );
 
@@ -81,14 +82,17 @@ LD_API void* interlocked_compare_exchange_pointer(
     #define write_fence()\
         __asm__ volatile ("dmb st":::"memory")
 #else
-    STATIC_ASSERT(false, "Fences not defined for current architecture!")
+    #error "Fences not defined for current architecture!"
 #endif
 
 #if defined(LD_API_INTERNAL)
 
-    u32 query_threading_subsystem_size();
-    b32 threading_init( u32 logical_processor_count, void* buffer );
-    void threading_shutdown();
+    /// Get thread subsystem size
+    usize thread_query_subsystem_size();
+    /// Initialize thread subsystem
+    b32 thread_subsystem_init( u32 logical_processor_count, void* buffer );
+    /// Shutdown thread subsystem
+    void thread_subsystem_shutdown();
 
 #endif
 

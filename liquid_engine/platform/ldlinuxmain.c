@@ -1,9 +1,9 @@
 // * Description:  Linux Platform Layer
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: July 19, 2023
-#include "linux.h"
+#include "defines.h"
 #if defined(LD_PLATFORM_LINUX)
-#include "corecpp.inl"
+#include "corec.inl"
 
 #include <sys/mman.h>
 #include <sys/sysinfo.h>

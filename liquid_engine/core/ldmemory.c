@@ -84,10 +84,11 @@ LD_API void* internal_ldalloc_trace(
     if( result ) {
         log_formatted_locked(
             LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
-            LOG_COLOR_GREEN,
-            LOG_FLAG_NEW_LINE,
+            false, true,
+            LOG_COLOR_GREEN
             "[ALLOC | {cc}() | {cc}:{i}] "
-            "{cc} Size: {u64} Pointer: {u64,x}",
+            "{cc} Size: {u64} Pointer: {u64,x}"
+            LOG_COLOR_RESET,
             function, file, line,
             memory_type_to_string( type ),
             (u64)size, (u64)result
@@ -95,10 +96,11 @@ LD_API void* internal_ldalloc_trace(
     } else {
         log_formatted_locked(
             LOG_LEVEL_ERROR | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
-            LOG_COLOR_RED,
-            LOG_FLAG_NEW_LINE,
+            false, true,
+            LOG_COLOR_RED
             "[ALLOC FAILED | {cc}() | {cc}:{i}] "
-            "{cc} Size: {u64}",
+            "{cc} Size: {u64}"
+            LOG_COLOR_RESET,
             function, file, line,
             memory_type_to_string( type ),
             (u64)size
@@ -116,10 +118,11 @@ LD_API void* internal_ldalloc_aligned_trace(
     if( result ) {
         log_formatted_locked(
             LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
-            LOG_COLOR_GREEN,
-            LOG_FLAG_NEW_LINE,
+            false, true,
+            LOG_COLOR_GREEN
             "[ALLOC | {cc}() | {cc}:{i}] "
-            "{cc} Size: {u64} Alignment: {u64} Pointer: {u64,x}",
+            "{cc} Size: {u64} Alignment: {u64} Pointer: {u64,x}"
+            LOG_COLOR_RESET,
             function, file, line,
             memory_type_to_string( type ),
             (u64)size, (u64)alignment, (u64)result
@@ -127,10 +130,11 @@ LD_API void* internal_ldalloc_aligned_trace(
     } else {
         log_formatted_locked(
             LOG_LEVEL_ERROR | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
-            LOG_COLOR_RED,
-            LOG_FLAG_NEW_LINE,
+            false, true,
+            LOG_COLOR_RED
             "[ALLOC FAILED | {cc}() | {cc}:{i}] "
-            "{cc} Size: {u64} Alignment: {u64}",
+            "{cc} Size: {u64} Alignment: {u64}"
+            LOG_COLOR_RESET,
             function, file, line,
             memory_type_to_string( type ),
             (u64)size, (u64)alignment
@@ -148,10 +152,11 @@ LD_API void* internal_ldrealloc_trace(
     if( result ) {
         log_formatted_locked(
             LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
-            LOG_COLOR_GREEN,
-            LOG_FLAG_NEW_LINE,
+            false, true,
+            LOG_COLOR_GREEN
             "[REALLOC | {cc}() | {cc}:{i}] "
-            "{cc} Size: {u64} -> {u64} Pointer: {u64,x}",
+            "{cc} Size: {u64} -> {u64} Pointer: {u64,x}"
+            LOG_COLOR_RESET,
             function, file, line,
             memory_type_to_string( type ),
             (u64)old_size, (u64)new_size, (u64)result
@@ -159,10 +164,11 @@ LD_API void* internal_ldrealloc_trace(
     } else {
         log_formatted_locked(
             LOG_LEVEL_ERROR | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
-            LOG_COLOR_RED,
-            LOG_FLAG_NEW_LINE,
+            false, true,
+            LOG_COLOR_RED
             "[REALLOC FAILED | {cc}() | {cc}:{i}] "
-            "{cc} Size: {u64} -> {u64} Pointer: {u64,x}",
+            "{cc} Size: {u64} -> {u64} Pointer: {u64,x}"
+            LOG_COLOR_RESET,
             function, file, line,
             memory_type_to_string( type ),
             (u64)old_size, (u64)new_size, (u64)memory
@@ -179,10 +185,11 @@ LD_API void internal_ldfree_trace(
     internal_ldfree( memory, size, type );
     log_formatted_locked(
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
-        LOG_COLOR_CYAN,
-        LOG_FLAG_NEW_LINE,
+        false, true,
+        LOG_COLOR_CYAN
         "[FREE | {cc}() | {cc}:{i}] "
-        "{cc} Size: {u64} Pointer: {u64,x}",
+        "{cc} Size: {u64} Pointer: {u64,x}"
+        LOG_COLOR_RESET,
         function, file, line,
         memory_type_to_string( type ),
         (u64)size, (u64)memory
@@ -197,10 +204,11 @@ LD_API void internal_ldfree_aligned_trace(
     internal_ldfree_aligned( memory, size, type, alignment );
     log_formatted_locked(
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
-        LOG_COLOR_CYAN,
-        LOG_FLAG_NEW_LINE,
+        false, true,
+        LOG_COLOR_CYAN
         "[FREE | {cc}() | {cc}:{i}] "
-        "{cc} Size: {u64} Alignment: {u64} Pointer: {u64,x}",
+        "{cc} Size: {u64} Alignment: {u64} Pointer: {u64,x}"
+        LOG_COLOR_RESET,
         function, file, line,
         memory_type_to_string( type ),
         (u64)size, (u64)alignment, (u64)memory
@@ -230,10 +238,11 @@ LD_API void* internal_ldpage_alloc_trace(
     if( result ) {
         log_formatted_locked(
             LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
-            LOG_COLOR_GREEN,
-            LOG_FLAG_NEW_LINE,
+            false, true,
+            LOG_COLOR_GREEN
             "[PAGE ALLOC | {cc}() | {cc}:{i}] "
-            "{cc} Pages: {u64} Size: {u64} Pointer: {u64,x}",
+            "{cc} Pages: {u64} Size: {u64} Pointer: {u64,x}"
+            LOG_COLOR_RESET,
             function, file, line,
             memory_type_to_string( type ),
             (u64)pages, (u64)byte_size, (u64)result
@@ -241,10 +250,11 @@ LD_API void* internal_ldpage_alloc_trace(
     } else {
         log_formatted_locked(
             LOG_LEVEL_ERROR | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
-            LOG_COLOR_RED,
-            LOG_FLAG_NEW_LINE,
+            false, true,
+            LOG_COLOR_RED
             "[PAGE ALLOC FAILED | {cc}() | {cc}:{i}] "
-            "{cc} Pages: {u64} Size: {u64}",
+            "{cc} Pages: {u64} Size: {u64}"
+            LOG_COLOR_RESET,
             function, file, line,
             memory_type_to_string( type ),
             (u64)pages, (u64)byte_size
@@ -261,10 +271,11 @@ LD_API void internal_ldpage_free_trace(
     usize byte_size = pages * MEMORY_PAGE_SIZE;
     log_formatted_locked(
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
-        LOG_COLOR_CYAN,
-        LOG_FLAG_NEW_LINE,
+        false, true,
+        LOG_COLOR_CYAN
         "[FREE | {cc}() | {cc}:{i}] "
-        "{cc} Pages: {u64} Size: {u64} Pointer: {u64,x}",
+        "{cc} Pages: {u64} Size: {u64} Pointer: {u64,x}"
+        LOG_COLOR_RESET,
         function, file, line,
         memory_type_to_string( type ),
         (u64)pages, (u64)byte_size, (u64)memory

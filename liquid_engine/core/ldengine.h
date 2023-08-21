@@ -7,71 +7,68 @@
 #include "core/ldlog.h"
 #include "core/ldstring.h"
 #include "core/ldmath/types.h"
+#include "core/ldevent.h"
 
-typedef u32 PlatformFlags;
 typedef void EngineContext;
 
 LD_API struct Timer* engine_get_time( EngineContext* engine_ctx );
 
-/// Engine Configuration
-typedef struct EngineConfig {
-    StringView application_name;
-    struct {
-        i32 width;
-        i32 height;
-    } surface_dimensions;
-    LogLevel        log_level;
-    PlatformFlags   platform_flags;
-    u32 memory_size;
-} EngineConfig;
-
-/// Function for getting engine configuration from application.
-typedef void (*ApplicationConfigFN)( struct EngineConfig* config );
+/// Get memory requirement from application.
+/// Function should look like this:
+/// usize application_query_memory_requirement();
+typedef usize ApplicationQueryMemoryRequirementFN();
 /// Application init. Called once before run loop.
-typedef b32 (*ApplicationInitFN)( EngineContext* ctx, void* memory );
-/// Application run. Called once every frame
-typedef b32 (*ApplicationRunFN)( EngineContext* ctx, void* memory );
+/// Function should look like this:
+/// b32 application_init( EngineContext* ctx, void* memory );
+typedef b32 ApplicationInitFN( EngineContext* ctx, void* memory );
+/// Application run. Called once every frame.
+/// Function should look like this:
+/// b32 application_run( EngineContext* ctx, void* memory );
+typedef b32 ApplicationRunFN( EngineContext* ctx, void* memory );
 
-#define APPLICATION_CONFIG_NAME "application_config"
-#define APPLICATION_INIT_NAME   "application_init"
-#define APPLICATION_RUN_NAME    "application_run"
+#define DEFAULT_SURFACE_DIMENSIONS (ivec2){ 800, 600 }
 
 #if defined(LD_API_INTERNAL)
+    #if defined(DEBUG)
+        #define DEFAULT_LOG_LEVEL LOG_LEVEL_ALL_VERBOSE
+    #else
+        #define DEFAULT_LOG_LEVEL LOG_LEVEL_NONE
+    #endif
 
-#if defined(LD_PLATFORM_WINDOWS)
-    #if defined(DEBUG)
-        #define DEFAULT_LIBRARY_PATH "testbed-debug.dll"
+    #if defined(LD_PLATFORM_WINDOWS)
+        #if defined(DEBUG)
+            #define DEFAULT_LIBRARY_PATH "testbed-debug.dll"
+        #else
+            #define DEFAULT_LIBRARY_PATH "testbed-release.dll"
+        #endif
     #else
-        #define DEFAULT_LIBRARY_PATH "testbed-release.dll"
+        #if defined(DEBUG)
+            #define DEFAULT_LIBRARY_PATH "./testbed-debug.so"
+        #else
+            #define DEFAULT_LIBRARY_PATH "./testbed-release.so"
+        #endif
     #endif
-#else
-    #if defined(DEBUG)
-        #define DEFAULT_LIBRARY_PATH "./testbed-debug.so"
-    #else
-        #define DEFAULT_LIBRARY_PATH "./testbed-release.so"
-    #endif
-#endif
 
     /// Engine entry point
     b32 engine_entry( int argc, char** argv );
 #endif
 
 /// Supported cursor styles
-typedef enum : u32 {
-    CURSOR_ARROW,
-    CURSOR_RESIZE_VERTICAL,
-    CURSOR_RESIZE_HORIZONTAL,
-    CURSOR_RESIZE_TOP_RIGHT_BOTTOM_LEFT,
-    CURSOR_RESIZE_TOP_LEFT_BOTTOM_RIGHT,
-    CURSOR_BEAM,
-    CURSOR_CLICK,
-    CURSOR_WAIT,
-    CURSOR_FORBIDDEN,
+typedef enum CursorStyle : u32 {
+    CURSOR_STYLE_ARROW,
+    CURSOR_STYLE_RESIZE_VERTICAL,
+    CURSOR_STYLE_RESIZE_HORIZONTAL,
+    CURSOR_STYLE_RESIZE_TOP_RIGHT_BOTTOM_LEFT,
+    CURSOR_STYLE_RESIZE_TOP_LEFT_BOTTOM_RIGHT,
+    CURSOR_STYLE_BEAM,
+    CURSOR_STYLE_CLICK,
+    CURSOR_STYLE_WAIT,
+    CURSOR_STYLE_FORBIDDEN,
 
-    CURSOR_COUNT
+    CURSOR_STYLE_COUNT
 } CursorStyle;
-inline const char* to_string( CursorStyle cursor_style ) {
-    const char* strings[CURSOR_COUNT] = {
+headerfn const char* to_string( CursorStyle cursor_style ) {
+    const char* strings[CURSOR_STYLE_COUNT] = {
         "Arrow",
         "Resize Vertical",
         "Resize Horizontal",
@@ -82,38 +79,45 @@ inline const char* to_string( CursorStyle cursor_style ) {
         "Wait",
         "Forbidden",
     };
-    if( cursor_style >= CURSOR_COUNT ) {
+    if( cursor_style >= CURSOR_STYLE_COUNT ) {
         return "Unknown";
     }
     return strings[cursor_style];
 }
 
 /// Set cursor style.
-LD_API void engine_set_cursor_style( EngineContext* ctx, u32 style );
+LD_API void engine_cursor_set_style( CursorStyle style );
 /// Set cursor visibility.
-LD_API void engine_set_cursor_visibility( EngineContext* ctx, b32 visible );
+LD_API void engine_cursor_set_visibility( b32 visible );
 /// Center cursor.
-LD_API void engine_center_cursor( EngineContext* ctx );
-/// Set cursor lock mode.
-/// Centers cursor every frame and disables visibility.
-LD_API void engine_lock_cursor( EngineContext* ctx, b32 locked );
+LD_API void engine_cursor_center();
 /// Query current cursor style.
-LD_API u32 engine_query_cursor_style( EngineContext* ctx );
-/// Query cursor visibility mode.
-LD_API b32 engine_query_cursor_visibility( EngineContext* ctx );
-/// Query cursor lock mode.
-LD_API b32 engine_query_cursor_locked( EngineContext* ctx );
-/// Set application name. Application name cannot exceed 255 length.
-LD_API void engine_set_application_name( EngineContext* ctx, StringView name );
+LD_API CursorStyle engine_cursor_style();
+/// Query if cursor is visible.
+LD_API b32 engine_cursor_visible();
+/// Set application name.
+/// Name must be a null-terminated string.
+LD_API void engine_set_application_name( const char* name );
 /// Query application name.
-LD_API StringView engine_query_application_name( EngineContext* ctx );
+LD_API StringView engine_application_name();
 /// Query logical processor count.
 LD_API usize engine_query_logical_processor_count( EngineContext* ctx );
 /// Query total system memory.
 LD_API usize engine_query_total_system_memory( EngineContext* ctx );
 /// Query processor name.
 LD_API const char* engine_query_processor_name( EngineContext* ctx );
-/// Query engine surface size
-LD_API ivec2 engine_query_surface_size( EngineContext* ctx );
+/// Centers surface on screen.
+/// Does nothing on platforms that don't use windows.
+LD_API void engine_surface_center();
+/// Set surface dimensions.
+LD_API void engine_surface_set_dimensions( ivec2 new_dimensions );
+/// Query surface dimensions.
+LD_API ivec2 engine_query_surface_dimensions();
+/// Send an exit event to the engine.
+headerfn void engine_exit() {
+    Event event = {};
+    event.code  = EVENT_CODE_EXIT;
+    event_fire( event );
+}
 
 #endif // header guard

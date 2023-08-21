@@ -7,8 +7,8 @@
 #define MIN_LISTENERS 2
 
 typedef struct ListenerContext {
-    EventCallbackFN callback;
-    void*           callback_params;
+    EventCallbackFN* callback;
+    void*            callback_params;
 
     u16 id;
 } ListenerContext;
@@ -56,19 +56,19 @@ LD_API void event_fire_priority( Event event, EventPriority priority ) {
     }
 }
 void event_fire_end_of_frame() {
-    // ASSERT( EVENT_BUFFER.list_end_of_frame_events );
-    // ASSERT( REGISTRY );
-    // return;
-    // while( list_count( EVENT_BUFFER.list_end_of_frame_events ) ) {
-    //     Event event = {};
-    //     list_pop( EVENT_BUFFER.list_end_of_frame_events, &event );
-    //     ListenerContext* listeners =
-    //         REGISTRY->event_listeners[event.code].listeners;
-    //     u32 listener_count = list_count( listeners );
-    //     for( u32 i = 0; i < listener_count; ++i ) {
-    //         listeners[i].callback( &event, listeners[i].callback_params );
-    //     }
-    // }
+    ASSERT( EVENT_BUFFER.list_end_of_frame_events );
+    ASSERT( REGISTRY );
+    return;
+    while( list_count( EVENT_BUFFER.list_end_of_frame_events ) ) {
+        Event event = {};
+        list_pop( EVENT_BUFFER.list_end_of_frame_events, &event );
+        ListenerContext* listeners =
+            REGISTRY->event_listeners[event.code].listeners;
+        u32 listener_count = list_count( listeners );
+        for( u32 i = 0; i < listener_count; ++i ) {
+            listeners[i].callback( &event, listeners[i].callback_params );
+        }
+    }
 }
 
 LD_API EventListenerID event_subscribe(
@@ -124,10 +124,10 @@ LD_API void event_unsubscribe( EventListenerID event_listener_id ) {
 
 }
 
-u32 query_event_subsystem_size() {
+usize event_query_subsystem_size() {
     return sizeof(ListenerRegistry);
 }
-b32 event_init( void* event_subsystem_buffer ) {
+b32 event_subsystem_init( void* event_subsystem_buffer ) {
     REGISTRY = (ListenerRegistry*)event_subsystem_buffer;
     EVENT_BUFFER.list_concurrent_events   = list_reserve( Event, 10 );
     EVENT_BUFFER.list_end_of_frame_events = list_reserve( Event, 10 );
@@ -156,12 +156,4 @@ b32 event_init( void* event_subsystem_buffer ) {
     LOG_INFO("Event subsystem successfully initialized.");
     return true;
 }
-void event_shutdown() {
-    for( u32 i = 0; i < EVENT_CODE_MAX; ++i ) {
-        _list_free( REGISTRY->event_listeners[i].listeners );
-    }
-    REGISTRY = NULL;
-    list_free( EVENT_BUFFER.list_end_of_frame_events );
-    list_free( EVENT_BUFFER.list_concurrent_events );
-    LOG_INFO("Event subsystem shutdown.");
-}
+

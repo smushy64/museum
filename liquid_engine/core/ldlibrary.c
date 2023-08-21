@@ -11,52 +11,57 @@
 #endif
 
 #define LOG_NOTE_LIBRARY_LOAD( library_path )\
-    log_formatted_locked(\
+    log_formatted_unlocked(\
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
-        LOG_COLOR_GREEN,\
-        LOG_FLAG_NEW_LINE,\
+        false, true,\
+        LOG_COLOR_GREEN\
         "[LIBLOAD | {cc}() | {cc}:{i}] "\
-        "Library \"{cc}\" loaded successfully.",\
+        "Library \"{cc}\" loaded successfully."\
+        LOG_COLOR_RESET,\
         function, file, line, library_path\
     )
 
 #define LOG_ERROR_LIBRARY_LOAD( library_path )\
-    log_formatted_locked(\
+    log_formatted_unlocked(\
         LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
-        LOG_COLOR_RED,\
-        LOG_FLAG_ALWAYS_PRINT | LOG_FLAG_NEW_LINE,\
+        true, true,\
+        LOG_COLOR_RED\
         "[LIBLOAD ERROR | {cc}() | {cc}:{i}] "\
-        "Failed to load library \"{cc}\"!",\
+        "Failed to load library \"{cc}\"!"\
+        LOG_COLOR_RESET,\
         function, file, line, library_path\
     )
 
 #define LOG_NOTE_LIBRARY_FREE( library_path )\
-    log_formatted_locked(\
+    log_formatted_unlocked(\
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
-        LOG_COLOR_CYAN,\
-        LOG_FLAG_NEW_LINE,\
+        false, true,\
+        LOG_COLOR_CYAN\
         "[LIBFREE | {cc}() | {cc}:{i}] "\
-        "Library \"{cc}\" freed.",\
+        "Library \"{cc}\" freed."\
+        LOG_COLOR_RESET,\
         function, file, line, library_path\
     )
 
 #define LOG_NOTE_FUNCTION_LOAD( library_path, function_name )\
-    log_formatted_locked(\
+    log_formatted_unlocked(\
         LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
-        LOG_COLOR_GREEN,\
-        LOG_FLAG_NEW_LINE,\
+        false, true,\
+        LOG_COLOR_GREEN\
         "[FNLOAD | {cc}() | {cc}:{i}] "\
-        "Function \"{cc}\" loaded from library \"{cc}\" successfully.",\
+        "Function \"{cc}\" loaded from library \"{cc}\" successfully."\
+        LOG_COLOR_RESET,\
         function, file, line, function_name, library_path\
     )
 
 #define LOG_ERROR_FUNCTION_LOAD( library_path, function_name )\
-    log_formatted_locked(\
+    log_formatted_unlocked(\
         LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
-        LOG_COLOR_RED,\
-        LOG_FLAG_ALWAYS_PRINT | LOG_FLAG_NEW_LINE,\
+        true, true,\
+        LOG_COLOR_RED\
         "[FNLOAD ERROR | {cc}() | {cc}:{i}] "\
-        "Failed to load function \"{cc}\" from library \"{cc}\"!",\
+        "Failed to load function \"{cc}\" from library \"{cc}\"!"\
+        LOG_COLOR_RESET,\
         function, file, line, function_name, library_path\
     )
 

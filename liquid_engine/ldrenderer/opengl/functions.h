@@ -6,9 +6,9 @@
 #include "defines.h"
 #include "ldrenderer/opengl/types.h"
 
-#define DECLARE_GL_FUNCTION( ret, name, ... )\
-    typedef ret (*___internal_##name##FN)( __VA_ARGS__ );\
-    extern ___internal_##name##FN ___internal_##name
+#define DECLARE_GL_FUNCTION( ret, fn, ... )\
+    typedef ret ___internal_##fn##FN( __VA_ARGS__ );\
+    extern ___internal_##fn##FN* ___internal_##fn
 
 // Textures ------------------------------------------------------------
 DECLARE_GL_FUNCTION( void, glCreateTextures, GLenum target, GLsizei n, GLuint* textures );

@@ -17,47 +17,52 @@ typedef union four_wide {
 } four_wide;
 typedef four_wide Lane4f;
 
-#define lane4f_set1( f ) { f, f, f, f }
-#define lane4f_set0() { 0, 0, 0, 0 }
-#define lane4f_set( f0, f1, f2, f3 ) { f0, f1, f2, f3 }
-#define lane4f_load( f ) { f[0], f[1], f[2], f[3] }
-#define lane4f_store( f, l ) do {\
-    f[0] = l.f[0];\
-    f[1] = l.f[1];\
-    f[2] = l.f[2];\
-    f[3] = l.f[3];\
+#define lane4f_set1( float_ )\
+    (four_wide){ ( float_ ), ( float_ ), ( float_ ), ( float_ ) }
+#define lane4f_set0()\
+    (four_wide){ 0.0f, 0.0f, 0.0f, 0.0f }
+#define lane4f_set( float_0, float_1, float_2, float_3 )\
+    (four_wide){ (float_0), (float_1), (float_2), (float_3) }
+#define lane4f_load( f_array )\
+    (four_wide){ (f_array)[0], (f_array)[1], (f_array)[2], (f_array)[3] }
+#define lane4f_store( f_array, l ) do {\
+    four_wide fw = (l);\
+    (f_array)[0] = fw.f[0];\
+    (f_array)[1] = fw.f[1];\
+    (f_array)[2] = fw.f[2];\
+    (f_array)[3] = fw.f[3];\
 } while(0)
 
 #define lane4f_index( a, i ) ( a.f[i] )
-#define lane4f_add( a, b ) {\
-    a.f[0] + b.f[0],\
-    a.f[1] + b.f[1],\
-    a.f[2] + b.f[2],\
-    a.f[3] + b.f[3]\
+#define lane4f_add( a, b ) (four_wide){\
+    (a).f[0] + (b).f[0],\
+    (a).f[1] + (b).f[1],\
+    (a).f[2] + (b).f[2],\
+    (a).f[3] + (b).f[3]\
 }
-#define lane4f_sub( a, b ) {\
-    a.f[0] - b.f[0],\
-    a.f[1] - b.f[1],\
-    a.f[2] - b.f[2],\
-    a.f[3] - b.f[3]\
+#define lane4f_sub( a, b ) (four_wide){\
+    (a).f[0] - (b).f[0],\
+    (a).f[1] - (b).f[1],\
+    (a).f[2] - (b).f[2],\
+    (a).f[3] - (b).f[3]\
 }
-#define lane4f_mul( a, b ) {\
-    a.f[0] * b.f[0],\
-    a.f[1] * b.f[1],\
-    a.f[2] * b.f[2],\
-    a.f[3] * b.f[3]\
+#define lane4f_mul( a, b ) (four_wide){\
+    (a).f[0] * (b).f[0],\
+    (a).f[1] * (b).f[1],\
+    (a).f[2] * (b).f[2],\
+    (a).f[3] * (b).f[3]\
 }
-#define lane4f_div( a, b ) {\
-    a.f[0] / b.f[0],\
-    a.f[1] / b.f[1],\
-    a.f[2] / b.f[2],\
-    a.f[3] / b.f[3]\
+#define lane4f_div( a, b ) (four_wide){\
+    (a).f[0] / (b).f[0],\
+    (a).f[1] / (b).f[1],\
+    (a).f[2] / (b).f[2],\
+    (a).f[3] / (b).f[3]\
 }
-#define lane4f_sqrt( a ) {\
-    _sqrtf_(a.f[0]),\
-    _sqrtf_(a.f[1]),\
-    _sqrtf_(a.f[2]),\
-    _sqrtf_(a.f[3]),\
+#define lane4f_sqrt( a ) (four_wide){\
+    _sqrtf_((a).f[0]),\
+    _sqrtf_((a).f[1]),\
+    _sqrtf_((a).f[2]),\
+    _sqrtf_((a).f[3]),\
 }
 
 #endif // LD_SIMD_WIDTH == 1

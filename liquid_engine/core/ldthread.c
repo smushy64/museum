@@ -6,20 +6,18 @@
 #include "core/ldlog.h"
 #include "ldplatform.h"
 
-struct ThreadWorkQueue;
-
-typedef struct {
+typedef struct ThreadInfoInternal {
     PlatformThread* thread;
     u32             thread_index;
 } ThreadInfoInternal;
 
-typedef struct {
-    ThreadWorkProcFN proc;
-    void*            params;
+typedef struct ThreadWorkEntry {
+    ThreadWorkProcFN* proc;
+    void*             params;
 } ThreadWorkEntry;
 
 #define MAX_WORK_ENTRY_COUNT (128)
-typedef struct {
+typedef struct ThreadWorkQueue {
     ThreadWorkEntry work_entries[MAX_WORK_ENTRY_COUNT];
 
     Semaphore* wake_semaphore;
@@ -35,9 +33,7 @@ typedef struct {
 
 global ThreadWorkQueue* WORK_QUEUE = NULL;
 
-LD_API void thread_work_queue_push(
-    ThreadWorkProcFN work_proc, void* params
-) {
+LD_API void thread_work_queue_push( ThreadWorkProcFN* work_proc, void* params ) {
     ThreadWorkEntry entry = { work_proc, params };
     WORK_QUEUE->work_entries[WORK_QUEUE->push_entry] = entry;
 
@@ -104,7 +100,7 @@ internal b32 thread_proc( void* params ) {
     return true;
 }
 
-b32 threading_init(
+b32 thread_subsystem_init(
     u32 logical_processor_count,
     void* buffer
 ) {
@@ -168,17 +164,15 @@ b32 threading_init(
 
     return true;
 }
-void threading_shutdown() {
+void thread_subsystem_shutdown() {
     for( u32 i = 0; i < WORK_QUEUE->thread_count; ++i ) {
         ThreadInfoInternal* current_thread_info =
             &WORK_QUEUE->threads[i];
         platform_thread_kill( current_thread_info->thread );
-        mem_zero( current_thread_info, sizeof(ThreadInfoInternal) );
     }
     semaphore_destroy( WORK_QUEUE->wake_semaphore );
 }
-
-u32 query_threading_subsystem_size() {
+usize thread_query_subsystem_size() {
     return sizeof(ThreadWorkQueue);
 }
 

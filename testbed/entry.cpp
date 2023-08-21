@@ -5,25 +5,60 @@
 #include <core/ldengine.h>
 #include <core/ldlog.h>
 #include <core/ldmath.h>
+#include <core/ldmemory.h>
+#include <core/ldallocator.h>
 
-extern "C" void application_config( struct EngineConfig* config ) {
-    config->application_name.len = sv_format(
-        config->application_name,
-        "Foo"
-    );
-    config->surface_dimensions = { 800, 600 };
-    config->platform_flags     = (1 << 0) | (1 << 1) | (1 << 2);
-    config->memory_size        = 1;
-    config->log_level          = LOG_LEVEL_ALL_VERBOSE;
+const char* test_message = "Hello World! This is a test message let's goooo!";
+#define MAX_BLOCKS (20)
+#define DYN_SIZE (100)
+
+EXTERNC usize application_query_memory_requirement() {
+    usize memory_requirement =
+        memory_state_required_buffer_size( MAX_BLOCKS );
+    memory_requirement += DYN_SIZE;
+    return memory_requirement;
 }
 
-extern "C" b32 application_init( EngineContext* ctx, void* memory ) {
+EXTERNC b32 application_init( EngineContext* ctx, void* memory ) {
+    engine_set_application_name( "testbed" );
+    engine_surface_set_dimensions( (ivec2){ 1280, 720 } );
+    engine_surface_center();
+
+    usize memory_state_buffer_size =
+        memory_state_required_buffer_size( MAX_BLOCKS );
+    DynamicAllocator dyn = dynamic_allocator_from_buffer(
+        memory_state_buffer_size, memory,
+        DYN_SIZE, (u8*)memory + memory_state_buffer_size
+    );
+
+    usize test_size = 10;
+    void* test = dynamic_allocator_allocate( &dyn, test_size );
+
+    StringView test_message_sv = SV(test_message);
+    char* buf = (char*)dynamic_allocator_allocate(
+        &dyn, test_message_sv.len + 1 );
+
+    if( !buf ) {
+        LOG_ERROR( "Failed to allocate test buffer!" );
+        return false;
+    }
+
+    dynamic_allocator_free( &dyn, test, test_size );
+
+    mem_copy( buf, test_message_sv.buffer, test_message_sv.len + 1 );
+
+    println( "{cc}", buf );
+
+    dynamic_allocator_free( &dyn, buf, test_message_sv.len + 1 );
+
+    engine_exit();
+
     unused(ctx);
     unused(memory);
     return true;
 }
 
-extern "C" b32 application_run( EngineContext* ctx, void* memory ) {
+EXTERNC b32 application_run( EngineContext* ctx, void* memory ) {
     unused(ctx);
     unused(memory);
     return true;

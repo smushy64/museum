@@ -9,40 +9,66 @@
 #include "defines.h"
 #include "core/ldstring.h"
 
-#define DEFAULT_LOGGING_BUFFER_SIZE KILOBYTES(1)
-
-typedef enum LogColor : u32 {
-    LOG_COLOR_BLACK,
-    LOG_COLOR_RED,
-    LOG_COLOR_GREEN,
-    LOG_COLOR_YELLOW,
-    LOG_COLOR_MAGENTA,
-    LOG_COLOR_CYAN,
-    LOG_COLOR_WHITE,
-    LOG_COLOR_BLUE,
-    LOG_COLOR_RESET,
-    LOG_COLOR_DEFAULT,
-
-    LOG_COLOR_COUNT
-} LogColor;
-
+/// Log level
 typedef u32 LogLevel;
 
-#define LOG_LEVEL_NONE    (0)
-#define LOG_LEVEL_ERROR   (1 << 0)
-#define LOG_LEVEL_WARN    (1 << 1)
-#define LOG_LEVEL_DEBUG   (1 << 2)
-#define LOG_LEVEL_INFO    (1 << 3)
-#define LOG_LEVEL_TRACE   (1 << 4)
-#define LOG_LEVEL_VERBOSE (1 << 5)
+/// Set logging level.
+LD_API void log_set_log_level( LogLevel level );
+/// Get current logging level.
+LD_API LogLevel log_query_log_level();
 
+/// log a formatted message, uses a mutex
+/// to prevent crosstalk between threads.
+LD_API void log_formatted_locked(
+    LogLevel    level,
+    b32         always_print,
+    b32         new_line,
+    const char* format,
+    ...
+);
+/// log a formatted message, does not use a mutex.
+LD_API void log_formatted_unlocked(
+    LogLevel    level,
+    b32         always_print,
+    b32         new_line,
+    const char* format,
+    ...
+);
+
+#define LOG_COLOR_BLACK   "\033[1;30m"
+#define LOG_COLOR_RED     "\033[1;31m"
+#define LOG_COLOR_GREEN   "\033[1;32m"
+#define LOG_COLOR_YELLOW  "\033[1;33m"
+#define LOG_COLOR_MAGENTA "\033[1;35m"
+#define LOG_COLOR_CYAN    "\033[1;36m"
+#define LOG_COLOR_WHITE   "\033[1;37m"
+#define LOG_COLOR_BLUE    "\033[1;34m"
+#define LOG_COLOR_RESET   "\033[1;0m"
+#define LOG_COLOR_DEFAULT "\033[1;39m"
+
+/// No logs will be printed
+#define LOG_LEVEL_NONE    ((LogLevel)(0))
+/// Only error logs will be printed.
+#define LOG_LEVEL_ERROR   ((LogLevel)(1 << 0))
+/// Only warning logs will be printed.
+#define LOG_LEVEL_WARN    ((LogLevel)(1 << 1))
+/// Only debug logs will be printed.
+#define LOG_LEVEL_DEBUG   ((LogLevel)(1 << 2))
+/// Only info logs will be printed.
+#define LOG_LEVEL_INFO    ((LogLevel)(1 << 3))
+/// Trace logs will be printed.
+#define LOG_LEVEL_TRACE   ((LogLevel)(1 << 4))
+/// Verbose logs will be printed.
+#define LOG_LEVEL_VERBOSE ((LogLevel)(1 << 5))
+
+/// All severity logs will be printed.
 #define LOG_LEVEL_ALL (\
     LOG_LEVEL_ERROR |\
     LOG_LEVEL_WARN  |\
     LOG_LEVEL_DEBUG |\
     LOG_LEVEL_INFO   \
 )
-
+/// All severity logs and trace logs will be printed.
 #define LOG_LEVEL_ALL_TRACE (\
     LOG_LEVEL_ERROR |\
     LOG_LEVEL_WARN  |\
@@ -50,7 +76,7 @@ typedef u32 LogLevel;
     LOG_LEVEL_INFO  |\
     LOG_LEVEL_TRACE  \
 )
-
+/// All logs will be printed.
 #define LOG_LEVEL_ALL_VERBOSE (\
     LOG_LEVEL_ERROR   |\
     LOG_LEVEL_WARN    |\
@@ -60,53 +86,28 @@ typedef u32 LogLevel;
     LOG_LEVEL_VERBOSE  \
 )
 
-typedef u32 LogFlags;
-
-#define LOG_FLAG_ALWAYS_PRINT (1 << 0)
-#define LOG_FLAG_NEW_LINE     (1 << 1)
-
-/// Query if logging subsystem is already initialized.
-LD_API b32 is_log_initialized();
-/// initialize logging subsystem
-LD_API b32 log_init( LogLevel level, StringView logging_buffer );
-
 #if defined(LD_API_INTERNAL)
+    /// initialize logging subsystem
+    b32 log_subsystem_init(
+        LogLevel level, usize log_buffer_size, void* log_buffer );
+
     /// shutdown logging subsystem
-    void log_shutdown();
+    void log_subsystem_shutdown();
+
 #if defined(LD_PLATFORM_WINDOWS)
     /// enable output debug string [win32 only]
-    void log_enable_output_debug_string( b32 enable );
+    void log_subsystem_win32_enable_output_debug_string();
 #endif // if platform windows
 
 #endif // if api internal
 
-/// Get the current log level.
-LD_API LogLevel query_log_level();
-
-/// log a formatted message, uses a mutex
-/// to prevent crosstalk between threads.
-LD_API void log_formatted_locked(
-    LogLevel    level,
-    LogColor    color,
-    LogFlags    flags,
-    const char* format,
-    ...
-);
-/// log a formatted message, does not use a mutex.
-LD_API void log_formatted_unlocked(
-    LogLevel    level,
-    LogColor    color,
-    LogFlags    flags,
-    const char* format,
-    ...
-);
-
 #define LOG_FATAL( format, ... ) \
     log_formatted_locked(\
         LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
-        LOG_COLOR_RED,\
-        LOG_FLAG_ALWAYS_PRINT | LOG_FLAG_NEW_LINE,\
-        "[FATAL | {cc}() | {cc}:{i}] " format,\
+        true, true,\
+        LOG_COLOR_RED\
+        "[FATAL | {cc}() | {cc}:{i}] " format\
+        LOG_COLOR_RESET,\
         __FUNCTION__,\
         __FILE__,\
         __LINE__,\
@@ -118,49 +119,53 @@ LD_API void log_formatted_unlocked(
     #define LOG_NOTE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE,\
-            LOG_COLOR_RESET,\
-            LOG_FLAG_NEW_LINE,\
+            false, true,\
+            LOG_COLOR_RESET\
             "[NOTE] " format,\
             ##__VA_ARGS__\
         )
     #define LOG_INFO( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_INFO,\
-            LOG_COLOR_WHITE,\
-            LOG_FLAG_NEW_LINE,\
-            "[INFO] " format,\
+            false, true,\
+            LOG_COLOR_WHITE\
+            "[INFO] " format\
+            LOG_COLOR_RESET,\
             ##__VA_ARGS__\
         )
     #define LOG_DEBUG( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_DEBUG,\
-            LOG_COLOR_BLUE,\
-            LOG_FLAG_NEW_LINE,\
-            "[DEBUG] " format,\
+            false, true,\
+            LOG_COLOR_BLUE\
+            "[DEBUG] " format\
+            LOG_COLOR_RESET,\
             ##__VA_ARGS__\
         )
     #define LOG_WARN( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_WARN,\
-            LOG_COLOR_YELLOW,\
-            LOG_FLAG_NEW_LINE,\
-            "[WARN] " format,\
+            false, true,\
+            LOG_COLOR_YELLOW\
+            "[WARN] " format\
+            LOG_COLOR_RESET,\
             ##__VA_ARGS__\
         )
     #define LOG_ERROR( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_ERROR,\
-            LOG_COLOR_RED,\
-            LOG_FLAG_NEW_LINE,\
-            "[ERROR] " format,\
+            false, true,\
+            LOG_COLOR_RED\
+            "[ERROR] " format\
+            LOG_COLOR_RESET,\
             ##__VA_ARGS__\
         )
 
     #define LOG_NOTE_TRACE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,\
-            LOG_COLOR_RESET,\
-            LOG_FLAG_NEW_LINE,\
+            false, true,\
+            LOG_COLOR_RESET\
             "[NOTE | {cc}() | {cc}:{i}] " format,\
             __FUNCTION__,\
             __FILE__,\
@@ -171,9 +176,10 @@ LD_API void log_formatted_unlocked(
     #define LOG_INFO_TRACE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
-            LOG_COLOR_WHITE,\
-            LOG_FLAG_NEW_LINE,\
-            "[INFO | {cc}() | {cc}:{i}] " format,\
+            false, true,\
+            LOG_COLOR_WHITE\
+            "[INFO | {cc}() | {cc}:{i}] " format\
+            LOG_COLOR_RESET,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -183,9 +189,10 @@ LD_API void log_formatted_unlocked(
     #define LOG_DEBUG_TRACE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_DEBUG | LOG_LEVEL_TRACE,\
-            LOG_COLOR_BLUE,\
-            LOG_FLAG_NEW_LINE,\
-            "[DEBUG | {cc}() | {cc}:{i}] " format,\
+            false, true,\
+            LOG_COLOR_BLUE\
+            "[DEBUG | {cc}() | {cc}:{i}] " format\
+            LOG_COLOR_RESET,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -195,9 +202,10 @@ LD_API void log_formatted_unlocked(
     #define LOG_WARN_TRACE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_WARN | LOG_LEVEL_TRACE,\
-            LOG_COLOR_YELLOW,\
-            LOG_FLAG_NEW_LINE,\
-            "[WARN | {cc}() | {cc}:{i}] " format,\
+            false, true,\
+            LOG_COLOR_YELLOW\
+            "[WARN | {cc}() | {cc}:{i}] " format\
+            LOG_COLOR_RESET,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -207,9 +215,10 @@ LD_API void log_formatted_unlocked(
     #define LOG_ERROR_TRACE( format, ... ) \
         log_formatted_locked(\
             LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
-            LOG_COLOR_RED,\
-            LOG_FLAG_NEW_LINE,\
-            "[ERROR | {cc}() | {cc}:{i}] " format,\
+            false, true,\
+            LOG_COLOR_RED\
+            "[ERROR | {cc}() | {cc}:{i}] " format\
+            LOG_COLOR_RESET,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -217,17 +226,17 @@ LD_API void log_formatted_unlocked(
         )
         
 #else
-    #define LOG_NOTE( format, ... )
-    #define LOG_INFO( format, ... )
-    #define LOG_DEBUG( format, ... )
-    #define LOG_WARN( format, ... )
-    #define LOG_ERROR( format, ... )
+    #define LOG_NOTE( format, ... ) unused(format)
+    #define LOG_INFO( format, ... ) unused(format)
+    #define LOG_DEBUG( format, ... ) unused(format)
+    #define LOG_WARN( format, ... ) unused(format)
+    #define LOG_ERROR( format, ... ) unused(format)
 
-    #define LOG_NOTE_TRACE( format, ... )
-    #define LOG_INFO_TRACE( format, ... )
-    #define LOG_DEBUG_TRACE( format, ... )
-    #define LOG_WARN_TRACE( format, ... )
-    #define LOG_ERROR_TRACE( format, ... )
+    #define LOG_NOTE_TRACE( format, ... ) unused(format)
+    #define LOG_INFO_TRACE( format, ... ) unused(format)
+    #define LOG_DEBUG_TRACE( format, ... ) unused(format)
+    #define LOG_WARN_TRACE( format, ... ) unused(format)
+    #define LOG_ERROR_TRACE( format, ... ) unused(format)
 
 #endif
 
@@ -235,9 +244,10 @@ LD_API void log_formatted_unlocked(
     #define LOG_PANIC( format, ... )\
          log_formatted_unlocked(\
             LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
-            LOG_COLOR_RED,\
-            LOG_FLAG_NEW_LINE | LOG_FLAG_ALWAYS_PRINT,\
-            "[PANIC | {cc}() | {cc}:{i}] " format,\
+            true, true,\
+            LOG_COLOR_RED\
+            "[PANIC | {cc}() | {cc}:{i}] " format\
+            LOG_COLOR_RESET,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\
@@ -249,9 +259,10 @@ LD_API void log_formatted_unlocked(
             if(!(condition)) {\
                 log_formatted_unlocked(\
                     LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
-                    LOG_COLOR_RED,\
-                    LOG_FLAG_NEW_LINE | LOG_FLAG_ALWAYS_PRINT,\
-                    "[ASSERTION FAILED | {cc}() | {cc}:{i}] ({cc}) " format,\
+                    true, true,\
+                    LOG_COLOR_RED\
+                    "[ASSERTION FAILED | {cc}() | {cc}:{i}] ({cc}) " format\
+                    LOG_COLOR_RESET,\
                     __FUNCTION__,\
                     __FILE__,\
                     __LINE__,\
@@ -266,9 +277,10 @@ LD_API void log_formatted_unlocked(
         do {\
             log_formatted_unlocked(\
                 LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
-                LOG_COLOR_RED,\
-                LOG_FLAG_NEW_LINE | LOG_FLAG_ALWAYS_PRINT,\
-                "[UNIMPLEMENTED | {cc}() | {cc}:{i}] ",\
+                true, true,\
+                LOG_COLOR_RED\
+                "[UNIMPLEMENTED | {cc}() | {cc}:{i}]"\
+                LOG_COLOR_RESET,\
                 __FUNCTION__,\
                 __FILE__,\
                 __LINE__\
@@ -276,8 +288,8 @@ LD_API void log_formatted_unlocked(
             PANIC();\
         } while(0)
 #else
-    #define LOG_PANIC( format, ... ) 
-    #define LOG_ASSERT( condition, format, ... ) (condition)
+    #define LOG_PANIC( format, ... ) unused(format)
+    #define LOG_ASSERT( condition, format, ... ) unused(condition)
     #define UNIMPLEMENTED()
 #endif
 

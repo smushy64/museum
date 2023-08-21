@@ -20,31 +20,34 @@
 #include <dsound.h>
 
 typedef struct Win32Thread {
-    HANDLE       thread_handle;
-    ThreadProcFN thread_proc;
-    void*        thread_proc_user_params;
-    DWORD        thread_id;
+    HANDLE        thread_handle;
+    ThreadProcFN* thread_proc;
+    void*         thread_proc_user_params;
+    DWORD         thread_id;
 } Win32Thread;
 
-typedef struct {
+typedef struct Win32DirectSound {
     LPDIRECTSOUND handle;
     LPDIRECTSOUNDBUFFER hardware_handle;
     LPDIRECTSOUNDBUFFER buffer;
 
     u32 running_sample_index;
 } Win32DirectSound;
-#define LIBRARY_COUNT (5)
 
-typedef struct {
-    Platform platform;
+#define WIN32_MAX_WINDOW_TEXT_LENGTH (255)
+#define LIBRARY_COUNT (5)
+typedef struct Win32Platform {
     struct Win32Window {
         HWND handle;
         HDC  device_context;
+        ivec2 dimensions;
+        DWORD dwStyle;
+        DWORD dwExStyle;
+        char text[WIN32_MAX_WINDOW_TEXT_LENGTH];
     } window;
-    struct Win32Cursor {
-        CursorStyle style;
-        b32         is_visible;
-    } cursor;
+    CursorStyle cursor_style;
+    b32 cursor_visible;
+
     HINSTANCE instance;
 
     union {
@@ -66,6 +69,11 @@ typedef struct {
     Win32Thread xinput_polling_thread;
     PlatformSemaphore* xinput_polling_thread_semaphore;
     u32 event_pump_count;
+
+    b32 is_dpi_aware;
+    UINT dpi;
+
+    b32 is_active;
 } Win32Platform;
 
 
@@ -76,132 +84,6 @@ b32 win32_load_user32( Win32Platform* platform );
 b32 win32_load_xinput( Win32Platform* platform );
 b32 win32_load_opengl( Win32Platform* platform );
 LRESULT win32_winproc( HWND, UINT, WPARAM, LPARAM );
-
-#if defined(LD_LOGGING)
-    #define WIN32_LOG_NOTE( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE,\
-            LOG_COLOR_RESET,\
-            LOG_FLAG_NEW_LINE,\
-            "[NOTE WIN32] " format,\
-            ##__VA_ARGS__\
-        )
-    #define WIN32_LOG_INFO( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_INFO,\
-            LOG_COLOR_WHITE,\
-            LOG_FLAG_NEW_LINE,\
-            "[INFO WIN32] " format,\
-            ##__VA_ARGS__\
-        )
-    #define WIN32_LOG_DEBUG( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_DEBUG,\
-            LOG_COLOR_BLUE,\
-            LOG_FLAG_NEW_LINE,\
-            "[DEBUG WIN32] " format,\
-            ##__VA_ARGS__\
-        )
-    #define WIN32_LOG_WARN( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_WARN,\
-            LOG_COLOR_YELLOW,\
-            LOG_FLAG_NEW_LINE,\
-            "[WARN WIN32] " format,\
-            ##__VA_ARGS__\
-        )
-    #define WIN32_LOG_ERROR( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_ERROR,\
-            LOG_COLOR_RED,\
-            LOG_FLAG_NEW_LINE,\
-            "[ERROR WIN32] " format,\
-            ##__VA_ARGS__\
-        )
-
-    #define WIN32_LOG_NOTE_TRACE( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,\
-            LOG_COLOR_RESET,\
-            LOG_FLAG_NEW_LINE,\
-            "[NOTE WIN32 | {cc}() | {cc}:{i}] " format,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__,\
-            ##__VA_ARGS__\
-        )
-
-    #define WIN32_LOG_INFO_TRACE( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
-            LOG_COLOR_WHITE,\
-            LOG_FLAG_NEW_LINE,\
-            "[INFO WIN32 | {cc}() | {cc}:{i}] " format,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__,\
-            ##__VA_ARGS__\
-        )
-
-    #define WIN32_LOG_DEBUG_TRACE( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_DEBUG | LOG_LEVEL_TRACE,\
-            LOG_COLOR_BLUE,\
-            LOG_FLAG_NEW_LINE,\
-            "[DEBUG WIN32 | {cc}() | {cc}:{i}] " format,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__,\
-            ##__VA_ARGS__\
-        )
-        
-    #define WIN32_LOG_WARN_TRACE( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_WARN | LOG_LEVEL_TRACE,\
-            LOG_COLOR_YELLOW,\
-            LOG_FLAG_NEW_LINE,\
-            "[WARN WIN32 | {cc}() | {cc}:{i}] " format,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__,\
-            ##__VA_ARGS__\
-        )
-
-    #define WIN32_LOG_ERROR_TRACE( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
-            LOG_COLOR_RED,\
-            LOG_FLAG_NEW_LINE,\
-            "[ERROR WIN32 | {cc}() | {cc}:{i}] " format,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__,\
-            ##__VA_ARGS__\
-        )
-#else
-    #define WIN32_LOG_NOTE( format, ... )
-    #define WIN32_LOG_INFO( format, ... )
-    #define WIN32_LOG_DEBUG( format, ... )
-    #define WIN32_LOG_WARN( format, ... )
-    #define WIN32_LOG_ERROR( format, ... )
-    #define WIN32_LOG_NOTE_TRACE( format, ... )
-    #define WIN32_LOG_INFO_TRACE( format, ... )
-    #define WIN32_LOG_DEBUG_TRACE( format, ... )
-    #define WIN32_LOG_WARN_TRACE( format, ... )
-    #define WIN32_LOG_ERROR_TRACE( format, ... )
-#endif
-
-#define WIN32_LOG_FATAL( format, ... ) \
-    log_formatted_locked(\
-        LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
-        LOG_COLOR_RED,\
-        LOG_FLAG_NEW_LINE | LOG_FLAG_ALWAYS_PRINT,\
-        "[FATAL WIN32 | {cc}() | {cc}:{i}] " format,\
-        __FUNCTION__,\
-        __FILE__,\
-        __LINE__,\
-        ##__VA_ARGS__\
-    )
 
 DWORD win32_log_error( b32 present_message_box );
 
@@ -324,102 +206,104 @@ typedef struct tagPIXELFORMATDESCRIPTOR {
 #define PFD_OVERLAY_PLANE  1
 #define PFD_UNDERLAY_PLANE (-1)
 
-#define DEFFUNC_( return_name, function_name, ... )\
-    typedef return_name ( * function_name##FN )( __VA_ARGS__ );\
-    global function_name##FN in_##function_name = NULL
+#define DECLARE_WIN_FUNCTION( ret, fn, ... )\
+    typedef ret fn##FN ( __VA_ARGS__ );\
+    global fn##FN* ___internal_##fn = NULL
 
-#define DEFFUNC_STUB( return_name, function_name, return_value, ... )\
-    typedef return_name ( * function_name##FN )( __VA_ARGS__ );\
-    internal return_name function_name##_stub( __VA_ARGS__ ) { return return_value; }\
-    global function_name##FN in_##function_name = function_name##_stub
+#define DECLARE_WIN_FUNCTION_STUB( ret, fn, ret_val, ... )\
+    typedef ret fn##FN ( __VA_ARGS__ );\
+    internal ret fn##_stub( __VA_ARGS__ ) { return ret_val; }\
+    global fn##FN* ___internal_##fn = fn##_stub
 
-DEFFUNC_( BOOL, SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT );
-DEFFUNC_( UINT, GetDpiForSystem );
-DEFFUNC_( BOOL, AdjustWindowRectExForDpi, LPRECT, DWORD, BOOL, DWORD, UINT );
-DEFFUNC_( DWORD, XInputGetState, DWORD, XINPUT_STATE* );
-DEFFUNC_( DWORD, XInputSetState, DWORD, XINPUT_VIBRATION* );
-DEFFUNC_( HGDIOBJ, GetStockObject, int );
-DEFFUNC_( HGLRC, wglCreateContext, HDC );
-DEFFUNC_( BOOL, wglMakeCurrent, HDC, HGLRC );
-DEFFUNC_( BOOL, wglDeleteContext, HGLRC );
-DEFFUNC_( PROC, wglGetProcAddress, LPCSTR );
-DEFFUNC_( HGLRC, wglCreateContextAttribsARB, HDC, HGLRC, const int* );
-DEFFUNC_( int, DescribePixelFormat, HDC, int, UINT, LPPIXELFORMATDESCRIPTOR );
-DEFFUNC_( int, ChoosePixelFormat, HDC, const PIXELFORMATDESCRIPTOR* );
-DEFFUNC_( BOOL, SetPixelFormat, HDC, int, const PIXELFORMATDESCRIPTOR* );
-DEFFUNC_( BOOL, SwapBuffers, HDC );
-DEFFUNC_STUB( void, XInputEnable, , BOOL foo __attribute__((__unused__)) );
-DEFFUNC_( HRESULT WINAPI, DirectSoundCreate, LPGUID, LPDIRECTSOUND*, LPUNKNOWN );
-DEFFUNC_( HANDLE, LoadImageA, HINSTANCE, LPCSTR, UINT, int, int, UINT );
-DEFFUNC_( LONG_PTR, GetWindowLongPtrA, HWND, int );
-DEFFUNC_( LRESULT, DefWindowProcA, HWND, UINT, WPARAM, LPARAM );
-DEFFUNC_( BOOL, GetClientRect, HWND, LPRECT );
-DEFFUNC_( UINT, MapVirtualKeyA, UINT, UINT );
-DEFFUNC_( BOOL, DestroyWindow, HWND );
-DEFFUNC_( BOOL, PeekMessageA, LPMSG, HWND, UINT, UINT, UINT );
-DEFFUNC_( BOOL, TranslateMessage, const MSG* );
-DEFFUNC_( BOOL, DestroyIcon, HICON );
-DEFFUNC_( HDC, GetDC, HWND );
-DEFFUNC_( BOOL, ShowWindow, HWND, int );
-DEFFUNC_( LONG_PTR, SetWindowLongPtrA, HWND, int, LONG_PTR );
-DEFFUNC_( int, MessageBoxA, HWND, LPCSTR, LPCSTR, UINT );
-DEFFUNC_( LRESULT, DispatchMessageA, const MSG* );
-DEFFUNC_( BOOL, SetWindowTextA, HWND, LPCSTR );
-DEFFUNC_( int, GetWindowTextLengthA, HWND );
-DEFFUNC_( int, GetWindowTextA, HWND, LPSTR, int );
-DEFFUNC_( BOOL, SetCursorPos, int, int );
-DEFFUNC_( BOOL, ClientToScreen, HWND, LPPOINT );
-DEFFUNC_( int, ShowCursor, BOOL );
-DEFFUNC_( HCURSOR, SetCursor, HCURSOR );
-DEFFUNC_( HWND, CreateWindowExA, DWORD, LPCSTR, LPCSTR, DWORD, int, int, int, int, HWND, HMENU, HINSTANCE, LPVOID );
-DEFFUNC_( HCURSOR, LoadCursorA, HINSTANCE, LPCSTR );
-DEFFUNC_( ATOM, RegisterClassExA, const WNDCLASSEXA* );
-DEFFUNC_( BOOL, AdjustWindowRectEx, LPRECT, DWORD, BOOL, DWORD );
-DEFFUNC_( int, GetSystemMetrics, int );
+DECLARE_WIN_FUNCTION( BOOL, SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT );
+DECLARE_WIN_FUNCTION( UINT, GetDpiForSystem );
+DECLARE_WIN_FUNCTION( BOOL, AdjustWindowRectExForDpi, LPRECT, DWORD, BOOL, DWORD, UINT );
+DECLARE_WIN_FUNCTION( DWORD, XInputGetState, DWORD, XINPUT_STATE* );
+DECLARE_WIN_FUNCTION( DWORD, XInputSetState, DWORD, XINPUT_VIBRATION* );
+DECLARE_WIN_FUNCTION( HGDIOBJ, GetStockObject, int );
+DECLARE_WIN_FUNCTION( HGLRC, wglCreateContext, HDC );
+DECLARE_WIN_FUNCTION( BOOL, wglMakeCurrent, HDC, HGLRC );
+DECLARE_WIN_FUNCTION( BOOL, wglDeleteContext, HGLRC );
+DECLARE_WIN_FUNCTION( PROC, wglGetProcAddress, LPCSTR );
+DECLARE_WIN_FUNCTION( HGLRC, wglCreateContextAttribsARB, HDC, HGLRC, const int* );
+DECLARE_WIN_FUNCTION( int, DescribePixelFormat, HDC, int, UINT, LPPIXELFORMATDESCRIPTOR );
+DECLARE_WIN_FUNCTION( int, ChoosePixelFormat, HDC, const PIXELFORMATDESCRIPTOR* );
+DECLARE_WIN_FUNCTION( BOOL, SetPixelFormat, HDC, int, const PIXELFORMATDESCRIPTOR* );
+DECLARE_WIN_FUNCTION( BOOL, SwapBuffers, HDC );
+DECLARE_WIN_FUNCTION_STUB( void, XInputEnable, , BOOL foo __attribute__((__unused__)) );
+DECLARE_WIN_FUNCTION( HRESULT WINAPI, DirectSoundCreate, LPGUID, LPDIRECTSOUND*, LPUNKNOWN );
+DECLARE_WIN_FUNCTION( HANDLE, LoadImageA, HINSTANCE, LPCSTR, UINT, int, int, UINT );
+DECLARE_WIN_FUNCTION( LONG_PTR, GetWindowLongPtrA, HWND, int );
+DECLARE_WIN_FUNCTION( LRESULT, DefWindowProcA, HWND, UINT, WPARAM, LPARAM );
+DECLARE_WIN_FUNCTION( BOOL, GetClientRect, HWND, LPRECT );
+DECLARE_WIN_FUNCTION( UINT, MapVirtualKeyA, UINT, UINT );
+DECLARE_WIN_FUNCTION( BOOL, DestroyWindow, HWND );
+DECLARE_WIN_FUNCTION( BOOL, PeekMessageA, LPMSG, HWND, UINT, UINT, UINT );
+DECLARE_WIN_FUNCTION( BOOL, TranslateMessage, const MSG* );
+DECLARE_WIN_FUNCTION( BOOL, DestroyIcon, HICON );
+DECLARE_WIN_FUNCTION( HDC, GetDC, HWND );
+DECLARE_WIN_FUNCTION( BOOL, ShowWindow, HWND, int );
+DECLARE_WIN_FUNCTION( LONG_PTR, SetWindowLongPtrA, HWND, int, LONG_PTR );
+DECLARE_WIN_FUNCTION( int, MessageBoxA, HWND, LPCSTR, LPCSTR, UINT );
+DECLARE_WIN_FUNCTION( LRESULT, DispatchMessageA, const MSG* );
+DECLARE_WIN_FUNCTION( BOOL, SetWindowTextA, HWND, LPCSTR );
+DECLARE_WIN_FUNCTION( int, GetWindowTextLengthA, HWND );
+DECLARE_WIN_FUNCTION( int, GetWindowTextA, HWND, LPSTR, int );
+DECLARE_WIN_FUNCTION( BOOL, SetCursorPos, int, int );
+DECLARE_WIN_FUNCTION( BOOL, ClientToScreen, HWND, LPPOINT );
+DECLARE_WIN_FUNCTION( int, ShowCursor, BOOL );
+DECLARE_WIN_FUNCTION( HCURSOR, SetCursor, HCURSOR );
+DECLARE_WIN_FUNCTION( HWND, CreateWindowExA, DWORD, LPCSTR, LPCSTR, DWORD, int, int, int, int, HWND, HMENU, HINSTANCE, LPVOID );
+DECLARE_WIN_FUNCTION( HCURSOR, LoadCursorA, HINSTANCE, LPCSTR );
+DECLARE_WIN_FUNCTION( ATOM, RegisterClassExA, const WNDCLASSEXA* );
+DECLARE_WIN_FUNCTION( BOOL, AdjustWindowRectEx, LPRECT, DWORD, BOOL, DWORD );
+DECLARE_WIN_FUNCTION( int, GetSystemMetrics, int );
+DECLARE_WIN_FUNCTION( BOOL, SetWindowPos, HWND, HWND, int, int, int, int, UINT );
 
-#define GetSystemMetrics              in_GetSystemMetrics
-#define AdjustWindowRectEx            in_AdjustWindowRectEx
-#define RegisterClassExA              in_RegisterClassExA
-#define LoadCursorA                   in_LoadCursorA
-#define CreateWindowExA               in_CreateWindowExA
-#define SetCursor                     in_SetCursor
-#define ShowCursor                    in_ShowCursor
-#define ClientToScreen                in_ClientToScreen
-#define SetCursorPos                  in_SetCursorPos
-#define GetWindowTextA                in_GetWindowTextA
-#define GetWindowTextLengthA          in_GetWindowTextLengthA
-#define SetWindowTextA                in_SetWindowTextA
-#define DispatchMessageA              in_DispatchMessageA
-#define MessageBoxA                   in_MessageBoxA
-#define SetWindowLongPtrA             in_SetWindowLongPtrA
-#define ShowWindow                    in_ShowWindow
-#define GetDC                         in_GetDC
-#define DestroyIcon                   in_DestroyIcon
-#define TranslateMessage              in_TranslateMessage
-#define PeekMessageA                  in_PeekMessageA
-#define DestroyWindow                 in_DestroyWindow
-#define MapVirtualKeyA                in_MapVirtualKeyA
-#define GetClientRect                 in_GetClientRect
-#define DefWindowProcA                in_DefWindowProcA
-#define GetWindowLongPtrA             in_GetWindowLongPtrA
-#define LoadImageA                    in_LoadImageA
-#define DirectSoundCreate             in_DirectSoundCreate
-#define SetProcessDpiAwarenessContext in_SetProcessDpiAwarenessContext
-#define GetDpiForSystem               in_GetDpiForSystem
-#define AdjustWindowRectExForDpi      in_AdjustWindowRectExForDpi
-#define XInputGetState                in_XInputGetState
-#define XInputSetState                in_XInputSetState
-#define XInputEnable                  in_XInputEnable
-#define wglCreateContext              in_wglCreateContext
-#define wglMakeCurrent                in_wglMakeCurrent
-#define wglDeleteContext              in_wglDeleteContext
-#define wglGetProcAddress             in_wglGetProcAddress
-#define wglCreateContextAttribsARB    in_wglCreateContextAttribsARB
-#define DescribePixelFormat           in_DescribePixelFormat
-#define ChoosePixelFormat             in_ChoosePixelFormat
-#define SetPixelFormat                in_SetPixelFormat
-#define SwapBuffers                   in_SwapBuffers
-#define GetStockObject                in_GetStockObject
+#define SetWindowPos                  ___internal_SetWindowPos
+#define GetSystemMetrics              ___internal_GetSystemMetrics
+#define AdjustWindowRectEx            ___internal_AdjustWindowRectEx
+#define RegisterClassExA              ___internal_RegisterClassExA
+#define LoadCursorA                   ___internal_LoadCursorA
+#define CreateWindowExA               ___internal_CreateWindowExA
+#define SetCursor                     ___internal_SetCursor
+#define ShowCursor                    ___internal_ShowCursor
+#define ClientToScreen                ___internal_ClientToScreen
+#define SetCursorPos                  ___internal_SetCursorPos
+#define GetWindowTextA                ___internal_GetWindowTextA
+#define GetWindowTextLengthA          ___internal_GetWindowTextLengthA
+#define SetWindowTextA                ___internal_SetWindowTextA
+#define DispatchMessageA              ___internal_DispatchMessageA
+#define MessageBoxA                   ___internal_MessageBoxA
+#define SetWindowLongPtrA             ___internal_SetWindowLongPtrA
+#define ShowWindow                    ___internal_ShowWindow
+#define GetDC                         ___internal_GetDC
+#define DestroyIcon                   ___internal_DestroyIcon
+#define TranslateMessage              ___internal_TranslateMessage
+#define PeekMessageA                  ___internal_PeekMessageA
+#define DestroyWindow                 ___internal_DestroyWindow
+#define MapVirtualKeyA                ___internal_MapVirtualKeyA
+#define GetClientRect                 ___internal_GetClientRect
+#define DefWindowProcA                ___internal_DefWindowProcA
+#define GetWindowLongPtrA             ___internal_GetWindowLongPtrA
+#define LoadImageA                    ___internal_LoadImageA
+#define DirectSoundCreate             ___internal_DirectSoundCreate
+#define SetProcessDpiAwarenessContext ___internal_SetProcessDpiAwarenessContext
+#define GetDpiForSystem               ___internal_GetDpiForSystem
+#define AdjustWindowRectExForDpi      ___internal_AdjustWindowRectExForDpi
+#define XInputGetState                ___internal_XInputGetState
+#define XInputSetState                ___internal_XInputSetState
+#define XInputEnable                  ___internal_XInputEnable
+#define wglCreateContext              ___internal_wglCreateContext
+#define wglMakeCurrent                ___internal_wglMakeCurrent
+#define wglDeleteContext              ___internal_wglDeleteContext
+#define wglGetProcAddress             ___internal_wglGetProcAddress
+#define wglCreateContextAttribsARB    ___internal_wglCreateContextAttribsARB
+#define DescribePixelFormat           ___internal_DescribePixelFormat
+#define ChoosePixelFormat             ___internal_ChoosePixelFormat
+#define SetPixelFormat                ___internal_SetPixelFormat
+#define SwapBuffers                   ___internal_SwapBuffers
+#define GetStockObject                ___internal_GetStockObject
 
 #define WGL_CONTEXT_MAJOR_VERSION_ARB             0x2091
 #define WGL_CONTEXT_MINOR_VERSION_ARB             0x2092
@@ -432,6 +316,145 @@ DEFFUNC_( int, GetSystemMetrics, int );
 #define WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
 #define ERROR_INVALID_VERSION_ARB                 0x2095
 #define ERROR_INVALID_PROFILE_ARB                 0x2096
+
+#if defined(LD_LOGGING)
+    #define WIN32_LOG_NOTE( format, ... ) \
+        log_formatted_locked(\
+            LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE,\
+            false, true,\
+            LOG_COLOR_RESET\
+            "[WIN32 NOTE] " format,\
+            ##__VA_ARGS__\
+        )
+    #define WIN32_LOG_INFO( format, ... ) \
+        log_formatted_locked(\
+            LOG_LEVEL_INFO,\
+            false, true,\
+            LOG_COLOR_WHITE\
+            "[WIN32 INFO] " format\
+            LOG_COLOR_RESET,\
+            ##__VA_ARGS__\
+        )
+    #define WIN32_LOG_DEBUG( format, ... ) \
+        log_formatted_locked(\
+            LOG_LEVEL_DEBUG,\
+            false, true,\
+            LOG_COLOR_BLUE\
+            "[WIN32 DEBUG] " format\
+            LOG_COLOR_RESET,\
+            ##__VA_ARGS__\
+        )
+    #define WIN32_LOG_WARN( format, ... ) \
+        log_formatted_locked(\
+            LOG_LEVEL_WARN,\
+            false, true,\
+            LOG_COLOR_YELLOW\
+            "[WIN32 WARN] " format\
+            LOG_COLOR_RESET,\
+            ##__VA_ARGS__\
+        )
+    #define WIN32_LOG_ERROR( format, ... ) \
+        log_formatted_locked(\
+            LOG_LEVEL_ERROR,\
+            false, true,\
+            LOG_COLOR_RED\
+            "[WIN32 ERROR] " format\
+            LOG_COLOR_RESET,\
+            ##__VA_ARGS__\
+        )
+
+    #define WIN32_LOG_NOTE_TRACE( format, ... ) \
+        log_formatted_locked(\
+            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,\
+            false, true,\
+            LOG_COLOR_RESET\
+            "[WIN32 NOTE | {cc}() | {cc}:{i}] " format,\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__,\
+            ##__VA_ARGS__\
+        )
+
+    #define WIN32_LOG_INFO_TRACE( format, ... ) \
+        log_formatted_locked(\
+            LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
+            false, true,\
+            LOG_COLOR_WHITE\
+            "[WIN32 INFO | {cc}() | {cc}:{i}] " format\
+            LOG_COLOR_RESET,\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__,\
+            ##__VA_ARGS__\
+        )
+
+    #define WIN32_LOG_DEBUG_TRACE( format, ... ) \
+        log_formatted_locked(\
+            LOG_LEVEL_DEBUG | LOG_LEVEL_TRACE,\
+            false, true,\
+            LOG_COLOR_BLUE\
+            "[WIN32 DEBUG | {cc}() | {cc}:{i}] " format\
+            LOG_COLOR_RESET,\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__,\
+            ##__VA_ARGS__\
+        )
+        
+    #define WIN32_LOG_WARN_TRACE( format, ... ) \
+        log_formatted_locked(\
+            LOG_LEVEL_WARN | LOG_LEVEL_TRACE,\
+            false, true,\
+            LOG_COLOR_YELLOW\
+            "[WIN32 WARN | {cc}() | {cc}:{i}] " format\
+            LOG_COLOR_RESET,\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__,\
+            ##__VA_ARGS__\
+        )
+
+    #define WIN32_LOG_ERROR_TRACE( format, ... ) \
+        log_formatted_locked(\
+            LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
+            false, true,\
+            LOG_COLOR_RED\
+            "[WIN32 ERROR | {cc}() | {cc}:{i}] " format\
+            LOG_COLOR_RESET,\
+            __FUNCTION__,\
+            __FILE__,\
+            __LINE__,\
+            ##__VA_ARGS__\
+        )
+        
+#else
+    #define WIN32_LOG_NOTE( format, ... ) unused(format)
+    #define WIN32_LOG_INFO( format, ... ) unused(format)
+    #define WIN32_LOG_DEBUG( format, ... ) unused(format)
+    #define WIN32_LOG_WARN( format, ... ) unused(format)
+    #define WIN32_LOG_ERROR( format, ... ) unused(format)
+
+    #define WIN32_LOG_NOTE_TRACE( format, ... ) unused(format)
+    #define WIN32_LOG_INFO_TRACE( format, ... ) unused(format)
+    #define WIN32_LOG_DEBUG_TRACE( format, ... ) unused(format)
+    #define WIN32_LOG_WARN_TRACE( format, ... ) unused(format)
+    #define WIN32_LOG_ERROR_TRACE( format, ... ) unused(format)
+
+#endif
+
+#define WIN32_LOG_FATAL( format, ... ) \
+    log_formatted_locked(\
+        LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
+        true, true,\
+        LOG_COLOR_RED\
+        "[WIN32 FATAL | {cc}() | {cc}:{i}] " format\
+        LOG_COLOR_RESET,\
+        __FUNCTION__,\
+        __FILE__,\
+        __LINE__,\
+        ##__VA_ARGS__\
+    )
+
 
 #endif // if platform windows
 #endif // header guard

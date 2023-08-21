@@ -7,25 +7,25 @@
 #include "ldrenderer/opengl/functions.h"
 #include "ldrenderer/opengl/loader.h"
 
-#define LOAD_PROC_REQUIRED( name ) do {\
-void* proc = get_proc_address( TO_STRING(name) );\
+#define LOAD_PROC_REQUIRED( fn ) do {\
+void* proc = get_proc_address( TO_STRING(fn) );\
 if( !proc ) {\
-    GL_LOG_FATAL( "Failed to load required function \"" TO_STRING(name) "\"!" );\
+    GL_LOG_FATAL( "Failed to load required function \"" TO_STRING(fn) "\"!" );\
     return false;\
 }\
-___internal_##name = ( ___internal_##name##FN )proc;\
+___internal_##fn = ( ___internal_##fn##FN* )proc;\
 } while(0)
 
-#define LOAD_PROC( name ) do {\
-void* proc = get_proc_address( TO_STRING(name) );\
+#define LOAD_PROC( fn ) do {\
+void* proc = get_proc_address( TO_STRING(fn) );\
 if( !proc ) {\
-    GL_LOG_WARN( "Failed to load function \"" TO_STRING(name) "\"!" );\
+    GL_LOG_WARN( "Failed to load function \"" TO_STRING(fn) "\"!" );\
 }\
-___internal_##name = ( ___internal_##name##FN )proc;\
+___internal_##fn = ( ___internal_##fn##FN* )proc;\
 } while(0)
 
-#define DEFINE_GL_FUNCTION( name )\
-___internal_##name##FN ___internal_##name
+#define DEFINE_GL_FUNCTION( fn )\
+___internal_##fn##FN* ___internal_##fn
 
 // Textures ------------------------------------------------------------
 DEFINE_GL_FUNCTION(glCreateTextures       ); 
