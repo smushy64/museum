@@ -16,7 +16,7 @@
 #include "core/ldthread.h"
 
 /// Returns how many bytes the current platform requires.
-usize platform_query_subsystem_size();
+usize platform_subsystem_query_size();
 /// Initialize platform state. Returns true if successful.
 b32 platform_subsystem_init( ivec2 surface_dimensions, void* buffer );
 /// Shutdown platform subsystem.

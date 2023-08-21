@@ -89,7 +89,7 @@ internal void input_state_init( InputState* state ) {
 
 global InputState* INPUT_STATE = NULL;
 
-usize input_query_subsystem_size() {
+usize input_subsystem_query_size() {
     return sizeof(InputState);
 }
 b32 input_subsystem_init( void* buffer ) {

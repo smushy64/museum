@@ -172,7 +172,7 @@ void thread_subsystem_shutdown() {
     }
     semaphore_destroy( WORK_QUEUE->wake_semaphore );
 }
-usize thread_query_subsystem_size() {
+usize thread_subsystem_query_size() {
     return sizeof(ThreadWorkQueue);
 }
 

@@ -345,7 +345,7 @@ internal DWORD WINAPI win32_xinput_polling_thread( void* params ) {
     return 0;
 }
 
-usize platform_query_subsystem_size() {
+usize platform_subsystem_query_size() {
     return sizeof(Win32Platform);
 }
 b32 platform_subsystem_init( ivec2 surface_dimensions, void* buffer ) {

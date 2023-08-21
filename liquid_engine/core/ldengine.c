@@ -217,12 +217,12 @@ b32 engine_entry( int argc, char** argv ) {
 
     platform_query_system_info( &ctx.system_info );
 
-    usize thread_subsystem_size    = thread_query_subsystem_size();
-    usize event_subsystem_size     = event_query_subsystem_size();
-    usize input_subsystem_size     = input_query_subsystem_size();
-    usize platform_subsystem_size  = platform_query_subsystem_size();
+    usize thread_subsystem_size    = thread_subsystem_query_size();
+    usize event_subsystem_size     = event_subsystem_query_size();
+    usize input_subsystem_size     = input_subsystem_query_size();
+    usize platform_subsystem_size  = platform_subsystem_query_size();
     usize renderer_subsystem_size  =
-        renderer_query_subsystem_size( arg_parse.backend );
+        renderer_subsystem_query_size( arg_parse.backend );
 
     // calculate required stack arena size
     usize required_stack_size =

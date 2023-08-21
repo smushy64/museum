@@ -10,7 +10,7 @@
 
 global InternalRendererContext* RENDERER_CONTEXT = NULL;
 
-usize renderer_query_subsystem_size( enum RendererBackend backend ) {
+usize renderer_subsystem_query_size( enum RendererBackend backend ) {
     local const usize backend_sizes[] = {
         sizeof(OpenGLRendererContext), // OpenGL
         0, // Vulkan
