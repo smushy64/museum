@@ -174,6 +174,16 @@ Include in engine:
 | I64_MAX                 | largest   64-bit integer |
 | I64_SIGN_MASK           | sign bitmask             |
 
+| Pointer Integer Constant | Description              |
+| ------------------------ | ------------------------ |
+| ISIZE_MIN                | smallest pointer integer |
+| ISIZE_MAX                | largest  pointer integer |
+
+| Unsigned Pointer Integer Constant | Description                       |
+| --------------------------------- | --------------------------------- |
+| USIZE_MIN                         | smallest unsigned pointer integer |
+| USIZE_MAX                         | largest  unsigned pointer integer |
+
 
 ## Platform Identifiers
 | Compiler                | Description                               |
