@@ -4,6 +4,7 @@
  * File Created: May 01, 2023
 */
 #include "core/ldcollections.h"
+#include "core/ldallocator.h"
 #include "core/ldmemory.h"
 #include "core/ldlog.h"
 #include "core/ldstring.h"
@@ -21,465 +22,222 @@ LD_API u64 hash( StringView sv ) {
     return result;
 }
 
-#define LIST_NUM_FIELDS 3
-#define LIST_FIELDS_SIZE (LIST_NUM_FIELDS * sizeof(u64))
-#define LIST_REALLOC_FACTOR 2
-
-#define BUFFER_TO_BASE_POINTER( list ) \
-    (((u64*)list) - LIST_NUM_FIELDS)
-
-#define BASE_TO_BUFFER_POINTER( base )\
-    (((u64*)base) + LIST_NUM_FIELDS)
-
-#define LOG_LIST_ALLOC( function, file, line, format, ... ) \
-    log_formatted_locked(\
-        LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
-        false, true,\
-        LOG_COLOR_GREEN\
-        "[LIST ALLOC | {cc}() | {cc}:{i}] " format\
-        LOG_COLOR_RESET,\
-        function,\
-        file,\
-        line,\
-        ##__VA_ARGS__\
-    )
-
-#define LOG_LIST_REALLOC( function, file, line, format, ... ) \
-    log_formatted_locked(\
-        LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
-        false, true,\
-        LOG_COLOR_GREEN\
-        "[LIST REALLOC | {cc}() | {cc}:{i}] " format\
-        LOG_COLOR_RESET,\
-        function,\
-        file,\
-        line,\
-        ##__VA_ARGS__\
-    )
-
-#define LOG_LIST_FREE( function, file, line, format, ... ) \
-    log_formatted_locked(\
-        LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,\
-        false, true,\
-        LOG_COLOR_CYAN\
-        "[LIST FREE | {cc}() | {cc}:{i}] " format\
-        LOG_COLOR_RESET,\
-        function,\
-        file,\
-        line,\
-        ##__VA_ARGS__\
-    )
-
-LD_API void* _list_create_trace(
-    usize capacity,
-    usize stride,
-    const char* function,
-    const char* file,
-    int line
+LD_API b32 internal_list_create(
+    struct Allocator* allocator, usize capacity,
+    usize stride, List* out_list
 ) {
-    void* result = _list_create( capacity, stride );
-
-    LOG_LIST_ALLOC(
-        function,
-        file,
-        line,
-        "Stride: {u64} | Capacity: {u64} | Size: {u64} | Pointer: {u,x}",
-        stride,
-        capacity,
-        stride * capacity,
-        (u64)result
-    );
-
-    return result;
-}
-
-LD_API void* _list_realloc_trace(
-    void* list,
-    usize new_capacity,
-    const char* function,
-    const char* file,
-    int line
-) {
-    u64*  base         = BUFFER_TO_BASE_POINTER(list);
-    usize old_capacity = base[LIST_FIELD_CAPACITY];
-    usize stride       = base[LIST_FIELD_STRIDE];
-
-    void* result = _list_realloc( list, new_capacity );
-    LOG_LIST_REALLOC(
-        function,
-        file,
-        line,
-        "Old Capacity: {u64} | New Capacity: {u64} | "
-        "Old Size: {u64} | New Size: {u64} | "
-        "Pointer: {u,x}",
-        old_capacity,
-        new_capacity,
-        stride * old_capacity,
-        stride * new_capacity,
-        (u64)result
-    );
-    return result;
-}
-
-LD_API void _list_free_trace(
-    void* list,
-    const char* function,
-    const char* file,
-    int line
-) {
-    u64* base = BUFFER_TO_BASE_POINTER(list);
-    usize stride   = base[LIST_FIELD_STRIDE];
-    usize capacity = base[LIST_FIELD_CAPACITY];
-
-    LOG_LIST_FREE(
-        function,
-        file,
-        line,
-        "Capacity: {u64} | Size: {u64} | Pointer: {u,x}",
-        capacity,
-        stride * capacity,
-        list
-    );
-
-    _list_free( list );
-}
-
-LD_API void* _list_create( usize capacity, usize stride ) {
-    usize total_size = (capacity * stride) + LIST_FIELDS_SIZE;
-    u64* base = (u64*)internal_ldalloc(
-        total_size,
-        MEMORY_TYPE_DYNAMIC_LIST
-    );
-    if( !base ) {
-        return NULL;
-    }
-
-    base[LIST_FIELD_CAPACITY] = capacity;
-    base[LIST_FIELD_COUNT]    = 0;
-    base[LIST_FIELD_STRIDE]   = stride;
-
-    return BASE_TO_BUFFER_POINTER(base);
-}
-LD_API void  _list_free( void* list ) {
-    if( !list ) {
-        return;
-    }
-    u64* base = BUFFER_TO_BASE_POINTER(list);
-    u64 capacity = base[LIST_FIELD_CAPACITY];
-    u64 stride   = base[LIST_FIELD_STRIDE];
-    usize size = capacity * stride + LIST_FIELDS_SIZE;
-    internal_ldfree( base, size, MEMORY_TYPE_DYNAMIC_LIST );
-}
-
-LD_API void* _list_realloc( void* list, usize new_capacity ) {
-    u64* base = BUFFER_TO_BASE_POINTER(list);
-
-    usize capacity = base[LIST_FIELD_CAPACITY];
-    usize stride   = base[LIST_FIELD_STRIDE];
-    usize new_size = (new_capacity * stride) + LIST_FIELDS_SIZE;
-    usize old_size = (capacity * stride) + LIST_FIELDS_SIZE;
-    u64*  new_base = (u64*)internal_ldrealloc(
-        base,
-        old_size, new_size,
-        MEMORY_TYPE_DYNAMIC_LIST
-    );
-
-    if( !new_base ) {
-        LOG_ERROR("Failed to realloc list!");
-        return list;
-    }
-
-    new_base[LIST_FIELD_CAPACITY] = new_capacity;
-
-    return BASE_TO_BUFFER_POINTER(new_base);
-}
-
-LD_API void* _list_append(
-    void* list,
-    usize append_count,
-    const void* pvalue
-) {
-    u64*  base     = BUFFER_TO_BASE_POINTER(list);
-    usize count    = base[LIST_FIELD_COUNT];
-    usize capacity = base[LIST_FIELD_CAPACITY];
-    usize stride   = base[LIST_FIELD_STRIDE];
-
-    if( count + append_count > capacity ) {
-        list = _list_realloc(
-            list,
-            count + append_count
-        );
-        base = BUFFER_TO_BASE_POINTER(list);
-    }
-
-    usize append_size = stride * append_count;
-    mem_copy(
-        (u8*)list + (count * stride),
-        pvalue,
-        append_size
-    );
-
-    base[LIST_FIELD_COUNT] = count + append_count;
-    return list;
-}
-
-LD_API void* _list_append_trace(
-    void* list,
-    usize append_count,
-    const void* pvalue,
-    const char* function,
-    const char* file,
-    int line
-) {
-    u64*  base     = BUFFER_TO_BASE_POINTER(list);
-    usize count    = base[LIST_FIELD_COUNT];
-    usize capacity = base[LIST_FIELD_CAPACITY];
-    usize stride   = base[LIST_FIELD_STRIDE];
-
-    if( count + append_count > capacity ) {
-        list = _list_realloc_trace(
-            list,
-            count + append_count,
-            function,
-            file,
-            line
-        );
-        base = BUFFER_TO_BASE_POINTER(list);
-    }
-
-    usize append_size = stride * append_count;
-    mem_copy(
-        (u8*)list + (count * stride),
-        pvalue,
-        append_size
-    );
-
-    base[LIST_FIELD_COUNT] = count + append_count;
-    return list;
-}
-
-LD_API void* _list_push( void* list, const void* pvalue ) {
-    u64*  base     = BUFFER_TO_BASE_POINTER(list);
-    usize count    = base[LIST_FIELD_COUNT];
-    usize capacity = base[LIST_FIELD_CAPACITY];
-    usize stride   = base[LIST_FIELD_STRIDE];
-
-    if( count == capacity ) {
-        list = _list_realloc(
-            list,
-            capacity * LIST_REALLOC_FACTOR
-        );
-        base  = BUFFER_TO_BASE_POINTER(list);
-        count = base[LIST_FIELD_COUNT];
-    }
-    u8* bytes = (u8*)list;
-
-    usize index = stride * count;
-    
-    mem_copy( bytes + index, pvalue, stride );
-
-    base[LIST_FIELD_COUNT] += 1;
-
-    return list;
-}
-
-void* _list_push_trace(
-    void* list,
-    const void* pvalue,
-    const char* function,
-    const char* file,
-    int line
-) {
-    u64*  base     = BUFFER_TO_BASE_POINTER(list);
-    usize count    = base[LIST_FIELD_COUNT];
-    usize capacity = base[LIST_FIELD_CAPACITY];
-    usize stride   = base[LIST_FIELD_STRIDE];
-
-    if( count == capacity ) {
-        list = _list_realloc_trace(
-            list,
-            capacity * LIST_REALLOC_FACTOR,
-            function,
-            file,
-            line
-        );
-        base  = BUFFER_TO_BASE_POINTER(list);
-        count = base[LIST_FIELD_COUNT];
-    }
-    u8* bytes = (u8*)list;
-
-    usize index = stride * count;
-    
-    mem_copy( bytes + index, pvalue, stride );
-
-    base[LIST_FIELD_COUNT] += 1;
-
-    return list;
-}
-
-LD_API b32 _list_pop( void* list, void* dst ) {
-    u64*  base   = BUFFER_TO_BASE_POINTER(list);
-    usize count  = base[LIST_FIELD_COUNT];
-    usize stride = base[LIST_FIELD_STRIDE];
-
-    if( count == 0 ) {
+    usize buffer_size = capacity * stride;
+    void* buffer = internal_allocator_alloc(
+        allocator, buffer_size, MEMORY_TYPE_DYNAMIC_LIST );
+    if( !buffer ) {
         return false;
     }
-    u8* bytes = (u8*)list;
 
-    mem_copy( dst, bytes + count, stride );
-    base[LIST_FIELD_COUNT] -= 1;
+    out_list->allocator = allocator;
+    out_list->count     = 0;
+    out_list->capacity  = capacity;
+    out_list->stride    = stride;
+
+    out_list->buffer = buffer;
 
     return true;
 }
-
-LD_API usize _list_field_read( void* list, u32 field ) {
-    u64*   base = BUFFER_TO_BASE_POINTER(list);
-    return base[field];
+LD_API b32 internal_list_realloc( List* list, usize new_capacity ) {
+    // TODO(alicia): 
+    unused(list); unused(new_capacity);
+    UNIMPLEMENTED();
 }
-LD_API void _list_field_write(
-    void* list,
-    u32 field,
-    usize value
-) {
-    u64* base   = BUFFER_TO_BASE_POINTER(list);
-    base[field] = value;
+LD_API void internal_list_free( List* list ) {
+    if( list->buffer ) {
+        internal_allocator_free(
+            list->allocator, list->buffer,
+            list_buffer_size( list ), MEMORY_TYPE_DYNAMIC_LIST );
+    }
+    mem_zero( list, sizeof(List) );
 }
-
-LD_API void* _list_remove(
-    void* list,
-    usize i,
-    void* dst
-) {
-    u64*  base       = BUFFER_TO_BASE_POINTER(list);
-    usize capacity   = base[LIST_FIELD_CAPACITY];
-    usize count      = base[LIST_FIELD_COUNT];
-    usize stride     = base[LIST_FIELD_STRIDE];
-    usize total_size = capacity * stride;
-
-    if( i >= capacity || i >= count ) {
-        LOG_FATAL("List remove out of bounds! index: {u64}", i);
-        PANIC();
+LD_API b32 internal_list_push_realloc( List* list, void* item, usize realloc ) {
+    if( list->count == list->capacity ) {
+        if( !internal_list_realloc( list, realloc ) ) {
+            return false;
+        }
     }
 
-    u8*   bytes = (u8*)list;
-    usize index = stride * i;
-
-    if( dst ) {
-        mem_copy( dst, &bytes[index], stride );
+    return list_push( list, item );
+}
+LD_API b32 internal_list_insert_realloc(
+    List* list, void* item, usize index, usize realloc
+) {
+    if( list->count == list->capacity ) {
+        if( !internal_list_realloc( list, realloc ) ) {
+            return false;
+        }
     }
-    if( i != count - 1 ) {
-        usize index_after = index + stride;
-        usize remaining_size = total_size - index_after;
-        mem_copy(
-            &bytes[index],
-            &bytes[index_after],
-            remaining_size
+    return list_insert( list, item, index );
+}
+LD_API b32 internal_list_create_trace(
+    struct Allocator* allocator, usize capacity,
+    usize stride, List* out_list,
+    const char* function, const char* file, int line
+) {
+    b32 result = internal_list_create( allocator, capacity, stride, out_list );
+    if( result ) {
+        log_formatted_locked(
+            LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
+            false, true,
+            LOG_COLOR_GREEN
+            "[LIST CREATE | {cc}() | {cc}:{i}] "
+            "Capacity: {u64} Stride: {u64} Pointer: {u64,x}"
+            LOG_COLOR_RESET,
+            function, file, line,
+            (u64)capacity, (u64)stride, (u64)out_list->buffer
+        );
+    } else {
+        log_formatted_locked(
+            LOG_LEVEL_ERROR | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
+            false, true,
+            LOG_COLOR_RED
+            "[LIST CREATE FAILED | {cc}() | {cc}:{i}] "
+            "Capacity: {u64} Stride: {u64}"
+            LOG_COLOR_RESET,
+            function, file, line,
+            (u64)capacity, (u64)stride
         );
     }
-
-    base[LIST_FIELD_COUNT] -= 1;
-
-    return list;
+    return result;
 }
-LD_API void* _list_insert(
-    void* list,
-    usize index,
-    void* pvalue
+LD_API b32 internal_list_realloc_trace(
+    List* list, usize new_capacity,
+    const char* function, const char* file, int line
 ) {
-    u64*  base     = BUFFER_TO_BASE_POINTER(list);
-    usize capacity = base[LIST_FIELD_CAPACITY];
-    usize count    = base[LIST_FIELD_COUNT];
-    usize stride   = base[LIST_FIELD_STRIDE];
-
-    if( index >= count ) {
-        LOG_FATAL(
-            "Index outside the bounds of the list! index: {u64}",
-            index
+    usize old_capacity = list->capacity;
+    b32 result = internal_list_realloc( list, new_capacity );
+    if( result ) {
+        log_formatted_locked(
+            LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
+            false, true,
+            LOG_COLOR_GREEN
+            "[LIST REALLOC | {cc}() | {cc}:{i}] "
+            "Capacity: {u64} -> {u64} Pointer: {u64,x}"
+            LOG_COLOR_RESET,
+            function, file, line,
+            (u64)old_capacity, (u64)new_capacity, (u64)list->buffer
         );
-        PANIC();
+    } else {
+        log_formatted_locked(
+            LOG_LEVEL_ERROR | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
+            false, true,
+            LOG_COLOR_RED
+            "[LIST REALLOC FAILED | {cc}() | {cc}:{i}] "
+            "Capacity: {u64} -> {u64} Pointer: {u64,x}"
+            LOG_COLOR_RESET,
+            function, file, line,
+            (u64)old_capacity, (u64)new_capacity, (u64)list->buffer
+        );
+    }
+    return result;
+}
+LD_API void internal_list_free_trace(
+    List* list, const char* function, const char* file, int line
+) {
+    log_formatted_locked(
+        LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE | LOG_LEVEL_TRACE,
+        false, true,
+        LOG_COLOR_CYAN
+        "[FREE | {cc}() | {cc}:{i}] "
+        "Capacity: {u64} Pointer: {u64,x}"
+        LOG_COLOR_RESET,
+        function, file, line,
+        (u64)list->capacity, (u64)list->buffer
+    );
+    internal_list_free( list );
+}
+LD_API b32 internal_list_push_realloc_trace(
+    List* list, void* item, usize realloc,
+    const char* function, const char* file, int line
+) {
+    if( list->count == list->capacity ) {
+        if( !internal_list_realloc_trace(
+            list, realloc, function, file, line
+        ) ) {
+            return false;
+        }
+    }
+
+    return list_push( list, item );
+}
+LD_API b32 internal_list_insert_realloc_trace(
+    List* list, void* item, usize index, usize realloc,
+    const char* function, const char* file, int line
+) {
+    if( list->count == list->capacity ) {
+        if( !internal_list_realloc_trace(
+            list, realloc, function, file, line
+        ) ) {
+            return false;
+        }
+    }
+    return list_insert( list, item, index );
+}
+
+
+LD_API b32 list_push( List* list, void* item ) {
+    if( list->count == list->capacity ) {
+        return false;
+    }
+    u8* buffer = list->buffer;
+    mem_copy(
+        buffer + (list->stride * list->count),
+        item, list->stride
+    );
+    list->count++;
+
+    return true;
+}
+LD_API b32 list_insert( List* list, void* item, usize index ) {
+    if( list->count + 1 > list->capacity ) {
+        return false;
+    }
+    if( index >= list->count ) {
+        return false;
+    }
+    if( index == list->count - 1 ) {
+        return list_push( list, item );
+    }
+    void* src = (u8*)list->buffer + ( list->stride * index );
+    void* dst = (u8*)list->buffer + ( list->stride * ( index + 1 ) );
+    usize remaining_count = list->count - index;
+    usize size = list->stride * remaining_count;
+    mem_copy_overlapped( dst, src, size );
+
+    mem_copy( dst, item, list->stride );
+
+    return true;
+}
+LD_API void* list_pop( List* list ) {
+    if( !list->count ) {
         return NULL;
     }
-    
-    if( count >= capacity ) {
-        list = _list_realloc(
-            list,
-            LIST_REALLOC_FACTOR * capacity
-        );
-        base = BUFFER_TO_BASE_POINTER(list);
-    }
-    
-    u8* buffer_bytes = (u8*)list;
-
-    if( index != count - 1 ) {
-        mem_copy_overlapped(
-            buffer_bytes + ((index + 1) * stride),
-            buffer_bytes + (index * stride),
-            stride * ( count - index )
-        );
-    }
-
-    mem_copy(
-        buffer_bytes + (index * stride),
-        pvalue,
-        stride
-    );
-
-    base[LIST_FIELD_COUNT] += 1;
-
-    return list;
+    u8* buffer = list->buffer;
+    list->count--;
+    return buffer + (list->count * list->stride);
 }
-
-LD_API void* _list_insert_trace(
-    void* list,
-    usize index,
-    void* pvalue,
-    const char* function,
-    const char* file,
-    int line
-) {
-    u64*  base     = BUFFER_TO_BASE_POINTER(list);
-    usize capacity = base[LIST_FIELD_CAPACITY];
-    usize count    = base[LIST_FIELD_COUNT];
-    usize stride   = base[LIST_FIELD_STRIDE];
-
-    if( index >= count ) {
-        LOG_FATAL(
-            "Index outside the bounds of the list! index: {u64}",
-            index
-        );
-        PANIC();
+LD_API void list_remove( List* list, usize index ) {
+    ASSERT( index < list->count );
+    if( index == list->count ) {
+        list_pop( list );
+        return;
+    }
+    void* dst = (u8*)list->buffer + ( list->stride * index );
+    usize remaining_count = list->count - (index + 1);
+    void* src = (u8*)list->buffer + ( list->stride * (index + 1) );
+    usize size = remaining_count * list->stride;
+    mem_copy_overlapped( dst, src, size );
+}
+LD_API void* list_index( List* list, usize index ) {
+    if( index >= list->count ) {
         return NULL;
     }
-    
-    if( count >= capacity ) {
-        list = _list_realloc_trace(
-            list,
-            LIST_REALLOC_FACTOR * capacity,
-            function,
-            file,
-            line
-        );
-        base = BUFFER_TO_BASE_POINTER(list);
-    }
-    
-    u8* buffer_bytes = (u8*)list;
 
-    if( index != count - 1 ) {
-        mem_copy_overlapped(
-            buffer_bytes + ((index + 1) * stride),
-            buffer_bytes + (index * stride),
-            stride * ( count - index )
-        );
-    }
-
-    mem_copy(
-        buffer_bytes + (index * stride),
-        pvalue,
-        stride
-    );
-
-    base[LIST_FIELD_COUNT] += 1;
-
-    return list;
+    return (u8*)list->buffer + (index * list->stride);
 }
+
