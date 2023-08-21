@@ -513,4 +513,26 @@ STATIC_ASSERT(sizeof(c32) == 4, "Expected c32 to be 4 bytes!" );
 /// Sign mask
 #define I64_SIGN_MASK (1ull << 63ull)
 
+#if defined(LD_ARCH_64_BIT)
+    /// Largest pointer sized int value.
+    #define ISIZE_MAX (I64_MAX)
+    /// Smallest pointer sized int value.
+    #define ISIZE_MIN (I64_MIN)
+
+    /// Largest pointer sized unsigned int value.
+    #define USIZE_MAX (U64_MAX)
+    /// Smallest pointer sized unsigned int value.
+    #define USIZE_MIN (U64_MIN)
+#else
+    /// Largest pointer sized int value.
+    #define ISIZE_MAX (I32_MAX)
+    /// Smallest pointer sized int value.
+    #define ISIZE_MIN (I32_MIN)
+
+    /// Largest pointer sized unsigned int value.
+    #define USIZE_MAX (U32_MAX)
+    /// Smallest pointer sized unsigned int value.
+    #define USIZE_MIN (U32_MIN)
+#endif
+
 #endif
