@@ -4,12 +4,22 @@
 #include "core/ldevent.h"
 #include "core/ldmemory.h"
 
-#define EVENT_LISTENER_ID_GET_EVENT_CODE( id )\
-    ((u8)(((EventListenerID)(id)) >> (u16)7))
-#define EVENT_LISTENER_ID_GET_INDEX( id )\
-    ((u8)(((EventListenerID)(id)) & 0x00FF))
-#define MAKE_EVENT_LISTENER_ID( event_code, index )\
-    (EventListenerID)( ((u16)(event_code)) << 7 | ((u16)(index)) )
+typedef union {
+    u16 id;
+    struct { u8 event_code; u8 index; };
+} EventListenerIDUnion;
+
+EventListenerID make_id( u8 event_code, u8 index ) {
+    EventListenerIDUnion result;
+    result.event_code = event_code;
+    result.index      = index;
+    return result.id;
+}
+EventListenerIDUnion make_id_union( EventListenerID id ) {
+    EventListenerIDUnion result;
+    result.id = id;
+    return result;
+}
 
 typedef struct CallbackContext {
     EventCallbackFN* callback;
@@ -88,7 +98,7 @@ LD_API EventListenerID event_subscribe(
         return id;
     }
 
-    id = MAKE_EVENT_LISTENER_ID( event, empty_callback_index );
+    id = make_id( event, empty_callback_index );
 
     CallbackContext* empty_callback = &callbacks[empty_callback_index];
     empty_callback->id       = id;
@@ -98,14 +108,13 @@ LD_API EventListenerID event_subscribe(
     return id;
 }
 LD_API void event_unsubscribe( EventListenerID id ) {
-    u8 event_code = EVENT_LISTENER_ID_GET_EVENT_CODE(id);
-    u8 index      = EVENT_LISTENER_ID_GET_INDEX(id);
+    EventListenerIDUnion id_union = make_id_union( id );
 
-    ASSERT( event_code < EVENT_CODE_MAX );
-    ASSERT( index < EVENT_LISTENER_MAX );
+    ASSERT( id_union.event_code < EVENT_CODE_MAX );
+    ASSERT( id_union.index < EVENT_LISTENER_MAX );
 
     mem_zero(
-        &REGISTRY->callbacks[event_code][index],
+        &REGISTRY->callbacks[id_union.event_code][id_union.index],
         sizeof(CallbackContext)
     );
 }
