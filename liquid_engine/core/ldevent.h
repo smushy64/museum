@@ -7,6 +7,9 @@
 #include "core/ldlog.h"
 #include "core/ldmath/types.h"
 
+/// Events can only have this many listeners subscribed to it.
+#define EVENT_LISTENER_MAX (10ull)
+
 /// Event Callback function return codes.
 typedef enum EventCallbackResult : b32 {
     /// Other listeners will also receive this event.
@@ -51,7 +54,7 @@ typedef u8 EventCode;
 #define EVENT_CODE_MAX_ENGINE_CODE ((EventCode)(5))
 /// Max Event Code.
 /// This is the maximum event code that is allowed.
-#define EVENT_CODE_MAX ((EventCode)(U8_MAX))
+#define EVENT_CODE_MAX ((EventCode)(128))
 
 /// Event.
 /// EventCode tells you what type of event it is.
@@ -147,7 +150,7 @@ LD_API void event_unsubscribe( EventListenerID id );
 #if defined(LD_API_INTERNAL)
 
     /// Size of event subsystem.
-    usize event_query_subsystem_size();
+    usize event_subsystem_query_size();
     /// Initialize Event Subsystem.
     b32 event_subsystem_init( void* event_subsystem_buffer );
     /// Fire end of frame events.

@@ -2,158 +2,111 @@
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: June 24, 2023
 #include "core/ldevent.h"
-#include "core/ldcollections.h"
+#include "core/ldmemory.h"
 
-#define MIN_LISTENERS 2
+#define EVENT_LISTENER_ID_GET_EVENT_CODE( id )\
+    ((u8)(((EventListenerID)(id)) >> (u16)7))
+#define EVENT_LISTENER_ID_GET_INDEX( id )\
+    ((u8)(((EventListenerID)(id)) & 0x00FF))
+#define MAKE_EVENT_LISTENER_ID( event_code, index )\
+    (EventListenerID)( ((u16)(event_code)) << 7 | ((u16)(index)) )
 
-typedef struct ListenerContext {
+typedef struct CallbackContext {
     EventCallbackFN* callback;
-    void*            callback_params;
+    void* params;
+    EventListenerID id;
+} CallbackContext;
 
-    u16 id;
-} ListenerContext;
+typedef struct CallbackRegistry {
+    CallbackContext callbacks[EVENT_CODE_MAX][EVENT_LISTENER_MAX];
+} CallbackRegistry;
 
-typedef struct ListenerRegistry {
-    struct {
-        ListenerContext* listeners;
-    } event_listeners[EVENT_CODE_MAX];
-} ListenerRegistry;
+global CallbackRegistry* REGISTRY = NULL;
 
-typedef struct EventBuffer {
-    Event* list_concurrent_events;
-    Event* list_end_of_frame_events;
-} EventBuffer;
-
-global EventBuffer       EVENT_BUFFER;
-global ListenerRegistry* REGISTRY = NULL;
-global EventListenerID   ID = 1;
-
-LD_API void event_fire_priority( Event event, EventPriority priority ) {
-    if( !REGISTRY ) {
-        return;
-    }
-
-    switch( priority ) {
-        case EVENT_PRIORITY_IMMEDIATE: {
-            ListenerContext* listeners =
-                REGISTRY->event_listeners[event.code].listeners;
-            u32 listener_count = list_count( listeners );
-            for( u32 i = 0; i < listener_count; ++i ) {
-                listeners[i].callback( &event, listeners[i].callback_params );
-            }
-        } break;
-        case EVENT_PRIORITY_END_OF_FRAME: {
-            ASSERT( EVENT_BUFFER.list_end_of_frame_events );
-            list_push(
-                EVENT_BUFFER.list_end_of_frame_events,
-                event
-            );
-        } break;
-        case EVENT_PRIORITY_CONCURRENT: {
-            // TODO(alicia): concurrent events!
-            UNIMPLEMENTED();
-        } break;
-    }
+usize event_subsystem_query_size() {
+    return sizeof(CallbackRegistry);
+}
+b32 event_subsystem_init( void* buffer ) {
+    REGISTRY = buffer;
+    LOG_INFO( "Event subsystem successfully initialized." );
+    return true;
 }
 void event_fire_end_of_frame() {
-    ASSERT( EVENT_BUFFER.list_end_of_frame_events );
-    ASSERT( REGISTRY );
-    return;
-    while( list_count( EVENT_BUFFER.list_end_of_frame_events ) ) {
-        Event event = {};
-        list_pop( EVENT_BUFFER.list_end_of_frame_events, &event );
-        ListenerContext* listeners =
-            REGISTRY->event_listeners[event.code].listeners;
-        u32 listener_count = list_count( listeners );
-        for( u32 i = 0; i < listener_count; ++i ) {
-            listeners[i].callback( &event, listeners[i].callback_params );
-        }
+    // TODO(alicia): Fire events at the end of a frame.
+}
+
+LD_API void event_fire_priority( Event event, EventPriority priority ) {
+    switch( priority ) {
+        case EVENT_PRIORITY_IMMEDIATE: {
+            CallbackContext* callbacks = REGISTRY->callbacks[event.code];
+            for( usize i = 0; i < EVENT_LISTENER_MAX; ++i ) {
+                CallbackContext* current = &callbacks[i];
+                if( !current->id ) {
+                    continue;
+                }
+                if( current->callback( &event, current->params ) ) {
+                    break;
+                }
+            }
+        } break;
+        default: { UNIMPLEMENTED(); } break;
     }
 }
-
 LD_API EventListenerID event_subscribe(
-    EventCode       event_code,
-    EventCallbackFN callback,
-    void*           callback_params
+    EventCode event, EventCallbackFN* callback, void* params
 ) {
-    ASSERT( REGISTRY );
+    EventListenerID id = EVENT_LISTENER_INVALID_ID;
+    if( event >= EVENT_CODE_MAX ) {
+        LOG_ERROR(
+            "Attempted to subscribe listener to "
+            "invalid event: {u8}!",
+            event
+        );
+        return id;
+    }
 
-    EventListenerID result = (event_code << 8) | ID++;
+    CallbackContext* callbacks = REGISTRY->callbacks[event];
+    u8 empty_callback_index = U8_MAX;
 
-    ListenerContext* listeners = REGISTRY->event_listeners[event_code].listeners;
-    
-    ListenerContext ctx = {};
-    ctx.id              = result;
-    ctx.callback        = callback;
-    ctx.callback_params = callback_params;
-
-    listeners = (ListenerContext*)_list_push( listeners, &ctx );
-
-    return result;
-}
-LD_API void event_unsubscribe( EventListenerID event_listener_id ) {
-    ASSERT( REGISTRY );
-
-    EventCode event_code = (EventCode)(event_listener_id >> 8);
-
-    ListenerContext* listeners =
-        REGISTRY->event_listeners[event_code].listeners;
-    u32 listener_count = list_count( listeners );
-
-    b32 listener_found = false;
-    u32 listener_index = 0;
-
-    for( u32 i = 0; i < listener_count; ++i ) {
-        if( event_listener_id == listeners[i].id ) {
-            listener_index = i;
-            listener_found = true;
+    for( u8 i = 0; i < EVENT_LISTENER_MAX; ++i ) {
+        if( !callbacks->id ) {
+            empty_callback_index = i;
             break;
         }
     }
-
-    if( !listener_found ) {
-        LOG_ERROR("Could not find event listener {u16}!", event_listener_id);
-        return;
-    }
-
-    listeners = (ListenerContext*)list_remove(
-        listeners,
-        listener_index,
-        NULL
-    );
-
-}
-
-usize event_query_subsystem_size() {
-    return sizeof(ListenerRegistry);
-}
-b32 event_subsystem_init( void* event_subsystem_buffer ) {
-    REGISTRY = (ListenerRegistry*)event_subsystem_buffer;
-    EVENT_BUFFER.list_concurrent_events   = list_reserve( Event, 10 );
-    EVENT_BUFFER.list_end_of_frame_events = list_reserve( Event, 10 );
-
-    if( !EVENT_BUFFER.list_concurrent_events ) {
-        LOG_FATAL( "Failed to allocate concurrent event buffer!" );
-        return false;
-    }
-    if( !EVENT_BUFFER.list_end_of_frame_events ) {
-        LOG_FATAL( "Failed to allocate end of frame event buffer!" );
-        return false;
-    }
-
-    for( u32 i = 0; i < EVENT_CODE_MAX; ++i ) {
-        void* listener_list = _list_create(
-            MIN_LISTENERS,
-            sizeof(ListenerContext)
+    /// empty callback not found
+    if( empty_callback_index == U8_MAX ) {
+        LOG_ERROR(
+            "Attempted to subscribe to event but "
+            "this event already has too many listeners!"
         );
-        if( !listener_list ) {
-            LOG_FATAL("Failed to create listener list!");
-            return false;
-        }
-        REGISTRY->event_listeners[i].listeners = (ListenerContext*)listener_list;
+        LOG_ERROR(
+            "Max number of listeners an "
+            "event can have is: {u8}",
+            EVENT_LISTENER_MAX
+        );
+        return id;
     }
 
-    LOG_INFO("Event subsystem successfully initialized.");
-    return true;
+    id = MAKE_EVENT_LISTENER_ID( event, empty_callback_index );
+
+    CallbackContext* empty_callback = &callbacks[empty_callback_index];
+    empty_callback->id       = id;
+    empty_callback->callback = callback;
+    empty_callback->params   = params;
+
+    return id;
+}
+LD_API void event_unsubscribe( EventListenerID id ) {
+    u8 event_code = EVENT_LISTENER_ID_GET_EVENT_CODE(id);
+    u8 index      = EVENT_LISTENER_ID_GET_INDEX(id);
+
+    ASSERT( event_code < EVENT_CODE_MAX );
+    ASSERT( index < EVENT_LISTENER_MAX );
+
+    mem_zero(
+        &REGISTRY->callbacks[event_code][index],
+        sizeof(CallbackContext)
+    );
 }
 
