@@ -113,7 +113,19 @@ LD_API void log_formatted_unlocked(
         __LINE__,\
         ##__VA_ARGS__\
     )
-        
+ #define LOG_FATAL_CUSTOM_TRACE( function, file, line, format, ... ) \
+    log_formatted_locked(\
+        LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
+        true, true,\
+        LOG_COLOR_RED\
+        "[FATAL | {cc}() | {cc}:{i}] " format\
+        LOG_COLOR_RESET,\
+        function,\
+        file,\
+        line,\
+        ##__VA_ARGS__\
+    )
+       
 
 #if defined(LD_LOGGING)
     #define LOG_NOTE( format, ... ) \
@@ -266,6 +278,39 @@ LD_API void log_formatted_unlocked(
                     __FUNCTION__,\
                     __FILE__,\
                     __LINE__,\
+                    #condition,\
+                    ##__VA_ARGS__\
+                );\
+                PANIC();\
+            }\
+        } while(0)
+    #define LOG_ASSERT_CUSTOM_TRACE( function, file, line, condition, format, ... ) \
+        do {\
+            if(!(condition)) {\
+                log_formatted_unlocked(\
+                    LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
+                    true, true,\
+                    LOG_COLOR_RED\
+                    "[ASSERTION FAILED | {cc}() | {cc}:{i}] ({cc}) " format\
+                    LOG_COLOR_RESET,\
+                    function,\
+                    file,\
+                    line,\
+                    #condition,\
+                    ##__VA_ARGS__\
+                );\
+                PANIC();\
+            }\
+        } while(0)
+    #define LOG_ASSERT_NO_TRACE( condition, format, ... ) \
+        do {\
+            if(!(condition)) {\
+                log_formatted_unlocked(\
+                    LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
+                    true, true,\
+                    LOG_COLOR_RED\
+                    "[ASSERTION FAILED] ({cc}) " format\
+                    LOG_COLOR_RESET,\
                     #condition,\
                     ##__VA_ARGS__\
                 );\

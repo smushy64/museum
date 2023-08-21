@@ -265,7 +265,7 @@ LD_API usize memory_state_calculate_free_space( MemoryState* state ) {
     return total;
 }
 
-LD_API void* internal_dynamic_allocator_allocate_aligned(
+LD_API void* internal_dynamic_allocator_alloc_aligned(
     DynamicAllocator* allocator, usize size, usize alignment
 ) {
     // TODO(alicia): ALIGNMENT
@@ -291,11 +291,11 @@ LD_API void internal_dynamic_allocator_free_aligned(
     usize offset = (u8*)allocator->buffer - (u8*)memory;
     ASSERT( memory_state_return_block( &allocator->state, offset, size ) );
 }
-LD_API void* internal_dynamic_allocator_allocate_aligned_trace(
+LD_API void* internal_dynamic_allocator_alloc_aligned_trace(
     DynamicAllocator* allocator, usize size, usize alignment,
     const char* function, const char* file, int line
 ) {
-    void* result = internal_dynamic_allocator_allocate_aligned(
+    void* result = internal_dynamic_allocator_alloc_aligned(
         allocator, size, alignment );
     if( result ) {
         log_formatted_locked(
@@ -489,5 +489,182 @@ LD_API void internal_stack_allocator_pop_trace(
         (u64)size, (u64)allocator->buffer
     );
     internal_stack_allocator_pop( allocator, size );
+}
+
+LD_API void* internal_allocator_alloc_aligned(
+    Allocator* allocator, usize size,
+    enum MemoryType type, usize alignment
+) {
+    switch( allocator->type ) {
+        case ALLOCATOR_TYPE_SYSTEM: {
+            return internal_ldalloc_aligned( size, type, alignment );
+        } break;
+        case ALLOCATOR_TYPE_DYNAMIC: {
+            return internal_dynamic_allocator_alloc_aligned(
+                allocator->dynamic, size, alignment );
+        } break;
+        default: UNIMPLEMENTED();
+    }
+    return NULL;
+}
+LD_API void internal_allocator_free_aligned(
+    Allocator* allocator, void* memory,
+    usize size, enum MemoryType type, usize alignment
+) {
+    switch( allocator->type ) {
+        case ALLOCATOR_TYPE_SYSTEM: {
+            internal_ldfree_aligned( memory, size, type, alignment );
+        } break;
+        case ALLOCATOR_TYPE_DYNAMIC: {
+            internal_dynamic_allocator_free_aligned(
+                allocator->dynamic, memory, size, alignment );
+        } break;
+        default: UNIMPLEMENTED();
+    }
+}
+LD_API void* internal_allocator_alloc(
+    Allocator* allocator, usize size, enum MemoryType type
+) {
+    switch( allocator->type ) {
+        case ALLOCATOR_TYPE_SYSTEM: {
+            return internal_ldalloc( size, type );
+        } break;
+        case ALLOCATOR_TYPE_DYNAMIC: {
+            return internal_dynamic_allocator_alloc_aligned(
+                allocator->dynamic, size, 1 );
+        } break;
+        case ALLOCATOR_TYPE_STACK: {
+            return internal_stack_allocator_push(
+                allocator->stack, size );
+        } break;
+        default: UNIMPLEMENTED();
+    }
+    return NULL;
+}
+LD_API void internal_allocator_free(
+    Allocator* allocator, void* memory,
+    usize size, enum MemoryType type
+) {
+    switch( allocator->type ) {
+        case ALLOCATOR_TYPE_SYSTEM: {
+            internal_ldfree( memory, size, type );
+        } break;
+        case ALLOCATOR_TYPE_DYNAMIC: {
+            internal_dynamic_allocator_free_aligned(
+                allocator->dynamic, memory, size, 1 );
+        } break;
+        case ALLOCATOR_TYPE_STACK: {
+            // NOTE(alicia): make sure stack is being properly used.
+            void* stack_memory_pointer =
+                (u8*)(allocator->stack->buffer) + allocator->stack->current - size;
+            LOG_ASSERT_NO_TRACE( stack_memory_pointer == memory,
+                "Improper use of stack allocator!");
+            internal_stack_allocator_pop( allocator->stack, size );
+        } break;
+        default: UNIMPLEMENTED();
+    }
+}
+LD_API void* internal_allocator_alloc_aligned_trace(
+    Allocator* allocator, usize size, enum MemoryType type, usize alignment,
+    const char* function, const char* file, int line
+) {
+    switch( allocator->type ) {
+        case ALLOCATOR_TYPE_SYSTEM: {
+            return internal_ldalloc_aligned_trace(
+                size, type, alignment,
+                function, file, line );
+        } break;
+        case ALLOCATOR_TYPE_DYNAMIC: {
+            return internal_dynamic_allocator_alloc_aligned_trace(
+                allocator->dynamic, size, alignment,
+                function, file, line );
+        } break;
+        case ALLOCATOR_TYPE_STACK: {
+            LOG_FATAL_CUSTOM_TRACE(
+                function, file, line,
+                "Stack allocator cannot allocate aligned memory!" );
+            PANIC();
+        } break;
+        default: UNIMPLEMENTED();
+    }
+    return NULL;
+}
+LD_API void internal_allocator_free_aligned_trace(
+    Allocator* allocator, void* memory,
+    usize size, enum MemoryType type, usize alignment,
+    const char* function, const char* file, int line
+) {
+    switch( allocator->type ) {
+        case ALLOCATOR_TYPE_SYSTEM: {
+            internal_ldfree_aligned_trace(
+                memory, size, type, alignment,
+                function, file, line );
+        } break;
+        case ALLOCATOR_TYPE_DYNAMIC: {
+            internal_dynamic_allocator_free_aligned_trace(
+                allocator->dynamic, memory, size, alignment,
+                function, file, line );
+        } break;
+        case ALLOCATOR_TYPE_STACK: {
+            LOG_FATAL_CUSTOM_TRACE(
+                function, file, line,
+                "Stack allocator cannot free aligned memory!" );
+            PANIC();
+        } break;
+        default: UNIMPLEMENTED();
+    }
+}
+LD_API void* internal_allocator_alloc_trace(
+    Allocator* allocator, usize size, enum MemoryType type,
+    const char* function, const char* file, int line
+) {
+    switch( allocator->type ) {
+        case ALLOCATOR_TYPE_SYSTEM: {
+            return internal_ldalloc_trace(
+                size, type, function, file, line );
+        } break;
+        case ALLOCATOR_TYPE_DYNAMIC: {
+            return internal_dynamic_allocator_alloc_aligned_trace(
+                allocator->dynamic, size, 1,
+                function, file, line );
+        } break;
+        case ALLOCATOR_TYPE_STACK: {
+            return internal_stack_allocator_push_trace(
+                allocator->stack, size,
+                function, file, line );
+        } break;
+        default: UNIMPLEMENTED();
+    }
+    return NULL;
+}
+LD_API void internal_allocator_free_trace(
+    Allocator* allocator, void* memory, usize size, enum MemoryType type,
+    const char* function, const char* file, int line
+) {
+    switch( allocator->type ) {
+        case ALLOCATOR_TYPE_SYSTEM: {
+            internal_ldfree_trace(
+                memory, size, type,
+                function, file, line );
+        } break;
+        case ALLOCATOR_TYPE_DYNAMIC: {
+            internal_dynamic_allocator_free_aligned_trace(
+                allocator->dynamic, memory, size, 1,
+                function, file, line );
+        } break;
+        case ALLOCATOR_TYPE_STACK: {
+            // NOTE(alicia): make sure stack is being properly used.
+            void* stack_memory_pointer =
+                (u8*)(allocator->stack->buffer) + allocator->stack->current - size;
+            LOG_ASSERT_CUSTOM_TRACE(
+                function, file, line,
+                stack_memory_pointer == memory,
+                "Improper use of stack allocator!");
+            internal_stack_allocator_pop_trace(
+                allocator->stack, size,
+                function, file, line );
+        } break;
+        default: UNIMPLEMENTED();
+    }
 }
 

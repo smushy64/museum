@@ -8,7 +8,7 @@
 enum MemoryType : u8;
 
 /// Tracks state of a block of memory.
-/// Does not actually allocate or free memory,
+/// Does not actually alloc or free memory,
 /// instead it provides offsets into a block of memory.
 typedef struct MemoryState {
     usize max_blocks;
@@ -58,48 +58,48 @@ headerfn DynamicAllocator dynamic_allocator_from_buffer(
 /// IMPORTANT(alicia): Internal use only!
 /// Allocate aligned memory from dynamic allocator.
 /// Always returns zeroed memory.
-LD_API void* internal_dynamic_allocator_allocate_aligned(
+LD_API void* internal_dynamic_allocator_alloc_aligned(
     DynamicAllocator* allocator, usize size, usize alignment );
 /// IMPORTANT(alicia): Internal use only!
-/// Free aligned memory allocated from dynamic allocator.
+/// Free aligned memory allocd from dynamic allocator.
 LD_API void internal_dynamic_allocator_free_aligned(
     DynamicAllocator* allocator, void* memory, usize size, usize alignment );
 /// IMPORTANT(alicia): Internal use only!
 /// Allocate aligned memory from dynamic allocator.
 /// Always returns zeroed memory.
-LD_API void* internal_dynamic_allocator_allocate_aligned_trace(
+LD_API void* internal_dynamic_allocator_alloc_aligned_trace(
     DynamicAllocator* allocator, usize size, usize alignment,
     const char* function, const char* file, int line
 );
 /// IMPORTANT(alicia): Internal use only!
-/// Free aligned memory allocated from dynamic allocator.
+/// Free aligned memory allocd from dynamic allocator.
 LD_API void internal_dynamic_allocator_free_aligned_trace(
     DynamicAllocator* allocator, void* memory, usize size, usize alignment,
     const char* function, const char* file, int line
 );
 
 #if defined(LD_LOGGING)
-    #define dynamic_allocator_allocate_aligned( allocator, size, alignment )\
-        internal_dynamic_allocator_allocate_aligned_trace(\
+    #define dynamic_allocator_alloc_aligned( allocator, size, alignment )\
+        internal_dynamic_allocator_alloc_aligned_trace(\
             allocator, size, alignment, __FUNCTION__, __FILE__, __LINE__ )
     #define dynamic_allocator_free_aligned( allocator, memory, size, alignment )\
         internal_dynamic_allocator_free_aligned_trace(\
             allocator, memory, size, alignment, __FUNCTION__, __FILE__, __LINE__ )
-    #define dynamic_allocator_allocate( allocator, size )\
-        internal_dynamic_allocator_allocate_aligned_trace(\
+    #define dynamic_allocator_alloc( allocator, size )\
+        internal_dynamic_allocator_alloc_aligned_trace(\
             allocator, size, 1, __FUNCTION__, __FILE__, __LINE__ )
     #define dynamic_allocator_free( allocator, memory, size )\
         internal_dynamic_allocator_free_aligned_trace(\
             allocator, memory, size, 1, __FUNCTION__, __FILE__, __LINE__ )
 #else
-    #define dynamic_allocator_allocate_aligned( allocator, size, alignment )\
-        internal_dynamic_allocator_allocate_aligned(\
+    #define dynamic_allocator_alloc_aligned( allocator, size, alignment )\
+        internal_dynamic_allocator_alloc_aligned(\
             allocator, size, alignment )
     #define dynamic_allocator_free_aligned( allocator, memory, size, alignment )\
         internal_dynamic_allocator_free_aligned(\
             allocator, memory, size, alignment )
-    #define dynamic_allocator_allocate( allocator, size )\
-        internal_dynamic_allocator_allocate_aligned(\
+    #define dynamic_allocator_alloc( allocator, size )\
+        internal_dynamic_allocator_alloc_aligned(\
             allocator, size, 1 )
     #define dynamic_allocator_free( allocator, memory, size )\
         internal_dynamic_allocator_free_aligned(\
@@ -201,6 +201,103 @@ LD_API void internal_stack_allocator_pop_trace(
         internal_stack_allocator_push( allocator, size )
     #define stack_allocator_pop( allocator, size )\
         internal_stack_allocator_pop( allocator, size )
+#endif
+
+/// Generic Allocator type.
+typedef enum AllocatorType : u8 {
+    ALLOCATOR_TYPE_SYSTEM,
+    ALLOCATOR_TYPE_DYNAMIC,
+    ALLOCATOR_TYPE_STACK,
+
+    ALLOCATOR_TYPE_COUNT
+} AllocatorType;
+headerfn const char* allocator_type_to_string( AllocatorType allocator ) {
+    const char* strings[ALLOCATOR_TYPE_COUNT] = {
+        "System Allocator",
+        "Dynamic Allocator",
+        "Stack Allocator"
+    };
+    ASSERT( allocator < ALLOCATOR_TYPE_COUNT );
+    return strings[allocator];
+}
+
+/// Generic Allocator.
+typedef struct Allocator {
+    AllocatorType type;
+    union {
+        DynamicAllocator* dynamic;
+        StackAllocator*   stack;
+    };
+} Allocator;
+
+// IMPORTANT(alicia): Internal use only!
+/// Allocate aligned memory from a generic allocator.
+LD_API void* internal_allocator_alloc_aligned(
+    Allocator* allocator, usize size, enum MemoryType type, usize alignment );
+// IMPORTANT(alicia): Internal use only!
+/// Free aligned memory from a generic allocator.
+LD_API void internal_allocator_free_aligned(
+    Allocator* allocator, void* memory,
+    usize size, enum MemoryType type, usize alignment );
+// IMPORTANT(alicia): Internal use only!
+/// Allocate memory from a generic allocator.
+LD_API void* internal_allocator_alloc(
+    Allocator* allocator, usize size, enum MemoryType type );
+// IMPORTANT(alicia): Internal use only!
+/// Free memory from a generic allocator.
+LD_API void internal_allocator_free(
+    Allocator* allocator, void* memory, usize size, enum MemoryType type );
+
+// IMPORTANT(alicia): Internal use only!
+/// Allocate aligned memory from a generic allocator.
+LD_API void* internal_allocator_alloc_aligned_trace(
+    Allocator* allocator, usize size, enum MemoryType type, usize alignment,
+    const char* function, const char* file, int line );
+// IMPORTANT(alicia): Internal use only!
+/// Free aligned memory from a generic allocator.
+LD_API void internal_allocator_free_aligned_trace(
+    Allocator* allocator, void* memory,
+    usize size, enum MemoryType type, usize alignment,
+    const char* function, const char* file, int line );
+// IMPORTANT(alicia): Internal use only!
+/// Allocate memory from a generic allocator.
+LD_API void* internal_allocator_alloc_trace(
+    Allocator* allocator, usize size, enum MemoryType type,
+    const char* function, const char* file, int line );
+// IMPORTANT(alicia): Internal use only!
+/// Free memory from a generic allocator.
+LD_API void internal_allocator_free_trace(
+    Allocator* allocator, void* memory, usize size, enum MemoryType type,
+    const char* function, const char* file, int line );
+
+#if defined(LD_LOGGING)
+    #define allocator_alloc_aligned( allocator, size, type, alignment )\
+        internal_allocator_alloc_aligned_trace(\
+            allocator, size, type, alignment,\
+            __FUNCTION__, __FILE__, __LINE__)
+    #define allocator_alloc( allocator, size, type )\
+        internal_allocator_alloc_trace(\
+            allocator, size, type,\
+            __FUNCTION__, __FILE__, __LINE__)
+    #define allocator_free_aligned( allocator, memory, size, type, alignment )\
+        internal_allocator_free_aligned_trace(\
+            allocator, memory, size, type, alignment,\
+            __FUNCTION__, __FILE__, __LINE__)
+    #define allocator_free( allocator, memory, size, type )\
+        internal_allocator_free_trace(\
+            allocator, memory, size, type,\
+            __FUNCTION__, __FILE__, __LINE__)
+#else
+    #define allocator_alloc_aligned( allocator, size, type, alignment )\
+        internal_allocator_alloc_aligned( allocator, size, type, alignment )
+    #define allocator_alloc( allocator, size, type )\
+        internal_allocator_alloc( allocator, size, type )
+    #define allocator_free_aligned( allocator, memory, size, type, alignment )\
+        internal_allocator_free_aligned(\
+            allocator, memory, size, type, alignment )
+    #define allocator_free( allocator, memory, size, type )\
+        internal_allocator_free(\
+            allocator, memory, size, type )
 #endif
 
 #endif // header guard
