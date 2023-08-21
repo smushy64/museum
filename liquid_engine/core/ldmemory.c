@@ -7,7 +7,6 @@
 #include "core/ldlog.h"
 #include "ldplatform.h"
 
-// TODO(alicia): MSVC VERSION
 #define stack_alloc(size) __builtin_alloca(size)
 
 typedef struct {

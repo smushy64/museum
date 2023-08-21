@@ -1926,13 +1926,17 @@ internal DWORD WINAPI win32_thread_proc( void* params ) {
 
     return result ? ERROR_SUCCESS : -1;
 }
-PlatformThread* platform_thread_create(
-    ThreadProcFN* thread_proc,
-    void*         user_params,
-    usize         thread_stack_size,
-    b32           create_suspended
+usize platform_thread_handle_size() {
+    return sizeof(Win32Thread);
+}
+b32 platform_thread_create(
+    ThreadProcFN*   thread_proc,
+    void*           user_params,
+    usize           thread_stack_size,
+    b32             create_suspended,
+    PlatformThread* out_thread
 ) {
-    Win32Thread* win32_thread = platform_heap_alloc( sizeof(Win32Thread) );
+    Win32Thread* win32_thread = out_thread;
 
     win32_thread->thread_proc             = thread_proc;
     win32_thread->thread_proc_user_params = user_params;
@@ -1948,18 +1952,18 @@ PlatformThread* platform_thread_create(
         &win32_thread->thread_id
     );
 
+    read_write_fence();
+
     if( !win32_thread->thread_handle ) {
         win32_log_error( true );
         return false;
     }
 
-    read_write_fence();
-
     WIN32_LOG_NOTE(
         "New thread created. ID: {u}",
         win32_thread->thread_id
     );
-    return (PlatformThread*)win32_thread;
+    return true;
 }
 void platform_thread_resume( PlatformThread* thread ) {
     Win32Thread* win32_thread = thread;
@@ -1972,7 +1976,7 @@ void platform_thread_suspend( PlatformThread* thread ) {
 void platform_thread_kill( PlatformThread* thread ) {
     Win32Thread* win32_thread = thread;
     TerminateThread( win32_thread->thread_handle, 0 );
-    platform_heap_free( win32_thread );
+    mem_zero( win32_thread, sizeof(Win32Thread) );
 }
 PlatformSemaphore* platform_semaphore_create(
     const char* opt_name, u32 initial_count

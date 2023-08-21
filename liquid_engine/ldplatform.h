@@ -144,18 +144,26 @@ typedef void PlatformThread;
 /// Thread Proc definition.
 typedef b32 ThreadProcFN( void* user_params );
 
+/// Get thread handle size.
+usize platform_thread_handle_size();
 /// Create a thread.
-PlatformThread* platform_thread_create(
-    ThreadProcFN* thread_proc,
-    void*         user_params,
-    usize         thread_stack_size,
-    b32           create_suspended
+/// Thread pointer must be a buffer big enough to hold
+/// thread handle.
+/// Thread handle size can be queried with
+/// platform_thread_handle_size().
+b32 platform_thread_create(
+    ThreadProcFN*   thread_proc,
+    void*           thread_proc_params,
+    usize           thread_stack_size,
+    b32             create_suspended,
+    PlatformThread* out_thread
 );
 /// Resume a suspended thread.
 void platform_thread_resume( PlatformThread* thread );
 /// Suspend a thread.
 void platform_thread_suspend( PlatformThread* thread );
 /// Kill a thread.
+/// Thread handle is zeroed out and can be freed.
 void platform_thread_kill( PlatformThread* thread );
 
 /// Opaque handle to a semaphore object.

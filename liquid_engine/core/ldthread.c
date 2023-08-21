@@ -6,11 +6,6 @@
 #include "core/ldlog.h"
 #include "ldplatform.h"
 
-typedef struct ThreadInfoInternal {
-    PlatformThread* thread;
-    u32             thread_index;
-} ThreadInfoInternal;
-
 typedef struct ThreadWorkEntry {
     ThreadWorkProcFN* proc;
     void*             params;
@@ -22,9 +17,6 @@ typedef struct ThreadWorkQueue {
 
     Semaphore* wake_semaphore;
 
-    ThreadInfoInternal* threads;
-    u32                 thread_count;
-
     volatile u32 push_entry;
     volatile u32 read_entry;
     volatile u32 entry_completion_count;
@@ -32,6 +24,9 @@ typedef struct ThreadWorkQueue {
 } ThreadWorkQueue;
 
 global ThreadWorkQueue* WORK_QUEUE = NULL;
+global void* THREAD_HANDLE_BUFFER  = NULL;
+global usize THREAD_HANDLE_SIZE    = 0;
+global u32   THREAD_HANDLE_COUNT   = 0;
 
 LD_API void thread_work_queue_push( ThreadWorkProcFN* work_proc, void* params ) {
     ThreadWorkEntry entry = { work_proc, params };
@@ -56,7 +51,6 @@ LD_API void thread_work_queue_push( ThreadWorkProcFN* work_proc, void* params ) 
     semaphore_signal( WORK_QUEUE->wake_semaphore );
 
 }
-
 internal b32 thread_work_queue_pop( ThreadWorkEntry* out_work_entry ) {
     if(
         WORK_QUEUE->push_entry ==
@@ -75,10 +69,8 @@ internal b32 thread_work_queue_pop( ThreadWorkEntry* out_work_entry ) {
 
     return true;
 }
-
 internal b32 thread_proc( void* params ) {
-    ThreadInfoInternal* thread_info =
-        (ThreadInfoInternal*)params;
+    ThreadInfo* thread_info = params;
 
     loop {
         ThreadWorkEntry entry = {};
@@ -100,86 +92,67 @@ internal b32 thread_proc( void* params ) {
     return true;
 }
 
-b32 thread_subsystem_init(
-    u32 logical_processor_count,
-    void* buffer
-) {
-    ThreadWorkQueue* work_queue = (ThreadWorkQueue*)buffer;
+usize thread_subsystem_query_size( u32 logical_processor_count ) {
+    return sizeof(ThreadWorkQueue) +
+        (platform_thread_handle_size() * logical_processor_count);
+}
+b32 thread_subsystem_init( u32 logical_processor_count, void* buffer ) {
+    usize thread_handle_size = platform_thread_handle_size();
 
-    usize thread_buffer_size =
-        sizeof(ThreadInfoInternal) * logical_processor_count;
-    work_queue->threads = ldalloc(
-        thread_buffer_size,
-        MEMORY_TYPE_ENGINE
-    );
+    WORK_QUEUE           = buffer;
+    THREAD_HANDLE_BUFFER = (u8*)buffer + thread_handle_size;
+    THREAD_HANDLE_SIZE   = thread_handle_size;
 
     read_write_fence();
 
     #define THREAD_CREATE_SUSPENDED (true)
-    u32 thread_count = 0;
     for( u32 i = 0; i < logical_processor_count; ++i ) {
-        ThreadInfoInternal* current_thread_info =
-            &work_queue->threads[thread_count];
-        current_thread_info->thread_index = thread_count;
-
-        PlatformThread* thread = platform_thread_create(
-            thread_proc,
-            current_thread_info,
-            STACK_SIZE,
-            THREAD_CREATE_SUSPENDED
-        );
-        if( !thread ) {
+        PlatformThread* thread_handle =
+            (u8*)THREAD_HANDLE_BUFFER +
+            (THREAD_HANDLE_COUNT * THREAD_HANDLE_SIZE);
+        if( !platform_thread_create(
+            thread_proc, (void*)((usize)THREAD_HANDLE_COUNT),
+            STACK_SIZE, THREAD_CREATE_SUSPENDED,
+            thread_handle
+        ) ) {
             break;
         }
-
-        current_thread_info->thread = thread;
-
-        thread_count++;
+        THREAD_HANDLE_COUNT++;
     }
 
-    if( !thread_count ) {
+    if( !THREAD_HANDLE_COUNT ) {
         LOG_FATAL( "Failed to create any threads!" );
         return false;
     }
 
-    work_queue->thread_count = thread_count;
-
-    LOG_NOTE( "Instantiated {u} threads.", work_queue->thread_count );
-
-    work_queue->wake_semaphore = semaphore_create();
-    if( !work_queue->wake_semaphore ) {
+    WORK_QUEUE->wake_semaphore = semaphore_create();
+    if( !WORK_QUEUE->wake_semaphore ) {
         LOG_FATAL( "Failed to create wake semaphore!" );
         return false;
     }
 
-    WORK_QUEUE = work_queue;
-    LOG_INFO( "Threading subsystem successfully initialized." );
     read_write_fence();
 
-    for( u32 i = 0; i < work_queue->thread_count; ++i ) {
-        ThreadInfoInternal* current_thread_info =
-            &work_queue->threads[i];
-        platform_thread_resume( current_thread_info->thread );
+    for( u32 i = 0; i < THREAD_HANDLE_COUNT; ++i ) {
+        PlatformThread* thread =
+            (u8*)THREAD_HANDLE_BUFFER + (i * THREAD_HANDLE_SIZE);
+        platform_thread_resume( thread );
     }
 
+    LOG_INFO( "Threading subsystem successfully initialized." );
+    LOG_NOTE( "Instantiated {u} threads.", THREAD_HANDLE_COUNT );
     return true;
 }
 void thread_subsystem_shutdown() {
-    for( u32 i = 0; i < WORK_QUEUE->thread_count; ++i ) {
-        ThreadInfoInternal* current_thread_info =
-            &WORK_QUEUE->threads[i];
-        platform_thread_kill( current_thread_info->thread );
+    for( u32 i = 0; i < THREAD_HANDLE_COUNT; ++i ) {
+        PlatformThread* thread =
+            (u8*)THREAD_HANDLE_BUFFER + (i * THREAD_HANDLE_SIZE);
+        platform_thread_kill( thread );
     }
     semaphore_destroy( WORK_QUEUE->wake_semaphore );
 }
-usize thread_subsystem_query_size() {
-    return sizeof(ThreadWorkQueue);
-}
-
-LD_API u32 thread_info_index( ThreadInfo* generic_thread_info ) {
-    ThreadInfoInternal* thread_info =
-        (ThreadInfoInternal*)generic_thread_info;
-    return thread_info->thread_index;
+LD_API usize thread_info_query_index( ThreadInfo* generic_thread_info ) {
+    return (usize)generic_thread_info;
 }
 
 LD_API u32 interlocked_increment_u32( volatile u32* addend ) {

@@ -217,9 +217,12 @@ b32 engine_entry( int argc, char** argv ) {
 
     platform_query_system_info( &ctx.system_info );
 
-    usize thread_subsystem_size    = thread_subsystem_query_size();
-    usize event_subsystem_size     = event_subsystem_query_size();
-    usize input_subsystem_size     = input_subsystem_query_size();
+    u32 thread_count = ctx.system_info.logical_processor_count;
+    thread_count = (thread_count == 1 ? thread_count : thread_count - 1);
+
+    usize thread_subsystem_size = thread_subsystem_query_size( thread_count );
+    usize event_subsystem_size  = event_subsystem_query_size();
+    usize input_subsystem_size  = input_subsystem_query_size();
     usize platform_subsystem_size  = platform_subsystem_query_size();
     usize renderer_subsystem_size  =
         renderer_subsystem_query_size( arg_parse.backend );
@@ -316,9 +319,6 @@ b32 engine_entry( int argc, char** argv ) {
         "Stack Arena of size {u} is not enough to initialize engine!",
         ctx.stack.size
     );
-
-    u32 thread_count = ctx.system_info.logical_processor_count;
-    thread_count = (thread_count == 1 ? thread_count : thread_count - 1);
 
     if( !thread_subsystem_init( thread_count, thread_subsystem_buffer ) ) {
         MESSAGE_BOX_FATAL(
