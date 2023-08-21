@@ -48,7 +48,7 @@ all: $(TESTBED_PATH)
 $(TESTBED_PATH): $(corecpp_path)
 	@echo "Make: compiling" $(TESTBED_NAME) ". . ."
 	@mkdir -p ../$(object_path)
-	@$(CC) $(TESTBED_COMPILE_FILE) -o $(TESTBED_PATH) $(TESTBED_FLAGS)
+	@$(CCPP) $(TESTBED_COMPILE_FILE) -o $(TESTBED_PATH) $(TESTBED_FLAGS)
 
 $(corecpp_path): $(cpp)
 	@echo "// * Description:     Includes all cpp files" > $(corecpp_path)
@@ -59,8 +59,8 @@ $(corecpp_path): $(cpp)
 	for i in $(corecpp); do echo $$i >> $(corecpp_path); done
 
 spit:
-	@echo testbed spit:
-	@echo $(TESTBED_FLAGS)
+	@echo $(CCPP) $(TESTBED_COMPILE_FILE) -o $(TESTBED_PATH) $(TESTBED_FLAGS)
+
 
 .PHONY: all spit
 

@@ -6,8 +6,8 @@
 MAKEFLAGS += -s
 MAKEFLAGS += -j
 
-export CC := clang++ -std=c++20
-ENGINE_CC := clang -std=c99
+export CC   := clang -std=c99
+export CCPP := clang++ -std=c++20
 
 RELEASE ?= 
 export IS_DEBUG := $(if $(RELEASE),,true)
@@ -58,9 +58,8 @@ export TESTBED_NAME := testbed-$(if $(IS_DEBUG),debug,release)$(SO_EXT)
 RC_FLAGS := -O2 -g -Werror -Wall -Wextra
 DC_FLAGS := -O0 -g -Werror -Wall -Wextra -pedantic
 
-C_FLAGS := -fno-rtti -fno-exceptions -Werror=vla -ffast-math
-C_FLAGS += -fno-operator-names -fno-strict-enums
-C_FLAGS += -MMD -MP
+C_FLAGS := -fno-rtti -Werror=vla -ffast-math
+C_FLAGS += -fno-strict-enums -MMD -MP
 C_FLAGS += -Wno-missing-braces -Wno-c11-extensions
 C_FLAGS += -Wno-gnu-zero-variadic-macro-arguments
 C_FLAGS += -Wno-gnu-anonymous-struct -Wno-nested-anon-types
@@ -159,8 +158,8 @@ all: print_info shaders resources $(EXE_PATH)
 print_info:
 	@echo "Make: compilation target:" $(HOST_OS_NAME)-$(TARGET_ARCH)-$(if $(RELEASE),release,debug)
 
-lepkg:
-	@$(MAKE) --directory=lepkg --no-print-directory
+ldpkg:
+	@$(MAKE) --directory=ldpkg --no-print-directory
 
 resources: shaders
 	@$(MAKE) --directory=resources --no-print-directory
@@ -179,7 +178,7 @@ $(corec_path): $(c)
 $(EXE_PATH): $(corec_path) $(if $(IS_WINDOWS),$(LIQUID_RESOURCES_FILE),)
 	@echo "Make: compiling" $(EXE_NAME)$(EXE_EXT) ". . ."
 	@mkdir -p $(object_path)
-	@$(ENGINE_CC) $(LIQUID_COMPILE_FILE) $(LIQUID_RESOURCES_FILE) -o $(EXE_PATH) $(LIQUID_ENGINE_FLAGS)
+	@$(CC) $(LIQUID_COMPILE_FILE) $(LIQUID_RESOURCES_FILE) -o $(EXE_PATH) $(LIQUID_ENGINE_FLAGS)
 
 $(LIQUID_RESOURCES_FILE): $(LIQUID_RESOURCES_PATH)
 	@echo "Make: compiling" $(LIQUID_RESOURCES_FILE) ". . ."
@@ -195,11 +194,11 @@ test: all
 	@cd $(BUILD_PATH) && ./$(EXE_NAME)$(EXE_EXT) --libload=$(TESTBED_NAME) --gl
 
 pack:
-	@$(MAKE) --directory=lepkg run
+	@$(MAKE) --directory=ldpkg run
 
 # for debugging variables
 spit:
-	@echo $(ENGINE_CC) $(LIQUID_COMPILE_FILE) $(LIQUID_RESOURCES_FILE) -o $(EXE_PATH) $(LIQUID_ENGINE_FLAGS)
+	@$(MAKE) --directory=testbed spit
 
 # @$(MAKE) --directory=shader spit
  
@@ -227,7 +226,7 @@ print_clean_info:
 cleanr:
 	@$(MAKE) --directory=resources clean
 
-.PHONY: all run test spit help clean shaders print_info resources cleanr print_clean_info lepkg pack
+.PHONY: all run test spit help clean shaders print_info resources cleanr print_clean_info ldpkg pack
 
 -include $(deps)
 
