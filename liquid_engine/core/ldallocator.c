@@ -5,14 +5,12 @@
 #include "core/ldmemory.h"
 #include "core/ldlog.h"
 
-typedef usize MemoryBlockID;
-
 #if defined(LD_ARCH_64_BIT)
     /// Most significant bit is set if block of memory is valid.
-    #define MEMORY_BLOCK_VALID_ID ((MemoryBlockID)(1ull << 63ull))
+    #define MEMORY_BLOCK_VALID_ID ((usize)(1ull << 63ull))
 #else
     /// Most significant bit is set if block of memory is valid.
-    #define MEMORY_BLOCK_VALID_ID ((MemoryBlockID)(1u << 31u))
+    #define MEMORY_BLOCK_VALID_ID ((usize)(1u << 31u))
 #endif
 
 /// Check if most significant bit is set.
@@ -21,8 +19,8 @@ typedef usize MemoryBlockID;
 
 /// Block of memory in memory state.
 struct MemoryBlock {
-    MemoryBlockID offset;
-    MemoryBlockID size;
+    usize offset;
+    usize size;
     struct MemoryBlock* next;
 };
 /// Get block offset.

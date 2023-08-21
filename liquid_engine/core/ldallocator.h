@@ -229,6 +229,26 @@ typedef struct Allocator {
         StackAllocator*   stack;
     };
 } Allocator;
+/// Create generic allocator that uses system allocator.
+headerfn Allocator allocator_system() {
+    Allocator result = {};
+    result.type = ALLOCATOR_TYPE_SYSTEM;
+    return result;
+}
+/// Create generic allocator from stack allocator.
+headerfn Allocator allocator_from_stack( StackAllocator* stack ) {
+    Allocator result;
+    result.type  = ALLOCATOR_TYPE_STACK;
+    result.stack = stack;
+    return result;
+}
+/// Create generic allocator from dynamic allocator.
+headerfn Allocator allocator_from_dynamic( DynamicAllocator* dynamic ) {
+    Allocator result;
+    result.type    = ALLOCATOR_TYPE_DYNAMIC;
+    result.dynamic = dynamic;
+    return result;
+}
 
 // IMPORTANT(alicia): Internal use only!
 /// Allocate aligned memory from a generic allocator.
