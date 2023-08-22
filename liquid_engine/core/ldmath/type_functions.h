@@ -11,50 +11,50 @@
 #include "core/ldmath/simd.h"
 
 /// Negate vector
-headerfn vec2 v2_neg( vec2 v ) {
+header_only vec2 v2_neg( vec2 v ) {
     return (vec2){ -v.x, -v.y };
 }
 /// Add two vectors
-headerfn vec2 v2_add( vec2 lhs, vec2 rhs ) {
+header_only vec2 v2_add( vec2 lhs, vec2 rhs ) {
     vec2 result = { lhs.x + rhs.x, lhs.y + rhs.y };
     return result;
 }
 /// Sub two vectors
-headerfn vec2 v2_sub( vec2 lhs, vec2 rhs ) {
+header_only vec2 v2_sub( vec2 lhs, vec2 rhs ) {
     vec2 result = { lhs.x - rhs.x, lhs.y - rhs.y };
     return result;
 }
 /// Mul vector
-headerfn vec2 v2_mul( vec2 lhs, f32 rhs ) {
+header_only vec2 v2_mul( vec2 lhs, f32 rhs ) {
     vec2 result = { lhs.x * rhs, lhs.y * rhs };
     return result;
 }
 /// Div vector
-headerfn vec2 v2_div( vec2 lhs, f32 rhs ) {
+header_only vec2 v2_div( vec2 lhs, f32 rhs ) {
     vec2 result = { lhs.x / rhs, lhs.y / rhs };
     return result;
 }
 /// rotate components to the left. for vec2 it just swaps components
-headerfn vec2 v2_rotate_left( vec2 x ) {
+header_only vec2 v2_rotate_left( vec2 x ) {
     vec2 out = x;
     out.x = x.y;
     out.y = x.x;
     return out;
 }
 /// rotate components to the right. for vec2 it just swaps components
-headerfn vec2 v2_rotate_right( vec2 x ) {
+header_only vec2 v2_rotate_right( vec2 x ) {
     return v2_rotate_left(x);
 }
 /// sum all components
-headerfn f32 v2_horizontal_add( vec2 x ) {
+header_only f32 v2_horizontal_add( vec2 x ) {
     return x.x + x.y;
 }
 /// multiply all components
-headerfn f32 v2_horizontal_mul( vec2 x ) {
+header_only f32 v2_horizontal_mul( vec2 x ) {
     return x.x * x.y;
 }
 /// component-wise multiplication
-headerfn vec2 v2_hadamard( vec2 lhs, vec2 rhs ) {
+header_only vec2 v2_hadamard( vec2 lhs, vec2 rhs ) {
     vec2 result = {
         lhs.x * rhs.x,
         lhs.y * rhs.y
@@ -62,30 +62,30 @@ headerfn vec2 v2_hadamard( vec2 lhs, vec2 rhs ) {
     return result;
 }
 /// inner product
-headerfn f32 v2_dot( vec2 lhs, vec2 rhs ) {
+header_only f32 v2_dot( vec2 lhs, vec2 rhs ) {
     vec2 result = v2_hadamard( lhs, rhs );
     return v2_horizontal_add( result );
 }
 /// calculate square magnitude of vector
-headerfn f32 v2_sqrmag( vec2 x ) {
+header_only f32 v2_sqrmag( vec2 x ) {
     return v2_dot( x, x );
 }
 /// calculate the magnitude of vector
-headerfn f32 v2_mag( vec2 x ) {
+header_only f32 v2_mag( vec2 x ) {
     return sqrt32( v2_sqrmag( x ) );
 }
 /// normalize vector
-headerfn vec2 v2_normalize( vec2 x ) {
+header_only vec2 v2_normalize( vec2 x ) {
     f32 magnitude = v2_mag( x );
     const vec2 ZERO = VEC2_ZERO;
     return magnitude < F32_EPSILON ? ZERO : v2_div( x, magnitude );
 }
 /// angle(radians) between two vectors
-headerfn f32 v2_angle( vec2 a, vec2 b ) {
+header_only f32 v2_angle( vec2 a, vec2 b ) {
     return acos32( v2_dot( a, b ) );
 }
 /// linear interpolation
-headerfn vec2 v2_lerp( vec2 a, vec2 b, f32 t ) {
+header_only vec2 v2_lerp( vec2 a, vec2 b, f32 t ) {
     return
         v2_add(
             v2_mul( a, 1.0f - t ),
@@ -94,11 +94,11 @@ headerfn vec2 v2_lerp( vec2 a, vec2 b, f32 t ) {
     // return ( 1.0f - t ) * a + b * t;
 }
 /// linear interpolation, t clamped to 0-1
-headerfn vec2 v2_lerp_clamped( vec2 a, vec2 b, f32 t ) {
+header_only vec2 v2_lerp_clamped( vec2 a, vec2 b, f32 t ) {
     return v2_lerp( a, b, clamp01(t) );
 }
 /// smooth step interpolation
-headerfn vec2 v2_smooth_step( vec2 a, vec2 b, f32 t ) {
+header_only vec2 v2_smooth_step( vec2 a, vec2 b, f32 t ) {
     return
         v2_add(
             v2_mul(
@@ -113,11 +113,11 @@ headerfn vec2 v2_smooth_step( vec2 a, vec2 b, f32 t ) {
     // return ( b - a ) * ( 3.0f - t * 2.0f ) * t * t + a;
 }
 /// smooth step interpolation, t clamped to 0-1
-headerfn vec2 v2_smooth_step_clamped( vec2 a, vec2 b, f32 t ) {
+header_only vec2 v2_smooth_step_clamped( vec2 a, vec2 b, f32 t ) {
     return v2_smooth_step( a, b, clamp01(t) );
 }
 /// smoother step interpolation
-headerfn vec2 v2_smoother_step( vec2 a, vec2 b, f32 t ) {
+header_only vec2 v2_smoother_step( vec2 a, vec2 b, f32 t ) {
     return
         v2_add(
             v2_mul(
@@ -130,13 +130,13 @@ headerfn vec2 v2_smoother_step( vec2 a, vec2 b, f32 t ) {
     //     ( ( t * ( t * 6.0f - 15.0f ) + 10.0f ) * t * t * t ) + a;
 }
 /// smoother step interpolation, t clamped to 0-1
-headerfn vec2 v2_smoother_step_clamped(
+header_only vec2 v2_smoother_step_clamped(
     vec2 a, vec2 b, f32 t
 ) {
     return v2_smoother_step( a, b, clamp01(t) );
 }
 /// rotate vector by theta radians
-headerfn vec2 v2_rotate( vec2 x, f32 theta ) {
+header_only vec2 v2_rotate( vec2 x, f32 theta ) {
     f32 theta_sin = sin32( theta );
     f32 theta_cos = cos32( theta );
     vec2 a = {  theta_cos, theta_sin };
@@ -150,7 +150,7 @@ headerfn vec2 v2_rotate( vec2 x, f32 theta ) {
     return result;
 }
 /// clamp a vector's magnitude
-headerfn vec2 v2_clamp_mag( vec2 x, f32 max_magnitude ) {
+header_only vec2 v2_clamp_mag( vec2 x, f32 max_magnitude ) {
     f32 max       = absof( max_magnitude );
     f32 magnitude = v2_mag( x );
     if( magnitude > max ) {
@@ -161,55 +161,55 @@ headerfn vec2 v2_clamp_mag( vec2 x, f32 max_magnitude ) {
     return x;
 }
 /// compare two vectors for equality
-headerfn b32 v2_cmp_eq( vec2 a, vec2 b ) {
+header_only b32 v2_cmp_eq( vec2 a, vec2 b ) {
     return v2_sqrmag( v2_sub( a, b ) ) < F32_EPSILON;
 }
 
 /// Negate vector
-headerfn ivec2 iv2_neg( ivec2 v ) {
+header_only ivec2 iv2_neg( ivec2 v ) {
     return (ivec2){ -v.x, -v.y };
 }
 /// Add two vectors
-headerfn ivec2 iv2_add( ivec2 lhs, ivec2 rhs ) {
+header_only ivec2 iv2_add( ivec2 lhs, ivec2 rhs ) {
     ivec2 result = { lhs.x + rhs.x, lhs.y + rhs.y };
     return result;
 }
 /// Sub two vectors
-headerfn ivec2 iv2_sub( ivec2 lhs, ivec2 rhs ) {
+header_only ivec2 iv2_sub( ivec2 lhs, ivec2 rhs ) {
     ivec2 result = { lhs.x - rhs.x, lhs.y - rhs.y };
     return result;
 }
 /// Mul vector
-headerfn ivec2 iv2_mul( ivec2 lhs, i32 rhs ) {
+header_only ivec2 iv2_mul( ivec2 lhs, i32 rhs ) {
     ivec2 result = { lhs.x * rhs, lhs.y * rhs };
     return result;
 }
 /// Div vector
-headerfn ivec2 iv2_div( ivec2 lhs, i32 rhs ) {
+header_only ivec2 iv2_div( ivec2 lhs, i32 rhs ) {
     ivec2 result = { lhs.x / rhs, lhs.y / rhs };
     return result;
 }
 /// rotate components to the left. for ivec2 it just swaps components
-headerfn ivec2 iv2_rotate_left( ivec2 x ) {
+header_only ivec2 iv2_rotate_left( ivec2 x ) {
     ivec2 out = x;
     out.x = x.y;
     out.y = x.x;
     return out;
 }
 /// rotate components to the right. for ivec2 it just swaps components
-headerfn ivec2 iv2_rotate_right( ivec2 x ) {
+header_only ivec2 iv2_rotate_right( ivec2 x ) {
     return iv2_rotate_left(x);
 }
 /// sum all components
-headerfn i32 iv2_horizontal_add( ivec2 x ) {
+header_only i32 iv2_horizontal_add( ivec2 x ) {
     return x.x + x.y;
 }
 /// multiply all components
-headerfn i32 iv2_horizontal_mul( ivec2 x ) {
+header_only i32 iv2_horizontal_mul( ivec2 x ) {
     return x.x * x.y;
 }
 /// component-wise multiplication
-headerfn ivec2 iv2_hadamard( ivec2 lhs, ivec2 rhs ) {
+header_only ivec2 iv2_hadamard( ivec2 lhs, ivec2 rhs ) {
     ivec2 result = {
         lhs.x * rhs.x,
         lhs.y * rhs.y
@@ -217,21 +217,21 @@ headerfn ivec2 iv2_hadamard( ivec2 lhs, ivec2 rhs ) {
     return result;
 }
 /// inner product
-headerfn f32 iv2_dot( ivec2 lhs, ivec2 rhs ) {
+header_only f32 iv2_dot( ivec2 lhs, ivec2 rhs ) {
     ivec2 result = iv2_hadamard( lhs, rhs );
     return iv2_horizontal_add( result );
 }
 /// calculate square magnitude of vector
-headerfn f32 iv2_sqrmag( ivec2 x ) {
+header_only f32 iv2_sqrmag( ivec2 x ) {
     return iv2_dot( x, x );
 }
 /// calculate the magnitude of vector
-headerfn f32 iv2_mag( ivec2 x ) {
+header_only f32 iv2_mag( ivec2 x ) {
     return sqrt32( iv2_sqrmag( x ) );
 
 }
 /// normalize vector
-headerfn ivec2 iv2_normalize( ivec2 x ) {
+header_only ivec2 iv2_normalize( ivec2 x ) {
     f32 magnitude = iv2_mag( x );
     const ivec2 ZERO = IVEC2_ZERO;
     return magnitude < F32_EPSILON ?
@@ -239,40 +239,40 @@ headerfn ivec2 iv2_normalize( ivec2 x ) {
         iv2_div( x, magnitude );
 }
 /// angle(radians) between two vectors
-headerfn f32 iv2_angle( ivec2 a, ivec2 b ) {
+header_only f32 iv2_angle( ivec2 a, ivec2 b ) {
     return acos32( iv2_dot( a, b ) );
 }
 /// compare two vectors for equality
-headerfn b32 iv2_cmp_eq( ivec2 a, ivec2 b ) {
+header_only b32 iv2_cmp_eq( ivec2 a, ivec2 b ) {
     return a.x == b.x && a.y == b.y;
 }
 
 /// Negate vector
-headerfn vec3 v3_neg( vec3 v ) {
+header_only vec3 v3_neg( vec3 v ) {
     return (vec3){ -v.x, -v.y, -v.z };
 }
 /// Add two vectors
-headerfn vec3 v3_add( vec3 lhs, vec3 rhs ) {
+header_only vec3 v3_add( vec3 lhs, vec3 rhs ) {
     vec3 result = { lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z };
     return result;
 }
 /// Sub two vectors
-headerfn vec3 v3_sub( vec3 lhs, vec3 rhs ) {
+header_only vec3 v3_sub( vec3 lhs, vec3 rhs ) {
     vec3 result = { lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z };
     return result;
 }
 /// Mul vector
-headerfn vec3 v3_mul( vec3 lhs, f32 rhs ) {
+header_only vec3 v3_mul( vec3 lhs, f32 rhs ) {
     vec3 result = { lhs.x * rhs, lhs.y * rhs, lhs.z * rhs };
     return result;
 }
 /// Div vector
-headerfn vec3 v3_div( vec3 lhs, f32 rhs ) {
+header_only vec3 v3_div( vec3 lhs, f32 rhs ) {
     vec3 result = { lhs.x / rhs, lhs.y / rhs, lhs.z / rhs };
     return result;
 }
 /// Create HSV from hue, saturation and value.
-headerfn hsv v3_hsv( f32 hue, f32 saturation, f32 value ) {
+header_only hsv v3_hsv( f32 hue, f32 saturation, f32 value ) {
     hsv result = {
         wrap_degrees32( hue ),
         (f32)clamp01( saturation ),
@@ -281,7 +281,7 @@ headerfn hsv v3_hsv( f32 hue, f32 saturation, f32 value ) {
     return result;
 }
 /// convert rgb color to hsv color
-headerfn hsv rgb_to_hsv( rgb col ) {
+header_only hsv rgb_to_hsv( rgb col ) {
     f32 x_max = col.r > col.g ?
         ( col.r > col.b ? col.r : col.b ) :
         ( col.g > col.b ? col.g : col.b );
@@ -306,7 +306,7 @@ headerfn hsv rgb_to_hsv( rgb col ) {
     return v3_hsv( hue, saturation, x_max );
 }
 /// convert hsv color to rgb color
-headerfn rgb hsv_to_rgb( hsv col ) {
+header_only rgb hsv_to_rgb( hsv col ) {
     
     f32 chroma    = col.value * col.saturation;
     f32 hue       = col.hue / 60.0f;
@@ -345,7 +345,7 @@ headerfn rgb hsv_to_rgb( hsv col ) {
     return result;
 }
 /// convert linear color space to srgb color space
-headerfn rgb linear_to_srgb( rgb linear ) {
+header_only rgb linear_to_srgb( rgb linear ) {
     const f32 power = 1.0f / 2.2f;
     rgb result = {
         pow32( linear.r, power ),
@@ -355,7 +355,7 @@ headerfn rgb linear_to_srgb( rgb linear ) {
     return result;
 }
 /// convert srgb color space to linear color space
-headerfn rgb srgb_to_linear( rgb srgb ) {
+header_only rgb srgb_to_linear( rgb srgb ) {
     rgb result = {
         pow32( srgb.r, 2.2f ),
         pow32( srgb.g, 2.2f ),
@@ -364,7 +364,7 @@ headerfn rgb srgb_to_linear( rgb srgb ) {
     return result;
 }
 /// rotate components to the left
-headerfn vec3 v3_rotate_left( vec3 x ) {
+header_only vec3 v3_rotate_left( vec3 x ) {
     vec3 result;
     result.x = x.y;
     result.y = x.z;
@@ -372,7 +372,7 @@ headerfn vec3 v3_rotate_left( vec3 x ) {
     return result;
 }
 /// rotate components to the right
-headerfn vec3 v3_rotate_right( vec3 x ) {
+header_only vec3 v3_rotate_right( vec3 x ) {
     vec3 result;
     result.x = x.z;
     result.y = x.x;
@@ -380,15 +380,15 @@ headerfn vec3 v3_rotate_right( vec3 x ) {
     return result;
 }
 /// sum components
-headerfn f32 v3_horizontal_add( vec3 x ) {
+header_only f32 v3_horizontal_add( vec3 x ) {
     return x.x + x.y + x.z;
 }
 /// multiply components
-headerfn f32 v3_horizontal_mul( vec3 x ) {
+header_only f32 v3_horizontal_mul( vec3 x ) {
     return x.x * x.y * x.z;
 }
 /// component-wise multiplication
-headerfn vec3 v3_hadamard( vec3 lhs, vec3 rhs ) {
+header_only vec3 v3_hadamard( vec3 lhs, vec3 rhs ) {
     vec3 result = {
         lhs.x * rhs.x,
         lhs.y * rhs.y,
@@ -397,23 +397,23 @@ headerfn vec3 v3_hadamard( vec3 lhs, vec3 rhs ) {
     return result;
 }
 /// calculate square magnitude of vector
-headerfn f32 v3_sqrmag( vec3 x ) {
+header_only f32 v3_sqrmag( vec3 x ) {
     return v3_horizontal_add( v3_hadamard( x, x ) );
 }
 /// calculate magnitude of vector
-headerfn f32 v3_mag( vec3 x ) {
+header_only f32 v3_mag( vec3 x ) {
     return sqrt32( v3_sqrmag( x ) );
 }
 /// inner product
-headerfn f32 v3_dot( vec3 lhs, vec3 rhs ) {
+header_only f32 v3_dot( vec3 lhs, vec3 rhs ) {
     return v3_horizontal_add( v3_hadamard( lhs, rhs ) );
 }
-headerfn vec3 v3_normalize( vec3 x ) {
+header_only vec3 v3_normalize( vec3 x ) {
     f32 magnitude = v3_mag( x );
     return magnitude < F32_EPSILON ? VEC3_ONE : v3_div( x, magnitude );
 }
 /// cross product
-headerfn vec3 v3_cross( vec3 lhs, vec3 rhs ) {
+header_only vec3 v3_cross( vec3 lhs, vec3 rhs ) {
     return (vec3){
         ( lhs.y * rhs.z ) - ( lhs.z * rhs.y ),
         ( lhs.z * rhs.x ) - ( lhs.x * rhs.z ),
@@ -421,50 +421,50 @@ headerfn vec3 v3_cross( vec3 lhs, vec3 rhs ) {
     };
 }
 /// reflect direction across axis of given normal
-headerfn vec3 v3_reflect( vec3 direction, vec3 normal ) {
+header_only vec3 v3_reflect( vec3 direction, vec3 normal ) {
     return v3_mul(
         v3_sub( normal, direction ),
         2.0f * v3_dot( direction, normal )
     );
 }
 /// calculate the angle(radians) between two vectors
-headerfn f32 v3_angle( vec3 a, vec3 b ) {
+header_only f32 v3_angle( vec3 a, vec3 b ) {
     return acos32( v3_dot( a, b ) );
 }
 /// linear interpolation
-headerfn vec3 v3_lerp( vec3 a, vec3 b, f32 t ) {
+header_only vec3 v3_lerp( vec3 a, vec3 b, f32 t ) {
     return v3_add( v3_mul( a, 1.0f - t ), v3_mul( b, t ) );
 }
 /// linear interpolation, t clamped to 0-1
-headerfn vec3 v3_lerp_clamped( vec3 a, vec3 b, f32 t ) {
+header_only vec3 v3_lerp_clamped( vec3 a, vec3 b, f32 t ) {
     return v3_lerp( a, b, clamp01( t ) );
 }
 /// smooth step interpolation
-headerfn vec3 v3_smooth_step( vec3 a, vec3 b, f32 t ) {
+header_only vec3 v3_smooth_step( vec3 a, vec3 b, f32 t ) {
     return v3_add(
         v3_mul( v3_sub( b, a ), (3.0f - t * 2.0f) * t * t ),
         a
     );
 }
 /// smooth step interpolation, t clamped to 0-1
-headerfn vec3 v3_smooth_step_clamped( vec3 a, vec3 b, f32 t ) {
+header_only vec3 v3_smooth_step_clamped( vec3 a, vec3 b, f32 t ) {
     return v3_smooth_step( a, b, clamp01( t ) );
 }
 /// smoother step interpolation
-headerfn vec3 v3_smoother_step( vec3 a, vec3 b, f32 t ) {
+header_only vec3 v3_smoother_step( vec3 a, vec3 b, f32 t ) {
     return v3_add( v3_mul(
         v3_sub( b, a ),
         ( t * ( t * 6.0f - 15.0f ) + 10.0f ) * t * t * t
     ), a );
 }
 /// smoother step interpolation, t clamped to 0-1
-headerfn vec3 v3_smoother_step_clamped(
+header_only vec3 v3_smoother_step_clamped(
     vec3 a, vec3 b, f32 t
 ) {
     return v3_smoother_step( a, b, clamp01( t ) );
 }
 /// clamp a vector's magnitude
-headerfn vec3 v3_clamp_mag( vec3 x, f32 max_magnitude ) {
+header_only vec3 v3_clamp_mag( vec3 x, f32 max_magnitude ) {
     f32 max = absof( max_magnitude );
     f32 mag = v3_mag( x );
     if( mag > max ) {
@@ -476,36 +476,36 @@ headerfn vec3 v3_clamp_mag( vec3 x, f32 max_magnitude ) {
     return x;
 }
 /// compare two vectors for equality
-headerfn b32 v3_cmp_eq( vec3 a, vec3 b ) {
+header_only b32 v3_cmp_eq( vec3 a, vec3 b ) {
     return v3_sqrmag( v3_sub( a, b ) ) < F32_EPSILON;
 }
 
 /// Negate vector
-headerfn ivec3 iv3_neg( ivec3 v ) {
+header_only ivec3 iv3_neg( ivec3 v ) {
     return (ivec3){ -v.x, -v.y, -v.z };
 }
 /// Add two vectors
-headerfn ivec3 iv3_add( ivec3 lhs, ivec3 rhs ) {
+header_only ivec3 iv3_add( ivec3 lhs, ivec3 rhs ) {
     ivec3 result = { lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z };
     return result;
 }
 /// Sub two vectors
-headerfn ivec3 iv3_sub( ivec3 lhs, ivec3 rhs ) {
+header_only ivec3 iv3_sub( ivec3 lhs, ivec3 rhs ) {
     ivec3 result = { lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z };
     return result;
 }
 /// Mul vector
-headerfn ivec3 iv3_mul( ivec3 lhs, i32 rhs ) {
+header_only ivec3 iv3_mul( ivec3 lhs, i32 rhs ) {
     ivec3 result = { lhs.x * rhs, lhs.y * rhs, lhs.z * rhs };
     return result;
 }
 /// Div vector
-headerfn ivec3 iv3_div( ivec3 lhs, i32 rhs ) {
+header_only ivec3 iv3_div( ivec3 lhs, i32 rhs ) {
     ivec3 result = { lhs.x / rhs, lhs.y / rhs, lhs.z / rhs };
     return result;
 }
 /// rotate components to the left
-headerfn ivec3 iv3_rotate_left( ivec3 x ) {
+header_only ivec3 iv3_rotate_left( ivec3 x ) {
     ivec3 out = x;
     out.x = x.z;
     out.y = x.x;
@@ -513,7 +513,7 @@ headerfn ivec3 iv3_rotate_left( ivec3 x ) {
     return out;
 }
 /// rotate components to the right
-headerfn ivec3 iv3_rotate_right( ivec3 x ) {
+header_only ivec3 iv3_rotate_right( ivec3 x ) {
     ivec3 out = x;
     out.x = x.y;
     out.y = x.z;
@@ -521,15 +521,15 @@ headerfn ivec3 iv3_rotate_right( ivec3 x ) {
     return out;
 }
 /// sum all components
-headerfn i32 iv3_horizontal_add( ivec3 x ) {
+header_only i32 iv3_horizontal_add( ivec3 x ) {
     return x.x + x.y + x.z;
 }
 /// multiply all components
-headerfn i32 iv3_horizontal_mul( ivec3 x ) {
+header_only i32 iv3_horizontal_mul( ivec3 x ) {
     return x.x * x.y * x.z;
 }
 /// component-wise multiplication
-headerfn ivec3 iv3_hadamard( ivec3 lhs, ivec3 rhs ) {
+header_only ivec3 iv3_hadamard( ivec3 lhs, ivec3 rhs ) {
     return (ivec3){
         lhs.x * rhs.x,
         lhs.y * rhs.y,
@@ -537,38 +537,38 @@ headerfn ivec3 iv3_hadamard( ivec3 lhs, ivec3 rhs ) {
     };
 }
 /// inner product
-headerfn f32 iv3_dot( ivec3 lhs, ivec3 rhs ) {
+header_only f32 iv3_dot( ivec3 lhs, ivec3 rhs ) {
     ivec3 result = iv3_hadamard( lhs, rhs );
     return iv3_horizontal_add( result );
 }
 /// calculate square magnitude of vector
-headerfn f32 iv3_sqrmag( ivec3 x ) {
+header_only f32 iv3_sqrmag( ivec3 x ) {
     return iv3_dot( x, x );
 }
 /// calculate the magnitude of vector
-headerfn f32 iv3_mag( ivec3 x ) {
+header_only f32 iv3_mag( ivec3 x ) {
     return sqrt32( iv3_sqrmag( x ) );
 }
 /// normalize vector
-headerfn ivec3 iv3_normalize( ivec3 x ) {
+header_only ivec3 iv3_normalize( ivec3 x ) {
     f32 magnitude = iv3_mag( x );
     return magnitude < F32_EPSILON ? IVEC3_ZERO : iv3_div( x, magnitude );
 }
 /// angle(radians) between two vectors
-headerfn f32 iv3_angle( ivec3 a, ivec3 b ) {
+header_only f32 iv3_angle( ivec3 a, ivec3 b ) {
     return acos32( iv3_dot( a, b ) );
 }
 /// compare two vectors for equality
-headerfn b32 iv3_cmp_eq( ivec3 a, ivec3 b ) {
+header_only b32 iv3_cmp_eq( ivec3 a, ivec3 b ) {
     return a.x == b.x && a.y == b.y && a.z == b.z;
 }
 
 /// Negate vector
-headerfn vec4 v4_neg( vec4 v ) {
+header_only vec4 v4_neg( vec4 v ) {
     return (vec4){ -v.x, -v.y, -v.z, -v.w };
 }
 /// Add two vectors
-headerfn vec4 v4_add( vec4 lhs, vec4 rhs ) {
+header_only vec4 v4_add( vec4 lhs, vec4 rhs ) {
     vec4 result = {
         lhs.x + rhs.x,
         lhs.y + rhs.y,
@@ -578,7 +578,7 @@ headerfn vec4 v4_add( vec4 lhs, vec4 rhs ) {
     return result;
 }
 /// Sub two vectors
-headerfn vec4 v4_sub( vec4 lhs, vec4 rhs ) {
+header_only vec4 v4_sub( vec4 lhs, vec4 rhs ) {
     vec4 result = {
         lhs.x - rhs.x,
         lhs.y - rhs.y,
@@ -588,7 +588,7 @@ headerfn vec4 v4_sub( vec4 lhs, vec4 rhs ) {
     return result;
 }
 /// Mul vector
-headerfn vec4 v4_mul( vec4 lhs, f32 rhs ) {
+header_only vec4 v4_mul( vec4 lhs, f32 rhs ) {
     vec4 result = {
         lhs.x * rhs,
         lhs.y * rhs,
@@ -598,7 +598,7 @@ headerfn vec4 v4_mul( vec4 lhs, f32 rhs ) {
     return result;
 }
 /// Div vector
-headerfn vec4 v4_div( vec4 lhs, f32 rhs ) {
+header_only vec4 v4_div( vec4 lhs, f32 rhs ) {
     vec4 result = {
         lhs.x / rhs,
         lhs.y / rhs,
@@ -608,21 +608,21 @@ headerfn vec4 v4_div( vec4 lhs, f32 rhs ) {
     return result;
 }
 /// convert linear color space to srgb color space
-headerfn rgba rgba_linear_to_srgb( rgba linear ) {
+header_only rgba rgba_linear_to_srgb( rgba linear ) {
     rgba result;
     result.rgb = linear_to_srgb( linear.rgb );
     result.a = linear.a;
     return result;
 }
 /// convert srgb color space to linear color space
-headerfn rgba srgb_to_linear_rgba( rgba srgb ) {
+header_only rgba srgb_to_linear_rgba( rgba srgb ) {
     rgba result;
     result.rgb = srgb_to_linear( srgb.rgb );
     result.a   = srgb.a;
     return result;
 }
 /// rotate components to the left
-headerfn vec4 v4_rotate_left( vec4 x ) {
+header_only vec4 v4_rotate_left( vec4 x ) {
     vec4 result;
     result.x = x.y;
     result.y = x.z;
@@ -631,7 +631,7 @@ headerfn vec4 v4_rotate_left( vec4 x ) {
     return result;
 }
 /// rotate components to the right
-headerfn vec4 v4_rotate_right( vec4 x ) {
+header_only vec4 v4_rotate_right( vec4 x ) {
     vec4 result;
     result.x = x.w;
     result.y = x.x;
@@ -640,15 +640,15 @@ headerfn vec4 v4_rotate_right( vec4 x ) {
     return result;
 }
 /// sum components
-headerfn f32 v4_horizontal_add( vec4 x ) {
+header_only f32 v4_horizontal_add( vec4 x ) {
     return x.x + x.y + x.z + x.w;
 }
 /// multiply components
-headerfn f32 v4_horizontal_mul( vec4 x ) {
+header_only f32 v4_horizontal_mul( vec4 x ) {
     return x.x * x.y * x.z * x.w;
 }
 /// component-wise multiplication
-headerfn vec4 v4_hadamard( vec4 lhs, vec4 rhs ) {
+header_only vec4 v4_hadamard( vec4 lhs, vec4 rhs ) {
     return (vec4){
         lhs.x * rhs.x,
         lhs.y * rhs.y,
@@ -657,56 +657,56 @@ headerfn vec4 v4_hadamard( vec4 lhs, vec4 rhs ) {
     };
 }
 /// calculate square magnitude of vector
-headerfn f32 v4_sqrmag( vec4 x ) {
+header_only f32 v4_sqrmag( vec4 x ) {
     return v4_horizontal_add( v4_hadamard( x, x ) );
 }
 /// calculate magnitude of vector
-headerfn f32 v4_mag( vec4 x ) {
+header_only f32 v4_mag( vec4 x ) {
     return sqrt32( v4_sqrmag( x ) );
 }
 /// normalize vector
-headerfn vec4 v4_normalize( vec4 x ) {
+header_only vec4 v4_normalize( vec4 x ) {
     f32 magnitude = v4_mag( x );
     return magnitude < F32_EPSILON ? VEC4_ZERO : v4_div( x, magnitude );
 }
 /// inner product
-headerfn f32 v4_dot( vec4 lhs, vec4 rhs ) {
+header_only f32 v4_dot( vec4 lhs, vec4 rhs ) {
     return v4_horizontal_add( v4_hadamard( lhs, rhs ) );
 }
 /// linear interpolation
-headerfn vec4 v4_lerp( vec4 a, vec4 b, f32 t ) {
+header_only vec4 v4_lerp( vec4 a, vec4 b, f32 t ) {
     return v4_add( v4_mul( a, 1.0f - t ), v4_mul( b, t ) );
 }
 /// linear interpolation, t clamped to 0-1
-headerfn vec4 v4_lerp_clamped( vec4 a, vec4 b, f32 t ) {
+header_only vec4 v4_lerp_clamped( vec4 a, vec4 b, f32 t ) {
     return v4_lerp( a, b, clamp01( t ) );
 }
 /// smooth step interpolation
-headerfn vec4 v4_smooth_step( vec4 a, vec4 b, f32 t ) {
+header_only vec4 v4_smooth_step( vec4 a, vec4 b, f32 t ) {
     return v4_add(
         v4_mul( v4_sub( b, a ), (3.0f - t * 2.0f) * t * t ),
         a
     );
 }
 /// smooth step interpolation, t clamped to 0-1
-headerfn vec4 v4_smooth_step_clamped( vec4 a, vec4 b, f32 t ) {
+header_only vec4 v4_smooth_step_clamped( vec4 a, vec4 b, f32 t ) {
     return v4_smooth_step( a, b, clamp01( t ) );
 }
 /// smoother step interpolation
-headerfn vec4 v4_smoother_step( vec4 a, vec4 b, f32 t ) {
+header_only vec4 v4_smoother_step( vec4 a, vec4 b, f32 t ) {
     return v4_add( v4_mul(
         v4_sub( b, a ),
         ( t * ( t * 6.0f - 15.0f ) + 10.0f ) * t * t * t
     ), a );
 }
 /// smoother step interpolation, t clamped to 0-1
-headerfn vec4 v4_smoother_step_clamped(
+header_only vec4 v4_smoother_step_clamped(
     vec4 a, vec4 b, f32 t
 ) {
     return v4_smoother_step( a, b, clamp01( t ) );
 }
 /// clamp a vector's magnitude
-headerfn vec4 v4_clamp_mag( vec4 x, f32 max_magnitude ) {
+header_only vec4 v4_clamp_mag( vec4 x, f32 max_magnitude ) {
     f32 max = absof( max_magnitude );
     f32 mag = v4_mag( x );
     if( mag > max ) {
@@ -718,16 +718,16 @@ headerfn vec4 v4_clamp_mag( vec4 x, f32 max_magnitude ) {
     return x;
 }
 /// compare two vectors for equality
-headerfn b32 v4_cmp_eq( vec4 a, vec4 b ) {
+header_only b32 v4_cmp_eq( vec4 a, vec4 b ) {
     return v4_sqrmag( v4_sub( a, b ) ) < F32_EPSILON;
 }
 
 /// Negate vector
-headerfn ivec4 iv4_neg( ivec4 v ) {
+header_only ivec4 iv4_neg( ivec4 v ) {
     return (ivec4){ -v.x, -v.y, -v.z, -v.w };
 }
 /// Add two vectors
-headerfn ivec4 iv4_add( ivec4 lhs, ivec4 rhs ) {
+header_only ivec4 iv4_add( ivec4 lhs, ivec4 rhs ) {
     ivec4 result = {
         lhs.x + rhs.x,
         lhs.y + rhs.y,
@@ -737,7 +737,7 @@ headerfn ivec4 iv4_add( ivec4 lhs, ivec4 rhs ) {
     return result;
 }
 /// Sub two vectors
-headerfn ivec4 iv4_sub( ivec4 lhs, ivec4 rhs ) {
+header_only ivec4 iv4_sub( ivec4 lhs, ivec4 rhs ) {
     ivec4 result = {
         lhs.x - rhs.x,
         lhs.y - rhs.y,
@@ -747,7 +747,7 @@ headerfn ivec4 iv4_sub( ivec4 lhs, ivec4 rhs ) {
     return result;
 }
 /// Mul vector
-headerfn ivec4 iv4_mul( ivec4 lhs, i32 rhs ) {
+header_only ivec4 iv4_mul( ivec4 lhs, i32 rhs ) {
     ivec4 result = {
         lhs.x * rhs,
         lhs.y * rhs,
@@ -757,7 +757,7 @@ headerfn ivec4 iv4_mul( ivec4 lhs, i32 rhs ) {
     return result;
 }
 /// Div vector
-headerfn ivec4 iv4_div( ivec4 lhs, i32 rhs ) {
+header_only ivec4 iv4_div( ivec4 lhs, i32 rhs ) {
     ivec4 result = {
         lhs.x / rhs,
         lhs.y / rhs,
@@ -767,7 +767,7 @@ headerfn ivec4 iv4_div( ivec4 lhs, i32 rhs ) {
     return result;
 }
 /// rotate components to the left
-headerfn ivec4 iv4_rotate_left( ivec4 x ) {
+header_only ivec4 iv4_rotate_left( ivec4 x ) {
     ivec4 out = x;
     out.x = x.w;
     out.y = x.x;
@@ -776,7 +776,7 @@ headerfn ivec4 iv4_rotate_left( ivec4 x ) {
     return out;
 }
 /// rotate components to the right
-headerfn ivec4 iv4_rotate_right( ivec4 x ) {
+header_only ivec4 iv4_rotate_right( ivec4 x ) {
     ivec4 out = x;
     out.x = x.y;
     out.y = x.z;
@@ -785,15 +785,15 @@ headerfn ivec4 iv4_rotate_right( ivec4 x ) {
     return out;
 }
 /// sum all components
-headerfn i32 iv4_horizontal_add( ivec4 x ) {
+header_only i32 iv4_horizontal_add( ivec4 x ) {
     return x.x + x.y + x.z + x.w;
 }
 /// multiply all components
-headerfn i32 iv4_horizontal_mul( ivec4 x ) {
+header_only i32 iv4_horizontal_mul( ivec4 x ) {
     return x.x * x.y * x.z * x.w;
 }
 /// component-wise multiplication
-headerfn ivec4 iv4_hadamard( ivec4 lhs, ivec4 rhs ) {
+header_only ivec4 iv4_hadamard( ivec4 lhs, ivec4 rhs ) {
     return (ivec4){
         lhs.x * rhs.x,
         lhs.y * rhs.y,
@@ -802,38 +802,38 @@ headerfn ivec4 iv4_hadamard( ivec4 lhs, ivec4 rhs ) {
     };
 }
 /// inner product
-headerfn f32 iv4_dot( ivec4 lhs, ivec4 rhs ) {
+header_only f32 iv4_dot( ivec4 lhs, ivec4 rhs ) {
     ivec4 result = iv4_hadamard( lhs, rhs );
     return iv4_horizontal_add( result );
 }
 /// calculate square magnitude of vector
-headerfn f32 iv4_sqrmag( ivec4 x ) {
+header_only f32 iv4_sqrmag( ivec4 x ) {
     return iv4_dot( x, x );
 }
 /// calculate the magnitude of vector
-headerfn f32 iv4_mag( ivec4 x ) {
+header_only f32 iv4_mag( ivec4 x ) {
     return sqrt32( iv4_sqrmag( x ) );
 }
 /// normalize vector
-headerfn ivec4 iv4_normalize( ivec4 x ) {
+header_only ivec4 iv4_normalize( ivec4 x ) {
     f32 magnitude = iv4_mag( x );
     return magnitude < F32_EPSILON ? IVEC4_ZERO : iv4_div( x, magnitude );
 }
 /// angle(radians) between two vectors
-headerfn f32 iv4_angle( ivec4 a, ivec4 b ) {
+header_only f32 iv4_angle( ivec4 a, ivec4 b ) {
     return acos32( iv4_dot( a, b ) );
 }
 /// compare two vectors for equality
-headerfn b32 iv4_cmp_eq( ivec4 a, ivec4 b ) {
+header_only b32 iv4_cmp_eq( ivec4 a, ivec4 b ) {
     return a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w;
 }
 
 /// Negate quaternion
-headerfn quat q_neg( quat q ) {
+header_only quat q_neg( quat q ) {
     return (quat){ -q.w, -q.x, -q.y, -q.z };
 }
 /// Add two quaternions
-headerfn quat q_add( quat lhs, quat rhs ) {
+header_only quat q_add( quat lhs, quat rhs ) {
     quat result = {
         lhs.w + rhs.w,
         lhs.x + rhs.x,
@@ -843,7 +843,7 @@ headerfn quat q_add( quat lhs, quat rhs ) {
     return result;
 }
 /// Sub two quaternions
-headerfn quat q_sub( quat lhs, quat rhs ) {
+header_only quat q_sub( quat lhs, quat rhs ) {
     quat result = {
         lhs.w - rhs.w,
         lhs.x - rhs.x,
@@ -853,7 +853,7 @@ headerfn quat q_sub( quat lhs, quat rhs ) {
     return result;
 }
 /// Mul a quaternion
-headerfn quat q_mul( quat lhs, f32 rhs ) {
+header_only quat q_mul( quat lhs, f32 rhs ) {
     quat result = {
         lhs.w * rhs,
         lhs.x * rhs,
@@ -862,7 +862,7 @@ headerfn quat q_mul( quat lhs, f32 rhs ) {
     };
     return result;
 }
-headerfn quat q_mul_q( quat lhs, quat rhs ) {
+header_only quat q_mul_q( quat lhs, quat rhs ) {
     const Lane4f negate_first128 = lane4f_set(
         -1.0f,
         1.0f,
@@ -898,7 +898,7 @@ headerfn quat q_mul_q( quat lhs, quat rhs ) {
     return result;
 }
 /// Div a quaternion
-headerfn quat q_div( quat lhs, f32 rhs ) {
+header_only quat q_div( quat lhs, f32 rhs ) {
     quat result = {
         lhs.w / rhs,
         lhs.x / rhs,
@@ -908,7 +908,7 @@ headerfn quat q_div( quat lhs, f32 rhs ) {
     return result;
 }
 /// Create quaternion from angle and axis.
-headerfn quat q_angle_axis( f32 theta, vec3 axis ) {
+header_only quat q_angle_axis( f32 theta, vec3 axis ) {
     f32 half_theta   = theta / 2.0f;
     tuplef32 sinecos = sincos32( half_theta );
     return (quat){
@@ -919,7 +919,7 @@ headerfn quat q_angle_axis( f32 theta, vec3 axis ) {
     };
 }
 /// Create quaternion from euler angles.
-headerfn quat q_euler( f32 pitch, f32 yaw, f32 roll ) {
+header_only quat q_euler( f32 pitch, f32 yaw, f32 roll ) {
     f32 half_x = pitch / 2.0f;
     f32 half_y = yaw   / 2.0f;
     f32 half_z = roll  / 2.0f;
@@ -943,10 +943,10 @@ headerfn quat q_euler( f32 pitch, f32 yaw, f32 roll ) {
     };
 }
 /// Create quaternion from euler angles.
-headerfn quat q_euler_angles( euler_angles euler ) {
+header_only quat q_euler_angles( euler_angles euler ) {
     return q_euler( euler.pitch, euler.yaw, euler.roll );
 }
-headerfn vec3 q_mul_v3( quat lhs, vec3 rhs ) {
+header_only vec3 q_mul_v3( quat lhs, vec3 rhs ) {
     vec3 t = v3_mul( v3_cross( lhs.xyz, rhs ), 2.0f );
     return
         v3_add(
@@ -955,40 +955,40 @@ headerfn vec3 q_mul_v3( quat lhs, vec3 rhs ) {
         );
 }
 /// calculate square magnitude of quaternion
-headerfn f32 q_sqrmag( quat q ) {
+header_only f32 q_sqrmag( quat q ) {
     vec4 result = { q.w, q.x, q.y, q.z };
     return v4_horizontal_add( v4_hadamard( result, result ) );
 }
 /// calculate magnitude of quaternion
-headerfn f32 q_mag( quat q ) {
+header_only f32 q_mag( quat q ) {
     return sqrt32( q_sqrmag( q ) );
 }
 /// normalize quaternion
-headerfn quat q_normalize( quat q ) {
+header_only quat q_normalize( quat q ) {
     f32 magnitude = q_mag( q );
     return magnitude < F32_EPSILON ? QUAT_IDENTITY : q_div( q, magnitude );
 }
 /// conjugate of quaternion
-headerfn quat q_conjugate( quat q ) {
+header_only quat q_conjugate( quat q ) {
     return (quat){ q.w, -q.x, -q.y, -q.z };
 }
 /// calculate inverse quaternion
-headerfn quat q_inverse( quat q ) {
+header_only quat q_inverse( quat q ) {
     return q_div( q_conjugate( q ), q_sqrmag( q ) );
 }
 /// angle between quaternions
-headerfn f32 q_angle( quat a, quat b ) {
+header_only f32 q_angle( quat a, quat b ) {
     quat qd = q_mul_q( q_inverse( a ), b );
     return 2.0f * atan2_32( v3_mag( qd.xyz ), qd.w );
 }
 /// inner product
-headerfn f32 q_dot( quat lhs, quat rhs ) {
+header_only f32 q_dot( quat lhs, quat rhs ) {
     vec4 l = { lhs.w, lhs.x, lhs.y, lhs.z };
     vec4 r = { rhs.w, rhs.x, rhs.y, rhs.z };
     return v4_horizontal_add( v4_hadamard( l, r ) );
 }
 /// linear interpolation
-headerfn quat q_lerp( quat a, quat b, f32 t ) {
+header_only quat q_lerp( quat a, quat b, f32 t ) {
     return q_normalize(
         q_add(
             q_mul( a, 1.0f - t ),
@@ -997,11 +997,11 @@ headerfn quat q_lerp( quat a, quat b, f32 t ) {
     );
 }
 /// linear interpolation, t is clamped 0-1
-headerfn quat q_lerp_clamped( quat a, quat b, f32 t ) {
+header_only quat q_lerp_clamped( quat a, quat b, f32 t ) {
     return q_lerp( a, b, clamp01( t ) );
 }
 /// spherical linear interpolation
-headerfn quat q_slerp( quat a, quat b, f32 t ) {
+header_only quat q_slerp( quat a, quat b, f32 t ) {
     quat _b = b;
     f32 theta = q_dot(a, b);
     f32 cos_theta = cos32( theta );
@@ -1024,40 +1024,40 @@ headerfn quat q_slerp( quat a, quat b, f32 t ) {
     }
 }
 /// compare quaternions for equality
-headerfn b32 q_cmp_eq( quat a, quat b ) {
+header_only b32 q_cmp_eq( quat a, quat b ) {
     return q_sqrmag( q_sub( a, b ) ) < F32_EPSILON;
 }
 
 /// Add two matrices
-headerfn mat2 m2_add( mat2 lhs, mat2 rhs ) {
+header_only mat2 m2_add( mat2 lhs, mat2 rhs ) {
     mat2 result;
     result.col0 = v2_add( lhs.col0, rhs.col0 );
     result.col1 = v2_add( lhs.col1, rhs.col1 );
     return result;
 }
 /// Sub two matrices
-headerfn mat2 m2_sub( mat2 lhs, mat2 rhs ) {
+header_only mat2 m2_sub( mat2 lhs, mat2 rhs ) {
     mat2 result;
     result.col0 = v2_sub( lhs.col0, rhs.col0 );
     result.col1 = v2_sub( lhs.col1, rhs.col1 );
     return result;
 }
 /// Mul matrix
-headerfn mat2 m2_mul( mat2 lhs, f32 rhs ) {
+header_only mat2 m2_mul( mat2 lhs, f32 rhs ) {
     mat2 result;
     result.col0 = v2_mul( lhs.col0, rhs );
     result.col1 = v2_mul( lhs.col1, rhs );
     return result;
 }
 /// Div matrix
-headerfn mat2 m2_div( mat2 lhs, f32 rhs ) {
+header_only mat2 m2_div( mat2 lhs, f32 rhs ) {
     mat2 result;
     result.col0 = v2_div( lhs.col0, rhs );
     result.col1 = v2_div( lhs.col1, rhs );
     return result;
 }
 /// Mul two matrices
-headerfn mat2 m2_mul_m2( mat2 lhs, mat2 rhs ) {
+header_only mat2 m2_mul_m2( mat2 lhs, mat2 rhs ) {
     mat2 result = {
         (lhs.c[0] * rhs.c[0]) + (lhs.c[2] * rhs.c[1]),
         (lhs.c[1] * rhs.c[0]) + (lhs.c[3] * rhs.c[2]),
@@ -1068,19 +1068,19 @@ headerfn mat2 m2_mul_m2( mat2 lhs, mat2 rhs ) {
     return result;
 }
 /// transpose matrix
-headerfn mat2 m2_transpose( mat2 m ) {
+header_only mat2 m2_transpose( mat2 m ) {
     return (mat2){
         m.c[0], m.c[2],
         m.c[1], m.c[3]
     };
 }
 /// calculate determinant
-headerfn f32 m2_determinant( mat2 m ) {
+header_only f32 m2_determinant( mat2 m ) {
     return ( m.c[0] * m.c[3] ) - ( m.c[2] * m.c[1] );
 }
 
 /// Add two matrices
-headerfn mat3 m3_add( const mat3* lhs, const mat3* rhs ) {
+header_only mat3 m3_add( const mat3* lhs, const mat3* rhs ) {
     mat3 result;
     result.col0 = v3_add( lhs->col0, rhs->col0 );
     result.col1 = v3_add( lhs->col1, rhs->col1 );
@@ -1088,7 +1088,7 @@ headerfn mat3 m3_add( const mat3* lhs, const mat3* rhs ) {
     return result;
 }
 /// Sub two matrices
-headerfn mat3 m3_sub( const mat3* lhs, const mat3* rhs ) {
+header_only mat3 m3_sub( const mat3* lhs, const mat3* rhs ) {
     mat3 result;
     result.col0 = v3_sub( lhs->col0, rhs->col0 );
     result.col1 = v3_sub( lhs->col1, rhs->col1 );
@@ -1096,7 +1096,7 @@ headerfn mat3 m3_sub( const mat3* lhs, const mat3* rhs ) {
     return result;
 }
 /// Mul matrix
-headerfn mat3 m3_mul( const mat3* lhs, f32 rhs ) {
+header_only mat3 m3_mul( const mat3* lhs, f32 rhs ) {
     mat3 result;
     result.col0 = v3_mul( lhs->col0, rhs );
     result.col1 = v3_mul( lhs->col1, rhs );
@@ -1104,7 +1104,7 @@ headerfn mat3 m3_mul( const mat3* lhs, f32 rhs ) {
     return result;
 }
 /// Div matrix
-headerfn mat3 m3_div( const mat3* lhs, f32 rhs ) {
+header_only mat3 m3_div( const mat3* lhs, f32 rhs ) {
     mat3 result;
     result.col0 = v3_div( lhs->col0, rhs );
     result.col1 = v3_div( lhs->col1, rhs );
@@ -1112,7 +1112,7 @@ headerfn mat3 m3_div( const mat3* lhs, f32 rhs ) {
     return result;
 }
 /// Mul two matrices
-headerfn mat3 m3_mul_m3( const mat3* lhs, const mat3* rhs ) {
+header_only mat3 m3_mul_m3( const mat3* lhs, const mat3* rhs ) {
     // TODO(alicia): SIMD?
     mat3 result = {
         // column - 0
@@ -1149,7 +1149,7 @@ headerfn mat3 m3_mul_m3( const mat3* lhs, const mat3* rhs ) {
     return result;
 }
 /// transpose matrix
-headerfn mat3 m3_transpose( const mat3* m ) {
+header_only mat3 m3_transpose( const mat3* m ) {
     return (mat3){
         m->c[0], m->c[3], m->c[6],
         m->c[1], m->c[4], m->c[7],
@@ -1157,7 +1157,7 @@ headerfn mat3 m3_transpose( const mat3* m ) {
     };
 }
 /// calculate determinant
-headerfn f32 m3_determinant( const mat3* m ) {
+header_only f32 m3_determinant( const mat3* m ) {
     return
      ( m->c[0] * ( ( m->c[4] * m->c[8] ) - ( m->c[7] * m->c[5] ) ) ) +
     -( m->c[3] * ( ( m->c[1] * m->c[8] ) - ( m->c[7] * m->c[2] ) ) ) +
@@ -1165,7 +1165,7 @@ headerfn f32 m3_determinant( const mat3* m ) {
 }
 
 /// Add two matrices
-headerfn mat4 m4_add( const mat4* lhs, const mat4* rhs ) {
+header_only mat4 m4_add( const mat4* lhs, const mat4* rhs ) {
     Lane4f lhs0, lhs1, lhs2, lhs3;
     Lane4f rhs0, rhs1, rhs2, rhs3;
 
@@ -1189,7 +1189,7 @@ headerfn mat4 m4_add( const mat4* lhs, const mat4* rhs ) {
     return result;
 }
 /// Sub two matrices
-headerfn mat4 m4_sub( const mat4* lhs, const mat4* rhs ) {
+header_only mat4 m4_sub( const mat4* lhs, const mat4* rhs ) {
     Lane4f lhs0, lhs1, lhs2, lhs3;
     Lane4f rhs0, rhs1, rhs2, rhs3;
 
@@ -1213,7 +1213,7 @@ headerfn mat4 m4_sub( const mat4* lhs, const mat4* rhs ) {
     return result;
 }
 /// Mul matrix
-headerfn mat4 m4_mul( const mat4* lhs, f32 rhs ) {
+header_only mat4 m4_mul( const mat4* lhs, f32 rhs ) {
     Lane4f lhs0, lhs1, lhs2, lhs3;
     Lane4f rhs_;
 
@@ -1234,7 +1234,7 @@ headerfn mat4 m4_mul( const mat4* lhs, f32 rhs ) {
     return result;
 }
 /// Div matrix
-headerfn mat4 m4_div( const mat4* lhs, f32 rhs ) {
+header_only mat4 m4_div( const mat4* lhs, f32 rhs ) {
     Lane4f lhs0, lhs1, lhs2, lhs3;
     Lane4f rhs_;
 
@@ -1255,7 +1255,7 @@ headerfn mat4 m4_div( const mat4* lhs, f32 rhs ) {
     return result;
 }
 /// Mul two matrices
-headerfn mat4 m4_mul_m4( const mat4* lhs, const mat4* rhs ) {
+header_only mat4 m4_mul_m4( const mat4* lhs, const mat4* rhs ) {
     mat4 result = {};
 
     Lane4f a, b, c;
@@ -1363,7 +1363,7 @@ headerfn mat4 m4_mul_m4( const mat4* lhs, const mat4* rhs ) {
     return result;
 }
 /// Multiply matrix and vector
-headerfn vec3 m4_mul_v3( const mat4* lhs, vec3 rhs ) {
+header_only vec3 m4_mul_v3( const mat4* lhs, vec3 rhs ) {
     // TODO(alicia): SIMD?
     vec3 result = {
         ( lhs->c[0] * rhs.c[0] )     +
@@ -1381,7 +1381,7 @@ headerfn vec3 m4_mul_v3( const mat4* lhs, vec3 rhs ) {
     };
     return result;
 }
-headerfn vec4 m4_mul_v4( const mat4* lhs, vec4 rhs ) {
+header_only vec4 m4_mul_v4( const mat4* lhs, vec4 rhs ) {
     // TODO(alicia): SIMD?
     vec4 result = {
         ( lhs->c[0] * rhs.c[0] )      +
@@ -1404,7 +1404,7 @@ headerfn vec4 m4_mul_v4( const mat4* lhs, vec4 rhs ) {
     return result;
 }
 /// create new look at matrix
-headerfn mat4 m4_lookat(
+header_only mat4 m4_lookat(
     vec3 position,
     vec3 target,
     vec3 up
@@ -1426,7 +1426,7 @@ headerfn mat4 m4_lookat(
     };
 }
 /// create new orthographic projection matrix
-headerfn mat4 m4_ortho(
+header_only mat4 m4_ortho(
     f32 left, f32 right,
     f32 bottom, f32 top,
     f32 near_, f32 far_
@@ -1445,7 +1445,7 @@ headerfn mat4 m4_ortho(
     return result;
 }
 /// create orthographic matrix for 2D rendering
-headerfn mat4 m4_projection2d( f32 aspect_ratio, f32 scale ) {
+header_only mat4 m4_projection2d( f32 aspect_ratio, f32 scale ) {
     f32 scaled_aspect = aspect_ratio * scale;
     return m4_ortho(
         -scaled_aspect, scaled_aspect,
@@ -1454,7 +1454,7 @@ headerfn mat4 m4_projection2d( f32 aspect_ratio, f32 scale ) {
     );
 }
 /// create perspective matrix
-headerfn mat4 m4_perspective(
+header_only mat4 m4_perspective(
     f32 fov, f32 aspect_ratio,
     f32 near_, f32 far_
 ) {
@@ -1472,7 +1472,7 @@ headerfn mat4 m4_perspective(
     return result;
 }
 /// create new translation matrix
-headerfn mat4 m4_translate( f32 x, f32 y, f32 z ) {
+header_only mat4 m4_translate( f32 x, f32 y, f32 z ) {
     return (mat4){
         1.0f, 0.0f, 0.0f, 0.0f,
         0.0f, 1.0f, 0.0f, 0.0f,
@@ -1481,19 +1481,19 @@ headerfn mat4 m4_translate( f32 x, f32 y, f32 z ) {
     };
 }
 /// create new translation matrix
-headerfn mat4 m4_translate_v3( vec3 translation ) {
+header_only mat4 m4_translate_v3( vec3 translation ) {
     return m4_translate( translation.x, translation.y, translation.z );
 }
 /// create new 2d translation matrix
-headerfn mat4 m4_translate_2d( f32 x, f32 y ) {
+header_only mat4 m4_translate_2d( f32 x, f32 y ) {
     return m4_translate( x, y, 0.0f );
 }
 /// create new 2d translation matrix
-headerfn mat4 m4_translate_v2( vec2 translation ) {
+header_only mat4 m4_translate_v2( vec2 translation ) {
     return m4_translate_2d( translation.x, translation.y );
 }
 /// create rotation matrix around x axis
-headerfn mat4 m4_rotate_pitch( f32 pitch ) {
+header_only mat4 m4_rotate_pitch( f32 pitch ) {
     tuplef32 sin_cos = sincos32( pitch );
 
     return (mat4){
@@ -1504,7 +1504,7 @@ headerfn mat4 m4_rotate_pitch( f32 pitch ) {
     };
 }
 /// create rotation matrix around y axis
-headerfn mat4 m4_rotate_yaw( f32 yaw ) {
+header_only mat4 m4_rotate_yaw( f32 yaw ) {
     f32 cosine = cos32( yaw );
     f32 sine   = sin32( yaw );
 
@@ -1516,7 +1516,7 @@ headerfn mat4 m4_rotate_yaw( f32 yaw ) {
     };
 }
 /// create rotation matrix around z axis
-headerfn mat4 m4_rotate_roll( f32 roll ) {
+header_only mat4 m4_rotate_roll( f32 roll ) {
     f32 cosine = cos32( roll );
     f32 sine   = sin32( roll );
 
@@ -1528,7 +1528,7 @@ headerfn mat4 m4_rotate_roll( f32 roll ) {
     };
 }
 /// create rotation matrix from euler angles (radians)
-headerfn mat4 m4_rotate_euler( euler_angles r ) {
+header_only mat4 m4_rotate_euler( euler_angles r ) {
     mat4 pitch = m4_rotate_pitch( r.pitch );
     mat4 yaw   = m4_rotate_yaw( r.yaw );
     mat4 roll  = m4_rotate_roll( r.roll );
@@ -1536,7 +1536,7 @@ headerfn mat4 m4_rotate_euler( euler_angles r ) {
     return m4_mul_m4( &pitch, &yaw_mul_roll );
 }
 /// create rotation matrix from quaternion
-headerfn mat4 m4_rotate_q( quat q ) {
+header_only mat4 m4_rotate_q( quat q ) {
     // TODO(alicia): SIMD
     mat4 result = MAT4_IDENTITY;
 
@@ -1566,11 +1566,11 @@ headerfn mat4 m4_rotate_q( quat q ) {
     return result;
 }
 /// create rotation matrix for 2D
-headerfn mat4 m4_rotate_2d( f32 theta ) {
+header_only mat4 m4_rotate_2d( f32 theta ) {
     return m4_rotate_roll( theta );
 }
 /// create scale matrix
-headerfn mat4 m4_scale( f32 width, f32 height, f32 length ) {
+header_only mat4 m4_scale( f32 width, f32 height, f32 length ) {
     return (mat4){
         width,   0.0f,   0.0f, 0.0f,
          0.0f, height,   0.0f, 0.0f,
@@ -1579,7 +1579,7 @@ headerfn mat4 m4_scale( f32 width, f32 height, f32 length ) {
     };
 }
 /// create scale matrix
-headerfn mat4 m4_scale_v3( vec3 scale ) {
+header_only mat4 m4_scale_v3( vec3 scale ) {
     return m4_scale(
         scale.width,
         scale.height,
@@ -1587,15 +1587,15 @@ headerfn mat4 m4_scale_v3( vec3 scale ) {
     );
 }
 /// create scale matrix for 2D
-headerfn mat4 m4_scale_2d( f32 width, f32 height ) {
+header_only mat4 m4_scale_2d( f32 width, f32 height ) {
     return m4_scale( width, height, 1.0f );
 }
 /// create scale matrix for 2D
-headerfn mat4 m4_scale_v2( vec2 scale ) {
+header_only mat4 m4_scale_v2( vec2 scale ) {
     return m4_scale_2d( scale.width, scale.height );
 }
 /// create transform matrix
-headerfn mat4 m4_transform_v3_euler_v3(
+header_only mat4 m4_transform_v3_euler_v3(
     vec3         translation,
     euler_angles rotation,
     vec3         scale
@@ -1607,7 +1607,7 @@ headerfn mat4 m4_transform_v3_euler_v3(
     return m4_mul_m4( &translation_m4, &r_mul_s );
 }
 /// create transform matrix
-headerfn mat4 m4_transform(
+header_only mat4 m4_transform(
     vec3 translation,
     quat rotation,
     vec3 scale
@@ -1619,7 +1619,7 @@ headerfn mat4 m4_transform(
     return m4_mul_m4( &translation_m4, &r_mul_s );
 }
 /// create transform matrix for 2D
-headerfn mat4 m4_transform_2d(
+header_only mat4 m4_transform_2d(
     vec2 translation,
     f32  rotation,
     vec2 scale
@@ -1631,7 +1631,7 @@ headerfn mat4 m4_transform_2d(
     return m4_mul_m4( &translation_m4, &r_mul_s );
 }
 /// transpose matrix
-headerfn mat4 m4_transpose( const mat4* m ) {
+header_only mat4 m4_transpose( const mat4* m ) {
     return (mat4){
         m->c[0], m->c[4], m->c[ 8], m->c[12],
         m->c[1], m->c[5], m->c[ 9], m->c[13],
@@ -1640,7 +1640,7 @@ headerfn mat4 m4_transpose( const mat4* m ) {
     };
 }
 /// get submatrix at given coordinates
-headerfn mat3 m4_submatrix( const mat4* m, u32 row, u32 col ) {
+header_only mat3 m4_submatrix( const mat4* m, u32 row, u32 col ) {
     mat3 result;
     u32 i = 0;
     for( u32 c = 0; c < 4; ++c ) {
@@ -1655,12 +1655,12 @@ headerfn mat3 m4_submatrix( const mat4* m, u32 row, u32 col ) {
     return result;
 }
 /// calculate determinant of submatrix at given coordinates
-headerfn f32 m4_minor( const mat4* m, u32 row, u32 col ) {
+header_only f32 m4_minor( const mat4* m, u32 row, u32 col ) {
     mat3 submatrix = m4_submatrix( m, row, col );
     return m3_determinant( &submatrix );
 }
 /// calculate the cofactor of minor at given coordinates
-headerfn f32 m4_cofactor( const mat4* m, u32 row, u32 col ) {
+header_only f32 m4_cofactor( const mat4* m, u32 row, u32 col ) {
     f32 minor = m4_minor( m, row, col );
     return minor * powi32(
         -1.0f,
@@ -1668,7 +1668,7 @@ headerfn f32 m4_cofactor( const mat4* m, u32 row, u32 col ) {
     );
 }
 /// construct matrix from cofactors
-headerfn mat4 m4_cofactor_matrix( const mat4* m ) {
+header_only mat4 m4_cofactor_matrix( const mat4* m ) {
     return (mat4){
         m4_cofactor( m, 0, 0 ),
             m4_cofactor( m, 0, 1 ),
@@ -1689,12 +1689,12 @@ headerfn mat4 m4_cofactor_matrix( const mat4* m ) {
     };
 }
 /// calculate the adjoint matrix of given matrix
-headerfn mat4 m4_adjoint( const mat4* m ) {
+header_only mat4 m4_adjoint( const mat4* m ) {
     mat4 cofactor = m4_cofactor_matrix( m );
     return m4_transpose( &cofactor );
 }
 /// calculate the determinant
-headerfn f32 m4_determinant( const mat4* m ) {
+header_only f32 m4_determinant( const mat4* m ) {
     mat3 submatrix_0 = m4_submatrix( m, 0, 0 );
     mat3 submatrix_1 = m4_submatrix( m, 0, 1 );
     mat3 submatrix_2 = m4_submatrix( m, 0, 2 );
@@ -1709,7 +1709,7 @@ headerfn f32 m4_determinant( const mat4* m ) {
 /// @out_matrix pointer to result,
 /// set to identity if inversion is not possible
 /// @return true if inversion is possible
-headerfn b32 m4_inverse( const mat4* m, mat4* out_matrix ) {
+header_only b32 m4_inverse( const mat4* m, mat4* out_matrix ) {
     f32 determinant = m4_determinant( m );
     if( determinant == 0.0f ) {
         *out_matrix = MAT4_IDENTITY;
@@ -1721,14 +1721,14 @@ headerfn b32 m4_inverse( const mat4* m, mat4* out_matrix ) {
     }
 }
 /// invert matrix whether determinant is 0 or not
-headerfn mat4 m4_inverse_unchecked( const mat4* m ) {
+header_only mat4 m4_inverse_unchecked( const mat4* m ) {
     mat4 adjoint     = m4_adjoint( m );
     f32  determinant = m4_determinant( m );
     return m4_div( &adjoint, determinant );
 }
 
 /// convert rgb to rgba
-headerfn rgba rgb_to_rgba( rgb rgb ) {
+header_only rgba rgb_to_rgba( rgb rgb ) {
     rgba result;
     result.rgb = rgb;
     result.a   = 1.0f;
@@ -1736,7 +1736,7 @@ headerfn rgba rgb_to_rgba( rgb rgb ) {
 }
 
 /// convert quaternion to euler angles
-headerfn euler_angles quat_to_euler( quat q ) {
+header_only euler_angles quat_to_euler( quat q ) {
     return (euler_angles){
         atan2_32(
             2.0f * (( q.w * q.x ) + ( q.y * q.z )),
@@ -1750,7 +1750,7 @@ headerfn euler_angles quat_to_euler( quat q ) {
     };
 }
 /// convert quaternion to angle axis
-headerfn void quat_to_angle_axis(
+header_only void quat_to_angle_axis(
     quat q,
     f32* out_angle_radians,
     vec3* out_axis
@@ -1760,105 +1760,105 @@ headerfn void quat_to_angle_axis(
     *out_angle_radians = 2.0f * acos32( q.w );
 }
 
-headerfn vec2 v3_to_v2( vec3 v ) { return v.xy; }
-headerfn vec2 v4_to_v2( vec4 v ) { return v.xy; }
-headerfn vec2 iv2_to_v2( ivec2 v ) {
+header_only vec2 v3_to_v2( vec3 v ) { return v.xy; }
+header_only vec2 v4_to_v2( vec4 v ) { return v.xy; }
+header_only vec2 iv2_to_v2( ivec2 v ) {
     return (vec2){ (f32)v.x, (f32)v.y };
 }
 
-headerfn ivec2 v2_trunc( vec2 v ) {
+header_only ivec2 v2_trunc( vec2 v ) {
     return (ivec2){ trunc_i32(v.x), trunc_i32(v.y) };
 }
-headerfn ivec2 v2_floor( vec2 v ) {
+header_only ivec2 v2_floor( vec2 v ) {
     return (ivec2){ floor_i32(v.x), floor_i32(v.y) };
 }
-headerfn ivec2 v2_ceil( vec2 v ) {
+header_only ivec2 v2_ceil( vec2 v ) {
     return (ivec2){ ceil_i32(v.x), ceil_i32(v.y) };
 }
-headerfn ivec2 v2_round( vec2 v ) {
+header_only ivec2 v2_round( vec2 v ) {
     return (ivec2){ round_i32(v.x), round_i32(v.y) };
 }
 
-headerfn ivec2 iv3_to_iv2( ivec3 v ) { return v.xy; }
-headerfn ivec2 iv4_to_iv2( ivec4 v ) { return v.xy; }
-headerfn ivec2 v2_to_iv2( vec2 v )  { return v2_trunc( v ); }
+header_only ivec2 iv3_to_iv2( ivec3 v ) { return v.xy; }
+header_only ivec2 iv4_to_iv2( ivec4 v ) { return v.xy; }
+header_only ivec2 v2_to_iv2( vec2 v )  { return v2_trunc( v ); }
 
-headerfn vec3 v2_to_v3( vec2 v ) { return (vec3){ v.x, v.y, 0.0f }; }
-headerfn vec3 v4_to_v3( vec4 v ) { return v.xyz; }
-headerfn vec3 iv3_to_v3( ivec3 v ) {
+header_only vec3 v2_to_v3( vec2 v ) { return (vec3){ v.x, v.y, 0.0f }; }
+header_only vec3 v4_to_v3( vec4 v ) { return v.xyz; }
+header_only vec3 iv3_to_v3( ivec3 v ) {
     return (vec3){ (f32)v.x, (f32)v.y, (f32)v.z };
 }
 
-headerfn ivec3 v3_trunc( vec3 v ) {
+header_only ivec3 v3_trunc( vec3 v ) {
     return (ivec3){ trunc_i32(v.x), trunc_i32(v.y), trunc_i32(v.z) };
 }
-headerfn ivec3 v3_floor( vec3 v ) {
+header_only ivec3 v3_floor( vec3 v ) {
     return (ivec3){ floor_i32(v.x), floor_i32(v.y), floor_i32(v.z) };
 }
-headerfn ivec3 v3_ceil( vec3 v ) {
+header_only ivec3 v3_ceil( vec3 v ) {
     return (ivec3){ ceil_i32(v.x), ceil_i32(v.y), ceil_i32(v.z) };
 }
-headerfn ivec3 v3_round( vec3 v ) {
+header_only ivec3 v3_round( vec3 v ) {
     return (ivec3){ round_i32(v.x), round_i32(v.y), round_i32(v.z) };
 }
 
-headerfn ivec3 iv2_to_iv3( ivec2 v ) { return (ivec3){ v.x, v.y, 0 }; }
-headerfn ivec3 iv4_to_iv3( ivec4 v ) { return v.xyz; }
-headerfn ivec3 v3_to_iv3( vec3 v )  { return v3_trunc( v ); }
+header_only ivec3 iv2_to_iv3( ivec2 v ) { return (ivec3){ v.x, v.y, 0 }; }
+header_only ivec3 iv4_to_iv3( ivec4 v ) { return v.xyz; }
+header_only ivec3 v3_to_iv3( vec3 v )  { return v3_trunc( v ); }
 
-headerfn vec4 v2_to_v4( vec2 v ) {
+header_only vec4 v2_to_v4( vec2 v ) {
     return (vec4){ v.x, v.y, 0.0f, 0.0f };
 }
-headerfn vec4 v3_to_v4( vec3 v ) {
+header_only vec4 v3_to_v4( vec3 v ) {
     return (vec4){ v.x, v.y,  v.z, 0.0f };
 }
-headerfn vec4 iv4_to_v4( ivec4 v ) {
+header_only vec4 iv4_to_v4( ivec4 v ) {
     return (vec4){ (f32)v.x, (f32)v.y, (f32)v.z, (f32)v.w };
 }
 
-headerfn ivec4 v4_trunc( vec4 v ) {
+header_only ivec4 v4_trunc( vec4 v ) {
     return (ivec4){
         trunc_i32(v.x), trunc_i32(v.y),
         trunc_i32(v.z), trunc_i32(v.w)
     };
 }
-headerfn ivec4 v4_floor( vec4 v ) {
+header_only ivec4 v4_floor( vec4 v ) {
     return (ivec4){
         floor_i32(v.x), floor_i32(v.y),
         floor_i32(v.z), floor_i32(v.w)
     };
 }
-headerfn ivec4 v4_ceil( vec4 v ) {
+header_only ivec4 v4_ceil( vec4 v ) {
     return (ivec4){
         ceil_i32(v.x), ceil_i32(v.y),
         ceil_i32(v.z), ceil_i32(v.w)
     };
 }
-headerfn ivec4 v4_round( vec4 v ) {
+header_only ivec4 v4_round( vec4 v ) {
     return (ivec4){
         round_i32(v.x), round_i32(v.y),
         round_i32(v.z), round_i32(v.w)
     };
 }
 
-headerfn ivec4 iv2_to_iv4( ivec2 v ) {
+header_only ivec4 iv2_to_iv4( ivec2 v ) {
     return (ivec4){ v.x, v.y, 0, 0 };
 }
-headerfn ivec4 iv3_to_iv4( ivec3 v ) {
+header_only ivec4 iv3_to_iv4( ivec3 v ) {
     return (ivec4){ v.x, v.y, v.z, 0 };
 }
-headerfn ivec4 v4_to_iv4( vec4 v ) {
+header_only ivec4 v4_to_iv4( vec4 v ) {
     return v4_trunc( v );
 }
 
-headerfn mat3 m2_to_m3( mat2 m ) {
+header_only mat3 m2_to_m3( mat2 m ) {
     return (mat3){
         m.c[0], m.c[1], 0.0f,
         m.c[2], m.c[3], 0.0f,
           0.0f,   0.0f, 0.0f
     };
 }
-headerfn mat3 m4_to_m3( const mat4* m ) {
+header_only mat3 m4_to_m3( const mat4* m ) {
     return (mat3){
         m->c[0], m->c[1], m->c[ 2],
         m->c[4], m->c[5], m->c[ 6],
@@ -1866,7 +1866,7 @@ headerfn mat3 m4_to_m3( const mat4* m ) {
     };
 }
 
-headerfn mat4 m2_to_m4( mat2 m ) {
+header_only mat4 m2_to_m4( mat2 m ) {
     return (mat4){
         m.c[0], m.c[1], 0.0f, 0.0f,
         m.c[2], m.c[3], 0.0f, 0.0f,
@@ -1874,7 +1874,7 @@ headerfn mat4 m2_to_m4( mat2 m ) {
           0.0f,   0.0f, 0.0f, 0.0f,
     };
 }
-headerfn mat4 m3_to_m4( const mat3* m ) {
+header_only mat4 m3_to_m4( const mat3* m ) {
     return (mat4){
         m->c[0], m->c[1], m->c[2], 0.0f,
         m->c[3], m->c[4], m->c[5], 0.0f,
@@ -1886,7 +1886,7 @@ headerfn mat4 m3_to_m4( const mat3* m ) {
 // VEC2/MAT4 ----------------------------------------------------
 
 /// create look at matrix for 2D rendering
-headerfn mat4 m4_lookat_2d( vec2 position ) {
+header_only mat4 m4_lookat_2d( vec2 position ) {
     return m4_lookat(
         v3_add( v2_to_v3(position), VEC3_FORWARD ),
         v2_to_v3(position),
@@ -1900,7 +1900,7 @@ headerfn mat4 m4_lookat_2d( vec2 position ) {
 /// @out_matrix pointer to result,
 /// set to identity if not possible
 /// @return true if determinant is not 0
-headerfn b32 m4_normal_matrix( const mat4* m, mat3* out_matrix ) {
+header_only b32 m4_normal_matrix( const mat4* m, mat3* out_matrix ) {
     mat4 inv;
 
     if( m4_inverse( m, &inv ) ) {
@@ -1914,13 +1914,13 @@ headerfn b32 m4_normal_matrix( const mat4* m, mat3* out_matrix ) {
 }
 /// calculate the normal matrix of transform matrix
 /// whether the determinant is 0 or not
-headerfn mat3 m4_normal_matrix_unchecked( const mat4* m ) {
+header_only mat3 m4_normal_matrix_unchecked( const mat4* m ) {
     mat4 inv = m4_inverse_unchecked( m );
     mat4 inv_transpose = m4_transpose( &inv );
     return m4_to_m3( &inv_transpose );
 }
 
-headerfn b32 rect2d_overlap_rect2d( Rect2D a, Rect2D b ) {
+header_only b32 rect2d_overlap_rect2d( Rect2D a, Rect2D b ) {
     return
         (
             a.left   < b.right &&
@@ -1931,7 +1931,7 @@ headerfn b32 rect2d_overlap_rect2d( Rect2D a, Rect2D b ) {
         );
 }
 
-headerfn b32 circle2d_overlap_circle2d( Circle2D a, Circle2D b ) {
+header_only b32 circle2d_overlap_circle2d( Circle2D a, Circle2D b ) {
     f32 dist = v2_mag( v2_sub( a.position, b.position ) );
     return dist < ( a.radius + b.radius );
 }

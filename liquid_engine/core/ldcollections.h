@@ -22,11 +22,11 @@ typedef struct List {
     struct Allocator* allocator;
 } List;
 /// Calculate list buffer size.
-headerfn usize list_buffer_size( List* list ) {
+header_only usize list_buffer_size( List* list ) {
     return list->stride * list->capacity;
 }
 /// Create list using existing buffer.
-headerfn List list_from_buffer(
+header_only List list_from_buffer(
     struct Allocator* opt_allocator, usize stride,
     usize capacity, void* buffer
 ) {
@@ -148,4 +148,4 @@ LD_API void list_remove( List* list, usize index );
 /// Get item at index from list.
 LD_API void* list_index( List* list, usize index );
 
-#endif
+#endif // header guard

@@ -217,22 +217,14 @@ typedef void* pvoid;
 
 #if defined(__cplusplus)
     /// External C linkage
-    #define EXTERNC extern "C"
+    #define extern_c extern "C"
 #else
     /// External C linkage
-    #define EXTERNC
+    #define extern_c
 #endif
 
 /// Crash the program >:)
 #define PANIC() __builtin_trap()
-
-#if defined(LD_COMPILER_GCC)
-    /// Do not optimize regardless of optimization level
-    #define NO_OPTIMIZE __attribute__((optimize("O0")))
-#else // clang
-    /// Do not optimize regardless of optimization level
-    #define NO_OPTIMIZE __attribute__((optnone))
-#endif
 
 /// Value is unused
 #define unused(x) (void)((x))
@@ -253,13 +245,13 @@ typedef void* pvoid;
 #endif
 
 /// Always optimize regardless of optimization level
-#define HOT_PATH      __attribute__((hot))
+#define hot __attribute__((hot))
 /// Always inline function
-#define FORCE_INLINE  __attribute__((always_inline)) inline
+#define always_inline __attribute__((always_inline)) inline
 /// Never inline function
-#define NO_INLINE     __attribute__((noinline))
+#define no_inline __attribute__((noinline))
 /// Don't pad struct
-#define PACKED __attribute__((__packed__))
+#define packed __attribute__((__packed__))
 /// Function is internal to translation unit
 #define internal static
 /// Value is local to function
@@ -267,12 +259,20 @@ typedef void* pvoid;
 /// Value is global
 #define global static
 
+#if defined(LD_COMPILER_GCC)
+    /// Do not optimize regardless of optimization level
+    #define no_optimize __attribute__((optimize("O0")))
+#else // clang
+    /// Do not optimize regardless of optimization level
+    #define no_optimize __attribute__((optnone))
+#endif
+
 #if defined(__cplusplus)
     /// Header inline function
-    #define headerfn inline
+    #define header_only inline
 #else
     /// Header inline function
-    #define headerfn extern inline
+    #define header_only extern inline
 #endif
 
 /// Infinite loop
@@ -324,10 +324,10 @@ typedef void* pvoid;
 #else
     #if defined(LD_PLATFORM_WINDOWS)
         /// Import/Export function
-        #define LD_API __declspec(dllimport) EXTERNC
+        #define LD_API __declspec(dllimport) extern_c
     #else
         /// Import/Export function
-        #define LD_API EXTERNC
+        #define LD_API extern_c
     #endif
 #endif
 

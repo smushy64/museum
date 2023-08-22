@@ -24,22 +24,22 @@ struct MemoryBlock {
     struct MemoryBlock* next;
 };
 /// Get block offset.
-FORCE_INLINE
+always_inline
 internal usize block_offset( struct MemoryBlock* block ) {
     return ((block->offset) & ~(MEMORY_BLOCK_VALID_ID) );
 }
 /// Set block offset.
-FORCE_INLINE
+always_inline
 internal void block_set_offset( struct MemoryBlock* block, usize offset ) {
     block->offset = ((offset) | MEMORY_BLOCK_VALID_ID);
 }
 /// Get block size.
-FORCE_INLINE
+always_inline
 internal usize block_size( struct MemoryBlock* block ) {
     return ((block->size) & ~(MEMORY_BLOCK_VALID_ID) );
 }
 /// Set block size.
-FORCE_INLINE
+always_inline
 internal void block_set_size( struct MemoryBlock* block, usize size ) {
     block->size = ((size) | MEMORY_BLOCK_VALID_ID);
 }

@@ -124,7 +124,7 @@ typedef enum EventPriority : u32 {
 /// Priority determines if callbacks will be called immediately or delayed.
 LD_API void event_fire_priority( Event event, EventPriority priority );
 /// Fire an event. All callbacks bound to this event will be called immediately.
-headerfn void event_fire( Event event ) {
+header_only void event_fire( Event event ) {
     event_fire_priority( event, EVENT_PRIORITY_IMMEDIATE );
 }
 

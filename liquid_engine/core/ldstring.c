@@ -54,14 +54,14 @@ LD_API usize str_length( const char* string ) {
 
     return result;
 }
-HOT_PATH LD_API void str_output_stdout( const char* str ) {
+hot LD_API void str_output_stdout( const char* str ) {
     usize str_len = str_length( str );
     platform_write_console(
         platform_stdout_handle(),
         str_len, str
     );
 }
-HOT_PATH LD_API void str_output_stderr( const char* str ) {
+hot LD_API void str_output_stderr( const char* str ) {
     usize str_len = str_length( str );
     platform_write_console(
         platform_stderr_handle(),
@@ -85,13 +85,13 @@ internal i32 parse_i32_internal( char** at_init ) {
     *at_init = at;
     return result * (is_negative ? -1 : 1);
 }
-HOT_PATH LD_API void sv_output_stdout( StringView string_view ) {
+hot LD_API void sv_output_stdout( StringView string_view ) {
     platform_write_console(
         platform_stdout_handle(),
         string_view.len, string_view.buffer
     );
 }
-HOT_PATH LD_API void sv_output_stderr( StringView string_view ) {
+hot LD_API void sv_output_stderr( StringView string_view ) {
     platform_write_console(
         platform_stderr_handle(),
         string_view.len, string_view.buffer
@@ -479,7 +479,7 @@ internal u32 float_to_string(
 
 typedef b32 (*WriteCharFN)( StringView*, char );
 
-NO_INLINE internal b32 write_char_dst( StringView* dst, char character ) {
+no_inline internal b32 write_char_dst( StringView* dst, char character ) {
     if( dst->len ) {
         --dst->len;
         *dst->buffer++ = character;
@@ -488,18 +488,18 @@ NO_INLINE internal b32 write_char_dst( StringView* dst, char character ) {
         return false;
     }
 }
-NO_INLINE internal b32 write_char_stdout( StringView* sv, char character ) {
+no_inline internal b32 write_char_stdout( StringView* sv, char character ) {
     unused(sv);
     char_output_stderr( character );
     return true;
 }
-NO_INLINE internal b32 write_char_stderr( StringView* sv, char character ) {
+no_inline internal b32 write_char_stderr( StringView* sv, char character ) {
     unused(sv);
     char_output_stderr( character );
     return true;
 }
 
-NO_INLINE HOT_PATH
+no_inline hot
 internal u32 format_internal(
     StringView buffer,
     const char* format,

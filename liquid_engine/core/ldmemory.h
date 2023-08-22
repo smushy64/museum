@@ -25,7 +25,7 @@ typedef enum MemoryType : u8 {
     MEMORY_TYPE_COUNT
 } MemoryType;
 /// Memory type to string
-headerfn const char* memory_type_to_string( MemoryType type ) {
+header_only const char* memory_type_to_string( MemoryType type ) {
     const char* strings[MEMORY_TYPE_COUNT] = {
         "Unknown Memory",
         "Engine Memory",
@@ -128,7 +128,7 @@ LD_API void internal_ldfree_aligned_trace(
 #endif
 
 /// Calculate number of pages required for bytes.
-headerfn usize calculate_page_size( usize byte_size ) {
+header_only usize calculate_page_size( usize byte_size ) {
     usize required = byte_size / MEMORY_PAGE_SIZE;
     required += byte_size % MEMORY_PAGE_SIZE ? 1 : 0;
     return required;
@@ -187,4 +187,4 @@ LD_API void* mem_set( void* dst, int value, usize n );
 /// Zero out memory.
 LD_API void mem_zero( void* ptr, usize size );
 
-#endif
+#endif // header guard

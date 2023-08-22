@@ -39,11 +39,11 @@ typedef struct DynamicAllocator {
     void* buffer;
 } DynamicAllocator;
 /// Get dynamic allocator backing buffer size.
-headerfn usize dynamic_allocator_size( DynamicAllocator* allocator ) {
+header_only usize dynamic_allocator_size( DynamicAllocator* allocator ) {
     return allocator->state.memory_size;
 }
 /// Create dynamic allocator from existing buffers.
-headerfn DynamicAllocator dynamic_allocator_from_buffer(
+header_only DynamicAllocator dynamic_allocator_from_buffer(
     usize memory_state_buffer_size, void* memory_state_buffer,
     usize backing_buffer_size, void* backing_buffer
 ) {
@@ -114,7 +114,7 @@ typedef struct StackAllocator {
     enum MemoryType memory_type;
 } StackAllocator;
 /// Create a stack allocator using an external buffer.
-headerfn StackAllocator stack_allocator_from_buffer(
+header_only StackAllocator stack_allocator_from_buffer(
     usize buffer_size, void* buffer, enum MemoryType memory_type
 ) {
     StackAllocator result = {};
@@ -125,7 +125,7 @@ headerfn StackAllocator stack_allocator_from_buffer(
     return result;
 }
 /// Calculate remaining stack allocator size.
-headerfn usize stack_allocator_remaining_size( StackAllocator* allocator ) {
+header_only usize stack_allocator_remaining_size( StackAllocator* allocator ) {
     return allocator->size - allocator->current;
 }
 
@@ -211,7 +211,7 @@ typedef enum AllocatorType : u8 {
 
     ALLOCATOR_TYPE_COUNT
 } AllocatorType;
-headerfn const char* allocator_type_to_string( AllocatorType allocator ) {
+header_only const char* allocator_type_to_string( AllocatorType allocator ) {
     const char* strings[ALLOCATOR_TYPE_COUNT] = {
         "System Allocator",
         "Dynamic Allocator",
@@ -230,20 +230,20 @@ typedef struct Allocator {
     };
 } Allocator;
 /// Create generic allocator that uses system allocator.
-headerfn Allocator allocator_system() {
+header_only Allocator allocator_system() {
     Allocator result = {};
     result.type = ALLOCATOR_TYPE_SYSTEM;
     return result;
 }
 /// Create generic allocator from stack allocator.
-headerfn Allocator allocator_from_stack( StackAllocator* stack ) {
+header_only Allocator allocator_from_stack( StackAllocator* stack ) {
     Allocator result;
     result.type  = ALLOCATOR_TYPE_STACK;
     result.stack = stack;
     return result;
 }
 /// Create generic allocator from dynamic allocator.
-headerfn Allocator allocator_from_dynamic( DynamicAllocator* dynamic ) {
+header_only Allocator allocator_from_dynamic( DynamicAllocator* dynamic ) {
     Allocator result;
     result.type    = ALLOCATOR_TYPE_DYNAMIC;
     result.dynamic = dynamic;

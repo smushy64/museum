@@ -82,7 +82,7 @@ LD_API LogLevel log_query_log_level() {
     return LOG_LEVEL;
 }
 
-HOT_PATH internal void log_formatted(
+hot internal void log_formatted(
     LogLevel level,
     b32 always_print, b32 new_line,
     b32 locked_requested, const char* format,

@@ -52,14 +52,14 @@ Include in engine:
 | internal        | static - function is internal to translation unit        |
 | local           | static - for local static variables                      |
 | global          | static - for global static variables                     |
-| NO_OPTIMIZE     | do not optimize following function                       |
-| HOT_PATH        | always optimize following function                       |
-| FORCE_INLINE    | always inline following function                         |
-| PACKED          | struct is packed (no C padding)                          |
-| NO_INLINE       | never inline following function                          |
+| no_optimize     | do not optimize following function                       |
+| hot             | always optimize following function                       |
+| always_inline   | always inline following function                         |
+| packed          | struct is packed (no C padding)                          |
+| no_inline       | never inline following function                          |
+| header_only     | mark header function (extern inline in C, inline in C++) |
+| extern_c        | mark function as extern "C" (C++ only)                   |
 | LD_API          | export/import function                                   |
-| headerfn        | mark header function (extern inline in C, inline in C++) |
-| EXTERNC         | mark function as extern "C" (C++ only)                   |
 
 ## Macros
 | Macro                               | Description                        |

@@ -15,10 +15,10 @@ void thread_work( ThreadInfo* thread_info, void* params ) {
     unused( params );
 }
 
-EXTERNC usize application_query_memory_requirement() {
+extern_c usize application_query_memory_requirement() {
     return 1;
 }
-EXTERNC b32 application_init( EngineContext* ctx, void* memory ) {
+extern_c b32 application_init( EngineContext* ctx, void* memory ) {
     engine_application_set_name( ctx, SV("testbed") );
     engine_surface_set_dimensions( (ivec2){ 1280, 720 } );
     engine_surface_center();
@@ -31,7 +31,7 @@ EXTERNC b32 application_init( EngineContext* ctx, void* memory ) {
     unused(memory);
     return true;
 }
-EXTERNC b32 application_run( EngineContext* ctx, void* memory ) {
+extern_c b32 application_run( EngineContext* ctx, void* memory ) {
     unused(ctx);
     unused(memory);
     return true;

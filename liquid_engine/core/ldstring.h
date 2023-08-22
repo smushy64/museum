@@ -13,13 +13,13 @@ LD_API void char_output_stdout( char character );
 /// Push character to stderr.
 LD_API void char_output_stderr( char character );
 /// Check if character is a whitespace character
-headerfn b32 char_is_whitespace( char character ) {
+header_only b32 char_is_whitespace( char character ) {
     return
         character == ' ' ||
         character == '\t';
 }
 /// Check if character is a digit 
-headerfn b32 char_is_digit( char character ) {
+header_only b32 char_is_digit( char character ) {
     return character >= '0' && character <= '9';
 }
 /// Calculate null-terminated string length
@@ -46,14 +46,14 @@ typedef struct StringView {
 } StringView;
 
 /// Create a string view into const char str
-headerfn StringView sv_from_str( const char* str ) {
+header_only StringView sv_from_str( const char* str ) {
     StringView result = {};
     result.len = str_length( str );
     result.str = str;
     return result;
 }
 /// Create a string view into dynamic string
-headerfn StringView sv_from_string( String* string ) {
+header_only StringView sv_from_string( String* string ) {
     StringView result = {};
     result.len    = string->len;
     result.buffer = string->buffer;
@@ -93,7 +93,7 @@ LD_API void sv_copy( StringView src, StringView dst );
 /// Set all characters in string view to given character
 LD_API void sv_fill( StringView s, char character );
 /// Clone string view
-headerfn StringView sv_clone( StringView sv ) {
+header_only StringView sv_clone( StringView sv ) {
     StringView result;
     result.len    = sv.len;
     result.buffer = sv.buffer;
@@ -112,7 +112,7 @@ LD_API b32 dstring_reserve( String* string, usize new_capacity );
 /// Clear a string.
 /// All this does is set the length of a string to zero.
 /// It does not deallocate.
-headerfn void dstring_clear( String* string ) { string->len = 0; }
+header_only void dstring_clear( String* string ) { string->len = 0; }
 /// Append a string to existing string.
 /// Alloc determines if will fill to the end of the existing buffer
 /// or if it will reallocate.

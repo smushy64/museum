@@ -67,7 +67,7 @@ typedef enum CursorStyle : u32 {
 
     CURSOR_STYLE_COUNT
 } CursorStyle;
-headerfn const char* to_string( CursorStyle cursor_style ) {
+header_only const char* to_string( CursorStyle cursor_style ) {
     const char* strings[CURSOR_STYLE_COUNT] = {
         "Arrow",
         "Resize Vertical",
@@ -114,7 +114,7 @@ LD_API void engine_surface_set_dimensions( ivec2 new_dimensions );
 /// Query surface dimensions.
 LD_API ivec2 engine_surface_query_dimensions();
 /// Send an exit event to the engine.
-headerfn void engine_exit() {
+header_only void engine_exit() {
     Event event = {};
     event.code  = EVENT_CODE_EXIT;
     event_fire( event );

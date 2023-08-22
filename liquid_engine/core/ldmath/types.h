@@ -28,14 +28,14 @@ typedef union vec2 {
 #define VEC2_DOWN  (vec2){  0.0f, -1.0f }
 
 /// Create zero vector.
-headerfn vec2 v2_zero(void) { return VEC2_ZERO; }
+header_only vec2 v2_zero(void) { return VEC2_ZERO; }
 /// Create vector with all components set to given scalar.
-headerfn vec2 v2_scalar( f32 scalar ) {
+header_only vec2 v2_scalar( f32 scalar ) {
     vec2 result = {scalar, scalar};
     return result;
 }
 /// Create vector with given components.
-headerfn vec2 v2( f32 x, f32 y ) {
+header_only vec2 v2( f32 x, f32 y ) {
     vec2 result = { x, y };
     return result;
 }
@@ -56,14 +56,14 @@ typedef union ivec2 {
 #define IVEC2_DOWN  (ivec2){  0, -1 } 
 
 /// Create zero vector.
-headerfn ivec2 iv2_zero(void) { return IVEC2_ZERO; }
+header_only ivec2 iv2_zero(void) { return IVEC2_ZERO; }
 /// Create vector with all components set to given scalar.
-headerfn ivec2 iv2_scalar( i32 scalar ) {
+header_only ivec2 iv2_scalar( i32 scalar ) {
     ivec2 result = { scalar, scalar };
     return result;
 }
 /// Create vector with given components.
-headerfn ivec2 iv2( i32 x, i32 y ) {
+header_only ivec2 iv2( i32 x, i32 y ) {
     ivec2 result = { x, y };
     return result;
 }
@@ -117,17 +117,17 @@ typedef union vec3 euler_angles;
 #define RGB_GREY    (rgb){ 0.5f, 0.5f, 0.5f } 
 
 /// Create vector with given components.
-headerfn vec3 v3( f32 x, f32 y, f32 z ) {
+header_only vec3 v3( f32 x, f32 y, f32 z ) {
     vec3 result = { x, y, z };
     return result;
 }
 /// Create zero vector.
-headerfn vec3 v3_zero(void) {
+header_only vec3 v3_zero(void) {
     vec3 result = VEC3_ZERO;
     return result;
 }
 /// Create vector with all components set to given scalar.
-headerfn vec3 v3_scalar( f32 scalar ) {
+header_only vec3 v3_scalar( f32 scalar ) {
     vec3 result = { scalar, scalar, scalar };
     return result;
 }
@@ -159,17 +159,17 @@ typedef union ivec3 {
 #define IVEC3_BACK    (ivec3){  0,  0, -1 } 
 
 /// Create zero vector.
-headerfn ivec3 iv3_zero(void) {
+header_only ivec3 iv3_zero(void) {
     ivec3 result = {};
     return result;
 }
 /// Create vector with all components set to given scalar.
-headerfn ivec3 iv3_scalar( i32 scalar ) {
+header_only ivec3 iv3_scalar( i32 scalar ) {
     ivec3 result = { scalar, scalar, scalar };
     return result;
 }
 /// Create vector with given components.
-headerfn ivec3 iv3( i32 x, i32 y, i32 z ) {
+header_only ivec3 iv3( i32 x, i32 y, i32 z ) {
     ivec3 result = { x, y, z };
     return result;
 }
@@ -214,17 +214,17 @@ typedef union vec4 rgba;
 #define RGBA_CLEAR   (rgba){ 0.0f, 0.0f, 0.0f, 0.0f } 
 
 /// Create vector with given components.
-headerfn vec4 v4( f32 x, f32 y, f32 z, f32 w ) {
+header_only vec4 v4( f32 x, f32 y, f32 z, f32 w ) {
     vec4 result = { x, y, z, w };
     return result;
 }
 /// Create zero vector.
-headerfn vec4 v4_zero(void) {
+header_only vec4 v4_zero(void) {
     vec4 result = VEC4_ZERO;
     return result;
 }
 /// Create vector with all components set to given scalar.
-headerfn vec4 v4_scalar( f32 scalar ) {
+header_only vec4 v4_scalar( f32 scalar ) {
     vec4 result = { scalar, scalar, scalar, scalar };
     return result;
 }
@@ -252,17 +252,17 @@ typedef union ivec4 {
 #define IVEC4_ONE  (ivec4){ 1, 1, 1, 1 } 
 
 /// Create vector with given components.
-headerfn ivec4 iv4( i32 x, i32 y, i32 z, i32 w ) {
+header_only ivec4 iv4( i32 x, i32 y, i32 z, i32 w ) {
     ivec4 result = { x, y, z, w };
     return result;
 }
 /// Create zero vector.
-headerfn ivec4 iv4_zero(void) {
+header_only ivec4 iv4_zero(void) {
     ivec4 result = IVEC4_ZERO;
     return result;
 }
 /// Create vector with all components set to given scalar.
-headerfn ivec4 iv4_scalar( i32 scalar ) {
+header_only ivec4 iv4_scalar( i32 scalar ) {
     ivec4 result = { scalar, scalar, scalar, scalar };
     return result;
 }
@@ -288,12 +288,12 @@ typedef union quat {
 #define QUAT_IDENTITY (quat){ 1.0f, 0.0f, 0.0f, 0.0f } 
 
 /// Create quaternion with set to given scalars.
-headerfn quat q( f32 w, f32 x, f32 y, f32 z ) {
+header_only quat q( f32 w, f32 x, f32 y, f32 z ) {
     quat result = { w, x, y, z };
     return result;
 }
 /// Create zero quaternion.
-headerfn quat q_zero(void) {
+header_only quat q_zero(void) {
     return QUAT_ZERO;
 }
 
@@ -327,7 +327,7 @@ typedef union mat2 {
 }
 
 /// Create matrix with given values.
-headerfn mat2 m2(
+header_only mat2 m2(
     f32 m00, f32 m01,
     f32 m10, f32 m11
 ) {
@@ -335,7 +335,7 @@ headerfn mat2 m2(
     return result;
 }
 /// Create zero matrix.
-headerfn mat2 m2_zero(void) {
+header_only mat2 m2_zero(void) {
     mat2 result = MAT2_ZERO;
     return result;
 }
@@ -376,7 +376,7 @@ typedef union mat3 {
 }
 
 /// Create matrix from given values.
-headerfn mat3 m3(
+header_only mat3 m3(
     f32 m00, f32 m01, f32 m02,
     f32 m10, f32 m11, f32 m12,
     f32 m20, f32 m21, f32 m22
@@ -389,7 +389,7 @@ headerfn mat3 m3(
     return result;
 }
 /// Create zero matrix.
-headerfn mat3 m3_zero(void) {
+header_only mat3 m3_zero(void) {
     mat3 result = MAT3_ZERO;
     return result;
 }
@@ -436,7 +436,7 @@ typedef union mat4 {
 }
 
 /// Create a matrix from given values.
-headerfn mat4 m4(
+header_only mat4 m4(
     f32 m00, f32 m01, f32 m02, f32 m03,
     f32 m10, f32 m11, f32 m12, f32 m13,
     f32 m20, f32 m21, f32 m22, f32 m23,
@@ -451,7 +451,7 @@ headerfn mat4 m4(
     return result;
 }
 /// Create a zero matrix.
-headerfn mat4 m4_zero(void) {
+header_only mat4 m4_zero(void) {
     mat4 result = MAT4_ZERO;
     return result;
 }
@@ -466,19 +466,19 @@ typedef struct {
     f32 top,  bottom;
 } Rect2D;
 
-headerfn vec2 rect2d_top_left( const Rect2D* rect ) {
+header_only vec2 rect2d_top_left( const Rect2D* rect ) {
     vec2 result = { rect->left, rect->top };
     return result;
 }
-headerfn vec2 rect2d_top_right( const Rect2D* rect ) {
+header_only vec2 rect2d_top_right( const Rect2D* rect ) {
     vec2 result = { rect->right, rect->top };
     return result;
 }
-headerfn vec2 rect2d_bottom_left( const Rect2D* rect ) {
+header_only vec2 rect2d_bottom_left( const Rect2D* rect ) {
     vec2 result = { rect->left, rect->bottom };
     return result;
 }
-headerfn vec2 rect2d_bottom_right( const Rect2D* rect ) {
+header_only vec2 rect2d_bottom_right( const Rect2D* rect ) {
     vec2 result = { rect->right, rect->bottom };
     return result;
 }
