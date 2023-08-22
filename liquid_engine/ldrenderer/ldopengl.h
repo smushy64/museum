@@ -6,6 +6,7 @@
 #include "defines.h"
 #include "ldrenderer.h"
 #include "ldrenderer/context.h"
+#include "ldrenderer/opengl/types.h"
 #include "core/ldmath/types.h"
 #include "core/ldlog.h"
 
@@ -22,6 +23,7 @@ typedef struct OpenGLDeviceInfo {
     i32 extension_count;
 } OpenGLDeviceInfo;
 
+#define GL_BUFFER_COUNT (1)
 /// OpenGL Renderer Context
 typedef struct OpenGLRendererContext {
     InternalRendererContext ctx;
@@ -29,10 +31,10 @@ typedef struct OpenGLRendererContext {
     OpenGLDeviceInfo           device_info;   
     OpenGLRenderContextHandle* render_context;
 
+    GLBufferID buffers[GL_BUFFER_COUNT];
+
     ivec2 viewport;
 } OpenGLRendererContext;
-
-b32 gl_renderer_backend_init( RendererContext* ctx );
 
 #if defined(LD_LOGGING)
     #define GL_LOG_NOTE( format, ... ) \

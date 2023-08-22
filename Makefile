@@ -67,7 +67,7 @@ C_FLAGS += -Wno-unused-variable -Wno-ignored-attributes
 C_FLAGS += -Wno-gnu-case-range -Wno-incompatible-library-redeclaration
 C_FLAGS += -Wno-fixed-enum-extension -Wno-strict-prototypes
 C_FLAGS += -Wno-gnu-empty-initializer -Wno-static-in-inline
-C_FLAGS += -Wno-c99-extensions
+C_FLAGS += -Wno-c99-extensions -Wno-duplicate-decl-specifier
 
 ifeq ($(IS_WINDOWS), true)
 	DC_FLAGS += -gcodeview

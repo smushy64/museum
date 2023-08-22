@@ -25,3 +25,4 @@ clang
 -Wextra
 -Wno-missing-braces
 -Wno-incompatible-library-redeclaration
+-Wno-duplicate-decl-specifier

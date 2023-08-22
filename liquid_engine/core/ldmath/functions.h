@@ -545,11 +545,11 @@ header_only f64 atan2_64( f64 y, f64 x ) {
  
 /// convert degrees to radians
 #define to_rad( theta )\
-    ( theta * ( __typeof(theta)(F64_PI) / __typeof(theta)(180.0) ) )
+    ( theta * ( (__typeof(theta))(F64_PI) / (__typeof(theta))(180.0) ) )
 
 /// convert radians to degrees 
 #define to_deg( theta )\
-    ( theta * ( __typeof(theta)(180.0) / __typeof(theta)(F64_PI) ) )
+    ( theta * ( (__typeof(theta))(180.0) / (__typeof(theta))(F64_PI) ) )
 
 /// natural logarithm
 header_only f32 log32( f32 x ) {

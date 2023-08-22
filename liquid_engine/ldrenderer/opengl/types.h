@@ -32,6 +32,9 @@ typedef i32 GLfixed;
 
 typedef isize GLintptr;
 
+/// Buffer ID
+typedef GLuint GLBufferID;
+
 typedef void (*DEBUGPROC)(
     GLenum        source,
     GLenum        type,

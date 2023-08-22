@@ -20,3 +20,4 @@ clang++
 -Wall
 -Wextra
 -Wno-missing-braces
+-Wno-duplicate-decl-specifier

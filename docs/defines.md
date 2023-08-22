@@ -64,11 +64,11 @@ Include in engine:
 ## Macros
 | Macro                               | Description                        |
 | ----------------------------------- | ---------------------------------- |
+| unused( x )                         | mark value as unused               |
+| loop                                | for( ; ; ) infinite loop           |
 | LD_MAKE_VERSION( major, minor )     | make version u32 identifier        |
 | LD_GET_MAJOR( version )             | major version from u32 identifier  |
 | LD_GET_MINOR( version )             | minor version from u32 identifier  |
-| unused( x )                         | mark value as unused               |
-| loop                                | for( ; ; ) infinite loop           |
 | PANIC()                             | crash program                      |
 | STATIC_ASSERT( condition, message ) | compile time assertion             |
 | ASSERT( condition )                 | runtime assertion                  |
@@ -178,12 +178,12 @@ Include in engine:
 | ------------------------ | ------------------------ |
 | ISIZE_MIN                | smallest pointer integer |
 | ISIZE_MAX                | largest  pointer integer |
+| ISIZE_SIGN_MASK          | sign bitmask             |
 
 | Unsigned Pointer Integer Constant | Description                       |
 | --------------------------------- | --------------------------------- |
 | USIZE_MIN                         | smallest unsigned pointer integer |
 | USIZE_MAX                         | largest  unsigned pointer integer |
-
 
 ## Platform Identifiers
 | Compiler                | Description                               |

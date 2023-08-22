@@ -1886,11 +1886,11 @@ header_only mat4 m3_to_m4( const mat3* m ) {
 // VEC2/MAT4 ----------------------------------------------------
 
 /// create look at matrix for 2D rendering
-header_only mat4 m4_lookat_2d( vec2 position ) {
+header_only mat4 m4_lookat_2d( vec2 position, vec2 up ) {
     return m4_lookat(
         v3_add( v2_to_v3(position), VEC3_FORWARD ),
         v2_to_v3(position),
-        VEC3_UP
+        v2_to_v3(up)
     );
 }
 

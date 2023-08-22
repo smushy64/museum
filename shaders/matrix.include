@@ -4,5 +4,6 @@
 layout(std140, binding = 0) uniform matrices {
     mat4 VIEW_PROJECTION;
     mat4 VIEW_PROJECTION_UI;
+    mat4 VIEW_PROJECTION_2D;
 };
 

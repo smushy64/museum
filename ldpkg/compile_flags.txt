@@ -14,4 +14,5 @@ clang
 -I.
 -I../liquid_engine
 -I../vendor
+-Wno-duplicate-decl-specifier
 -Werror=vla

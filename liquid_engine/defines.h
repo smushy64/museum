@@ -83,7 +83,6 @@
     #define LD_ARCH_64_BIT
 #endif // if arm64
 
-
 #if !defined(LD_SIMD_WIDTH)
     #define LD_SIMD_WIDTH 1
 #else
@@ -188,7 +187,7 @@ typedef void* pvoid;
 #define LD_CONTACT_MESSAGE \
     "Please contact me at smushybusiness@gmail.com if you see this."
 
-/// Convert macro to const char*
+/// Convert macro name to const char*
 #define TO_STRING( foo ) #foo
 /// Convert macro value to const char*
 #define VALUE_TO_STRING( foo ) TO_STRING( foo )
@@ -250,7 +249,7 @@ typedef void* pvoid;
 #define always_inline __attribute__((always_inline)) inline
 /// Never inline function
 #define no_inline __attribute__((noinline))
-/// Don't pad struct
+/// Don't introduce padding to struct
 #define packed __attribute__((__packed__))
 /// Function is internal to translation unit
 #define internal static
@@ -272,7 +271,7 @@ typedef void* pvoid;
     #define header_only inline
 #else
     /// Header inline function
-    #define header_only extern inline
+    #define header_only static inline
 #endif
 
 /// Infinite loop
@@ -518,6 +517,8 @@ STATIC_ASSERT(sizeof(c32) == 4, "Expected c32 to be 4 bytes!" );
     #define ISIZE_MAX (I64_MAX)
     /// Smallest pointer sized int value.
     #define ISIZE_MIN (I64_MIN)
+    /// Pointer sized int sign mask.
+    #define ISIZE_SIGN_MASK (I64_SIGN_MASK)
 
     /// Largest pointer sized unsigned int value.
     #define USIZE_MAX (U64_MAX)
@@ -528,6 +529,8 @@ STATIC_ASSERT(sizeof(c32) == 4, "Expected c32 to be 4 bytes!" );
     #define ISIZE_MAX (I32_MAX)
     /// Smallest pointer sized int value.
     #define ISIZE_MIN (I32_MIN)
+    /// Pointer sized int sign mask.
+    #define ISIZE_SIGN_MASK (I32_SIGN_MASK)
 
     /// Largest pointer sized unsigned int value.
     #define USIZE_MAX (U32_MAX)

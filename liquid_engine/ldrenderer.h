@@ -13,9 +13,12 @@ union ivec2;
 /// Opaque RendererContext handle
 typedef void RendererContext;
 
+struct Timer;
+struct Camera;
 /// Render Data
 typedef struct RenderData {
-    struct Timer* time;
+    struct Camera* camera;
+    struct Timer*  time;
 } RenderData;
 
 /// Renderer backend shutdown function prototype.
