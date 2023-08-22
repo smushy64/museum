@@ -33,9 +33,7 @@ typedef struct CallbackRegistry {
 
 global CallbackRegistry* REGISTRY = NULL;
 
-usize event_subsystem_query_size() {
-    return sizeof(CallbackRegistry);
-}
+usize EVENT_SUBSYSTEM_SIZE = sizeof(CallbackRegistry);
 b32 event_subsystem_init( void* buffer ) {
     REGISTRY = buffer;
     LOG_INFO( "Event subsystem successfully initialized." );

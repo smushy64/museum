@@ -34,7 +34,6 @@ typedef struct Win32DirectSound {
     u32 running_sample_index;
 } Win32DirectSound;
 
-#define WIN32_MAX_WINDOW_TEXT_LENGTH (255)
 #define LIBRARY_COUNT (5)
 typedef struct Win32Platform {
     struct Win32Window {
@@ -43,7 +42,6 @@ typedef struct Win32Platform {
         ivec2 dimensions;
         DWORD dwStyle;
         DWORD dwExStyle;
-        char text[WIN32_MAX_WINDOW_TEXT_LENGTH];
     } window;
     CursorStyle cursor_style;
     b32 cursor_visible;

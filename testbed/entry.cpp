@@ -9,7 +9,7 @@
 #include <core/ldallocator.h>
 #include <core/ldthread.h>
 
-EXTERNC void thread_work( ThreadInfo* thread_info, void* params ) {
+void thread_work( ThreadInfo* thread_info, void* params ) {
     usize thread_index = thread_info_query_index( thread_info );
     LOG_INFO( "Hello from thread {u64}", (u64)thread_index );
     unused( params );
@@ -18,9 +18,8 @@ EXTERNC void thread_work( ThreadInfo* thread_info, void* params ) {
 EXTERNC usize application_query_memory_requirement() {
     return 1;
 }
-
 EXTERNC b32 application_init( EngineContext* ctx, void* memory ) {
-    engine_set_application_name( "testbed" );
+    engine_application_set_name( ctx, SV("testbed") );
     engine_surface_set_dimensions( (ivec2){ 1280, 720 } );
     engine_surface_center();
 
@@ -32,7 +31,6 @@ EXTERNC b32 application_init( EngineContext* ctx, void* memory ) {
     unused(memory);
     return true;
 }
-
 EXTERNC b32 application_run( EngineContext* ctx, void* memory ) {
     unused(ctx);
     unused(memory);

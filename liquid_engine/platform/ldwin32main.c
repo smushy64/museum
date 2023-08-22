@@ -345,9 +345,7 @@ internal DWORD WINAPI win32_xinput_polling_thread( void* params ) {
     return 0;
 }
 
-usize platform_subsystem_query_size() {
-    return sizeof(Win32Platform);
-}
+usize PLATFORM_SUBSYSTEM_SIZE = sizeof(Win32Platform);
 b32 platform_subsystem_init( ivec2 surface_dimensions, void* buffer ) {
 
     ASSERT( buffer );
@@ -625,21 +623,8 @@ b32 platform_pump_events() {
 
     return true;
 }
-void platform_set_application_name( const char* str ) {
-    usize copy_length = str_length( str ) + 1;
-    b32 is_name_too_long = copy_length >= WIN32_MAX_WINDOW_TEXT_LENGTH;
-    if( is_name_too_long ) {
-        copy_length = WIN32_MAX_WINDOW_TEXT_LENGTH;
-    }
-    mem_copy( PLATFORM->window.text, str, str_length( str ) + 1 );
-    if( is_name_too_long ) {
-        PLATFORM->window.text[copy_length - 1] = 0;
-    }
-
+void platform_application_set_name( const char* str ) {
     SetWindowText( PLATFORM->window.handle, str );
-}
-const char* platform_application_name() {
-    return PLATFORM->window.text;
 }
 void platform_surface_center() {
     i32 x = 0, y = 0;
@@ -1926,9 +1911,8 @@ internal DWORD WINAPI win32_thread_proc( void* params ) {
 
     return result ? ERROR_SUCCESS : -1;
 }
-usize platform_thread_handle_size() {
-    return sizeof(Win32Thread);
-}
+
+usize PLATFORM_THREAD_HANDLE_SIZE = sizeof(Win32Thread);
 b32 platform_thread_create(
     ThreadProcFN*   thread_proc,
     void*           user_params,

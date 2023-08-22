@@ -150,7 +150,7 @@ LD_API void event_unsubscribe( EventListenerID id );
 #if defined(LD_API_INTERNAL)
 
     /// Size of event subsystem.
-    usize event_subsystem_query_size();
+    extern usize EVENT_SUBSYSTEM_SIZE;
     /// Initialize Event Subsystem.
     b32 event_subsystem_init( void* event_subsystem_buffer );
     /// Fire end of frame events.

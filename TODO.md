@@ -28,12 +28,12 @@
 
 ## Bug Fixes
 - [ ] format: integer binary format should only print necessary bits
-- [ ] replace all __builtin_ functions throughout math library
-    - clangd doesn't complain about them but during compilation,
-    any function that uses them will cause a linker error
 - [ ] make sure that atan actually produces good results.
     outside the -1 -> 1 range, it diverges heavily.
     it may not actually be that big of a problem but still.
+- [x] replace all __builtin_ functions throughout math library
+    - clangd doesn't complain about them but during compilation,
+    any function that uses them will cause a linker error
 - [x] normalize_range does not seem to do what i think it does
     - it does do what i think 
 - [x] defines: why is size_t defined as usize?
@@ -71,6 +71,8 @@
 - [x] Implement mutex
 - [x] Implement math functions: asin, acos, atan, atan2, powi, modf
 - [x] Stack Arena
+- [x] Completely rewrite memory heap allocations,
+not liking how data about allocations is stored
 - [ ] ECS or something approximating it
 - [ ] Proper frametiming (using platform_sleep?)
 - [ ] Audio subsystem
@@ -81,8 +83,6 @@
 - [ ] Customizable input actions + input processing
 - [ ] custom variadic macro implementations
 - [ ] format: more accurate float print out
-- [ ] Completely rewrite memory heap allocations,
-not liking how data about allocations is stored
 - [ ] Implement custom math functions
     - log, powf, no simd sqrtf
 

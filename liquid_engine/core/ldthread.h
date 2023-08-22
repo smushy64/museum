@@ -19,7 +19,6 @@ LD_API usize thread_info_query_index( ThreadInfo* thread_info );
 
 /// Opaque Semaphore
 typedef void Semaphore;
-
 /// Create a semaphore.
 LD_API Semaphore* semaphore_create();
 /// Signal a semaphore.

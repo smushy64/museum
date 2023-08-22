@@ -17,9 +17,8 @@
 #include "core/ldlibrary.h"
 #include "core/ldgraphics.h"
 
-#define APPLICATION_NAME_BUFFER_SIZE 255
-char APPLICATION_NAME_BUFFER[APPLICATION_NAME_BUFFER_SIZE] = {};
-
+#define MAX_APPLICATION_NAME (255)
+#define DEFAULT_APPLICATION_NAME "Liquid Engine"
 typedef struct InternalEngineContext {
     SystemInfo     system_info; // 88
     StackAllocator stack;       // 32
@@ -27,6 +26,8 @@ typedef struct InternalEngineContext {
 
     b8 is_running;                // 1
     b8 pause_on_surface_inactive; // 1
+    
+    char application_name[MAX_APPLICATION_NAME];
 } InternalEngineContext;
 
 EventCallbackResult on_app_exit( Event* event, void* void_ctx ) {
@@ -220,19 +221,17 @@ b32 engine_entry( int argc, char** argv ) {
     u32 thread_count = ctx.system_info.logical_processor_count;
     thread_count = (thread_count == 1 ? thread_count : thread_count - 1);
 
-    usize thread_subsystem_size = thread_subsystem_query_size( thread_count );
-    usize event_subsystem_size  = event_subsystem_query_size();
-    usize input_subsystem_size  = input_subsystem_query_size();
-    usize platform_subsystem_size  = platform_subsystem_query_size();
-    usize renderer_subsystem_size  =
+    usize thread_subsystem_size   =
+        thread_subsystem_query_size( thread_count );
+    usize renderer_subsystem_size =
         renderer_subsystem_query_size( arg_parse.backend );
 
     // calculate required stack arena size
     usize required_stack_size =
         thread_subsystem_size   +
-        event_subsystem_size    +
-        input_subsystem_size    +
-        platform_subsystem_size +
+        EVENT_SUBSYSTEM_SIZE    +
+        INPUT_SUBSYSTEM_SIZE    +
+        PLATFORM_SUBSYSTEM_SIZE +
         renderer_subsystem_size +
         application_memory_size;
 
@@ -248,8 +247,8 @@ b32 engine_entry( int argc, char** argv ) {
     }
 
     ctx.stack = stack_allocator_from_buffer(
-        required_stack_size, stack_allocator_buffer, MEMORY_TYPE_ENGINE
-    );
+        stack_allocator_pages * MEMORY_PAGE_SIZE,
+        stack_allocator_buffer, MEMORY_TYPE_ENGINE );
 
     LOG_INFO("Liquid Engine Version: {i}.{i}",
         LIQUID_ENGINE_VERSION_MAJOR,
@@ -257,9 +256,7 @@ b32 engine_entry( int argc, char** argv ) {
     );
 
     void* event_subsystem_data = stack_allocator_push(
-        &ctx.stack,
-        event_subsystem_size
-    );
+        &ctx.stack, EVENT_SUBSYSTEM_SIZE );
 
     if( !event_subsystem_init( event_subsystem_data ) ) {
         MESSAGE_BOX_FATAL(
@@ -271,9 +268,7 @@ b32 engine_entry( int argc, char** argv ) {
     }
 
     void* input_subsystem_buffer = stack_allocator_push(
-        &ctx.stack,
-        input_subsystem_size
-    );
+        &ctx.stack, INPUT_SUBSYSTEM_SIZE );
     if( !input_subsystem_init( input_subsystem_buffer ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
@@ -283,8 +278,8 @@ b32 engine_entry( int argc, char** argv ) {
         return false;
     }
 
-    void* platform_buffer =
-        stack_allocator_push( &ctx.stack, platform_subsystem_size );
+    void* platform_buffer = stack_allocator_push(
+        &ctx.stack, PLATFORM_SUBSYSTEM_SIZE );
     if( !platform_subsystem_init(
         DEFAULT_SURFACE_DIMENSIONS, platform_buffer
     ) ) {
@@ -436,6 +431,8 @@ b32 engine_entry( int argc, char** argv ) {
     LOG_NOTE("Engine stack pointer: {u64}", (u64)ctx.stack.current);
 #endif
 
+    engine_application_set_name( &ctx, SV( DEFAULT_APPLICATION_NAME ) );
+
     ctx.is_running = true;
     void* application_memory =
         stack_allocator_push( &ctx.stack, application_memory_size );
@@ -514,13 +511,38 @@ LD_API CursorStyle engine_cursor_style() {
 LD_API b32 engine_cursor_visible() {
     return platform_cursor_visible();
 }
-LD_API void engine_set_application_name( const char* name ) {
-    LOG_NOTE( "Application name set: {cc}", name );
-    platform_set_application_name( name );
+LD_API void engine_application_set_name(
+    EngineContext* opaque, StringView name
+) {
+    InternalEngineContext* ctx = opaque;
+    usize copy_size = name.len;
+    StringView backend_name = SV(
+        renderer_backend_to_string( renderer_subsystem_query_backend() )
+    );
+
+    usize backend_append_size = backend_name.len + 3;
+
+    usize max_copy_size = MAX_APPLICATION_NAME - backend_append_size + 1;
+    if( copy_size >= max_copy_size ) {
+        copy_size = max_copy_size;
+    }
+    mem_copy( ctx->application_name, name.buffer, copy_size );
+
+    ctx->application_name[copy_size + 0] = ' ';
+    ctx->application_name[copy_size + 1] = '|';
+    ctx->application_name[copy_size + 2] = ' ';
+
+    mem_copy(
+        ctx->application_name + copy_size + 3,
+        backend_name.buffer, backend_name.len );
+
+    usize name_size = copy_size + backend_append_size;
+    ctx->application_name[name_size] = 0;
+    platform_application_set_name( ctx->application_name );
 }
-LD_API StringView engine_application_name() {
-    StringView name = SV( platform_application_name() );
-    return name;
+LD_API StringView engine_application_name( EngineContext* opaque ) {
+    InternalEngineContext* ctx = opaque;
+    return SV( ctx->application_name );
 }
 LD_API usize engine_query_logical_processor_count( EngineContext* opaque ) {
     InternalEngineContext* ctx = opaque;
@@ -538,7 +560,7 @@ LD_API void engine_surface_set_dimensions( ivec2 new_dimensions ) {
     LOG_NOTE( "Set surface dimensions: {iv2}", new_dimensions );
     platform_surface_set_dimensions( new_dimensions );
 }
-LD_API ivec2 engine_query_surface_dimensions() {
+LD_API ivec2 engine_surface_query_dimensions() {
     return platform_surface_dimensions();
 }
 LD_API void engine_surface_center() {

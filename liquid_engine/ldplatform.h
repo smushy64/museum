@@ -15,8 +15,8 @@
 #include "core/ldstring.h"
 #include "core/ldthread.h"
 
-/// Returns how many bytes the current platform requires.
-usize platform_subsystem_query_size();
+/// Size of platform subsystem.
+extern usize PLATFORM_SUBSYSTEM_SIZE;
 /// Initialize platform state. Returns true if successful.
 b32 platform_subsystem_init( ivec2 surface_dimensions, void* buffer );
 /// Shutdown platform subsystem.
@@ -33,10 +33,7 @@ f64 platform_s_elapsed();
 b32 platform_pump_events();
 /// Set application name.
 /// String must be a null-terminated string.
-void platform_set_application_name( const char* str );
-/// Get application name.
-/// Returns a null-terminated string.
-const char* platform_application_name();
+void platform_application_set_name( const char* str );
 /// Set surface dimensions.
 void platform_surface_set_dimensions( ivec2 dimensions );
 /// Query surface dimensions.
@@ -140,17 +137,15 @@ b32 platform_file_set_offset( PlatformFile* file, usize offset );
 
 /// Opaque handle to a thread.
 typedef void PlatformThread;
+/// Size of a thread handle.
+extern usize PLATFORM_THREAD_HANDLE_SIZE;
 
 /// Thread Proc definition.
 typedef b32 ThreadProcFN( void* user_params );
 
-/// Get thread handle size.
-usize platform_thread_handle_size();
 /// Create a thread.
-/// Thread pointer must be a buffer big enough to hold
-/// thread handle.
-/// Thread handle size can be queried with
-/// platform_thread_handle_size().
+/// Thread pointer is a buffer that must be big enough to hold thread handle.
+/// Thread handle size is PLATFORM_THREAD_HANDLE_SIZE.
 b32 platform_thread_create(
     ThreadProcFN*   thread_proc,
     void*           thread_proc_params,

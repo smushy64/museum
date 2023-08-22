@@ -350,8 +350,8 @@ headerfn const char* gamepad_code_to_string( GamepadCode gamepad_code ) {
 
 #if defined(LD_API_INTERNAL)
 
-    /// Get input subsystem size.
-    usize input_subsystem_query_size();
+    /// Input subsystem size.
+    extern usize INPUT_SUBSYSTEM_SIZE;
     /// Initialize input subsystem.
     b32  input_subsystem_init( void* buffer );
 

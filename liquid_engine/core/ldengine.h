@@ -11,7 +11,7 @@
 
 typedef void EngineContext;
 
-LD_API struct Timer* engine_get_time( EngineContext* engine_ctx );
+LD_API struct Timer* engine_get_time( EngineContext* ctx );
 
 /// Get memory requirement from application.
 /// Function should look like this:
@@ -97,9 +97,9 @@ LD_API CursorStyle engine_cursor_style();
 LD_API b32 engine_cursor_visible();
 /// Set application name.
 /// Name must be a null-terminated string.
-LD_API void engine_set_application_name( const char* name );
+LD_API void engine_application_set_name( EngineContext* ctx, StringView name );
 /// Query application name.
-LD_API StringView engine_application_name();
+LD_API StringView engine_application_name( EngineContext* ctx );
 /// Query logical processor count.
 LD_API usize engine_query_logical_processor_count( EngineContext* ctx );
 /// Query total system memory.
@@ -112,7 +112,7 @@ LD_API void engine_surface_center();
 /// Set surface dimensions.
 LD_API void engine_surface_set_dimensions( ivec2 new_dimensions );
 /// Query surface dimensions.
-LD_API ivec2 engine_query_surface_dimensions();
+LD_API ivec2 engine_surface_query_dimensions();
 /// Send an exit event to the engine.
 headerfn void engine_exit() {
     Event event = {};

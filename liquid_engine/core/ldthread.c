@@ -25,7 +25,6 @@ typedef struct ThreadWorkQueue {
 
 global ThreadWorkQueue* WORK_QUEUE = NULL;
 global void* THREAD_HANDLE_BUFFER  = NULL;
-global usize THREAD_HANDLE_SIZE    = 0;
 global u32   THREAD_HANDLE_COUNT   = 0;
 
 LD_API void thread_work_queue_push( ThreadWorkProcFN* work_proc, void* params ) {
@@ -94,14 +93,11 @@ internal b32 thread_proc( void* params ) {
 
 usize thread_subsystem_query_size( u32 logical_processor_count ) {
     return sizeof(ThreadWorkQueue) +
-        (platform_thread_handle_size() * logical_processor_count);
+        (PLATFORM_THREAD_HANDLE_SIZE * logical_processor_count);
 }
 b32 thread_subsystem_init( u32 logical_processor_count, void* buffer ) {
-    usize thread_handle_size = platform_thread_handle_size();
-
     WORK_QUEUE           = buffer;
-    THREAD_HANDLE_BUFFER = (u8*)buffer + thread_handle_size;
-    THREAD_HANDLE_SIZE   = thread_handle_size;
+    THREAD_HANDLE_BUFFER = (u8*)buffer + PLATFORM_THREAD_HANDLE_SIZE;
 
     read_write_fence();
 
@@ -109,7 +105,7 @@ b32 thread_subsystem_init( u32 logical_processor_count, void* buffer ) {
     for( u32 i = 0; i < logical_processor_count; ++i ) {
         PlatformThread* thread_handle =
             (u8*)THREAD_HANDLE_BUFFER +
-            (THREAD_HANDLE_COUNT * THREAD_HANDLE_SIZE);
+            (THREAD_HANDLE_COUNT * PLATFORM_THREAD_HANDLE_SIZE);
         if( !platform_thread_create(
             thread_proc, (void*)((usize)THREAD_HANDLE_COUNT),
             STACK_SIZE, THREAD_CREATE_SUSPENDED,
@@ -135,7 +131,7 @@ b32 thread_subsystem_init( u32 logical_processor_count, void* buffer ) {
 
     for( u32 i = 0; i < THREAD_HANDLE_COUNT; ++i ) {
         PlatformThread* thread =
-            (u8*)THREAD_HANDLE_BUFFER + (i * THREAD_HANDLE_SIZE);
+            (u8*)THREAD_HANDLE_BUFFER + (i * PLATFORM_THREAD_HANDLE_SIZE);
         platform_thread_resume( thread );
     }
 
@@ -146,7 +142,7 @@ b32 thread_subsystem_init( u32 logical_processor_count, void* buffer ) {
 void thread_subsystem_shutdown() {
     for( u32 i = 0; i < THREAD_HANDLE_COUNT; ++i ) {
         PlatformThread* thread =
-            (u8*)THREAD_HANDLE_BUFFER + (i * THREAD_HANDLE_SIZE);
+            (u8*)THREAD_HANDLE_BUFFER + (i * PLATFORM_THREAD_HANDLE_SIZE);
         platform_thread_kill( thread );
     }
     semaphore_destroy( WORK_QUEUE->wake_semaphore );
