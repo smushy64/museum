@@ -27,7 +27,7 @@ there are a few areas where C++ features are used.
     - [Attributes](./defines.md#attributes)
     - [Macros](./defines.md#macros)
     - [Constants](./defines.md#constants)
-    - [Platform Identifiers](./defines.md#platform-identifiers)
+    - [Pre-processor Checks](./defines.md#pre-processor-checks)
 - String Operations
     - [String Formatting](./format.md)
         - [Functions](./format.md#functions)

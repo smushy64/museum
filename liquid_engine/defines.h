@@ -92,7 +92,6 @@
 #endif // simd
 
 #if defined(LD_ARCH_X86)
-
     typedef unsigned char       u8;
     typedef unsigned short     u16;
     typedef unsigned int       u32;
@@ -103,20 +102,8 @@
     typedef signed int       i32;
     typedef signed long long i64;
 
-    #if defined(LD_ARCH_64_BIT)
-        typedef u64 usize;
-        typedef i64 isize;
-    #else // if x86_64
-        typedef u32 usize;
-        typedef i32 isize;
-    #endif // if x86_32
-
 #else // other
     #include <stdint.h>
-    /// pointer-sized unsigned integer
-    typedef uintptr_t usize;
-    /// pointer-sized integer
-    typedef intptr_t  isize;
 
     /// 8-bit unsigned integer
     typedef uint8_t  u8;
@@ -138,8 +125,18 @@
 
 #endif // if other architecture
 
+#if defined(LD_ARCH_64_BIT)
+    typedef u64 usize;
+    typedef i64 isize;
+#else // if x86_64
+    typedef u32 usize;
+    typedef i32 isize;
+#endif // if x86_32
+
 /// 8-bit boolean
 typedef u8  b8;
+/// 16-bit boolean
+typedef u16 b16;
 /// 32-bit boolean
 typedef u32 b32;
 
@@ -155,29 +152,37 @@ typedef float f32;
 /// double precision IEEE-754 floating-point number
 typedef double f64;
 
-/// Tuple containing two single precision floats
-typedef union tuplef32 {
-    struct {
-        f32 f0;
-        f32 f1;
-    };
-    f32 f[2];
-} tuplef32;
-/// Tuple containing two double precision floats
-typedef union tuplef64 {
-    struct {
-        f64 f0;
-        f64 f1;
-    };
-    f64 f[2];
-} tuplef64;
-
 /// void* pointer alias, might come in handy at some point
 typedef void* pvoid;
+
+#define MAKE_TUPLE(type)\
+typedef union tuple_##type {\
+    struct { type v0, v1; };\
+    type v[2];\
+} tuple_##type
+
+MAKE_TUPLE(i8);
+MAKE_TUPLE(i16);
+MAKE_TUPLE(i32);
+MAKE_TUPLE(i64);
+
+MAKE_TUPLE(u8);
+MAKE_TUPLE(u16);
+MAKE_TUPLE(u32);
+MAKE_TUPLE(u64);
+
+MAKE_TUPLE(isize);
+MAKE_TUPLE(usize);
+
+MAKE_TUPLE(f32);
+MAKE_TUPLE(f64);
+
+MAKE_TUPLE(pvoid);
 
 #if !defined( __cplusplus )
     #define true  1
     #define false 0
+    #define nullptr ((void*)0)
 #endif
 
 #if !defined(NULL)
@@ -243,20 +248,29 @@ typedef void* pvoid;
     #define ASSERT(condition) unused((condition))
 #endif
 
-/// Always optimize regardless of optimization level
+/// Always optimize regardless of optimization level.
 #define hot __attribute__((hot))
-/// Always inline function
+/// Always inline function.
 #define always_inline __attribute__((always_inline)) inline
-/// Never inline function
+/// Never inline function.
 #define no_inline __attribute__((noinline))
-/// Don't introduce padding to struct
+/// Don't introduce padding to struct.
 #define packed __attribute__((__packed__))
-/// Function is internal to translation unit
+/// Function is internal to translation unit.
 #define internal static
-/// Value is local to function
+/// Value is local to function.
 #define local static
-/// Value is global
+/// Value is global.
 #define global static
+/// Mark function/struct as deprecated.
+#define deprecated __attribute__((deprecated))
+/// Mark union as transparent.
+#define transparent __attribute__((__transparent_union__))
+/// Mark function/type as possibly unused.
+#define maybe_unused __attribute__((unused))
+/// Mark value with alignment.
+/// Alignment must be a power of two.
+#define aligned(alignment) __attribute__((aligned (alignment)))
 
 #if defined(LD_COMPILER_GCC)
     /// Do not optimize regardless of optimization level
@@ -291,16 +305,16 @@ typedef void* pvoid;
     b = intermediate;\
 } while(0)
 
-/// Check if bits match given mask
+/// Check if bits in mask are set in bits.
 #define CHECK_BITS( bits, mask ) ( ( (bits) & (mask) ) == (mask) )
+/// Check if ONLY bits in mask are set in bits.
+#define CHECK_BITS_EXACT( bits, mask ) ( ( (bits) & (mask) ) == (bits) )
 /// Toggle masked bits
-#define TOGGLE_BITS( bits, toggle_mask ) do {\
-    bits ^= (toggle_mask);\
-} while(0)
+#define TOGGLE_BITS( bits, toggle_mask )\
+    ((bits) ^ (toggle_mask))
 /// Clear masked bits
-#define CLEAR_BIT( bits, mask ) do {\
-    bits &= ~(mask);\
-} while(0)
+#define CLEAR_BIT( bits, clear_mask )\
+    ((bits) & ~(clear_mask))
 
 /// Kilobytes to bytes
 #define KILOBYTES(num) ( (num) * 1024ULL )
@@ -310,7 +324,7 @@ typedef void* pvoid;
 #define GIGABYTES(num) ( MEGABYTES( (num) ) * 1024ULL )
 
 /// Size of the stack. Must always compile with this value.
-#define STACK_SIZE (MEGABYTES(1))
+#define STACK_SIZE ((usize)(MEGABYTES(1)))
 
 #if defined(LD_EXPORT)
     #if defined(LD_PLATFORM_WINDOWS)

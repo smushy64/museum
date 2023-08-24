@@ -473,25 +473,25 @@ header_only f64 acos64( f64 x ) {
 }
 
 // sin-cos function
-header_only tuplef32 sincos32( f32 x ) {
-    tuplef32 result = { sin32(x), cos32(x) };
+header_only tuple_f32 sincos32( f32 x ) {
+    tuple_f32 result = { sin32(x), cos32(x) };
     return result;
 }
 // sin-cos function
-header_only tuplef64 sincos64( f64 x ) {
-    tuplef64 result = { sin64(x), cos64(x) };
+header_only tuple_f64 sincos64( f64 x ) {
+    tuple_f64 result = { sin64(x), cos64(x) };
     return result;
 }
 
 /// tangent function
 header_only f32 tan32( f32 x ) {
-    tuplef32 sc = sincos32( x );
-    return is_zero32(sc.f1) ? F32_NAN : sc.f0 / sc.f1;
+    tuple_f32 sc = sincos32( x );
+    return is_zero32(sc.v1) ? F32_NAN : sc.v0 / sc.v1;
 }
 /// tangent function
 header_only f64 tan64( f64 x ) {
-    tuplef64 sc = sincos64( x );
-    return is_zero64(sc.f1) ? F64_NAN : sc.f0 / sc.f1;
+    tuple_f64 sc = sincos64( x );
+    return is_zero64(sc.v1) ? F64_NAN : sc.v0 / sc.v1;
 }
 /// arc-tangent function
 header_only f32 atan32( f32 x ) {

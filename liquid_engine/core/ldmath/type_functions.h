@@ -910,12 +910,12 @@ header_only quat q_div( quat lhs, f32 rhs ) {
 /// Create quaternion from angle and axis.
 header_only quat q_angle_axis( f32 theta, vec3 axis ) {
     f32 half_theta   = theta / 2.0f;
-    tuplef32 sinecos = sincos32( half_theta );
+    tuple_f32 sinecos = sincos32( half_theta );
     return (quat){
-        sinecos.f1,
-        axis.x * sinecos.f0,
-        axis.y * sinecos.f0,
-        axis.z * sinecos.f0,
+        sinecos.v1,
+        axis.x * sinecos.v0,
+        axis.y * sinecos.v0,
+        axis.z * sinecos.v0,
     };
 }
 /// Create quaternion from euler angles.
@@ -1026,6 +1026,18 @@ header_only quat q_slerp( quat a, quat b, f32 t ) {
 /// compare quaternions for equality
 header_only b32 q_cmp_eq( quat a, quat b ) {
     return q_sqrmag( q_sub( a, b ) ) < F32_EPSILON;
+}
+/// calculate a forward basis vector.
+header_only vec3 v3_forward_basis( quat rotation ) {
+    return q_mul_v3( rotation, VEC3_FORWARD );
+}
+/// calculate a right basis vector.
+header_only vec3 v3_right_basis( quat rotation ) {
+    return q_mul_v3( rotation, VEC3_RIGHT );
+}
+/// calculate an up basis vector.
+header_only vec3 v3_up_basis( quat rotation ) {
+    return q_mul_v3( rotation, VEC3_UP );
 }
 
 /// Add two matrices
@@ -1494,12 +1506,12 @@ header_only mat4 m4_translate_v2( vec2 translation ) {
 }
 /// create rotation matrix around x axis
 header_only mat4 m4_rotate_pitch( f32 pitch ) {
-    tuplef32 sin_cos = sincos32( pitch );
+    tuple_f32 sin_cos = sincos32( pitch );
 
     return (mat4){
         1.0f,        0.0f,       0.0f, 0.0f,
-        0.0f,  sin_cos.f1, sin_cos.f0, 0.0f,
-        0.0f, -sin_cos.f0, sin_cos.f1, 0.0f,
+        0.0f,  sin_cos.v1, sin_cos.v0, 0.0f,
+        0.0f, -sin_cos.v0, sin_cos.v1, 0.0f,
         0.0f,        0.0f,       0.0f, 1.0f
     };
 }
@@ -1920,20 +1932,170 @@ header_only mat3 m4_normal_matrix_unchecked( const mat4* m ) {
     return m4_to_m3( &inv_transpose );
 }
 
-header_only b32 rect2d_overlap_rect2d( Rect2D a, Rect2D b ) {
-    return
-        (
-            a.left   < b.right &&
-            a.right  > b.left
-        ) && (
-            a.bottom < b.top   &&
-            a.top    > b.bottom
-        );
-}
+/// Create a default transform.
+header_only Transform transform_zero() {
+    Transform result;
+    result.position = VEC3_ZERO;
+    result.rotation = QUAT_IDENTITY;
+    result.scale    = VEC3_ONE;
 
-header_only b32 circle2d_overlap_circle2d( Circle2D a, Circle2D b ) {
-    f32 dist = v2_mag( v2_sub( a.position, b.position ) );
-    return dist < ( a.radius + b.radius );
+    result.matrix       = MAT4_IDENTITY;
+    result.matrix_dirty = false;
+    result.parent       = NULL;
+
+    return result;
+}
+/// Create a transform with postion, rotation and scale.
+header_only Transform transform_create( vec3 position, quat rotation, vec3 scale ) {
+    Transform result;
+    result.position = position;
+    result.rotation = rotation;
+    result.scale    = scale;
+    
+    result.matrix = m4_transform( position, rotation, scale );
+    result.matrix_dirty = false;
+
+    result.parent = NULL;
+
+    return result;
+}
+/// Create a transform with position.
+header_only Transform transform_with_position( vec3 position ) {
+    return transform_create( position, QUAT_IDENTITY, VEC3_ONE );
+}
+/// Create a transform with rotation.
+header_only Transform transform_with_rotation( quat rotation ) {
+    return transform_create( VEC3_ZERO, rotation, VEC3_ONE );
+}
+/// Create a transform with scale.
+header_only Transform transform_with_scale( vec3 scale ) {
+    return transform_create( VEC3_ZERO, QUAT_IDENTITY, scale );
+}
+/// Set a transform's position.
+header_only void transform_set_position( Transform* t, vec3 position ) {
+    t->position     = position;
+    t->matrix_dirty = true;
+    t->camera_dirty = true;
+}
+/// Translate a transform.
+header_only void transform_translate( Transform* t, vec3 translation ) {
+    transform_set_position( t, v3_add( t->position, translation ) );
+}
+/// Set a transform's rotation.
+header_only void transform_set_rotation( Transform* t, quat rotation ) {
+    t->rotation     = rotation;
+    t->matrix_dirty = true;
+    t->camera_dirty = true;
+}
+/// Rotate a transform.
+header_only void transform_rotate( Transform* t, quat rotation ) {
+    transform_set_rotation( t, q_mul_q( t->rotation, rotation ) );
+}
+/// Set a transform's scale.
+header_only void transform_set_scale( Transform* t, vec3 scale ) {
+    t->scale        = scale;
+    t->matrix_dirty = true;
+    t->camera_dirty = true;
+}
+/// Scale a transform.
+header_only void transform_scale( Transform* t, vec3 scale ) {
+    transform_set_scale( t, v3_hadamard( t->scale, scale ) );
+}
+/// Get a transform's local matrix.
+header_only mat4* transform_local_matrix( Transform* t ) {
+    if( t->matrix_dirty ) {
+        t->matrix_dirty = false;
+        t->matrix = m4_transform( t->position, t->rotation, t->scale );
+    }
+    return &t->matrix;
+}
+/// Get a transform's world matrix.
+/// This value should be cached for performance.
+header_only mat4 transform_world_matrix( Transform* t ) {
+    mat4* local_matrix = transform_local_matrix( t );
+    if( t->parent ) {
+        mat4 parent_matrix = transform_world_matrix( t->parent );
+        return m4_mul_m4( local_matrix, &parent_matrix );
+    }
+    return *local_matrix;
+}
+/// Get transform local position.
+header_only vec3 transform_local_position( Transform* t ) {
+    return t->position;
+}
+/// Get transform local rotation.
+header_only quat transform_local_rotation( Transform* t ) {
+    return t->rotation;
+}
+/// Get transform local scale.
+header_only vec3 transform_local_scale( Transform* t ) {
+    return t->scale;
+}
+/// Get transform world position.
+/// This value should be cached for performance.
+header_only vec3 transform_world_position( Transform* t ) {
+    vec3 local_position = transform_local_position( t );
+    if( t->parent ) {
+        vec3 parent_position = transform_world_position( t->parent );
+        return v3_add( local_position, parent_position );
+    }
+    return local_position;
+}
+/// Get transform world rotation.
+/// This value should be cached for performance.
+header_only quat transform_world_rotation( Transform* t ) {
+    quat local_rotation = transform_local_rotation( t );
+    if( t->parent ) {
+        quat parent_rotation = transform_world_rotation( t->parent );
+        return q_mul_q( local_rotation, parent_rotation );
+    }
+    return local_rotation;
+}
+/// Get transform world scale.
+/// This value should be cached for performance.
+header_only vec3 transform_world_scale( Transform* t ) {
+    vec3 local_scale = transform_local_scale( t );
+    if( t->parent ) {
+        vec3 parent_scale = transform_world_scale( t->parent );
+        return v3_hadamard( local_scale, parent_scale );
+    }
+    return local_scale;
+}
+/// Calculate local forward basis.
+header_only vec3 transform_local_forward_basis( Transform* t ) {
+    return q_mul_v3( t->rotation, VEC3_FORWARD );
+}
+/// Calculate local right basis.
+header_only vec3 transform_local_right_basis( Transform* t ) {
+    return q_mul_v3( t->rotation, VEC3_RIGHT );
+}
+/// Calculate local up basis.
+header_only vec3 transform_local_up_basis( Transform* t ) {
+    return q_mul_v3( t->rotation, VEC3_UP );
+}
+/// Calculate world forward basis.
+/// This value should be cached for performance.
+header_only vec3 transform_world_forward_basis( Transform* t ) {
+    return q_mul_v3(
+        transform_world_rotation( t ),
+        transform_local_forward_basis( t )
+    );
+}
+/// Calculate world right basis.
+/// This value should be cached for performance.
+header_only vec3 transform_world_right_basis( Transform* t ) {
+    return q_mul_v3(
+        transform_world_rotation( t ),
+        transform_local_right_basis( t )
+    );
+}
+/// Calculate world up basis.
+/// This value should be cached for performance.
+header_only vec3 transform_world_up_basis( Transform* t ) {
+    return q_mul_v3(
+        transform_world_rotation( t ),
+        transform_local_up_basis( t )
+    );
 }
 
 #if defined(__cplusplus)

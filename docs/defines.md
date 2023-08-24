@@ -22,77 +22,91 @@ Include in engine:
 - [Attributes](#attributes)
 - [Macros](#macros)
 - [Constants](#constants)
-- [Platform Identifiers](#platform-identifiers)
+- [Pre-processor Checks](#pre-processor-checks)
 
 ## Type Aliases 
-| Type  | Description                              |
-| ----- | ---------------------------------------- |
-| usize | unsigned pointer-sized integer           |
-| isize |          pointer-sized integer           |
-| u8    | unsigned  8-bit        integer           |
-| u16   | unsigned 16-bit        integer           |
-| u32   | unsigned 32-bit        integer           |
-| u64   | unsigned 64-bit        integer           |
-| i8    |           8-bit        integer           |
-| i16   |          16-bit        integer           |
-| i32   |          32-bit        integer           |
-| i64   |          64-bit        integer           |
-| f32   | single-precision IEEE-754 floating point |
-| f64   | double-precision IEEE-754 floating point |
-| b8    |  8-bit boolean                           |
-| b32   | 32-bit boolean                           |
-| c8    | UTF-8 character                          |
-| c16   | UTF-16/Windows Unicode character         |
-| c32   | UTF-32 character                         |
-| pvoid | void pointer                             |
+
+| Type     | Description                              |
+| -------- | ---------------------------------------- |
+| usize    | unsigned pointer-sized integer           |
+| isize    |          pointer-sized integer           |
+| u8       | unsigned  8-bit        integer           |
+| u16      | unsigned 16-bit        integer           |
+| u32      | unsigned 32-bit        integer           |
+| u64      | unsigned 64-bit        integer           |
+| i8       |           8-bit        integer           |
+| i16      |          16-bit        integer           |
+| i32      |          32-bit        integer           |
+| i64      |          64-bit        integer           |
+| f32      | single-precision IEEE-754 floating point |
+| f64      | double-precision IEEE-754 floating point |
+| b8       |  8-bit boolean                           |
+| b16      | 16-bit boolean                           |
+| b32      | 32-bit boolean                           |
+| c8       | UTF-8 character                          |
+| c16      | UTF-16/Windows Unicode character         |
+| c32      | UTF-32 character                         |
+| pvoid    | void pointer                             |
+| tuple_## | tuple structs of the types defined above |
 
 ## Attributes
+
 | Attribute       | Description                                              |
 | --------------- | -------------------------------------------------------- |
 | internal        | static - function is internal to translation unit        |
 | local           | static - for local static variables                      |
 | global          | static - for global static variables                     |
-| no_optimize     | do not optimize following function                       |
 | hot             | always optimize following function                       |
-| always_inline   | always inline following function                         |
+| no_optimize     | never optimize following function                        |
 | packed          | struct is packed (no C padding)                          |
+| always_inline   | always inline following function                         |
 | no_inline       | never inline following function                          |
 | header_only     | mark header function (extern inline in C, inline in C++) |
 | extern_c        | mark function as extern "C" (C++ only)                   |
+| deprecated      | mark function/struct as deprecated                       |
+| transparent     | mark union as transparent                                |
+| maybe_unused    | mark function/type as possibly unused                    |
+| aligned(x)      | mark value to have x alignment, must be power of two     |
 | LD_API          | export/import function                                   |
 
 ## Macros
-| Macro                               | Description                        |
-| ----------------------------------- | ---------------------------------- |
-| unused( x )                         | mark value as unused               |
-| loop                                | for( ; ; ) infinite loop           |
-| LD_MAKE_VERSION( major, minor )     | make version u32 identifier        |
-| LD_GET_MAJOR( version )             | major version from u32 identifier  |
-| LD_GET_MINOR( version )             | minor version from u32 identifier  |
-| PANIC()                             | crash program                      |
-| STATIC_ASSERT( condition, message ) | compile time assertion             |
-| ASSERT( condition )                 | runtime assertion                  |
-| CHECK_BITS( bits, mask )            | check if bits are set in bitfield  |
-| TOGGLE_BITS( bits, mask )           | toggle bits in bitfield            |
-| CLEAR_BIT( bits, mask )             | clear bits in bitfield             |
-| SWAP( a, b )                        | swap values                        |
-| KILOBYTES( num )                    | num * 1024                         |
-| MEGABYTES( num )                    | KILOBYTES( num ) * 1024            |
-| GIGABYTES( num )                    | MEGABYTES( num ) * 1024            |
-| TO_STRING( macro )                  | macro to string                    |
-| VALUE_TO_STRING( macro )            | macro value to string              |
-| RGB_U32( r, g, b )                  | define a 24-bit RGB value (u32)    |
-| RGBA_U32( r, g, b, a )              | define a 32-bit RGBA value         |
-| STATIC_ARRAY_COUNT( array )         | number of elements in static array |
-| STATIC_ARRAY_SIZE( array )          | byte size of static array          |
-| LD_API_INTERNAL                     | only defined in internal source    |
-| REINTERPRET( type, value )          | reinterpret cast                   |
+
+| Macro                                        | Description                                     |
+| -------------------------------------------- | ----------------------------------------------- |
+| unused( x ) -> void                          | mark value as unused                            |
+| MAKE_TUPLE(type) -> void                     | make a tuple struct of "type"                   |
+| loop                                         | for( ; ; ) infinite loop                        |
+| LD_MAKE_VERSION( major, minor ) -> u32       | make version u32 identifier                     |
+| LD_GET_MAJOR( version ) -> u32               | major version from u32 identifier               |
+| LD_GET_MINOR( version ) -> u32               | minor version from u32 identifier               |
+| PANIC() -> void                              | crash program                                   |
+| STATIC_ASSERT( condition, message ) -> void  | compile time assertion                          |
+| ASSERT( condition ) -> void                  | runtime assertion                               |
+| CHECK_BITS( bits, mask ) -> bool             | check if bits in mask are set in bitfield       |
+| CHECK_BITS_EXACT( bits, mask ) -> bool       | check if ONLY bits in mask are set in bitfield  |
+| TOGGLE_BITS( bits, mask ) -> typeof(bits)    | toggle bits in bitfield                         |
+| CLEAR_BIT( bits, mask ) -> typeof(bits)      | clear bits in bitfield                          |
+| SWAP( a, b ) -> void                         | swap values                                     |
+| KILOBYTES( num ) -> u64                      | num * 1024ULL                                   |
+| MEGABYTES( num ) -> u64                      | KILOBYTES( num ) * 1024ULL                      |
+| GIGABYTES( num ) -> u64                      | MEGABYTES( num ) * 1024ULL                      |
+| TO_STRING( macro ) -> const char*            | macro to string                                 |
+| VALUE_TO_STRING( macro ) -> const char*      | macro value to string                           |
+| RGB_U32( r, g, b ) -> u32                    | define a 24-bit RGB value (u32)                 |
+| RGBA_U32( r, g, b, a ) -> u32                | define a 32-bit RGBA value                      |
+| STATIC_ARRAY_COUNT( array ) -> usize         | number of elements in static array              |
+| STATIC_ARRAY_SIZE( array ) -> usize          | byte size of static array                       |
+| REINTERPRET( type, value ) -> typeof(type)   | reinterpret cast                                |
 
 ## Constants
-| Misc Constant | Description                |
-| ------------- | -------------------------- |
-| true/false    | boolean constants (C only) |
-| NULL          | null constant (C only)     |
+
+| Misc Constant      | Type        | Description                                        |
+| ------------------ | ----------- | -------------------------------------------------- |
+| true/false         | bool        | boolean constants (C only)                         |
+| nullptr            | void*       | null constant (C only)                             |
+| NULL               | int         | null constant                                      |
+| STACK_SIZE         | usize       | size of the stack and stack size of worker threads |
+| LD_CONTACT_MESSAGE | const char* | contact message to display in user-facing errors   |
 
 | Float 32 Constant           | Description                                    |
 | --------------------------- | ---------------------------------------------- |
@@ -185,7 +199,12 @@ Include in engine:
 | USIZE_MIN                         | smallest unsigned pointer integer |
 | USIZE_MAX                         | largest  unsigned pointer integer |
 
-## Platform Identifiers
+## Pre-processor Checks
+
+| Misc            | Description                     |
+| --------------- | ------------------------------- |
+| LD_API_INTERNAL | only defined in internal source |
+
 | Compiler                | Description                               |
 | ----------------------- | ----------------------------------------- |
 | LD_COMPILER_GCC         | GNU Compiler Collection is in use         |

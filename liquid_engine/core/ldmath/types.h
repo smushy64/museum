@@ -456,32 +456,21 @@ header_only mat4 m4_zero(void) {
     return result;
 }
 
-typedef struct {
-    vec2 position;
-    f32  radius;
-} Circle2D;
+/// Transform.
+/// It is undefined behaviour to
+/// directly modify any of the transform's components.
+typedef struct Transform {
+    vec3 position;
+    quat rotation;
+    vec3 scale;
+    struct {
+        b16 matrix_dirty;
+        b16 camera_dirty;
+    };
 
-typedef struct {
-    f32 left, right;
-    f32 top,  bottom;
-} Rect2D;
-
-header_only vec2 rect2d_top_left( const Rect2D* rect ) {
-    vec2 result = { rect->left, rect->top };
-    return result;
-}
-header_only vec2 rect2d_top_right( const Rect2D* rect ) {
-    vec2 result = { rect->right, rect->top };
-    return result;
-}
-header_only vec2 rect2d_bottom_left( const Rect2D* rect ) {
-    vec2 result = { rect->left, rect->bottom };
-    return result;
-}
-header_only vec2 rect2d_bottom_right( const Rect2D* rect ) {
-    vec2 result = { rect->right, rect->bottom };
-    return result;
-}
+    mat4 matrix;
+    struct Transform* parent;
+} Transform;
 
 #if defined(LD_COMPILER_CLANG) && !defined(_CLANGD)
     #pragma clang diagnostic pop
