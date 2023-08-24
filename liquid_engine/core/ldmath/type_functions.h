@@ -1176,6 +1176,15 @@ header_only f32 m3_determinant( const mat3* m ) {
      ( m->c[6] * ( ( m->c[1] * m->c[5] ) - ( m->c[4] * m->c[2] ) ) );
 }
 
+/// Transpose matrix.
+header_only mat4 m4_transpose( const mat4* m ) {
+    return (mat4){
+        m->c[0], m->c[4], m->c[ 8], m->c[12],
+        m->c[1], m->c[5], m->c[ 9], m->c[13],
+        m->c[2], m->c[6], m->c[10], m->c[14],
+        m->c[3], m->c[7], m->c[11], m->c[15]
+    };
+}
 /// Add two matrices
 header_only mat4 m4_add( const mat4* lhs, const mat4* rhs ) {
     Lane4f lhs0, lhs1, lhs2, lhs3;
@@ -1374,53 +1383,54 @@ header_only mat4 m4_mul_m4( const mat4* lhs, const mat4* rhs ) {
 
     return result;
 }
-/// Multiply matrix and vector
-header_only vec3 m4_mul_v3( const mat4* lhs, vec3 rhs ) {
-    // TODO(alicia): SIMD?
-    vec3 result = {
-        ( lhs->c[0] * rhs.c[0] )     +
-            ( lhs->c[4] * rhs.c[1] ) +
-            ( lhs->c[8] * rhs.c[2] ) +
-            lhs->c[12],
-        ( lhs->c[1] * rhs.c[0] )     +
-            ( lhs->c[5] * rhs.c[1] ) +
-            ( lhs->c[9] * rhs.c[2] ) +
-            lhs->c[13],
-        ( lhs->c[2] * rhs.c[0] )      +
-            ( lhs->c[6]  * rhs.c[1] ) +
-            ( lhs->c[10] * rhs.c[2] ) +
-            lhs->c[14],
-    };
+/// Multiply matrix with vector.
+header_only vec4 m4_mul_v4( const mat4* lhs, vec4 rhs ) {
+    mat4 transpose = m4_transpose( lhs );
+
+    vec4 result;
+    Lane4f rhs_  = lane4f_load( rhs.c );
+    Lane4f lhs_0 = lane4f_load( transpose.col0.c );
+    Lane4f lhs_1 = lane4f_load( transpose.col1.c );
+    Lane4f lhs_2 = lane4f_load( transpose.col2.c );
+    Lane4f lhs_3 = lane4f_load( transpose.col3.c );
+
+    Lane4f mul_res_0 = lane4f_mul( lhs_0, rhs_ );
+    Lane4f mul_res_1 = lane4f_mul( lhs_1, rhs_ );
+    Lane4f mul_res_2 = lane4f_mul( lhs_2, rhs_ );
+    Lane4f mul_res_3 = lane4f_mul( lhs_3, rhs_ );
+
+    result.x =
+        lane4f_index( mul_res_0, 0 ) + 
+        lane4f_index( mul_res_0, 1 ) + 
+        lane4f_index( mul_res_0, 2 ) + 
+        lane4f_index( mul_res_0, 3 );
+    result.y =
+        lane4f_index( mul_res_1, 0 ) + 
+        lane4f_index( mul_res_1, 1 ) + 
+        lane4f_index( mul_res_1, 2 ) + 
+        lane4f_index( mul_res_1, 3 );
+    result.z =
+        lane4f_index( mul_res_2, 0 ) + 
+        lane4f_index( mul_res_2, 1 ) + 
+        lane4f_index( mul_res_2, 2 ) + 
+        lane4f_index( mul_res_2, 3 );
+    result.w =
+        lane4f_index( mul_res_3, 0 ) + 
+        lane4f_index( mul_res_3, 1 ) + 
+        lane4f_index( mul_res_3, 2 ) + 
+        lane4f_index( mul_res_3, 3 );
     return result;
 }
-header_only vec4 m4_mul_v4( const mat4* lhs, vec4 rhs ) {
-    // TODO(alicia): SIMD?
-    vec4 result = {
-        ( lhs->c[0] * rhs.c[0] )      +
-            ( lhs->c[4]  * rhs.c[1] ) +
-            ( lhs->c[8]  * rhs.c[2] ) +
-            ( lhs->c[12] * rhs.c[3] ),
-        ( lhs->c[1] * rhs.c[0] )      +
-            ( lhs->c[5]  * rhs.c[1] ) +
-            ( lhs->c[9]  * rhs.c[2] ) +
-            ( lhs->c[13] * rhs.c[3] ),
-        ( lhs->c[2] * rhs.c[0] )      +
-            ( lhs->c[6]  * rhs.c[1] ) +
-            ( lhs->c[10] * rhs.c[2] ) +
-            ( lhs->c[14] * rhs.c[3] ),
-        ( lhs->c[3] * rhs.c[0] )      +
-            ( lhs->c[7]  * rhs.c[1] ) +
-            ( lhs->c[11] * rhs.c[2] ) +
-            ( lhs->c[15] * rhs.c[3] ),
-    };
-    return result;
+/// Multiply matrix with vector.
+header_only vec3 m4_mul_v3( const mat4* lhs, vec3 rhs ) {
+    vec4 rhs_v4;
+    rhs_v4.xyz = rhs;
+    rhs_v4.w   = 1.0f;
+    vec4 result = m4_mul_v4( lhs, rhs_v4 );
+    return result.xyz;
 }
 /// create new look at matrix
-header_only mat4 m4_lookat(
-    vec3 position,
-    vec3 target,
-    vec3 up
-) {
+header_only mat4 m4_lookat( vec3 position, vec3 target, vec3 up ) {
     vec3 z = v3_normalize( v3_sub( target, position ) );
     vec3 x = v3_cross( z, up );
     vec3 y = v3_cross( x, z );
@@ -1506,37 +1516,35 @@ header_only mat4 m4_translate_v2( vec2 translation ) {
 }
 /// create rotation matrix around x axis
 header_only mat4 m4_rotate_pitch( f32 pitch ) {
-    tuple_f32 sin_cos = sincos32( pitch );
+    tuple_f32 sincos = sincos32( pitch );
 
     return (mat4){
-        1.0f,        0.0f,       0.0f, 0.0f,
-        0.0f,  sin_cos.v1, sin_cos.v0, 0.0f,
-        0.0f, -sin_cos.v0, sin_cos.v1, 0.0f,
-        0.0f,        0.0f,       0.0f, 1.0f
+        1.0f,       0.0f,      0.0f, 0.0f,
+        0.0f,  sincos.v1, sincos.v0, 0.0f,
+        0.0f, -sincos.v0, sincos.v1, 0.0f,
+        0.0f,       0.0f,      0.0f, 1.0f
     };
 }
 /// create rotation matrix around y axis
 header_only mat4 m4_rotate_yaw( f32 yaw ) {
-    f32 cosine = cos32( yaw );
-    f32 sine   = sin32( yaw );
+    tuple_f32 sincos = sincos32( yaw );
 
     return (mat4){
-        cosine, 0.0f,  -sine, 0.0f,
-          0.0f, 1.0f,   0.0f, 0.0f,
-          sine, 0.0f, cosine, 0.0f,
-          0.0f, 0.0f,   0.0f, 1.0f
+        sincos.v1, 0.0f, -sincos.v0, 0.0f,
+             0.0f, 1.0f,       0.0f, 0.0f,
+        sincos.v0, 0.0f,  sincos.v1, 0.0f,
+             0.0f, 0.0f,       0.0f, 1.0f
     };
 }
 /// create rotation matrix around z axis
 header_only mat4 m4_rotate_roll( f32 roll ) {
-    f32 cosine = cos32( roll );
-    f32 sine   = sin32( roll );
+    tuple_f32 sincos = sincos32( roll );
 
     return (mat4){
-        cosine,   sine, 0.0f, 0.0f,
-         -sine, cosine, 0.0f, 0.0f,
-          0.0f,   0.0f, 1.0f, 0.0f,
-          0.0f,   0.0f, 0.0f, 1.0f
+         sincos.v1, sincos.v0, 0.0f, 0.0f,
+        -sincos.v0, sincos.v1, 0.0f, 0.0f,
+              0.0f,      0.0f, 1.0f, 0.0f,
+              0.0f,      0.0f, 0.0f, 1.0f
     };
 }
 /// create rotation matrix from euler angles (radians)
@@ -1551,6 +1559,11 @@ header_only mat4 m4_rotate_euler( euler_angles r ) {
 header_only mat4 m4_rotate_q( quat q ) {
     // TODO(alicia): SIMD
     mat4 result = MAT4_IDENTITY;
+
+    // Lane4f       q_ = lane4f_load( q.q );
+    // const Lane4f _2 = lane4f_set1( 2.0f );
+    //
+    // Lane4f q_2 = lane4f_mul( q_, _2 );
 
     f32 _2x2 = 2.0f * (q.x * q.x);
     f32 _2y2 = 2.0f * (q.y * q.y);
@@ -1641,15 +1654,6 @@ header_only mat4 m4_transform_2d(
     mat4 scale_m4       = m4_scale_v2( scale );
     mat4 r_mul_s = m4_mul_m4( &rotation_m4, &scale_m4 );
     return m4_mul_m4( &translation_m4, &r_mul_s );
-}
-/// transpose matrix
-header_only mat4 m4_transpose( const mat4* m ) {
-    return (mat4){
-        m->c[0], m->c[4], m->c[ 8], m->c[12],
-        m->c[1], m->c[5], m->c[ 9], m->c[13],
-        m->c[2], m->c[6], m->c[10], m->c[14],
-        m->c[3], m->c[7], m->c[11], m->c[15]
-    };
 }
 /// get submatrix at given coordinates
 header_only mat3 m4_submatrix( const mat4* m, u32 row, u32 col ) {

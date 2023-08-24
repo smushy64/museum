@@ -63,7 +63,7 @@ Include in engine:
 | no_inline       | never inline following function                          |
 | header_only     | mark header function (extern inline in C, inline in C++) |
 | extern_c        | mark function as extern "C" (C++ only)                   |
-| deprecated      | mark function/struct as deprecated                       |
+| is_deprecated   | mark function/struct as deprecated                       |
 | transparent     | mark union as transparent                                |
 | maybe_unused    | mark function/type as possibly unused                    |
 | aligned(x)      | mark value to have x alignment, must be power of two     |

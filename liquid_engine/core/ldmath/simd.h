@@ -84,7 +84,7 @@ typedef __m128i Lane4i;
 #define lane4f_load( f ) _mm_loadu_ps( f )
 #define lane4f_store( f, l ) _mm_storeu_ps( f, l )
 
-#define lane4f_index( a, i ) (((f32*)&a)[i])
+#define lane4f_index( a, i ) (*((f32*)(&(a)) + i))
 #define lane4f_add( a, b ) _mm_add_ps( a, b )
 #define lane4f_sub( a, b ) _mm_sub_ps( a, b )
 #define lane4f_mul( a, b ) _mm_mul_ps( a, b )

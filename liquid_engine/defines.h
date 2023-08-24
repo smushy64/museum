@@ -263,7 +263,7 @@ MAKE_TUPLE(pvoid);
 /// Value is global.
 #define global static
 /// Mark function/struct as deprecated.
-#define deprecated __attribute__((deprecated))
+#define is_deprecated __attribute__((deprecated))
 /// Mark union as transparent.
 #define transparent __attribute__((__transparent_union__))
 /// Mark function/type as possibly unused.
