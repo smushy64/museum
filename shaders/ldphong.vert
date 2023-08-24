@@ -16,7 +16,8 @@ out layout( location = 0 ) struct Vert2Frag {
 } v2f;
 
 void main() {
-    gl_Position = VIEW_PROJECTION * u_transform * vec4(v_position, 0.0, 1.0);
-    v2f.uv      = v_uv;
+    gl_Position =
+        VIEW_PROJECTION_3D * u_transform * vec4(v_position, 0.0, 1.0);
+    v2f.uv = v_uv;
 }
 

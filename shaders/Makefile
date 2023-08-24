@@ -34,5 +34,5 @@ $(TARGET)/%.frag.spv:%.frag
 	@mkdir -p $(dir $@)
 	@$(SLC) -c $< -o $@ $(sl_flags) -DGLSL_FRAGMENT=1
 
-.PHONY: all spit 
+.PHONY: all spit clean
 

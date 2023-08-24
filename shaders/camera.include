@@ -1,0 +1,12 @@
+// * Description:  Matrix shader includes
+// * Author:       Alicia Amarilla (smushyaa@gmail.com)
+// * File Created: June 20, 2023
+layout(std140, binding = 0) uniform camera {
+    mat4  VIEW_PROJECTION_3D;
+    mat4  VIEW_PROJECTION_UI;
+    vec3  CAMERA_WORLD_POSITION;
+    /// padding: 1
+    float CAMERA_NEAR;
+    float CAMERA_FAR;
+};
+
