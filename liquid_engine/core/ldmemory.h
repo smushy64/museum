@@ -13,6 +13,21 @@
 // TODO(alicia): check to see if this needs to be changed for other platforms
 #define MEMORY_PAGE_SIZE (KILOBYTES(4))
 
+/// Fat pointer.
+/// Contains pointer to a buffer and
+/// its size.
+typedef struct FatPointer {
+    void* ptr;
+    usize size;
+} FatPointer;
+/// Create a fat pointer.
+header_only FatPointer fat_pointer( void* ptr, usize size ) {
+    FatPointer result;
+    result.ptr  = ptr;
+    result.size = size;
+    return result;
+}
+
 /// Types of memory allocations
 typedef enum MemoryType : u8 {
     MEMORY_TYPE_UNKNOWN,
@@ -31,7 +46,7 @@ header_only const char* memory_type_to_string( MemoryType type ) {
         "Engine Memory",
         "Dynamic List Memory",
         "Renderer Memory",
-        "String Memory",
+        "Dynamic String Memory",
         "User Memory"
     };
     if( type >= MEMORY_TYPE_COUNT ) {
@@ -186,5 +201,7 @@ LD_API void mem_copy_overlapped( void* dst, const void* src, usize size );
 LD_API void* mem_set( void* dst, int value, usize n );
 /// Zero out memory.
 LD_API void mem_zero( void* ptr, usize size );
+/// Compare two blocks of memory. a and b must be <= max_size.
+LD_API b32 mem_cmp( void* a, void* b, usize max_size );
 
 #endif // header guard

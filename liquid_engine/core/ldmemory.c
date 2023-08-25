@@ -305,9 +305,8 @@ LD_API void mem_copy( void* dst, const void* src, usize size ) {
         *(dst_remainder + i) = *(src_remainder + i);
     }
 }
-
 LD_API void mem_copy_overlapped( void* dst, const void* src, usize size ) {
-    #define INTERMEDIATE_BUFFER_SIZE 256ULL
+    #define INTERMEDIATE_BUFFER_SIZE (256ULL)
     void* intermediate_buffer = stack_alloc( INTERMEDIATE_BUFFER_SIZE );
 
     if( size <= INTERMEDIATE_BUFFER_SIZE ) {
@@ -338,9 +337,7 @@ LD_API void mem_copy_overlapped( void* dst, const void* src, usize size ) {
         mem_copy( intermediate_buffer, (u8*)src + offset, remaining_bytes );
         mem_copy( (u8*)dst + offset, intermediate_buffer, remaining_bytes );
     }
-
 }
-
 LD_API void* mem_set( void* dst, int value, usize n ) {
     u8* bytes = (u8*)dst;
     for( usize i = 0; i < n; ++i ) {
@@ -348,7 +345,6 @@ LD_API void* mem_set( void* dst, int value, usize n ) {
     }
     return dst;
 }
-
 LD_API void mem_zero( void* dst, usize size ) {
     usize count64 = size / sizeof(u64);
     for( usize i = 0; i < count64; ++i ) {
@@ -360,6 +356,24 @@ LD_API void mem_zero( void* dst, usize size ) {
     for( usize i = 0; i < remainder; ++i ) {
         *(dst_remainder + i) = 0;
     }
+}
+LD_API b32 mem_cmp( void* a, void* b, usize max_size ) {
+    usize count_64 = max_size / sizeof(u64);
+    for( usize i = 0; i < count_64; ++i ) {
+        if( *((u64*)a + i) != *((u64*)b + i) ) {
+            return false;
+        }
+    }
 
+    usize remainder = max_size % sizeof(u64);
+    u8* a_remainder = (u8*)((u64*)a + count_64);
+    u8* b_remainder = (u8*)((u64*)b + count_64);
+    for( usize i = 0; i < remainder; ++i ) {
+        if( *(a_remainder + i) != *(b_remainder + i) ) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
