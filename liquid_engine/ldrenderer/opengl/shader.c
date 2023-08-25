@@ -6,62 +6,81 @@
 #include "ldrenderer/ldopengl.h"
 #include "core/ldmemory.h"
 
+#define MAX_INFO_LOG_BUFFER_LEN (256)
+char INFO_LOG_BUFFER[MAX_INFO_LOG_BUFFER_LEN];
+
 internal void gl_log_compilation_error( GLShader shader ) {
-    GLint info_log_length = 0;
-    glGetShaderiv( shader, GL_INFO_LOG_LENGTH, &info_log_length );
-    ASSERT( info_log_length >= 0 );
+    GLint info_log_len = 0;
+    glGetShaderiv( shader, GL_INFO_LOG_LENGTH, &info_log_len );
 
-    // TODO(alicia): maybe don't dynamically allocate?
-    char* info_log_buffer = ldalloc( info_log_length, MEMORY_TYPE_RENDERER );
-    ASSERT( info_log_buffer );
-
+    GLint written_info_log_len = 0;
     glGetShaderInfoLog(
         shader,
-        info_log_length,
-        NULL,
-        info_log_buffer
+        MAX_INFO_LOG_BUFFER_LEN,
+        &written_info_log_len,
+        INFO_LOG_BUFFER
     );
 
-    GL_LOG_ERROR( "Shader Compilation Error!" );
-    GL_LOG_ERROR( "{cc}", info_log_buffer );
+    if( info_log_len != written_info_log_len ) {
+        GL_LOG_WARN(
+            "INFO_LOG_BUFFER is not large enough to contain "
+            "info log!"
+        );
+        GL_LOG_WARN(
+            "Info log length: {i32} | "
+            "Max info log len: {i32} | "
+            "Written log len: {i32}",
+            info_log_len, MAX_INFO_LOG_BUFFER_LEN,
+            written_info_log_len
+        );
+    }
 
-    ldfree( info_log_buffer, info_log_length, MEMORY_TYPE_RENDERER );
+    GL_LOG_ERROR( "Shader Compilation Error!" );
+    GL_LOG_ERROR( "{cc}", INFO_LOG_BUFFER );
 }
 
 internal void gl_log_linking_error( GLShaderProgram shader_program ) {
-    GLint info_log_length = 0;
-    glGetProgramiv( shader_program, GL_INFO_LOG_LENGTH, &info_log_length );
-    ASSERT( info_log_length >= 0 );
+    GLint info_log_len = 0;
+    glGetProgramiv( shader_program, GL_INFO_LOG_LENGTH, &info_log_len );
 
-    char* info_log_buffer = ldalloc( info_log_length, MEMORY_TYPE_RENDERER );
-    ASSERT( info_log_buffer );
-
+    GLint written_info_log_len = 0;
     glGetProgramInfoLog(
         shader_program,
-        info_log_length,
-        NULL,
-        info_log_buffer
+        MAX_INFO_LOG_BUFFER_LEN,
+        &written_info_log_len,
+        INFO_LOG_BUFFER
     );
 
+    if( info_log_len != written_info_log_len ) {
+        GL_LOG_WARN(
+            "INFO_LOG_BUFFER is not large enough to contain "
+            "info log!"
+        );
+        GL_LOG_WARN(
+            "Info log length: {i32} | "
+            "Max info log len: {i32} | "
+            "Written log len: {i32}",
+            info_log_len, MAX_INFO_LOG_BUFFER_LEN,
+            written_info_log_len
+        );
+    }
+
     GL_LOG_ERROR( "Shader Program Linking Error!" );
-    GL_LOG_ERROR( "{cc}", info_log_buffer );
-
-    ldfree( info_log_buffer, info_log_length, MEMORY_TYPE_RENDERER );
-
+    GL_LOG_ERROR( "{cc}", INFO_LOG_BUFFER );
 }
 
 b32 gl_shader_compile_source(
-    GLint       source_length,
-    const char* source,
-    GLenum      shader_type,
-    GLShader*   out_shader
+    GLint         source_length,
+    const char*   source,
+    GLShaderStage shader_stage,
+    GLShader*     out_shader
 ) {
-    GLShader shader = glCreateShader( shader_type );
+    GLShader shader = glCreateShader( shader_stage );
     if( !shader ) {
         GL_LOG_ERROR(
             "Failed to create shader! "
-            "Shader type is likely invalid: {u32}",
-            shader_type
+            "Shader stage is likely invalid: {u32}",
+            shader_stage
         );
         return false;
     }
@@ -83,21 +102,21 @@ b32 gl_shader_compile_source(
 }
 
 b32 gl_shader_compile_spirv(
-    usize  spirv_binary_size,
-    void*  spirv_binary_buffer,
-    GLenum shader_type,
-    const char* shader_entry_point,
-    GLuint num_specialization_constants,
+    usize         spirv_binary_size,
+    void*         spirv_binary_buffer,
+    GLShaderStage shader_stage,
+    const char*   shader_entry_point,
+    GLuint        num_specialization_constants,
     const GLuint* constant_index,
     const GLuint* constant_value,
-    GLShader* out_shader
+    GLShader*     out_shader
 ) {
-    GLShader shader = glCreateShader( shader_type );
+    GLShader shader = glCreateShader( shader_stage );
     if( !shader ) {
         GL_LOG_ERROR(
             "Failed to create shader! "
-            "Shader type is likely invalid: {u32}",
-            shader_type
+            "Shader stage is likely invalid: {u32}",
+            shader_stage
         );
         return false;
     }
