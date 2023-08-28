@@ -34,15 +34,23 @@ typedef struct Win32DirectSound {
     u32 running_sample_index;
 } Win32DirectSound;
 
+typedef struct Win32Surface {
+    HWND handle;
+    HDC  device_context;
+    ivec2 dimensions;
+    DWORD dwStyle;
+    DWORD dwExStyle;
+    PlatformSurfaceOnResizeFN* on_resize;
+    PlatformSurfaceOnCloseFN*  on_close;
+
+    PlatformSurfaceCreateFlags creation_flags;
+    b32 is_active;
+
+    HGLRC glrc;
+} Win32Surface;
+
 #define LIBRARY_COUNT (5)
 typedef struct Win32Platform {
-    struct Win32Window {
-        HWND handle;
-        HDC  device_context;
-        ivec2 dimensions;
-        DWORD dwStyle;
-        DWORD dwExStyle;
-    } window;
     CursorStyle cursor_style;
     b32 cursor_visible;
 
@@ -68,10 +76,8 @@ typedef struct Win32Platform {
     PlatformSemaphore* xinput_polling_thread_semaphore;
     u32 event_pump_count;
 
-    b32 is_dpi_aware;
     UINT dpi;
 
-    b32 is_active;
 } Win32Platform;
 
 

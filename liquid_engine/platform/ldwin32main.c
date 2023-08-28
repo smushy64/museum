@@ -21,12 +21,11 @@
 
 #include <intrin.h>
 
-global Win32Platform* PLATFORM = NULL;
+// NOTE(alicia): GLOBALS
 
-#if defined(LD_COMPILER_MSVC)
-    #pragma function(memset)
-    int _fltused{0x9875}
-#endif
+global Win32Platform* PLATFORM = NULL;
+global HICON WINDOW_ICON = NULL;
+
 void* memset( void* ptr, int value, size_t num ) {
     u8 value_8 = *(u8*)&value;
     for( size_t i = 0; i < num; ++i ) {
@@ -35,9 +34,6 @@ void* memset( void* ptr, int value, size_t num ) {
     return ptr;
 }
 
-#if defined(LD_COMPILER_MSVC)
-    #pragma function(memcpy)
-#endif
 void* memcpy( void* destination, const void* source, size_t num ) {
     mem_copy( destination, source, num );
     return destination;
@@ -323,6 +319,7 @@ global LARGE_INTEGER PERFORMANCE_FREQUENCY;
 
 /// Every x number of frames, check if xinput gamepad is active
 #define POLL_FOR_NEW_XINPUT_GAMEPAD_RATE (20000)
+maybe_unused
 internal DWORD WINAPI win32_xinput_polling_thread( void* params ) {
     PlatformSemaphore* semaphore = params;
     loop {
@@ -346,12 +343,10 @@ internal DWORD WINAPI win32_xinput_polling_thread( void* params ) {
 }
 
 usize PLATFORM_SUBSYSTEM_SIZE = sizeof(Win32Platform);
-b32 platform_subsystem_init( ivec2 surface_dimensions, void* buffer ) {
+b32 platform_subsystem_init( void* buffer ) {
 
     ASSERT( buffer );
     PLATFORM = buffer;
-
-    PLATFORM->is_dpi_aware = true;
 
     // load libraries
     if( !win32_load_user32( PLATFORM ) ) {
@@ -363,37 +358,38 @@ b32 platform_subsystem_init( ivec2 surface_dimensions, void* buffer ) {
 
     read_write_fence();
     
+    // TODO(alicia): 
     /// create a thread to poll for new xinput devices because
     /// of XInputGetState stall. Thanks Microsoft!
-    PlatformSemaphore* xinput_polling_thread_semaphore =
-        platform_semaphore_create( 0, 1 );
-    if( !xinput_polling_thread_semaphore ) {
-        return false;
-    }
-    PLATFORM->xinput_polling_thread_semaphore =
-        xinput_polling_thread_semaphore;
-
-    read_write_fence();
-
-    Win32Thread xinput_polling_thread_handle = {};
-    xinput_polling_thread_handle.thread_handle = CreateThread(
-        NULL,
-        STACK_SIZE,
-        win32_xinput_polling_thread,
-        &PLATFORM->xinput_polling_thread_semaphore,
-        0,
-        &xinput_polling_thread_handle.thread_id
-    );
-    if( !xinput_polling_thread_handle.thread_handle ) {
-        win32_log_error( true );
-        return false;
-    }
-    PLATFORM->xinput_polling_thread = xinput_polling_thread_handle;
-
-    WIN32_LOG_NOTE(
-        "Created XInput polling thread. ID: {u}",
-        PLATFORM->xinput_polling_thread.thread_id
-    );
+    // PlatformSemaphore* xinput_polling_thread_semaphore =
+    //     platform_semaphore_create( 0, 1 );
+    // if( !xinput_polling_thread_semaphore ) {
+    //     return false;
+    // }
+    // PLATFORM->xinput_polling_thread_semaphore =
+    //     xinput_polling_thread_semaphore;
+    //
+    // read_write_fence();
+    //
+    // Win32Thread xinput_polling_thread_handle = {};
+    // xinput_polling_thread_handle.thread_handle = CreateThread(
+    //     NULL,
+    //     STACK_SIZE,
+    //     win32_xinput_polling_thread,
+    //     &PLATFORM->xinput_polling_thread_semaphore,
+    //     0,
+    //     &xinput_polling_thread_handle.thread_id
+    // );
+    // if( !xinput_polling_thread_handle.thread_handle ) {
+    //     win32_log_error( true );
+    //     return false;
+    // }
+    // PLATFORM->xinput_polling_thread = xinput_polling_thread_handle;
+    //
+    // WIN32_LOG_NOTE(
+    //     "Created XInput polling thread. ID: {u}",
+    //     PLATFORM->xinput_polling_thread.thread_id
+    // );
 
     if( !library_load(
         "GDI32.DLL",
@@ -430,78 +426,232 @@ b32 platform_subsystem_init( ivec2 surface_dimensions, void* buffer ) {
     if( !window_icon ) {
         WIN32_LOG_WARN("Failed to load window icon!");
     }
+    WINDOW_ICON = window_icon;
+    //
+    // // create window
+    // WNDCLASSEX windowClass    = {};
+    // windowClass.cbSize        = sizeof(WNDCLASSEX);
+    // windowClass.lpfnWndProc   = win32_winproc;
+    // windowClass.hInstance     = PLATFORM->instance;
+    // windowClass.lpszClassName = "LiquidEngineWindowClass";
+    // windowClass.hbrBackground = (HBRUSH)GetStockBrush(BLACK_BRUSH);
+    // windowClass.hIcon         = WINDOW_ICON;
+    // windowClass.hCursor       = LoadCursor(
+    //     PLATFORM->instance,
+    //     IDC_ARROW
+    // );
+    //
+    // if( !RegisterClassEx( &windowClass ) ) {
+    //     win32_log_error( true );
+    //     return false;
+    // }
+    //
+    // PLATFORM->window.dwExStyle = WS_EX_OVERLAPPEDWINDOW;
+    //
+    // b32 is_resizeable = true;
+    //
+    // if( is_resizeable ) {
+    //     PLATFORM->window.dwStyle = WS_OVERLAPPEDWINDOW;
+    // } else {
+    //     PLATFORM->window.dwStyle =
+    //         WS_OVERLAPPED |
+    //         WS_CAPTION    |
+    //         WS_SYSMENU;
+    // }
+    //
+    // i32 width = 0, height = 0;
+    // RECT window_rect = {};
+    // if( PLATFORM->is_dpi_aware ) {
+    //     SetProcessDpiAwarenessContext(
+    //         DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
+    //     );
+    //     PLATFORM->dpi = GetDpiForSystem();
+    //
+    //     width = MulDiv(
+    //         surface_dimensions.width,
+    //         PLATFORM->dpi, 96
+    //     );
+    //     height = MulDiv(
+    //         surface_dimensions.height,
+    //         PLATFORM->dpi, 96
+    //     );
+    //
+    //     window_rect.right  = width;
+    //     window_rect.bottom = height;
+    //     if( !AdjustWindowRectExForDpi(
+    //         &window_rect,
+    //         PLATFORM->window.dwStyle,
+    //         FALSE,
+    //         PLATFORM->window.dwExStyle,
+    //         PLATFORM->dpi
+    //     ) ) {
+    //         win32_log_error( true );
+    //         return false;
+    //     }
+    // } else {
+    //     width  = surface_dimensions.width;
+    //     height = surface_dimensions.height;
+    //
+    //     window_rect.right  = surface_dimensions.width;
+    //     window_rect.bottom = surface_dimensions.height;
+    //     if( !AdjustWindowRectEx(
+    //         &window_rect,
+    //         PLATFORM->window.dwStyle,
+    //         FALSE,
+    //         PLATFORM->window.dwExStyle
+    //     ) ) {
+    //         win32_log_error( true );
+    //         return false;
+    //     }
+    // }
+    //
+    // i32 x = 0, y = 0; {
+    //     ivec2 screen_center = iv2(
+    //         GetSystemMetrics( SM_CXSCREEN ),
+    //         GetSystemMetrics( SM_CYSCREEN )
+    //     );
+    //     screen_center = iv2_div( screen_center, 2 );
+    //
+    //     x = screen_center.x - (width / 2);
+    //     y = screen_center.y - (height / 2);
+    // }
+    // 
+    // HWND hWnd = CreateWindowEx(
+    //     PLATFORM->window.dwExStyle,
+    //     windowClass.lpszClassName,
+    //     "Liquid Engine",
+    //     PLATFORM->window.dwStyle,
+    //     x, y,
+    //     window_rect.right - window_rect.left,
+    //     window_rect.bottom - window_rect.top,
+    //     NULL,
+    //     NULL,
+    //     PLATFORM->instance,
+    //     NULL
+    // );
+    // if( !hWnd ) {
+    //     win32_log_error( true );
+    //     return false;
+    // }
+    //
+    // HDC dc = GetDC( hWnd );
+    // if( !dc ) {
+    //     win32_log_error( true );
+    //     return false;
+    // }
+    //
+    // PLATFORM->window.handle         = hWnd;
+    // PLATFORM->window.device_context = dc;
+    //
+    // ShowWindow( PLATFORM->window.handle, SW_SHOW );
+    PLATFORM->cursor_style   = CURSOR_STYLE_ARROW;
+    PLATFORM->cursor_visible = true;
 
-    // create window
-    WNDCLASSEX windowClass    = {};
-    windowClass.cbSize        = sizeof(WNDCLASSEX);
-    windowClass.lpfnWndProc   = win32_winproc;
-    windowClass.hInstance     = PLATFORM->instance;
-    windowClass.lpszClassName = "LiquidEngineWindowClass";
-    windowClass.hbrBackground = (HBRUSH)GetStockBrush(BLACK_BRUSH);
-    windowClass.hIcon         = window_icon;
-    windowClass.hCursor       = LoadCursor(
-        PLATFORM->instance,
-        IDC_ARROW
+    QueryPerformanceFrequency(
+        &PLATFORM->performance_frequency
     );
+    PERFORMANCE_FREQUENCY = PLATFORM->performance_frequency;
+    QueryPerformanceCounter(
+        &PLATFORM->performance_counter
+    );
+    PERFORMANCE_COUNTER = PLATFORM->performance_counter;
 
-    if( !RegisterClassEx( &windowClass ) ) {
+    // PLATFORM->window.dimensions = iv2(width, height);
+    // PLATFORM->is_active = true;
+
+    WIN32_LOG_INFO( "Platform subsystem successfully initialized." );
+    return true;
+}
+void platform_subsystem_shutdown() {
+    TerminateThread( PLATFORM->xinput_polling_thread.thread_handle, 0 );
+    platform_semaphore_destroy( &PLATFORM->xinput_polling_thread_semaphore );
+}
+
+global b32 DPI_AWARENESS_SET = false;
+usize PLATFORM_SURFACE_BUFFER_SIZE = sizeof(Win32Surface);
+b32 PLATFORM_SUPPORTS_MULTIPLE_SURFACES = true;
+b32 platform_surface_create(
+    ivec2 surface_dimensions, const char* surface_name,
+    PlatformSurfaceCreateFlags flags, PlatformSurface* out_surface
+) {
+    ASSERT( out_surface );
+    Win32Surface* win32_surface = out_surface;
+
+    b32 show_on_create =
+        !CHECK_BITS( flags, PLATFORM_SURFACE_CREATE_HIDDEN );
+    b32 is_resizeable =
+        CHECK_BITS( flags, PLATFORM_SURFACE_CREATE_RESIZEABLE );
+    b32 is_dpi_aware =
+        CHECK_BITS( flags, PLATFORM_SURFACE_CREATE_DPI_AWARE );
+    if( DPI_AWARENESS_SET ) {
+        is_dpi_aware = true;
+    }
+
+    WNDCLASSEX window_class = {};
+    window_class.cbSize        = sizeof(WNDCLASSEX);
+    window_class.lpfnWndProc   = win32_winproc;
+    window_class.hInstance     = PLATFORM->instance;
+    window_class.lpszClassName = "LiquidEngineWindowClass";
+    window_class.hbrBackground = (HBRUSH)GetStockBrush( BLACK_BRUSH );
+    window_class.hIcon         = WINDOW_ICON;
+    window_class.hCursor =
+        LoadCursorA( PLATFORM->instance, IDC_ARROW );
+
+    if( !RegisterClassEx( &window_class ) ) {
         win32_log_error( true );
         return false;
     }
 
-    PLATFORM->window.dwExStyle = WS_EX_OVERLAPPEDWINDOW;
-
-    b32 is_resizeable = true;
-
+    DWORD dwExStyle = WS_EX_OVERLAPPEDWINDOW;
+    DWORD dwStyle = 0;
     if( is_resizeable ) {
-        PLATFORM->window.dwStyle = WS_OVERLAPPEDWINDOW;
+        dwStyle = WS_OVERLAPPEDWINDOW;
     } else {
-        PLATFORM->window.dwStyle =
+        dwStyle =
             WS_OVERLAPPED |
-            WS_CAPTION    |
+            WS_CAPTION |
             WS_SYSMENU;
     }
 
-    i32 width = 0, height = 0;
+    ivec2 dimensions = {};
     RECT window_rect = {};
-    if( PLATFORM->is_dpi_aware ) {
-        SetProcessDpiAwarenessContext(
-            DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
-        );
-        PLATFORM->dpi = GetDpiForSystem();
+    if( is_dpi_aware ) {
+        if( !DPI_AWARENESS_SET ) {
+            SetProcessDpiAwarenessContext(
+                DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 );
+            // FIXME(alicia): this is not ok
+            PLATFORM->dpi = GetDpiForSystem();
+        }
+    
+        // TODO(alicia): figure out what the denominator should be
+        // if not 96!!!
+        dimensions.x = MulDiv(
+            surface_dimensions.x,
+            PLATFORM->dpi, 96 );
+        dimensions.y = MulDiv(
+            surface_dimensions.y,
+            PLATFORM->dpi, 96 );
 
-        width = MulDiv(
-            surface_dimensions.width,
-            PLATFORM->dpi, 96
-        );
-        height = MulDiv(
-            surface_dimensions.height,
-            PLATFORM->dpi, 96
-        );
-
-        window_rect.right  = width;
-        window_rect.bottom = height;
+        window_rect.right  = dimensions.x;
+        window_rect.bottom = dimensions.y;
         if( !AdjustWindowRectExForDpi(
             &window_rect,
-            PLATFORM->window.dwStyle,
-            FALSE,
-            PLATFORM->window.dwExStyle,
-            PLATFORM->dpi
+            dwStyle, FALSE,
+            dwExStyle, PLATFORM->dpi
         ) ) {
             win32_log_error( true );
             return false;
         }
     } else {
-        width  = surface_dimensions.width;
-        height = surface_dimensions.height;
+        dimensions = surface_dimensions;
 
-        window_rect.right  = surface_dimensions.width;
-        window_rect.bottom = surface_dimensions.height;
+        window_rect.right  = dimensions.x;
+        window_rect.bottom = dimensions.y;
+
         if( !AdjustWindowRectEx(
             &window_rect,
-            PLATFORM->window.dwStyle,
-            FALSE,
-            PLATFORM->window.dwExStyle
+            dwStyle, FALSE,
+            dwExStyle
         ) ) {
             win32_log_error( true );
             return false;
@@ -515,15 +665,15 @@ b32 platform_subsystem_init( ivec2 surface_dimensions, void* buffer ) {
         );
         screen_center = iv2_div( screen_center, 2 );
 
-        x = screen_center.x - (width / 2);
-        y = screen_center.y - (height / 2);
+        x = screen_center.x - (dimensions.x / 2);
+        y = screen_center.y - (dimensions.y / 2);
     }
-    
-    HWND hWnd = CreateWindowEx(
-        PLATFORM->window.dwExStyle,
-        windowClass.lpszClassName,
-        "Liquid Engine",
-        PLATFORM->window.dwStyle,
+
+    HWND handle = CreateWindowEx(
+        dwExStyle,
+        window_class.lpszClassName,
+        surface_name,
+        dwStyle,
         x, y,
         window_rect.right - window_rect.left,
         window_rect.bottom - window_rect.top,
@@ -532,44 +682,228 @@ b32 platform_subsystem_init( ivec2 surface_dimensions, void* buffer ) {
         PLATFORM->instance,
         NULL
     );
-    if( !hWnd ) {
+    if( !handle ) {
         win32_log_error( true );
         return false;
     }
-    DestroyIcon( window_icon );
-
-    HDC dc = GetDC( hWnd );
-    if( !dc ) {
+    HDC device_context = GetDC( handle );
+    if( !device_context ) {
         win32_log_error( true );
         return false;
     }
 
-    PLATFORM->window.handle         = hWnd;
-    PLATFORM->window.device_context = dc;
-    PLATFORM->cursor_style   = CURSOR_STYLE_ARROW;
-    PLATFORM->cursor_visible = true;
+    win32_surface->handle         = handle;
+    win32_surface->device_context = device_context;
+    win32_surface->dwStyle        = dwStyle;
+    win32_surface->dwExStyle      = dwExStyle;
+    win32_surface->dimensions     = dimensions;
+    win32_surface->creation_flags = flags;
+    win32_surface->on_resize      = NULL;
+    win32_surface->on_close       = NULL;
 
-    ShowWindow( PLATFORM->window.handle, SW_SHOW );
+    SetWindowLongPtrA( handle, GWLP_USERDATA, (LONG_PTR)out_surface );
 
-    QueryPerformanceFrequency(
-        &PLATFORM->performance_frequency
-    );
-    PERFORMANCE_FREQUENCY = PLATFORM->performance_frequency;
-    QueryPerformanceCounter(
-        &PLATFORM->performance_counter
-    );
-    PERFORMANCE_COUNTER = PLATFORM->performance_counter;
+    b32 is_active = false;
+    if( show_on_create ) {
+        is_active = true;
+        ShowWindow( handle, SW_SHOW );
+    }
 
-    PLATFORM->window.dimensions = iv2(width, height);
-    PLATFORM->is_active = true;
+    win32_surface->is_active = is_active;
 
-    WIN32_LOG_INFO( "Platform subsystem successfully initialized." );
     return true;
 }
-void platform_subsystem_shutdown() {
-    TerminateThread( PLATFORM->xinput_polling_thread.thread_handle, 0 );
-    platform_semaphore_destroy( &PLATFORM->xinput_polling_thread_semaphore );
-    DestroyWindow( PLATFORM->window.handle );
+void platform_surface_destroy( PlatformSurface* surface ) {
+    ASSERT( surface );
+    Win32Surface* win32_surface = surface;
+    DestroyWindow( win32_surface->handle );
+    mem_zero( win32_surface, sizeof(Win32Surface) );
+}
+void platform_surface_set_dimensions(
+    PlatformSurface* surface, ivec2 dimensions
+) {
+    ASSERT( surface );
+    Win32Surface* win32_surface = surface;
+
+    b32 is_dpi_aware = CHECK_BITS(
+        win32_surface->creation_flags, PLATFORM_SURFACE_CREATE_DPI_AWARE );
+
+    RECT window_rect = {};
+    if( is_dpi_aware ) {
+        UINT dpi = PLATFORM->dpi;
+        window_rect.right  = MulDiv( dimensions.width, dpi, 96 );
+        window_rect.bottom = MulDiv( dimensions.height, dpi, 96 );
+
+        win32_surface->dimensions = iv2(
+            window_rect.right,
+            window_rect.bottom
+        );
+        AdjustWindowRectExForDpi(
+            &window_rect,
+            win32_surface->dwStyle,
+            FALSE,
+            win32_surface->dwExStyle,
+            dpi
+        );
+    } else {
+        window_rect.right  = dimensions.width;
+        window_rect.bottom = dimensions.height;
+
+        win32_surface->dimensions = dimensions;
+
+        AdjustWindowRectEx(
+            &window_rect,
+            win32_surface->dwStyle,
+            FALSE,
+            win32_surface->dwExStyle
+        );
+    }
+
+    SetWindowPos(
+        win32_surface->handle,
+        NULL,
+        0, 0,
+        window_rect.right - window_rect.left,
+        window_rect.bottom - window_rect.top,
+        SWP_NOMOVE | SWP_NOREPOSITION
+    );
+}
+ivec2 platform_surface_query_dimensions( PlatformSurface* surface ) {
+    ASSERT( surface );
+    Win32Surface* win32_surface = surface;
+    return win32_surface->dimensions;
+}
+void platform_surface_set_name( PlatformSurface* surface, const char* name ) {
+    ASSERT( surface );
+    Win32Surface* win32_surface = surface;
+    SetWindowTextA( win32_surface->handle, name );
+}
+void platform_surface_query_name(
+    PlatformSurface* surface, usize* surface_name_buffer_size,
+    char* surface_name_buffer
+) {
+    ASSERT( surface );
+    Win32Surface* win32_surface = surface;
+
+    int text_length = GetWindowTextLengthA( win32_surface->handle );
+
+    if( !surface_name_buffer ) {
+        *surface_name_buffer_size = (usize)text_length;
+        return;
+    }
+
+    GetWindowTextA(
+        win32_surface->handle,
+        surface_name_buffer,
+        *surface_name_buffer_size
+    );
+    *surface_name_buffer_size = (usize)text_length;
+
+}
+b32 platform_surface_query_active( PlatformSurface* surface ) {
+    ASSERT( surface );
+    Win32Surface* win32_surface = surface;
+    return win32_surface->is_active;
+}
+void platform_surface_show( PlatformSurface* surface ) {
+    ASSERT( surface );
+    Win32Surface* win32_surface = surface;
+    ShowWindow( win32_surface->handle, SW_SHOW );
+}
+void platform_surface_hide( PlatformSurface* surface ) {
+    ASSERT( surface );
+    Win32Surface* win32_surface = surface;
+    ShowWindow( win32_surface->handle, SW_HIDE );
+}
+void platform_surface_center( PlatformSurface* surface ) {
+    ASSERT( surface );
+    Win32Surface* win32_surface = surface;
+
+    i32 x = 0, y = 0;
+    i32 center_x = GetSystemMetrics( SM_CXSCREEN );
+    i32 center_y = GetSystemMetrics( SM_CYSCREEN );
+    center_x /= 2;
+    center_y /= 2;
+
+    x = center_x - ( win32_surface->dimensions.width / 2 );
+    y = center_y - ( win32_surface->dimensions.height / 2 );
+
+    SetWindowPos(
+        win32_surface->handle,
+        NULL,
+        x, y,
+        0, 0,
+        SWP_NOSIZE
+    );
+}
+void platform_surface_set_close_callback(
+    PlatformSurface* surface,
+    PlatformSurfaceOnCloseFN* close_callback
+) {
+    ASSERT( surface );
+    Win32Surface* win32_surface = surface;
+    if( win32_surface->on_close ) {
+        WIN32_LOG_WARN(
+            "Setting window close callback when "
+            "the callback was already set, was this intended? "
+            "Call platform_surface_clear_close_callback() "
+            "before this function just to be sure."
+        );
+    }
+
+    win32_surface->on_close = close_callback;
+}
+void platform_surface_clear_close_callback( PlatformSurface* surface ) {
+    ASSERT( surface );
+    Win32Surface* win32_surface = surface;
+    win32_surface->on_close = NULL;
+}
+void platform_surface_set_resize_callback(
+    PlatformSurface* surface,
+    PlatformSurfaceOnResizeFN* resize_callback
+) {
+    ASSERT( surface );
+    Win32Surface* win32_surface = surface;
+    if( win32_surface->on_resize ) {
+        WIN32_LOG_WARN(
+            "Setting window resize callback when "
+            "the callback was already set, was this intended? "
+            "Call platform_surface_clear_resize_callback() "
+            "before this function just to be sure."
+        );
+    }
+
+    win32_surface->on_resize = resize_callback;
+}
+void platform_surface_clear_resize_callback( PlatformSurface* surface ) {
+    ASSERT( surface );
+    Win32Surface* win32_surface = surface;
+    win32_surface->on_resize = NULL;
+}
+void platform_surface_pump_events( PlatformSurface* surface ) {
+    ASSERT( surface );
+    Win32Surface* win32_surface = surface;
+
+    MSG message = {};
+    while( PeekMessage(
+        &message,
+        win32_surface->handle,
+        0, 0,
+        PM_REMOVE
+    ) ) {
+        TranslateMessage( &message );
+        DispatchMessage( &message );
+    }
+
+    // FIXME(alicia): figure this shit out
+    // if( ( PLATFORM->event_pump_count %
+    //     POLL_FOR_NEW_XINPUT_GAMEPAD_RATE
+    // ) == 0 ) {
+    //     platform_semaphore_increment(
+    //         &PLATFORM->xinput_polling_thread_semaphore
+    //     );
+    // }
+    // PLATFORM->event_pump_count++;
 }
 
 f64 platform_us_elapsed() {
@@ -599,93 +933,7 @@ f64 platform_s_elapsed() {
     return (f64)(ticks_elapsed) /
         (f64)PERFORMANCE_FREQUENCY.QuadPart;
 }
-b32 platform_pump_events() {
-    MSG message = {};
-    while( PeekMessage(
-        &message,
-        PLATFORM->window.handle,
-        0, 0,
-        PM_REMOVE
-    ) ) {
-        TranslateMessage( &message );
-        DispatchMessage( &message );
-    }
 
-    if( ( PLATFORM->event_pump_count %
-        POLL_FOR_NEW_XINPUT_GAMEPAD_RATE
-    ) == 0 ) {
-        platform_semaphore_increment(
-            &PLATFORM->xinput_polling_thread_semaphore
-        );
-    }
-
-    PLATFORM->event_pump_count++;
-
-    return true;
-}
-void platform_application_set_name( const char* str ) {
-    SetWindowText( PLATFORM->window.handle, str );
-}
-void platform_surface_center() {
-    i32 x = 0, y = 0;
-    i32 center_x = GetSystemMetrics( SM_CXSCREEN );
-    i32 center_y = GetSystemMetrics( SM_CYSCREEN );
-    center_x /= 2;
-    center_y /= 2;
-
-    x = center_x - ( PLATFORM->window.dimensions.width / 2 );
-    y = center_y - ( PLATFORM->window.dimensions.height / 2 );
-
-    SetWindowPos(
-        PLATFORM->window.handle,
-        NULL,
-        x, y,
-        0, 0,
-        SWP_NOSIZE
-    );
-}
-void platform_surface_set_dimensions( ivec2 dimensions ) {
-    RECT window_rect = {};
-
-    if( PLATFORM->is_dpi_aware ) {
-        UINT dpi = PLATFORM->dpi;
-        window_rect.right  = MulDiv( dimensions.width, dpi, 96 );
-        window_rect.bottom = MulDiv( dimensions.height, dpi, 96 );
-
-        PLATFORM->window.dimensions = iv2(
-            window_rect.right,
-            window_rect.bottom
-        );
-        AdjustWindowRectExForDpi(
-            &window_rect,
-            PLATFORM->window.dwStyle,
-            FALSE,
-            PLATFORM->window.dwExStyle,
-            dpi
-        );
-    } else {
-        window_rect.right  = dimensions.width;
-        window_rect.bottom = dimensions.height;
-
-        PLATFORM->window.dimensions = dimensions;
-
-        AdjustWindowRectEx(
-            &window_rect,
-            PLATFORM->window.dwStyle,
-            FALSE,
-            PLATFORM->window.dwExStyle
-        );
-    }
-
-    SetWindowPos(
-        PLATFORM->window.handle,
-        NULL,
-        0, 0,
-        window_rect.right - window_rect.left,
-        window_rect.bottom - window_rect.top,
-        SWP_NOMOVE | SWP_NOREPOSITION
-    );
-}
 internal inline LPCTSTR cursor_style_to_win32_style( CursorStyle style ) {
     const LPCTSTR styles[CURSOR_STYLE_COUNT] = {
         IDC_ARROW,
@@ -717,16 +965,16 @@ void platform_cursor_set_visible( b32 visible ) {
     PLATFORM->cursor_visible = visible;
     ShowCursor( visible );
 }
-void platform_cursor_center() {
+void platform_cursor_center( PlatformSurface* surface ) {
+
+    ASSERT( surface );
+    Win32Surface* win32_surface = surface;
 
     POINT center = {};
-    center.x = PLATFORM->window.dimensions.width  / 2;
-    center.y = PLATFORM->window.dimensions.height / 2;
+    center.x = win32_surface->dimensions.width  / 2;
+    center.y = win32_surface->dimensions.height / 2;
 
-    ClientToScreen(
-        PLATFORM->window.handle,
-        &center
-    );
+    ClientToScreen( win32_surface->handle, &center );
     SetCursorPos( center.x, center.y );
 }
 void platform_sleep( u32 ms ) {
@@ -756,10 +1004,6 @@ void platform_set_gamepad_motor_state(
     XInputSetState( gamepad_index, &vibration );
 }
 void platform_poll_gamepad() {
-    if( !PLATFORM->is_active ) {
-        return;
-    }
-
     XINPUT_STATE gamepad_state = {};
     DWORD max_index = XUSER_MAX_COUNT > GAMEPAD_MAX_INDEX ?
         GAMEPAD_MAX_INDEX : XUSER_MAX_COUNT;
@@ -983,10 +1227,12 @@ void platform_poll_gamepad() {
         );
     }
 }
-void platform_gl_swap_buffers() {
-    SwapBuffers( PLATFORM->window.device_context );
+void platform_gl_surface_swap_buffers( PlatformSurface* surface ) {
+    ASSERT( surface );
+    Win32Surface* win32_surface = surface;
+    SwapBuffers( win32_surface->device_context );
 }
-internal HGLRC win32_gl_create_context() {
+internal HGLRC win32_gl_create_context( HDC device_context ) {
 
     PIXELFORMATDESCRIPTOR desired_pixel_format = {};
     u16 pixel_format_size = sizeof( PIXELFORMATDESCRIPTOR );
@@ -1000,17 +1246,16 @@ internal HGLRC win32_gl_create_context() {
     desired_pixel_format.iLayerType = PFD_MAIN_PLANE;
 
     i32 pixelFormatIndex = ChoosePixelFormat(
-        PLATFORM->window.device_context,
-        &desired_pixel_format
-    );
+        device_context, &desired_pixel_format );
+
     PIXELFORMATDESCRIPTOR suggested_pixel_format = {};
     DescribePixelFormat(
-        PLATFORM->window.device_context, pixelFormatIndex,
+        device_context, pixelFormatIndex,
         pixel_format_size, &suggested_pixel_format
     );
 
     if( SetPixelFormat(
-        PLATFORM->window.device_context,
+        device_context,
         pixelFormatIndex,
         &suggested_pixel_format
     ) == FALSE ) {
@@ -1018,16 +1263,13 @@ internal HGLRC win32_gl_create_context() {
         return NULL;
     }
 
-    HGLRC temp = wglCreateContext( PLATFORM->window.device_context );
+    HGLRC temp = wglCreateContext( device_context );
     if(!temp) {
         win32_log_error( false );
         return NULL;
     }
 
-    if( wglMakeCurrent(
-        PLATFORM->window.device_context,
-        temp ) == FALSE
-    ) {
+    if( wglMakeCurrent( device_context, temp ) == FALSE ) {
         WIN32_LOG_ERROR("Failed to make temp OpenGL context current!");
         return NULL;
     }
@@ -1052,8 +1294,8 @@ internal HGLRC win32_gl_create_context() {
     };
 
     HGLRC result = wglCreateContextAttribsARB(
-        PLATFORM->window.device_context, NULL, attribs
-    );
+        device_context, NULL, attribs );
+
     wglDeleteContext( temp );
     if(!result) {
         WIN32_LOG_ERROR(
@@ -1062,10 +1304,11 @@ internal HGLRC win32_gl_create_context() {
         );
         return NULL;
     }
-    wglMakeCurrent( PLATFORM->window.device_context, result );
+    wglMakeCurrent( device_context, result );
 
     return result;
 }
+global b32 GL_FUNCTIONS_LOADED = false;
 void* win32_gl_load_proc( const char* function_name ) {
     void* function = (void*)wglGetProcAddress( function_name );
     if( !function ) {
@@ -1088,29 +1331,41 @@ void* win32_gl_load_proc( const char* function_name ) {
 
     return function;
 }
-void* platform_gl_init() {
-    if( !win32_load_opengl( PLATFORM ) ) {
-        return NULL;
+b32 platform_gl_surface_init( PlatformSurface* surface ) {
+    ASSERT( surface );
+    Win32Surface* win32_surface = surface;
+
+    if( !GL_FUNCTIONS_LOADED ) {
+        if( !win32_load_opengl( PLATFORM ) ) {
+            return false;
+        }
     }
 
-    HGLRC gl_context = win32_gl_create_context();
+
+    HGLRC gl_context =
+        win32_gl_create_context( win32_surface->device_context );
     if( !gl_context ) {
-        return NULL;
+        return false;
     }
 
-    if( !gl_load_functions( win32_gl_load_proc ) ) {
-        WIN32_LOG_FATAL( "Failed to load OpenGL functions!" );
-        return NULL;
+    if( !GL_FUNCTIONS_LOADED ) {
+        if( !gl_load_functions( win32_gl_load_proc ) ) {
+            WIN32_LOG_FATAL( "Failed to load OpenGL functions!" );
+            return false;
+        }
+        GL_FUNCTIONS_LOADED = true;
     }
 
-    return (void*)gl_context;
+    win32_surface->glrc = gl_context;
+
+    return true;
 }
-void platform_gl_shutdown( void* glrc ) {
+void platform_gl_surface_shutdown( PlatformSurface* surface ) {
+    ASSERT( surface );
+    Win32Surface* win32_surface = surface;
     wglMakeCurrent(
-        PLATFORM->window.device_context,
-        NULL
-    );
-    wglDeleteContext( (HGLRC)glrc );
+        win32_surface->device_context, NULL );
+    wglDeleteContext( win32_surface->glrc );
 }
 void platform_query_system_info( struct SystemInfo* sysinfo ) {
     SYSTEM_INFO win32_info = {};
@@ -1203,31 +1458,43 @@ LRESULT win32_winproc(
     HWND hWnd, UINT Msg,
     WPARAM wParam, LPARAM lParam
 ) {
+
+    Win32Surface* win32_surface =
+        (Win32Surface*)GetWindowLongPtrA( hWnd, GWLP_USERDATA );
+
+    if( !win32_surface ) {
+        return DefWindowProc(
+            hWnd, Msg,
+            wParam, lParam
+        );
+    }
+
     #define TRANSITION_STATE_MASK (1 << 31)
     #define EXTENDED_KEY_MASK     (1 << 24)
     #define SCANCODE_MASK         0x00FF0000
 
-    Event event = {};
     switch( Msg ) {
-        case WM_CLOSE:
-        case WM_DESTROY: {
-            event.code = EVENT_CODE_EXIT;
-            event_fire( event );
+        case WM_CLOSE: {
+            if( win32_surface->on_close ) {
+                win32_surface->on_close( win32_surface );
+            }
         } return 0;
 
         case WM_ACTIVATE: {
             b32 is_active = wParam == WA_ACTIVE ||
                 wParam == WA_CLICKACTIVE;
-
-            XInputEnable( (BOOL)is_active );
-            event.code = EVENT_CODE_APP_ACTIVE;
-            event.data.app_active.active = is_active;
-            event_fire( event );
-
             if( !is_active ) {
                 platform_cursor_set_visible( true );
             }
-            PLATFORM->is_active = is_active;
+
+            win32_surface->is_active = is_active;
+
+            // TODO(alicia): figure this shit out.
+            // XInputEnable( (BOOL)is_active );
+            // event.code = EVENT_CODE_APP_ACTIVE;
+            // event.data.app_active.active = is_active;
+            // event_fire( event );
+            // PLATFORM->is_active = is_active;
         } break;
 
         case WM_WINDOWPOSCHANGED: {
@@ -1247,11 +1514,18 @@ LRESULT win32_winproc(
                     max( rect.right, MIN_DIMENSIONS ),
                     max( rect.bottom, MIN_DIMENSIONS ),
                 };
-                PLATFORM->window.dimensions = dimensions;
+                if( win32_surface->on_resize ) {
+                    win32_surface->on_resize(
+                        win32_surface,
+                        win32_surface->dimensions,
+                        dimensions
+                    );
+                }
+                win32_surface->dimensions = dimensions;
 
-                event.code = EVENT_CODE_SURFACE_RESIZE;
-                event.data.resize.new_dimensions = dimensions;
-                event_fire( event );
+                // event.code = EVENT_CODE_SURFACE_RESIZE;
+                // event.data.resize.new_dimensions = dimensions;
+                // event_fire( event );
 
                 last_rect = rect;
             }
@@ -1262,7 +1536,7 @@ LRESULT win32_winproc(
         case WM_KEYDOWN:
         case WM_KEYUP: {
 
-            if( !PLATFORM->is_active ) {
+            if( !win32_surface->is_active ) {
                 break;
             }
 
@@ -1298,10 +1572,11 @@ LRESULT win32_winproc(
         
         case WM_MOUSEMOVE: {
 
-            if( !PLATFORM->is_active ) {
+            if( !win32_surface->is_active ) {
                 break;
             }
 
+            // TODO(alicia): figure this out with multiple windows
             RECT client_rect = {};
             GetClientRect( hWnd, &client_rect );
 
@@ -1319,7 +1594,7 @@ LRESULT win32_winproc(
         case WM_MBUTTONDOWN:
         case WM_MBUTTONUP: {
 
-            if( !PLATFORM->is_active ) {
+            if( !win32_surface->is_active ) {
                 break;
             }
 
@@ -1345,7 +1620,7 @@ LRESULT win32_winproc(
         case WM_XBUTTONDOWN:
         case WM_XBUTTONUP: {
 
-            if( !PLATFORM->is_active ) {
+            if( !win32_surface->is_active ) {
                 break;
             }
 
@@ -1360,7 +1635,7 @@ LRESULT win32_winproc(
         case WM_MOUSEHWHEEL:
         case WM_MOUSEWHEEL: {
 
-            if( !PLATFORM->is_active ) {
+            if( !win32_surface->is_active ) {
                 break;
             }
 
@@ -1549,9 +1824,15 @@ PlatformFile* platform_file_open(
         return false;
     }
 
+    WIN32_LOG_NOTE(
+        "File {u64,x} at path \"{cc}\" opened.",
+        (u64)handle, path
+    );
+
     return handle;
 }
 void platform_file_close( PlatformFile* file ) {
+    WIN32_LOG_NOTE( "File {u64,x} closed.", (u64)file );
     CloseHandle( (HANDLE)file );
 }
 b32 platform_file_read(
@@ -2073,14 +2354,6 @@ void platform_write_console(
 
 void platform_win32_output_debug_string( const char* str ) {
     OutputDebugStringA( str );
-}
-
-b32 platform_is_active() {
-    return PLATFORM->is_active;
-}
-
-ivec2 platform_surface_dimensions() {
-    return PLATFORM->window.dimensions;
 }
 
 #endif // LD_PLATFORM_WINDOWS

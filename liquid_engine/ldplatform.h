@@ -18,29 +18,89 @@
 /// Size of platform subsystem.
 extern usize PLATFORM_SUBSYSTEM_SIZE;
 /// Initialize platform state. Returns true if successful.
-b32 platform_subsystem_init( ivec2 surface_dimensions, void* buffer );
+b32 platform_subsystem_init( void* buffer );
 /// Shutdown platform subsystem.
 void platform_subsystem_shutdown();
-/// Query if application is active.
-b32 platform_is_active();
+
+/// Opaque surface handle.
+typedef void PlatformSurface;
+/// On Resize callback.
+typedef void (PlatformSurfaceOnResizeFN)(
+    PlatformSurface* surface,
+    ivec2 old_dimensions, ivec2 new_dimensions );
+/// On Close callback.
+typedef void (PlatformSurfaceOnCloseFN)(
+    PlatformSurface* surface );
+/// Size of surface data.
+extern usize PLATFORM_SURFACE_BUFFER_SIZE;
+/// If platform supports multiple surfaces.
+extern b32 PLATFORM_SUPPORTS_MULTIPLE_SURFACES;
+/// Flags for creating a surface.
+typedef u32 PlatformSurfaceCreateFlags;
+/// Create a surface but don't show it right away.
+/// Does nothing on platforms that don't support multiple surfaces.
+#define PLATFORM_SURFACE_CREATE_HIDDEN    (1 << 0)
+/// Create a surface that is DPI aware.
+#define PLATFORM_SURFACE_CREATE_DPI_AWARE (1 << 1)
+/// If surface should be resizeable by the user.
+/// Does nothing on platforms that don't support this feature.
+#define PLATFORM_SURFACE_CREATE_RESIZEABLE (1 << 2)
+/// Create a new platform surface.
+/// Can return false if surface creation for example,
+/// if platform does not support more than one surface.
+/// Surface pointer should point to a buffer of size
+/// PLATFORM_SURFACE_BUFFER_SIZE.
+b32 platform_surface_create(
+    ivec2 surface_dimensions, const char* surface_name,
+    PlatformSurfaceCreateFlags flags, PlatformSurface* out_surface );
+/// Destroy a surface.
+void platform_surface_destroy( PlatformSurface* surface );
+/// Show surface.
+/// Does nothing on platforms that don't support application windows.
+void platform_surface_show( PlatformSurface* surface );
+/// Hide surface.
+/// Does nothing on platforms that don't support application windows.
+void platform_surface_hide( PlatformSurface* surface );
+/// Set a surface's dimensions.
+void platform_surface_set_dimensions(
+    PlatformSurface* surface, ivec2 dimensions );
+/// Query a surface's dimensions.
+ivec2 platform_surface_query_dimensions( PlatformSurface* surface );
+/// Set surface name.
+/// Does nothing on platforms that don't name their surfaces.
+void platform_surface_set_name( PlatformSurface* surface, const char* name );
+/// Get surface name.
+/// Call with null buffer to write buffer size.
+/// Call with valid buffer to write up to given buffer size.
+/// surface_name_buffer_size is always written to with length
+/// of surface name.
+/// Does nothing on platforms that don't name their surfaces.
+void platform_surface_query_name(
+    PlatformSurface* surface, usize* surface_name_buffer_size,
+    char* surface_name_buffer );
+/// Query if surface is currently active.
+b32 platform_surface_query_active( PlatformSurface* surface );
+/// Center surface on screen.
+void platform_surface_center( PlatformSurface* surface );
+/// Set surface's on close callback.
+void platform_surface_set_close_callback(
+    PlatformSurface* surface, PlatformSurfaceOnCloseFN* close_callback );
+/// Clear a surface's close callback.
+void platform_surface_clear_close_callback( PlatformSurface* surface );
+/// Set surface's on resize callback.
+void platform_surface_set_resize_callback(
+    PlatformSurface* surface, PlatformSurfaceOnResizeFN* resize_callback );
+/// Clear a surface's resize callback.
+void platform_surface_clear_resize_callback( PlatformSurface* surface );
+/// Pump a surface's events.
+void platform_surface_pump_events( PlatformSurface* surface );
+
 /// Get microseconds (μs) elapsed since start of the program.
 f64 platform_us_elapsed();
 /// Get milliseconds elapsed since start of the program.
 f64 platform_ms_elapsed();
 /// Get seconds elapsed since start of the program.
 f64 platform_s_elapsed();
-/// Pump platform events.
-b32 platform_pump_events();
-/// Set application name.
-/// String must be a null-terminated string.
-void platform_application_set_name( const char* str );
-/// Set surface dimensions.
-void platform_surface_set_dimensions( ivec2 dimensions );
-/// Query surface dimensions.
-ivec2 platform_surface_dimensions();
-/// Center surface on screen.
-/// Does nothing on platforms that don't use windows.
-void platform_surface_center();
 /// Query cursor style.
 CursorStyle platform_cursor_style();
 /// Query if cursor is visible.
@@ -53,7 +113,7 @@ void platform_cursor_set_style( CursorStyle cursor_style );
 void platform_cursor_set_visible( b32 visible );
 /// Set cursor position to surface center.
 /// Does nothing on platforms that don't use a cursor.
-void platform_cursor_center();
+void platform_cursor_center( PlatformSurface* surface );
 /// Put the current thread to sleep
 /// for the specified amount of milliseconds.
 void platform_sleep( u32 ms );
@@ -63,11 +123,11 @@ void platform_set_gamepad_motor_state(
 /// Poll gamepad.
 void platform_poll_gamepad();
 /// Swap buffers. OpenGL only.
-void platform_gl_swap_buffers();
+void platform_gl_surface_swap_buffers( PlatformSurface* surface );
 /// Initialize OpenGL.
-void* platform_gl_init();
+b32 platform_gl_surface_init( PlatformSurface* surface );
 /// Shutdown OpenGL.
-void platform_gl_shutdown( void* glrc );
+void platform_gl_surface_shutdown( PlatformSurface* surface );
 
 /// Get stdout handle.
 void* platform_stdout_handle();
