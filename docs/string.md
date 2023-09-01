@@ -8,17 +8,17 @@
 
 To include in game DLL:
 ```cpp
-#include <core/string.h>
+#include <core/ldstring.h>
 ```
 To include in engine:
 ```cpp
-#include "core/string.h"
+#include "core/ldstring.h"
 ```
 
 Includes:
-    - "defines.h"
-    - "core/ldvariadic.h"
-    - "core/ldallocator.h"
+- "defines.h"
+- "core/ldvariadic.h"
+- "core/ldallocator.h"
 
 ## Jump Table
 - [Types](#types)

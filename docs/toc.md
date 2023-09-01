@@ -6,9 +6,13 @@
 
 # Liquid Engine API
 
-Liquid Engine is my own custom engine written in C++.
-Most of the API is what you would call 'idiomatic' C but
-there are a few areas where C++ features are used.
+Liquid Engine is my custom game engine written in C.
+
+Notes:
+
+All functions currently assume that architecture is Little Endian.
+This may have to change if I ever target a Big Endian architecture but
+that is unlikely to happen.
 
 ## Table of Contents
 - [Build Guide](../BUILD.md)
@@ -25,11 +29,11 @@ there are a few areas where C++ features are used.
         - [gf](../BUILD.md#gf)
         - [Visual Studio](../BUILD.md#visual-studio)
 - [Defines](./defines.md)
+    - [Macro Functions](./defines.md#macro-functions)
     - [Type Aliases](./defines.md#type-aliases)
     - [Attributes](./defines.md#attributes)
-    - [Macros](./defines.md#macros)
     - [Constants](./defines.md#constants)
-    - [Pre-processor Checks](./defines.md#pre-processor-checks)
+    - [Conditionals](./defines.md#conditionals)
 - [String](./string.md)
     - [Types](./string.md#types)
     - [Functions](./string.md#functions)

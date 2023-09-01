@@ -16,14 +16,14 @@ To include in engine:
 ```
 
 Includes:
-    - <TargetConditionals.h> APPLE ONLY
+- <TargetConditionals.h> APPLE ONLY
 
 ## Jump Table
 - [Macro Functions](#macro-functions)
 - [Type Aliases](#type-aliases)
 - [Attributes](#attributes)
 - [Constants](#constants)
-- [Pre-processor Checks](#pre-processor-checks)
+- [Conditionals](#conditionals)
 
 ## Macro Functions
 
@@ -290,7 +290,7 @@ Includes:
 | USIZE_MIN                         | smallest unsigned pointer integer |
 | USIZE_MAX                         | largest  unsigned pointer integer |
 
-## Pre-processor Checks
+## Conditionals
 
 | Misc            | Description                     |
 | --------------- | ------------------------------- |
