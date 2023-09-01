@@ -35,6 +35,7 @@ Currently, only Windows is supported as a build target
 #### Optional
 - [RemedyBG Debugger](https://remedybg.itch.io/remedybg)
 - [gf gdb frontend for linux](https://github.com/nakst/gf)
+- [Visual Studio](https://visualstudio.microsoft.com/)
 
 *: might work with other versions
 
