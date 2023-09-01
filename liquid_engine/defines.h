@@ -157,6 +157,7 @@ typedef double f64;
 /// based on type names
 typedef void* pvoid;
 
+/// Make a tuple struct for type
 #define MAKE_TUPLE(type)\
 typedef union tuple_##type {\
     struct { type v0, v1; };\
@@ -237,7 +238,7 @@ MAKE_TUPLE(pvoid);
 /// Crash the program >:)
 #define PANIC() __builtin_trap()
 
-/// Value is unused
+/// Mark value as unused.
 #define unused(x) (void)((x))
 
 /// Compile-time assertion
@@ -295,7 +296,7 @@ MAKE_TUPLE(pvoid);
     #define header_only static inline
 #endif
 
-/// Infinite loop
+/// Infinite loop.
 #define loop for( ;; )
 
 /// Define a 24-bit RGB value (using u32)
@@ -315,35 +316,39 @@ MAKE_TUPLE(pvoid);
     (array)[0], (array)[1], (array)[2], (array)[3]
 
 #if !defined(offsetof)
-    /// Calculate the offset of field in struct.
+    /// Get the byte offset of field in struct.
     #define offsetof( struct, field )\
         (usize)((&(((struct*)NULL)->field)))
 #endif
 
-/// Swap two values.
+/// Swap a and b.
 #define SWAP( a, b ) do {\
     __typeof(a) intermediate = a;\
     a = b;\
     b = intermediate;\
 } while(0)
 
-/// Check if bits in mask are set in bits.
-#define CHECK_BITS( bits, mask ) ( ( (bits) & (mask) ) == (mask) )
-/// Check if ONLY bits in mask are set in bits.
-#define CHECK_BITS_EXACT( bits, mask ) ( ( (bits) & (mask) ) == (bits) )
-/// Toggle masked bits
-#define TOGGLE_BITS( bits, toggle_mask )\
-    ((bits) ^ (toggle_mask))
-/// Clear masked bits
-#define CLEAR_BIT( bits, clear_mask )\
-    ((bits) & ~(clear_mask))
+/// Check if bits in bitmask are set in bitfield.
+#define CHECK_BITS( bitfield, bitmask )\
+    ( ( (bitfield) & (bitmask) ) == (bitmask) )
+/// Check if ONLY bits in bitmask are set in bitfield.
+#define CHECK_BITS_EXACT( bitfield, bitmask )\
+    ( ( (bitfield) & (bitmask) ) == (bitfield) )
+/// Toggle masked bits in bitfield.
+#define TOGGLE_BITS( bitfield, bitmask )\
+    ((bitfield) ^ (bitmask))
+/// Clear masked bits in bitfield.
+#define CLEAR_BITS( bitfield, bitmask )\
+    ((bitfield) & ~(bitmask))
 
 /// Kilobytes to bytes
-#define KILOBYTES(num) ( (num) * 1024ULL )
+#define KILOBYTES(kb) ( (kb) * 1024ULL )
 /// Megabytes to bytes
-#define MEGABYTES(num) ( KILOBYTES( (num) ) * 1024ULL )
+#define MEGABYTES(mb) ( KILOBYTES( (mb) ) * 1024ULL )
 /// Gigabytes to bytes
-#define GIGABYTES(num) ( MEGABYTES( (num) ) * 1024ULL )
+#define GIGABYTES(gb) ( MEGABYTES( (gb) ) * 1024ULL )
+/// Terabytes to bytes
+#define TERABYTES(tb) ( TERABYTES( (tb) ) * 1024ULL )
 
 /// Size of the stack. Must always compile with this value.
 #define STACK_SIZE ((usize)(MEGABYTES(1)))

@@ -6,23 +6,143 @@
 
 # Defines | [Table of Contents](./toc.md)
 
-List of everything defined in "defines.h"
-
-Include in game DLL:
+To include in game DLL:
 ```cpp
 #include <defines.h>
 ```
-Include in engine:
+To include in engine:
 ```cpp
 #include "defines.h"
 ```
 
+Includes:
+    - <TargetConditionals.h> APPLE ONLY
+
 ## Jump Table
+- [Macro Functions](#macro-functions)
 - [Type Aliases](#type-aliases)
 - [Attributes](#attributes)
-- [Macros](#macros)
 - [Constants](#constants)
 - [Pre-processor Checks](#pre-processor-checks)
+
+## Macro Functions
+
+```cpp
+/// Mark value as unused.
+#define unused(x) /// -> void
+```
+```cpp
+/// Infinite loop.
+#define loop for(;;)
+```
+```cpp
+/// Make a tuple struct for type.
+#define MAKE_TUPLE(type) /// -> struct definition
+```
+```cpp
+/// Make a version identifier.
+#define LD_MAKE_VERSION( major, minor ) /// -> u32
+```
+```cpp
+/// Get major version from version identifier.
+#define LD_GET_MAJOR( version ) /// -> u32
+```
+```cpp
+/// Get minor version from version identifier.
+#define LD_GET_MINOR( version ) /// -> u32
+```
+```cpp
+/// Crash program.
+#define PANIC() /// noreturn
+```
+```cpp
+/// Compile-time assertion.
+#define STATIC_ASSERT( condition, message ) /// -> void
+```
+```cpp
+/// Run-time assertion.
+#define ASSERT( condition ) /// -> noreturn if failed
+```
+```cpp
+/// Check if bits in bitmask are set in bitfield.
+#define CHECK_BITS( bitfield, bitmask ) /// -> bool
+```
+```cpp
+/// Check if ONLY bits in bitmask are set in bitfield.
+#define CHECK_BITS_EXACT( bitfield, bitmask ) /// -> bool
+```
+```cpp
+/// Toggle bits in bitfield masked by bitmask.
+#define TOGGLE_BITS( bitfield, bitmask ) /// -> typeof(bitfield)
+```
+```cpp
+/// Toggle masked bits in bitfield.
+#define TOGGLE_BITS( bitfield, bitmask ) /// -> typeof(bitfield)
+```
+```cpp
+/// Clear masked bits in bitfield.
+#define CLEAR_BITS( bitfield, bitmask ) /// -> typeof(bitfield)
+```
+```cpp
+/// Swap a and b.
+#define SWAP( a, b ) /// -> void
+```
+```cpp
+/// Kilobytes to bytes.
+#define KILOBYTES( kb ) /// -> u64
+```
+```cpp
+/// Megabytes to bytes.
+#define MEGABYTES( mb ) /// -> u64
+```
+```cpp
+/// Gigabytes to bytes.
+#define GIGABYTES( gb ) /// -> u64
+```
+```cpp
+/// Terabytes to bytes.
+#define TERABYTES( tb ) /// -> u64
+```
+```cpp
+/// Convert macro name to const char*.
+#define TO_STRING( macro ) /// -> const char*
+```
+```cpp
+/// Convert macro value to const char*.
+#define VALUE_TO_STRING( macro ) /// -> const char*
+```
+```cpp
+/// Define a 24-bit RGB value.
+#define RGB_U32( r, g, b ) /// -> u32
+```
+```cpp
+/// Define a 32-bit RGBA value.
+#define RGBA_U32( r, g, b, a ) /// -> u32
+```
+```cpp
+/// Calculate number of elements in a static array.
+#define STATIC_ARRAY_COUNT( array ) /// -> usize
+```
+```cpp
+/// Calculate size of static array.
+#define STATIC_ARRAY_SIZE( array ) /// -> usize
+```
+```cpp
+/// Reinterpret cast.
+#define REINTERPRET( type, value ) /// -> typeof(type)
+```
+```cpp
+/// Get the byte offset of field in struct.
+#define offsetof( struct, field ) /// -> usize
+```
+```cpp
+/// spread array elements
+/// useful for unpacking arrays
+/// for functions which take multiple elements
+#define SPREAD_2( array )
+#define SPREAD_3( array )
+#define SPREAD_4( array )
+```
 
 ## Type Aliases 
 
@@ -68,37 +188,6 @@ Include in engine:
 | maybe_unused    | mark function/type as possibly unused                    |
 | aligned(x)      | mark value to have x alignment, must be power of two     |
 | LD_API          | export/import function                                   |
-
-## Macros
-
-| Macro                                        | Description                                     |
-| -------------------------------------------- | ----------------------------------------------- |
-| unused( x ) -> void                          | mark value as unused                            |
-| MAKE_TUPLE(type)                             | make a tuple struct of "type"                   |
-| loop                                         | for( ; ; ) infinite loop                        |
-| LD_MAKE_VERSION( major, minor ) -> u32       | make version u32 identifier                     |
-| LD_GET_MAJOR( version ) -> u32               | major version from u32 identifier               |
-| LD_GET_MINOR( version ) -> u32               | minor version from u32 identifier               |
-| PANIC() -> void                              | crash program                                   |
-| STATIC_ASSERT( condition, message ) -> void  | compile time assertion                          |
-| ASSERT( condition ) -> void                  | runtime assertion                               |
-| CHECK_BITS( bits, mask ) -> bool             | check if bits in mask are set in bitfield       |
-| CHECK_BITS_EXACT( bits, mask ) -> bool       | check if ONLY bits in mask are set in bitfield  |
-| TOGGLE_BITS( bits, mask ) -> typeof(bits)    | toggle bits in bitfield                         |
-| CLEAR_BIT( bits, mask ) -> typeof(bits)      | clear bits in bitfield                          |
-| SWAP( a, b ) -> void                         | swap values                                     |
-| KILOBYTES( num ) -> u64                      | num * 1024ULL                                   |
-| MEGABYTES( num ) -> u64                      | KILOBYTES( num ) * 1024ULL                      |
-| GIGABYTES( num ) -> u64                      | MEGABYTES( num ) * 1024ULL                      |
-| TO_STRING( macro ) -> const char*            | macro to string                                 |
-| VALUE_TO_STRING( macro ) -> const char*      | macro value to string                           |
-| RGB_U32( r, g, b ) -> u32                    | define a 24-bit RGB value (u32)                 |
-| RGBA_U32( r, g, b, a ) -> u32                | define a 32-bit RGBA value                      |
-| STATIC_ARRAY_COUNT( array ) -> usize         | number of elements in static array              |
-| STATIC_ARRAY_SIZE( array ) -> usize          | byte size of static array                       |
-| REINTERPRET( type, value ) -> typeof(type)   | reinterpret cast                                |
-| offsetof( struct, field ) -> usize           | get the offset of a field inside a struct/union |
-| SPREAD_2-4( array ) -> array elements        | spread array elements, usefull for unpacking arrays for functions which take multiple elements |
 
 ## Constants
 

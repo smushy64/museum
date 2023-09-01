@@ -109,10 +109,10 @@ LD_API b32 sv_cmp_string( StringView  a, String* b ) {
         b->len, b->buffer
     );
 }
-LD_API void sv_trim_trailing_whitespace( StringView string_view ) {
-    for( usize i = 0; i < string_view.len; ++i ) {
-        if( char_is_whitespace( string_view.buffer[i] ) ) {
-            string_view.len = i;
+LD_API void sv_trim_trailing_whitespace( StringView* sv ) {
+    for( usize i = 0; i < sv->len; ++i ) {
+        if( char_is_whitespace( sv->buffer[i] ) ) {
+            sv->len = i;
             return;
         }
     }
@@ -167,8 +167,11 @@ LD_API void sv_fill( StringView s, char character ) {
     }
 }
 
-internal b32 dstring_allocate( u32 capacity, String* out_string ) {
-    void* buffer = ldalloc( capacity, MEMORY_TYPE_STRING );
+internal b32 dstring_allocate(
+    Allocator* allocator, u32 capacity, String* out_string
+) {
+    void* buffer = allocator_alloc(
+        allocator, capacity, MEMORY_TYPE_STRING );
     if( !buffer ) {
         return false;
     }
@@ -176,8 +179,11 @@ internal b32 dstring_allocate( u32 capacity, String* out_string ) {
     out_string->capacity = capacity;
     return true;
 }
-internal b32 dstring_reallocate( String* string, u32 new_capacity ) {
-    void* new_buffer = ldrealloc(
+internal b32 dstring_reallocate(
+    Allocator* allocator, String* string, u32 new_capacity
+) {
+    void* new_buffer = allocator_realloc(
+        allocator,
         string->buffer, string->capacity,
         new_capacity, MEMORY_TYPE_STRING
     );
@@ -188,30 +194,11 @@ internal b32 dstring_reallocate( String* string, u32 new_capacity ) {
     string->capacity = new_capacity;
     return true;
 }
-internal b32 dstring_append_internal(
-    String* string,
-    u32 append_len, const char* append_buffer,
-    b32 alloc
+LD_API b32 dstring_new(
+    Allocator* allocator, StringView view, String* out_string
 ) {
-    u32 new_len = string->len + append_len;
-    u32 max_len = new_len > string->capacity ? string->capacity : new_len;
-    if( alloc ) {
-        if( string->capacity < new_len ) {
-            if( !dstring_reallocate( string, new_len ) ) {
-                return false;
-            }
-            max_len = new_len;
-        }
-    }
-
-    mem_copy( string->buffer + string->len, append_buffer, max_len );
-    string->len = max_len;
-
-    return true;
-}
-LD_API b32 dstring_new( StringView view, String* out_string ) {
     u32 capacity = view.len;
-    if( !dstring_allocate( capacity, out_string ) ) {
+    if( !dstring_allocate( allocator, capacity, out_string ) ) {
         return false;
     }
     out_string->len = capacity;
@@ -219,33 +206,46 @@ LD_API b32 dstring_new( StringView view, String* out_string ) {
 
     return true;
 }
-LD_API b32 dstring_with_capacity( usize capacity, String* out_string ) {
+LD_API b32 dstring_with_capacity(
+    Allocator* allocator, usize capacity, String* out_string
+) {
     out_string->len = 0;
-    return dstring_allocate( capacity, out_string );
+    return dstring_allocate( allocator, capacity, out_string );
 }
-LD_API b32 dstring_reserve( String* string, usize new_capacity ) {
-    return dstring_reallocate( string, new_capacity );
+LD_API b32 dstring_reserve(
+    Allocator* allocator, String* string, usize new_capacity
+) {
+    return dstring_reallocate( allocator, string, new_capacity );
 }
-LD_API b32 dstring_append_string( String* string, String* append, b32 alloc ) {
-    return dstring_append_internal(
-        string,
-        append->len,
-        append->buffer,
-        alloc
-    );
+LD_API b32 dstring_append(
+    Allocator* allocator, String* string, StringView append, b32 alloc
+) {
+    u32 new_len = string->len + append.len;
+    u32 max_len = new_len > string->capacity ? string->capacity : new_len;
+    if( alloc ) {
+        if( string->capacity < new_len ) {
+            if( !dstring_reallocate( allocator, string, new_len ) ) {
+                return false;
+            }
+            max_len = new_len;
+        }
+    }
+
+    mem_copy( string->buffer + string->len, append.buffer, max_len );
+    string->len = max_len;
+
+    return true;
 }
-LD_API b32 dstring_append_sv( String* string, StringView append, b32 alloc ) {
-    return dstring_append_internal(
-        string,
-        append.len,
-        append.buffer,
-        alloc
-    );
-}
-LD_API b32 dstring_push_char( String* string, char character, u32 realloc ) {
+LD_API b32 dstring_push_char(
+    Allocator* allocator,
+    String* string, char character, u32 realloc
+) {
     if( string->len == string->capacity ) {
         if( realloc ) {
-            if( !dstring_reserve( string, string->capacity + realloc ) ) {
+            if( !dstring_reserve(
+                allocator,
+                string, string->capacity + realloc
+            ) ) {
                 return false;
             }
         } else {
@@ -263,32 +263,37 @@ LD_API char dstring_pop_char( String* string ) {
     return string->buffer[string->len--];
 }
 LD_API StringView dstring_view_capacity_bounds(
-    String* string, usize offset
+    String string, usize offset
 ) {
     StringView result = {};
-    if( offset >= string->capacity ) {
+    if( offset >= string.capacity ) {
         LOG_FATAL("Attempted to create dstring view with invalid offset!");
         PANIC();
     }
-    result.buffer = string->buffer + offset;
-    result.len    = string->capacity;
+    result.buffer = string.buffer + offset;
+    result.len    = string.capacity;
     return result;
 }
 LD_API StringView dstring_view_len_bounds(
-    String* string, usize offset
+    String string, usize offset
 ) {
     StringView result = {};
-    if( offset >= string->len ) {
+    if( offset >= string.len ) {
         LOG_FATAL("Attempted to create dstring view with invalid offset!");
         PANIC();
     }
-    result.buffer = string->buffer + offset;
-    result.len    = string->len - offset;
+    result.buffer = string.buffer + offset;
+    result.len    = string.len - offset;
     return result;
 }
-LD_API void dstring_free( String* string ) {
+LD_API void dstring_free( Allocator* allocator, String* string ) {
     if( string->buffer ) {
-        ldfree( string->buffer, string->capacity, MEMORY_TYPE_STRING );
+        allocator_free(
+            allocator,
+            string->buffer,
+            string->capacity,
+            MEMORY_TYPE_STRING
+        );
     }
     mem_zero( string, sizeof( String ) );
 }

@@ -17,7 +17,7 @@ No libraries are used with the exception of system libraries ( Win32, OpenGL etc
 
 ## Project Goals
 - Cross platform game engine (Windows, Linux, Mac, WebAssembly)
-- 3D Action RPG (think Dark Souls and Zelda)
+- 3D Action RPG (think Dark Souls + Zelda)
 
 ## Build
 
@@ -42,12 +42,21 @@ Currently, only Windows is supported as a build target
 ### Steps
 
 1) cd into root directory
-2) build all sources: ```make```
+2) build all sources:
+```console
+make all
+```
 3) executable will be in ./build/debug/
 
-to build and execute testbed, run: ```make test```
+to build and execute testbed, run:
+```console
+make test
+```
 
-to list other provided make recipes, run: ```make help```
+to list other provided make recipes, run:
+```console
+make help
+```
 
 More information on how to build is available [here](./BUILD.md).
 

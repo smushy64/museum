@@ -260,6 +260,11 @@ LD_API void internal_allocator_free_aligned(
     Allocator* allocator, void* memory,
     usize size, enum MemoryType type, usize alignment );
 // IMPORTANT(alicia): Internal use only!
+/// Reallocate memory from a generic allocator.
+LD_API void* internal_allocator_realloc(
+    Allocator* allocator, void* memory,
+    usize old_size, usize new_size, enum MemoryType type );
+// IMPORTANT(alicia): Internal use only!
 /// Allocate memory from a generic allocator.
 LD_API void* internal_allocator_alloc(
     Allocator* allocator, usize size, enum MemoryType type );
@@ -278,6 +283,12 @@ LD_API void* internal_allocator_alloc_aligned_trace(
 LD_API void internal_allocator_free_aligned_trace(
     Allocator* allocator, void* memory,
     usize size, enum MemoryType type, usize alignment,
+    const char* function, const char* file, int line );
+// IMPORTANT(alicia): Internal use only!
+/// Reallocate memory from a generic allocator.
+LD_API void* internal_allocator_realloc_trace(
+    Allocator* allocator, void* memory,
+    usize old_size, usize new_size, enum MemoryType type,
     const char* function, const char* file, int line );
 // IMPORTANT(alicia): Internal use only!
 /// Allocate memory from a generic allocator.
@@ -299,6 +310,10 @@ LD_API void internal_allocator_free_trace(
         internal_allocator_alloc_trace(\
             allocator, size, type,\
             __FUNCTION__, __FILE__, __LINE__)
+    #define allocator_realloc( allocator, memory, old_size, new_size, type )\
+        internal_allocator_realloc_trace(\
+            allocator, memory, old_size, new_size, type,\
+            __FUNCTION__, __FILE__, __LINE__ )
     #define allocator_free_aligned( allocator, memory, size, type, alignment )\
         internal_allocator_free_aligned_trace(\
             allocator, memory, size, type, alignment,\
@@ -312,6 +327,8 @@ LD_API void internal_allocator_free_trace(
         internal_allocator_alloc_aligned( allocator, size, type, alignment )
     #define allocator_alloc( allocator, size, type )\
         internal_allocator_alloc( allocator, size, type )
+    #define allocator_realloc( allocator, memory, old_size, new_size, type )\
+        internal_allocator_realloc( allocator, memory, old_size, new_size, type )
     #define allocator_free_aligned( allocator, memory, size, type, alignment )\
         internal_allocator_free_aligned(\
             allocator, memory, size, type, alignment )

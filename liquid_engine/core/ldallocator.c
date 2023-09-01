@@ -539,6 +539,19 @@ LD_API void* internal_allocator_alloc(
     }
     return NULL;
 }
+LD_API void* internal_allocator_realloc(
+    Allocator* allocator, void* memory,
+    usize old_size, usize new_size,
+    enum MemoryType type
+) {
+    switch( allocator->type ) {
+        case ALLOCATOR_TYPE_SYSTEM: {
+            return internal_ldrealloc( memory, old_size, new_size, type );
+        } break;
+        default: UNIMPLEMENTED();
+    }
+    return NULL;
+}
 LD_API void internal_allocator_free(
     Allocator* allocator, void* memory,
     usize size, enum MemoryType type
@@ -629,6 +642,22 @@ LD_API void* internal_allocator_alloc_trace(
         case ALLOCATOR_TYPE_STACK: {
             return internal_stack_allocator_push_trace(
                 allocator->stack, size,
+                function, file, line );
+        } break;
+        default: UNIMPLEMENTED();
+    }
+    return NULL;
+}
+LD_API void* internal_allocator_realloc_trace(
+    Allocator* allocator, void* memory,
+    usize old_size, usize new_size,
+    enum MemoryType type,
+    const char* function, const char* file, int line
+) {
+    switch( allocator->type ) {
+        case ALLOCATOR_TYPE_SYSTEM: {
+            return internal_ldrealloc_trace(
+                memory, old_size, new_size, type,
                 function, file, line );
         } break;
         default: UNIMPLEMENTED();
