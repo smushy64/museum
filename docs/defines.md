@@ -63,7 +63,7 @@ Include in engine:
 | no_inline       | never inline following function                          |
 | header_only     | mark header function (extern inline in C, inline in C++) |
 | extern_c        | mark function as extern "C" (C++ only)                   |
-| is_deprecated   | mark function/struct as deprecated                       |
+| deprecate       | mark function/struct as deprecated                       |
 | transparent     | mark union as transparent                                |
 | maybe_unused    | mark function/type as possibly unused                    |
 | aligned(x)      | mark value to have x alignment, must be power of two     |
@@ -74,7 +74,7 @@ Include in engine:
 | Macro                                        | Description                                     |
 | -------------------------------------------- | ----------------------------------------------- |
 | unused( x ) -> void                          | mark value as unused                            |
-| MAKE_TUPLE(type) -> void                     | make a tuple struct of "type"                   |
+| MAKE_TUPLE(type)                             | make a tuple struct of "type"                   |
 | loop                                         | for( ; ; ) infinite loop                        |
 | LD_MAKE_VERSION( major, minor ) -> u32       | make version u32 identifier                     |
 | LD_GET_MAJOR( version ) -> u32               | major version from u32 identifier               |
@@ -97,6 +97,8 @@ Include in engine:
 | STATIC_ARRAY_COUNT( array ) -> usize         | number of elements in static array              |
 | STATIC_ARRAY_SIZE( array ) -> usize          | byte size of static array                       |
 | REINTERPRET( type, value ) -> typeof(type)   | reinterpret cast                                |
+| offsetof( struct, field ) -> usize           | get the offset of a field inside a struct/union |
+| SPREAD_2-4( array ) -> array elements        | spread array elements, usefull for unpacking arrays for functions which take multiple elements |
 
 ## Constants
 
@@ -104,7 +106,7 @@ Include in engine:
 | ------------------ | ----------- | -------------------------------------------------- |
 | true/false         | bool        | boolean constants (C only)                         |
 | nullptr            | void*       | null constant (C only)                             |
-| NULL               | int         | null constant                                      |
+| NULL               | void*       | null constant                                      |
 | STACK_SIZE         | usize       | size of the stack and stack size of worker threads |
 | LD_CONTACT_MESSAGE | const char* | contact message to display in user-facing errors   |
 

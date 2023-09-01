@@ -24,7 +24,17 @@
 // NOTE(alicia): GLOBALS
 
 global Win32Platform* PLATFORM = NULL;
-global HICON WINDOW_ICON = NULL;
+#define LOAD_GDI32_FN(function_name) do {\
+    function_name = (function_name##FN*)\
+    library_load_function( &PLATFORM->lib_gdi32, #function_name );\
+    if( !function_name ) { return false; }\
+} while(0)
+#define WIN32_FULLSCREEN_DWSTYLE         WS_POPUP
+#define WIN32_FULLSCREEN_DWEXSTYLE       0
+
+#define WIN32_WINDOWED_RESIZEABLE_DWSTYLE  WS_OVERLAPPEDWINDOW
+#define WIN32_WINDOWED_DWSTYLE             WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU
+#define WIN32_WINDOWED_DWEXSTYLE           WS_EX_OVERLAPPEDWINDOW
 
 void* memset( void* ptr, int value, size_t num ) {
     u8 value_8 = *(u8*)&value;
@@ -33,10 +43,18 @@ void* memset( void* ptr, int value, size_t num ) {
     }
     return ptr;
 }
-
 void* memcpy( void* destination, const void* source, size_t num ) {
     mem_copy( destination, source, num );
     return destination;
+}
+char* strcpy( char* dst, const char* src ) {
+    char* dst_ = dst;
+    const char* src_ = src;
+    *dst_++ = *src_;
+    while( *src_++ ) {
+        *dst_++ = *src_;
+    }
+    return dst;
 }
 
 /*************************************************************************
@@ -67,17 +85,6 @@ void* memcpy( void* destination, const void* source, size_t num ) {
  * - in unquoted strings, the first quote opens the quoted string and the
  *   remaining consecutive quotes follow the above rule.
  */
-
-char* strcpy( char* dst, const char* src ) {
-    char* dst_ = dst;
-    const char* src_ = src;
-    *dst_++ = *src_;
-    while( *src_++ ) {
-        *dst_++ = *src_;
-    }
-    return dst;
-}
-
 LPSTR* WINAPI CommandLineToArgvA(LPSTR lpCmdline, int* numargs) {
     DWORD argc;
     LPSTR *argv;
@@ -314,12 +321,26 @@ void __stdcall WinMainCRTStartup() {
 //     return TRUE;
 // }
 
-global LARGE_INTEGER PERFORMANCE_COUNTER;
-global LARGE_INTEGER PERFORMANCE_FREQUENCY;
+internal MONITORINFO win32_monitor_info( HWND opt_window_handle ) {
+    HMONITOR monitor = NULL;
+    if( opt_window_handle ) {
+        monitor = MonitorFromWindow( opt_window_handle, MONITOR_DEFAULTTONEAREST );
+    } else {
+        // TODO(alicia): cache last point window was at
+        // before closing so that the application can always
+        // open on the last used monitor
+        POINT pt = {};
+        monitor = MonitorFromPoint( pt, MONITOR_DEFAULTTOPRIMARY );
+    }
+    MONITORINFO monitor_info = {};
+    monitor_info.cbSize = sizeof(monitor_info);
+    if( !GetMonitorInfoA( monitor, &monitor_info ) ) {
+        win32_log_error(false);
+        PANIC();
+    }
+    return monitor_info;
+}
 
-/// Every x number of frames, check if xinput gamepad is active
-#define POLL_FOR_NEW_XINPUT_GAMEPAD_RATE (20000)
-maybe_unused
 internal DWORD WINAPI win32_xinput_polling_thread( void* params ) {
     PlatformSemaphore* semaphore = params;
     loop {
@@ -348,48 +369,94 @@ b32 platform_subsystem_init( void* buffer ) {
     ASSERT( buffer );
     PLATFORM = buffer;
 
-    // load libraries
-    if( !win32_load_user32( PLATFORM ) ) {
-        return false;
-    }
-    if( !win32_load_xinput( PLATFORM ) ) {
+    if( !library_load(
+        "USER32.DLL",
+        &PLATFORM->lib_user32
+    ) ) {
+        MESSAGE_BOX_FATAL(
+            "Failed to load library!",
+            "Failed to load user32.dll!"
+        );
         return false;
     }
 
-    read_write_fence();
-    
-    // TODO(alicia): 
-    /// create a thread to poll for new xinput devices because
-    /// of XInputGetState stall. Thanks Microsoft!
-    // PlatformSemaphore* xinput_polling_thread_semaphore =
-    //     platform_semaphore_create( 0, 1 );
-    // if( !xinput_polling_thread_semaphore ) {
-    //     return false;
-    // }
-    // PLATFORM->xinput_polling_thread_semaphore =
-    //     xinput_polling_thread_semaphore;
-    //
-    // read_write_fence();
-    //
-    // Win32Thread xinput_polling_thread_handle = {};
-    // xinput_polling_thread_handle.thread_handle = CreateThread(
-    //     NULL,
-    //     STACK_SIZE,
-    //     win32_xinput_polling_thread,
-    //     &PLATFORM->xinput_polling_thread_semaphore,
-    //     0,
-    //     &xinput_polling_thread_handle.thread_id
-    // );
-    // if( !xinput_polling_thread_handle.thread_handle ) {
-    //     win32_log_error( true );
-    //     return false;
-    // }
-    // PLATFORM->xinput_polling_thread = xinput_polling_thread_handle;
-    //
-    // WIN32_LOG_NOTE(
-    //     "Created XInput polling thread. ID: {u}",
-    //     PLATFORM->xinput_polling_thread.thread_id
-    // );
+    #define LOAD_USER32_FN(function_name) do {\
+        function_name = (function_name##FN*)\
+        library_load_function( &PLATFORM->lib_user32, #function_name );\
+        if( !function_name ) { return false; }\
+    } while(0)
+
+    LOAD_USER32_FN(SetWindowPlacement);
+    LOAD_USER32_FN(GetWindowPlacement);
+    LOAD_USER32_FN(GetMonitorInfoA);
+    LOAD_USER32_FN(MonitorFromPoint);
+    LOAD_USER32_FN(MonitorFromWindow);
+    LOAD_USER32_FN(SetWindowPos);
+    LOAD_USER32_FN(CreateWindowExA);
+    LOAD_USER32_FN(RegisterClassExA);
+    LOAD_USER32_FN(AdjustWindowRectEx);
+    LOAD_USER32_FN(LoadImageA);
+    LOAD_USER32_FN(GetWindowLongPtrA);
+    LOAD_USER32_FN(DefWindowProcA);
+    LOAD_USER32_FN(GetClientRect);
+    LOAD_USER32_FN(MapVirtualKeyA);
+    LOAD_USER32_FN(DestroyWindow);
+    LOAD_USER32_FN(PeekMessageA);
+    LOAD_USER32_FN(TranslateMessage);
+    LOAD_USER32_FN(DestroyIcon);
+    LOAD_USER32_FN(GetDC);
+    LOAD_USER32_FN(ShowWindow);
+    LOAD_USER32_FN(SetWindowLongPtrA);
+    LOAD_USER32_FN(MessageBoxA);
+    LOAD_USER32_FN(DispatchMessageA);
+    LOAD_USER32_FN(SetWindowTextA);
+    LOAD_USER32_FN(GetWindowTextLengthA);
+    LOAD_USER32_FN(GetWindowTextA);
+    LOAD_USER32_FN(SetCursorPos);
+    LOAD_USER32_FN(ClientToScreen);
+    LOAD_USER32_FN(ShowCursor);
+    LOAD_USER32_FN(SetCursor);
+    LOAD_USER32_FN(LoadCursorA);
+    LOAD_USER32_FN(GetSystemMetrics);
+
+    if( !library_load(
+        "XINPUT1_4.DLL",
+        &PLATFORM->lib_xinput
+    ) ) {
+        if( !library_load(
+            "XINPUT9_1_0.DLL",
+            &PLATFORM->lib_xinput
+        ) ) {
+            if( !library_load(
+                "XINPUT1_3.DLL",
+                &PLATFORM->lib_xinput
+            ) ) {
+                MESSAGE_BOX_FATAL(
+                    "Failed to load library!",
+                    "Failed to load any version of XInput!"
+                );
+                return false;
+            }
+        }
+    }
+
+    #define LOAD_XINPUT_FN(function_name) do {\
+        function_name = (function_name##FN*)\
+        library_load_function( &PLATFORM->lib_xinput, #function_name );\
+        if( !function_name ) { return false; }\
+    } while(0)
+
+    LOAD_XINPUT_FN(XInputGetState);
+    LOAD_XINPUT_FN(XInputSetState);
+
+    XInputEnableFN* xinput_enable =
+    (XInputEnableFN*)library_load_function(
+        &PLATFORM->lib_xinput,
+        "XInputEnable"
+    );
+    if( xinput_enable ) {
+        XInputEnable = xinput_enable;
+    }
 
     if( !library_load(
         "GDI32.DLL",
@@ -401,17 +468,42 @@ b32 platform_subsystem_init( void* buffer ) {
         );
         return false;
     }
-    GetStockObject = (GetStockObjectFN*)library_load_function(
-        &PLATFORM->lib_gdi32,
-        "GetStockObject"
-    );
-    if( !GetStockObject ) {
-        MESSAGE_BOX_FATAL(
-            "Failed to load function!",
-            "Failed to load GetStockObject!"
-        );
+    LOAD_GDI32_FN( GetStockObject );
+    LOAD_GDI32_FN( GetDeviceCaps );
+
+    read_write_fence();
+    
+    /// create a thread to poll for new xinput devices because
+    /// of XInputGetState stall. Thanks Microsoft!
+    PlatformSemaphore* xinput_polling_thread_semaphore =
+        platform_semaphore_create( 0, 1 );
+    if( !xinput_polling_thread_semaphore ) {
         return false;
     }
+    PLATFORM->xinput_polling_thread_semaphore =
+        xinput_polling_thread_semaphore;
+
+    read_write_fence();
+
+    Win32Thread xinput_polling_thread_handle = {};
+    xinput_polling_thread_handle.thread_handle = CreateThread(
+        NULL,
+        STACK_SIZE,
+        win32_xinput_polling_thread,
+        PLATFORM->xinput_polling_thread_semaphore,
+        0,
+        &xinput_polling_thread_handle.thread_id
+    );
+    if( !xinput_polling_thread_handle.thread_handle ) {
+        win32_log_error( true );
+        return false;
+    }
+    PLATFORM->xinput_polling_thread = xinput_polling_thread_handle;
+
+    WIN32_LOG_NOTE(
+        "Created XInput polling thread. ID: {u}",
+        PLATFORM->xinput_polling_thread.thread_id
+    );
 
     PLATFORM->instance = GetModuleHandle( NULL );
 
@@ -426,138 +518,13 @@ b32 platform_subsystem_init( void* buffer ) {
     if( !window_icon ) {
         WIN32_LOG_WARN("Failed to load window icon!");
     }
-    WINDOW_ICON = window_icon;
-    //
-    // // create window
-    // WNDCLASSEX windowClass    = {};
-    // windowClass.cbSize        = sizeof(WNDCLASSEX);
-    // windowClass.lpfnWndProc   = win32_winproc;
-    // windowClass.hInstance     = PLATFORM->instance;
-    // windowClass.lpszClassName = "LiquidEngineWindowClass";
-    // windowClass.hbrBackground = (HBRUSH)GetStockBrush(BLACK_BRUSH);
-    // windowClass.hIcon         = WINDOW_ICON;
-    // windowClass.hCursor       = LoadCursor(
-    //     PLATFORM->instance,
-    //     IDC_ARROW
-    // );
-    //
-    // if( !RegisterClassEx( &windowClass ) ) {
-    //     win32_log_error( true );
-    //     return false;
-    // }
-    //
-    // PLATFORM->window.dwExStyle = WS_EX_OVERLAPPEDWINDOW;
-    //
-    // b32 is_resizeable = true;
-    //
-    // if( is_resizeable ) {
-    //     PLATFORM->window.dwStyle = WS_OVERLAPPEDWINDOW;
-    // } else {
-    //     PLATFORM->window.dwStyle =
-    //         WS_OVERLAPPED |
-    //         WS_CAPTION    |
-    //         WS_SYSMENU;
-    // }
-    //
-    // i32 width = 0, height = 0;
-    // RECT window_rect = {};
-    // if( PLATFORM->is_dpi_aware ) {
-    //     SetProcessDpiAwarenessContext(
-    //         DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
-    //     );
-    //     PLATFORM->dpi = GetDpiForSystem();
-    //
-    //     width = MulDiv(
-    //         surface_dimensions.width,
-    //         PLATFORM->dpi, 96
-    //     );
-    //     height = MulDiv(
-    //         surface_dimensions.height,
-    //         PLATFORM->dpi, 96
-    //     );
-    //
-    //     window_rect.right  = width;
-    //     window_rect.bottom = height;
-    //     if( !AdjustWindowRectExForDpi(
-    //         &window_rect,
-    //         PLATFORM->window.dwStyle,
-    //         FALSE,
-    //         PLATFORM->window.dwExStyle,
-    //         PLATFORM->dpi
-    //     ) ) {
-    //         win32_log_error( true );
-    //         return false;
-    //     }
-    // } else {
-    //     width  = surface_dimensions.width;
-    //     height = surface_dimensions.height;
-    //
-    //     window_rect.right  = surface_dimensions.width;
-    //     window_rect.bottom = surface_dimensions.height;
-    //     if( !AdjustWindowRectEx(
-    //         &window_rect,
-    //         PLATFORM->window.dwStyle,
-    //         FALSE,
-    //         PLATFORM->window.dwExStyle
-    //     ) ) {
-    //         win32_log_error( true );
-    //         return false;
-    //     }
-    // }
-    //
-    // i32 x = 0, y = 0; {
-    //     ivec2 screen_center = iv2(
-    //         GetSystemMetrics( SM_CXSCREEN ),
-    //         GetSystemMetrics( SM_CYSCREEN )
-    //     );
-    //     screen_center = iv2_div( screen_center, 2 );
-    //
-    //     x = screen_center.x - (width / 2);
-    //     y = screen_center.y - (height / 2);
-    // }
-    // 
-    // HWND hWnd = CreateWindowEx(
-    //     PLATFORM->window.dwExStyle,
-    //     windowClass.lpszClassName,
-    //     "Liquid Engine",
-    //     PLATFORM->window.dwStyle,
-    //     x, y,
-    //     window_rect.right - window_rect.left,
-    //     window_rect.bottom - window_rect.top,
-    //     NULL,
-    //     NULL,
-    //     PLATFORM->instance,
-    //     NULL
-    // );
-    // if( !hWnd ) {
-    //     win32_log_error( true );
-    //     return false;
-    // }
-    //
-    // HDC dc = GetDC( hWnd );
-    // if( !dc ) {
-    //     win32_log_error( true );
-    //     return false;
-    // }
-    //
-    // PLATFORM->window.handle         = hWnd;
-    // PLATFORM->window.device_context = dc;
-    //
-    // ShowWindow( PLATFORM->window.handle, SW_SHOW );
+    PLATFORM->icon = window_icon;
+
     PLATFORM->cursor_style   = CURSOR_STYLE_ARROW;
     PLATFORM->cursor_visible = true;
 
-    QueryPerformanceFrequency(
-        &PLATFORM->performance_frequency
-    );
-    PERFORMANCE_FREQUENCY = PLATFORM->performance_frequency;
-    QueryPerformanceCounter(
-        &PLATFORM->performance_counter
-    );
-    PERFORMANCE_COUNTER = PLATFORM->performance_counter;
-
-    // PLATFORM->window.dimensions = iv2(width, height);
-    // PLATFORM->is_active = true;
+    QueryPerformanceFrequency( &PLATFORM->performance_frequency );
+    QueryPerformanceCounter( &PLATFORM->performance_counter );
 
     WIN32_LOG_INFO( "Platform subsystem successfully initialized." );
     return true;
@@ -567,7 +534,6 @@ void platform_subsystem_shutdown() {
     platform_semaphore_destroy( &PLATFORM->xinput_polling_thread_semaphore );
 }
 
-global b32 DPI_AWARENESS_SET = false;
 usize PLATFORM_SURFACE_BUFFER_SIZE = sizeof(Win32Surface);
 b32 PLATFORM_SUPPORTS_MULTIPLE_SURFACES = true;
 b32 platform_surface_create(
@@ -581,11 +547,8 @@ b32 platform_surface_create(
         !CHECK_BITS( flags, PLATFORM_SURFACE_CREATE_HIDDEN );
     b32 is_resizeable =
         CHECK_BITS( flags, PLATFORM_SURFACE_CREATE_RESIZEABLE );
-    b32 is_dpi_aware =
-        CHECK_BITS( flags, PLATFORM_SURFACE_CREATE_DPI_AWARE );
-    if( DPI_AWARENESS_SET ) {
-        is_dpi_aware = true;
-    }
+    b32 create_fullscreen =
+        CHECK_BITS( flags, PLATFORM_SURFACE_CREATE_FULLSCREEN );
 
     WNDCLASSEX window_class = {};
     window_class.cbSize        = sizeof(WNDCLASSEX);
@@ -593,7 +556,7 @@ b32 platform_surface_create(
     window_class.hInstance     = PLATFORM->instance;
     window_class.lpszClassName = "LiquidEngineWindowClass";
     window_class.hbrBackground = (HBRUSH)GetStockBrush( BLACK_BRUSH );
-    window_class.hIcon         = WINDOW_ICON;
+    window_class.hIcon         = PLATFORM->icon;
     window_class.hCursor =
         LoadCursorA( PLATFORM->instance, IDC_ARROW );
 
@@ -602,71 +565,43 @@ b32 platform_surface_create(
         return false;
     }
 
-    DWORD dwExStyle = WS_EX_OVERLAPPEDWINDOW;
-    DWORD dwStyle = 0;
-    if( is_resizeable ) {
-        dwStyle = WS_OVERLAPPEDWINDOW;
-    } else {
-        dwStyle =
-            WS_OVERLAPPED |
-            WS_CAPTION |
-            WS_SYSMENU;
-    }
 
+    MONITORINFO monitor_info = win32_monitor_info( NULL );
     ivec2 dimensions = {};
-    RECT window_rect = {};
-    if( is_dpi_aware ) {
-        if( !DPI_AWARENESS_SET ) {
-            SetProcessDpiAwarenessContext(
-                DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 );
-            // FIXME(alicia): this is not ok
-            PLATFORM->dpi = GetDpiForSystem();
-        }
-    
-        // TODO(alicia): figure out what the denominator should be
-        // if not 96!!!
-        dimensions.x = MulDiv(
-            surface_dimensions.x,
-            PLATFORM->dpi, 96 );
-        dimensions.y = MulDiv(
-            surface_dimensions.y,
-            PLATFORM->dpi, 96 );
 
-        window_rect.right  = dimensions.x;
-        window_rect.bottom = dimensions.y;
-        if( !AdjustWindowRectExForDpi(
-            &window_rect,
-            dwStyle, FALSE,
-            dwExStyle, PLATFORM->dpi
-        ) ) {
-            win32_log_error( true );
-            return false;
-        }
+    DWORD dwExStyle = 0;
+    DWORD dwStyle   = 0;
+
+    if( create_fullscreen ) {
+        dimensions.x =
+            monitor_info.rcMonitor.right - monitor_info.rcMonitor.left;
+        dimensions.y =
+            monitor_info.rcMonitor.bottom - monitor_info.rcMonitor.top;
+
+        dwStyle   = WIN32_FULLSCREEN_DWSTYLE;
+        dwExStyle = WIN32_FULLSCREEN_DWEXSTYLE;
     } else {
-        dimensions = surface_dimensions;
-
-        window_rect.right  = dimensions.x;
-        window_rect.bottom = dimensions.y;
-
-        if( !AdjustWindowRectEx(
-            &window_rect,
-            dwStyle, FALSE,
-            dwExStyle
-        ) ) {
-            win32_log_error( true );
-            return false;
+        dwExStyle = WIN32_WINDOWED_DWEXSTYLE;
+        if( is_resizeable ) {
+            dwStyle = WIN32_WINDOWED_RESIZEABLE_DWSTYLE;
+        } else {
+            dwStyle = WIN32_WINDOWED_DWSTYLE;
         }
+        dimensions = surface_dimensions;
     }
 
-    i32 x = 0, y = 0; {
-        ivec2 screen_center = iv2(
-            GetSystemMetrics( SM_CXSCREEN ),
-            GetSystemMetrics( SM_CYSCREEN )
-        );
-        screen_center = iv2_div( screen_center, 2 );
+    RECT window_rect = {};
+    
+    window_rect.right  = dimensions.x;
+    window_rect.bottom = dimensions.y;
 
-        x = screen_center.x - (dimensions.x / 2);
-        y = screen_center.y - (dimensions.y / 2);
+    if( !AdjustWindowRectEx(
+        &window_rect,
+        dwStyle, FALSE,
+        dwExStyle
+    ) ) {
+        win32_log_error( true );
+        return false;
     }
 
     HWND handle = CreateWindowEx(
@@ -674,7 +609,7 @@ b32 platform_surface_create(
         window_class.lpszClassName,
         surface_name,
         dwStyle,
-        x, y,
+        CW_USEDEFAULT, CW_USEDEFAULT,
         window_rect.right - window_rect.left,
         window_rect.bottom - window_rect.top,
         NULL,
@@ -724,54 +659,161 @@ void platform_surface_set_dimensions(
 ) {
     ASSERT( surface );
     Win32Surface* win32_surface = surface;
-
-    b32 is_dpi_aware = CHECK_BITS(
-        win32_surface->creation_flags, PLATFORM_SURFACE_CREATE_DPI_AWARE );
+    ivec2 old_dimensions = win32_surface->dimensions;
 
     RECT window_rect = {};
-    if( is_dpi_aware ) {
-        UINT dpi = PLATFORM->dpi;
-        window_rect.right  = MulDiv( dimensions.width, dpi, 96 );
-        window_rect.bottom = MulDiv( dimensions.height, dpi, 96 );
 
-        win32_surface->dimensions = iv2(
-            window_rect.right,
-            window_rect.bottom
-        );
-        AdjustWindowRectExForDpi(
-            &window_rect,
-            win32_surface->dwStyle,
-            FALSE,
-            win32_surface->dwExStyle,
-            dpi
-        );
-    } else {
-        window_rect.right  = dimensions.width;
-        window_rect.bottom = dimensions.height;
+    window_rect.right  = dimensions.width;
+    window_rect.bottom = dimensions.height;
 
-        win32_surface->dimensions = dimensions;
+    win32_surface->dimensions = dimensions;
 
-        AdjustWindowRectEx(
-            &window_rect,
-            win32_surface->dwStyle,
-            FALSE,
-            win32_surface->dwExStyle
-        );
+    AdjustWindowRectEx(
+        &window_rect,
+        win32_surface->dwStyle,
+        FALSE,
+        win32_surface->dwExStyle
+    );
+
+    HWND hwnd_insert_after = NULL;
+    if( win32_surface->mode == PLATFORM_SURFACE_MODE_FULLSCREEN ) {
+        hwnd_insert_after = HWND_TOP;
     }
 
     SetWindowPos(
         win32_surface->handle,
-        NULL,
+        hwnd_insert_after,
         0, 0,
         window_rect.right - window_rect.left,
         window_rect.bottom - window_rect.top,
         SWP_NOMOVE | SWP_NOREPOSITION
     );
+
+    if( win32_surface->on_resize ) {
+        win32_surface->on_resize(
+            win32_surface,
+            old_dimensions,
+            dimensions,
+            win32_surface->on_resize_user_params
+        );
+    }
 }
 ivec2 platform_surface_query_dimensions( PlatformSurface* surface ) {
     ASSERT( surface );
     Win32Surface* win32_surface = surface;
     return win32_surface->dimensions;
+}
+void platform_surface_set_mode(
+    PlatformSurface* surface, PlatformSurfaceMode mode
+) {
+    ASSERT( surface );
+    Win32Surface* win32_surface = surface;
+
+    if( win32_surface->mode == mode ) {
+        return;
+    }
+
+    win32_surface->mode = mode;
+    switch( mode ) {
+        case PLATFORM_SURFACE_MODE_FLOATING_WINDOW: {
+            b32 is_resizeable = CHECK_BITS(
+                win32_surface->creation_flags,
+                PLATFORM_SURFACE_CREATE_RESIZEABLE
+            );
+
+            win32_surface->dwExStyle = WIN32_WINDOWED_DWEXSTYLE;
+            if( is_resizeable ) {
+                win32_surface->dwStyle = WIN32_WINDOWED_RESIZEABLE_DWSTYLE;
+            } else {
+                win32_surface->dwStyle = WIN32_WINDOWED_DWSTYLE;
+            }
+
+            SetWindowLongPtrA(
+                win32_surface->handle,
+                GWL_STYLE,
+                win32_surface->dwStyle
+            );
+            SetWindowLongPtrA(
+                win32_surface->handle,
+                GWL_EXSTYLE,
+                win32_surface->dwExStyle
+            );
+
+            SetWindowPlacement(
+                win32_surface->handle, &win32_surface->placement );
+
+            SetWindowPos(
+                win32_surface->handle,
+                NULL, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
+                SWP_NOOWNERZORDER | SWP_FRAMECHANGED
+            );
+
+        } break;
+        case PLATFORM_SURFACE_MODE_FULLSCREEN: {
+
+            mem_zero( &win32_surface->placement, sizeof(WINDOWPLACEMENT) );
+            win32_surface->placement.length = sizeof(WINDOWPLACEMENT);
+            BOOL placement_result = GetWindowPlacement(
+                win32_surface->handle, &win32_surface->placement );
+            if( !placement_result ) {
+                win32_log_error(false);
+                PANIC();
+            }
+
+            win32_surface->dwExStyle = WIN32_FULLSCREEN_DWEXSTYLE;
+            win32_surface->dwStyle   = WIN32_FULLSCREEN_DWSTYLE;
+
+            MONITORINFO monitor_info =
+                win32_monitor_info( win32_surface->handle );
+
+            SetWindowLongPtrA(
+                win32_surface->handle,
+                GWL_STYLE,
+                win32_surface->dwStyle
+            );
+            SetWindowLongPtrA(
+                win32_surface->handle,
+                GWL_EXSTYLE,
+                win32_surface->dwExStyle
+            );
+
+            i32 x = monitor_info.rcMonitor.left;
+            i32 y = monitor_info.rcMonitor.top;
+            i32 width =
+                monitor_info.rcMonitor.right - monitor_info.rcMonitor.left;
+            i32 height =
+                monitor_info.rcMonitor.bottom - monitor_info.rcMonitor.top;
+
+            SetWindowPos(
+                win32_surface->handle,
+                HWND_TOP,
+                x, y,
+                width, height,
+                SWP_NOOWNERZORDER | SWP_FRAMECHANGED | SWP_SHOWWINDOW
+            );
+
+            ivec2 old_dimensions = win32_surface->dimensions;
+            win32_surface->dimensions = (ivec2){ width, height };
+
+            if( win32_surface->on_resize ) {
+                win32_surface->on_resize(
+                    win32_surface,
+                    old_dimensions,
+                    win32_surface->dimensions,
+                    win32_surface->on_resize_user_params
+                );
+            }
+        } break;
+        default: {
+            UNIMPLEMENTED();
+        } break;
+    }
+}
+PlatformSurfaceMode platform_surface_query_mode( PlatformSurface* surface ) {
+    ASSERT( surface );
+    Win32Surface* win32_surface = surface;
+    return win32_surface->mode;
 }
 void platform_surface_set_name( PlatformSurface* surface, const char* name ) {
     ASSERT( surface );
@@ -818,15 +860,33 @@ void platform_surface_hide( PlatformSurface* surface ) {
 void platform_surface_center( PlatformSurface* surface ) {
     ASSERT( surface );
     Win32Surface* win32_surface = surface;
+    if( win32_surface->mode != PLATFORM_SURFACE_MODE_FLOATING_WINDOW ) {
+        return;
+    }
+
+    MONITORINFO monitor_info = win32_monitor_info( win32_surface->handle );
+
+    /// window dimensions
+    i32 window_width  = win32_surface->dimensions.x;
+    i32 window_height = win32_surface->dimensions.y;
+
+    /// absolute dimensions
+    i32 monitor_width =
+        monitor_info.rcMonitor.right - monitor_info.rcMonitor.left;
+    i32 monitor_height =
+        monitor_info.rcMonitor.bottom - monitor_info.rcMonitor.top;
 
     i32 x = 0, y = 0;
-    i32 center_x = GetSystemMetrics( SM_CXSCREEN );
-    i32 center_y = GetSystemMetrics( SM_CYSCREEN );
-    center_x /= 2;
-    center_y /= 2;
+    /// absolute center
+    i32 center_x = monitor_width  / 2;
+    i32 center_y = monitor_height / 2;
 
-    x = center_x - ( win32_surface->dimensions.width / 2 );
-    y = center_y - ( win32_surface->dimensions.height / 2 );
+    x = center_x - ( window_width / 2 );
+    y = center_y - ( window_height / 2 );
+
+    /// relative to monitor position
+    x += monitor_info.rcMonitor.left;
+    y += monitor_info.rcMonitor.top;
 
     SetWindowPos(
         win32_surface->handle,
@@ -838,7 +898,8 @@ void platform_surface_center( PlatformSurface* surface ) {
 }
 void platform_surface_set_close_callback(
     PlatformSurface* surface,
-    PlatformSurfaceOnCloseFN* close_callback
+    PlatformSurfaceOnCloseFN* close_callback,
+    void* user_params
 ) {
     ASSERT( surface );
     Win32Surface* win32_surface = surface;
@@ -852,15 +913,34 @@ void platform_surface_set_close_callback(
     }
 
     win32_surface->on_close = close_callback;
+    win32_surface->on_close_user_params = user_params;
 }
 void platform_surface_clear_close_callback( PlatformSurface* surface ) {
     ASSERT( surface );
     Win32Surface* win32_surface = surface;
     win32_surface->on_close = NULL;
+    win32_surface->on_close_user_params = NULL;
+}
+void platform_surface_set_activate_callback(
+    PlatformSurface* surface,
+    PlatformSurfaceOnActivateFN* activate_callback,
+    void* user_params
+) {
+    ASSERT( surface );
+    Win32Surface* win32_surface = surface;
+    win32_surface->on_activate  = activate_callback;
+    win32_surface->on_activate_user_params = user_params;
+}
+void platform_surface_clear_activate_callback( PlatformSurface* surface ) {
+    ASSERT( surface );
+    Win32Surface* win32_surface = surface;
+    win32_surface->on_activate  = NULL;
+    win32_surface->on_activate_user_params = NULL;
 }
 void platform_surface_set_resize_callback(
     PlatformSurface* surface,
-    PlatformSurfaceOnResizeFN* resize_callback
+    PlatformSurfaceOnResizeFN* resize_callback,
+    void* user_params
 ) {
     ASSERT( surface );
     Win32Surface* win32_surface = surface;
@@ -874,11 +954,13 @@ void platform_surface_set_resize_callback(
     }
 
     win32_surface->on_resize = resize_callback;
+    win32_surface->on_resize_user_params = user_params;
 }
 void platform_surface_clear_resize_callback( PlatformSurface* surface ) {
     ASSERT( surface );
     Win32Surface* win32_surface = surface;
     win32_surface->on_resize = NULL;
+    win32_surface->on_resize_user_params = NULL;
 }
 void platform_surface_pump_events( PlatformSurface* surface ) {
     ASSERT( surface );
@@ -894,44 +976,37 @@ void platform_surface_pump_events( PlatformSurface* surface ) {
         TranslateMessage( &message );
         DispatchMessage( &message );
     }
-
-    // FIXME(alicia): figure this shit out
-    // if( ( PLATFORM->event_pump_count %
-    //     POLL_FOR_NEW_XINPUT_GAMEPAD_RATE
-    // ) == 0 ) {
-    //     platform_semaphore_increment(
-    //         &PLATFORM->xinput_polling_thread_semaphore
-    //     );
-    // }
-    // PLATFORM->event_pump_count++;
+}
+void platform_win32_signal_xinput_polling_thread() {
+    platform_semaphore_increment( PLATFORM->xinput_polling_thread_semaphore );
 }
 
 f64 platform_us_elapsed() {
     LARGE_INTEGER current_ticks;
     QueryPerformanceCounter( &current_ticks );
     u64 ticks_elapsed = current_ticks.QuadPart -
-        PERFORMANCE_COUNTER.QuadPart;
+        PLATFORM->performance_counter.QuadPart;
 
     return (f64)(ticks_elapsed * 1000000.0) /
-        (f64)PERFORMANCE_FREQUENCY.QuadPart;
+        (f64)PLATFORM->performance_frequency.QuadPart;
 }
 f64 platform_ms_elapsed() {
     LARGE_INTEGER current_ticks;
     QueryPerformanceCounter( &current_ticks );
     u64 ticks_elapsed = current_ticks.QuadPart -
-        PERFORMANCE_COUNTER.QuadPart;
+        PLATFORM->performance_counter.QuadPart;
 
     return (f64)(ticks_elapsed * 1000.0) /
-        (f64)PERFORMANCE_FREQUENCY.QuadPart;
+        (f64)PLATFORM->performance_frequency.QuadPart;
 }
 f64 platform_s_elapsed() {
     LARGE_INTEGER current_ticks;
     QueryPerformanceCounter( &current_ticks );
     u64 ticks_elapsed = current_ticks.QuadPart -
-        PERFORMANCE_COUNTER.QuadPart;
+        PLATFORM->performance_counter.QuadPart;
 
     return (f64)(ticks_elapsed) /
-        (f64)PERFORMANCE_FREQUENCY.QuadPart;
+        (f64)PLATFORM->performance_frequency.QuadPart;
 }
 
 internal inline LPCTSTR cursor_style_to_win32_style( CursorStyle style ) {
@@ -1336,15 +1411,38 @@ b32 platform_gl_surface_init( PlatformSurface* surface ) {
     Win32Surface* win32_surface = surface;
 
     if( !GL_FUNCTIONS_LOADED ) {
-        if( !win32_load_opengl( PLATFORM ) ) {
+        if( !library_load(
+            "OPENGL32.DLL",
+            &PLATFORM->lib_gl
+        ) ) {
+            MESSAGE_BOX_FATAL(
+                "Failed to load library!",
+                "Failed to load opengl32.dll!"
+            );
             return false;
         }
+
+        #define LOAD_OPENGL_FN(function_name) do {\
+            function_name = (function_name##FN*)\
+            library_load_function( &PLATFORM->lib_gl, #function_name );\
+            if( !function_name ) { return false; }\
+        } while(0)
+
+        LOAD_OPENGL_FN(wglGetCurrentContext);
+        LOAD_OPENGL_FN(wglCreateContext);
+        LOAD_OPENGL_FN(wglMakeCurrent);
+        LOAD_OPENGL_FN(wglDeleteContext);
+        LOAD_OPENGL_FN(wglGetProcAddress);
+
+        LOAD_GDI32_FN(DescribePixelFormat);
+        LOAD_GDI32_FN(ChoosePixelFormat);
+        LOAD_GDI32_FN(SetPixelFormat);
+        LOAD_GDI32_FN(SwapBuffers);
     }
 
-
-    HGLRC gl_context =
+    HGLRC glrc =
         win32_gl_create_context( win32_surface->device_context );
-    if( !gl_context ) {
+    if( !glrc ) {
         return false;
     }
 
@@ -1356,8 +1454,7 @@ b32 platform_gl_surface_init( PlatformSurface* surface ) {
         GL_FUNCTIONS_LOADED = true;
     }
 
-    win32_surface->glrc = gl_context;
-
+    win32_surface->glrc = glrc;
     return true;
 }
 void platform_gl_surface_shutdown( PlatformSurface* surface ) {
@@ -1454,19 +1551,16 @@ void platform_query_system_info( struct SystemInfo* sysinfo ) {
 #endif
 }
 
-LRESULT win32_winproc(
-    HWND hWnd, UINT Msg,
-    WPARAM wParam, LPARAM lParam
-) {
+LRESULT win32_winproc( HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam ) {
 
     Win32Surface* win32_surface =
         (Win32Surface*)GetWindowLongPtrA( hWnd, GWLP_USERDATA );
 
+    #define DEFAULT_IMPLEMENTATION()\
+        DefWindowProc( hWnd, Msg, wParam, lParam )
+
     if( !win32_surface ) {
-        return DefWindowProc(
-            hWnd, Msg,
-            wParam, lParam
-        );
+        return DEFAULT_IMPLEMENTATION();
     }
 
     #define TRANSITION_STATE_MASK (1 << 31)
@@ -1476,7 +1570,10 @@ LRESULT win32_winproc(
     switch( Msg ) {
         case WM_CLOSE: {
             if( win32_surface->on_close ) {
-                win32_surface->on_close( win32_surface );
+                win32_surface->on_close(
+                    win32_surface,
+                    win32_surface->on_close_user_params
+                );
             }
         } return 0;
 
@@ -1487,14 +1584,13 @@ LRESULT win32_winproc(
                 platform_cursor_set_visible( true );
             }
 
+            if( win32_surface->on_activate ) {
+                win32_surface->on_activate(
+                    win32_surface, is_active,
+                    win32_surface->on_activate_user_params
+                );
+            }
             win32_surface->is_active = is_active;
-
-            // TODO(alicia): figure this shit out.
-            // XInputEnable( (BOOL)is_active );
-            // event.code = EVENT_CODE_APP_ACTIVE;
-            // event.data.app_active.active = is_active;
-            // event_fire( event );
-            // PLATFORM->is_active = is_active;
         } break;
 
         case WM_WINDOWPOSCHANGED: {
@@ -1506,7 +1602,7 @@ LRESULT win32_winproc(
                     last_rect.bottom == rect.bottom
                 ) {
                     last_rect = rect;
-                    break;
+                    return DEFAULT_IMPLEMENTATION();
                 }
 
                 #define MIN_DIMENSIONS 1
@@ -1518,14 +1614,11 @@ LRESULT win32_winproc(
                     win32_surface->on_resize(
                         win32_surface,
                         win32_surface->dimensions,
-                        dimensions
+                        dimensions,
+                        win32_surface->on_resize_user_params
                     );
                 }
                 win32_surface->dimensions = dimensions;
-
-                // event.code = EVENT_CODE_SURFACE_RESIZE;
-                // event.data.resize.new_dimensions = dimensions;
-                // event_fire( event );
 
                 last_rect = rect;
             }
@@ -1537,12 +1630,12 @@ LRESULT win32_winproc(
         case WM_KEYUP: {
 
             if( !win32_surface->is_active ) {
-                break;
+                return DEFAULT_IMPLEMENTATION();
             }
 
             b32 previous_key_state = (lParam >> 30) == 1;
             if( previous_key_state ) {
-                break;
+                return DEFAULT_IMPLEMENTATION();
             }
             u8 keycode = wParam;
 
@@ -1573,7 +1666,7 @@ LRESULT win32_winproc(
         case WM_MOUSEMOVE: {
 
             if( !win32_surface->is_active ) {
-                break;
+                return DEFAULT_IMPLEMENTATION();
             }
 
             // TODO(alicia): figure this out with multiple windows
@@ -1595,7 +1688,7 @@ LRESULT win32_winproc(
         case WM_MBUTTONUP: {
 
             if( !win32_surface->is_active ) {
-                break;
+                return DEFAULT_IMPLEMENTATION();
             }
 
             b32 is_down =
@@ -1621,7 +1714,7 @@ LRESULT win32_winproc(
         case WM_XBUTTONUP: {
 
             if( !win32_surface->is_active ) {
-                break;
+                return DEFAULT_IMPLEMENTATION();
             }
 
             UINT button = GET_XBUTTON_WPARAM(wParam);
@@ -1636,7 +1729,7 @@ LRESULT win32_winproc(
         case WM_MOUSEWHEEL: {
 
             if( !win32_surface->is_active ) {
-                break;
+                return DEFAULT_IMPLEMENTATION();
             }
 
             i64 delta = GET_WHEEL_DELTA_WPARAM(wParam);
@@ -1689,13 +1782,7 @@ LRESULT win32_winproc(
 
     }
 
-    return DefWindowProc(
-        hWnd,
-        Msg,
-        wParam,
-        lParam
-    );
-    return false;
+    return DEFAULT_IMPLEMENTATION();
 }
 
 MessageBoxResult message_box(
@@ -1940,137 +2027,6 @@ b32 platform_file_set_offset( PlatformFile* file, usize offset ) {
     } else {
         return true;
     }
-}
-b32 win32_load_user32( Win32Platform* platform ) {
-    if( !library_load(
-        "USER32.DLL",
-        &platform->lib_user32
-    ) ) {
-        MESSAGE_BOX_FATAL(
-            "Failed to load library!",
-            "Failed to load user32.dll!"
-        );
-        return false;
-    }
-
-    #define LOAD_USER32_FN(function_name) do {\
-        function_name = (function_name##FN*)\
-        library_load_function( &platform->lib_user32, #function_name );\
-        if( !function_name ) { return false; }\
-    } while(0)
-
-    LOAD_USER32_FN(SetWindowPos);
-    LOAD_USER32_FN(CreateWindowExA);
-    LOAD_USER32_FN(RegisterClassExA);
-    LOAD_USER32_FN(AdjustWindowRectEx);
-    LOAD_USER32_FN(LoadImageA);
-    LOAD_USER32_FN(GetWindowLongPtrA);
-    LOAD_USER32_FN(DefWindowProcA);
-    LOAD_USER32_FN(GetClientRect);
-    LOAD_USER32_FN(MapVirtualKeyA);
-    LOAD_USER32_FN(DestroyWindow);
-    LOAD_USER32_FN(PeekMessageA);
-    LOAD_USER32_FN(TranslateMessage);
-    LOAD_USER32_FN(DestroyIcon);
-    LOAD_USER32_FN(GetDC);
-    LOAD_USER32_FN(ShowWindow);
-    LOAD_USER32_FN(SetWindowLongPtrA);
-    LOAD_USER32_FN(MessageBoxA);
-    LOAD_USER32_FN(DispatchMessageA);
-    LOAD_USER32_FN(SetWindowTextA);
-    LOAD_USER32_FN(GetWindowTextLengthA);
-    LOAD_USER32_FN(GetWindowTextA);
-    LOAD_USER32_FN(SetCursorPos);
-    LOAD_USER32_FN(ClientToScreen);
-    LOAD_USER32_FN(ShowCursor);
-    LOAD_USER32_FN(SetCursor);
-    LOAD_USER32_FN(LoadCursorA);
-    LOAD_USER32_FN(GetSystemMetrics);
-    LOAD_USER32_FN(SetProcessDpiAwarenessContext);
-    LOAD_USER32_FN(GetDpiForSystem);
-    LOAD_USER32_FN(AdjustWindowRectExForDpi);
-
-    return true;
-}
-b32 win32_load_xinput( Win32Platform* platform ) {
-
-    if( !library_load(
-        "XINPUT1_4.DLL",
-        &platform->lib_xinput
-    ) ) {
-        if( !library_load(
-            "XINPUT9_1_0.DLL",
-            &platform->lib_xinput
-        ) ) {
-            if( !library_load(
-                "XINPUT1_3.DLL",
-                &platform->lib_xinput
-            ) ) {
-                MESSAGE_BOX_FATAL(
-                    "Failed to load library!",
-                    "Failed to load any version of XInput!"
-                );
-                return false;
-            }
-        }
-    }
-
-    #define LOAD_XINPUT_FN(function_name) do {\
-        function_name = (function_name##FN*)\
-        library_load_function( &platform->lib_xinput, #function_name );\
-        if( !function_name ) { return false; }\
-    } while(0)
-
-    LOAD_XINPUT_FN(XInputGetState);
-    LOAD_XINPUT_FN(XInputSetState);
-
-    XInputEnableFN* xinput_enable =
-    (XInputEnableFN*)library_load_function(
-        &platform->lib_xinput,
-        "XInputEnable"
-    );
-    if( xinput_enable ) {
-        XInputEnable = xinput_enable;
-    }
-
-    return true;
-}
-b32 win32_load_opengl( Win32Platform* platform ) {
-
-    if( !library_load(
-        "OPENGL32.DLL",
-        &platform->lib_gl
-    ) ) {
-        MESSAGE_BOX_FATAL(
-            "Failed to load library!",
-            "Failed to load opengl32.dll!"
-        );
-        return false;
-    }
-
-    #define LOAD_OPENGL_FN(function_name) do {\
-        function_name = (function_name##FN*)\
-        library_load_function( &platform->lib_gl, #function_name );\
-        if( !function_name ) { return false; }\
-    } while(0)
-
-    #define LOAD_GDI32_FN(function_name) do {\
-        function_name = (function_name##FN*)\
-        library_load_function( &platform->lib_gdi32, #function_name );\
-        if( !function_name ) { return false; }\
-    } while(0)
-
-    LOAD_OPENGL_FN(wglCreateContext);
-    LOAD_OPENGL_FN(wglMakeCurrent);
-    LOAD_OPENGL_FN(wglDeleteContext);
-    LOAD_OPENGL_FN(wglGetProcAddress);
-
-    LOAD_GDI32_FN(DescribePixelFormat);
-    LOAD_GDI32_FN(ChoosePixelFormat);
-    LOAD_GDI32_FN(SetPixelFormat);
-    LOAD_GDI32_FN(SwapBuffers);
-
-    return true;
 }
 
 PlatformLibrary* platform_library_load( const char* library_path ) {

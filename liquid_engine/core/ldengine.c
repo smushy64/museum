@@ -16,6 +16,7 @@
 #include "core/ldcollections.h"
 #include "core/ldlibrary.h"
 #include "core/ldgraphics.h"
+#include "core/ldgraphics/types.h"
 
 #define MAX_APPLICATION_NAME (255)
 #define DEFAULT_APPLICATION_NAME "Liquid Engine"
@@ -23,6 +24,10 @@ typedef struct InternalEngineContext {
     SystemInfo     system_info; // 88
     StackAllocator stack;       // 32
     Timer          time;        // 16
+    PlatformSurface* main_surface;
+    RendererContext* main_surface_renderer_context;
+
+    RenderData render_data;
 
     b8 is_running;                // 1
     b8 pause_on_surface_inactive; // 1
@@ -37,6 +42,14 @@ EventCallbackResult on_app_exit( Event* event, void* void_ctx ) {
     LOG_INFO( "Application requested engine exit." );
     return EVENT_CALLBACK_CONSUMED;
 }
+EventCallbackResult on_resize( Event* event, void* params ) {
+    InternalEngineContext* ctx = params;
+    renderer_subsystem_on_resize(
+        ctx->main_surface_renderer_context,
+        event->data.resize.new_dimensions
+    );
+    return EVENT_CALLBACK_NOT_CONSUMED;
+}
 EventCallbackResult on_active( Event* event, void* params ) {
     unused(params);
     if( event->data.app_active.active ) {
@@ -46,10 +59,38 @@ EventCallbackResult on_active( Event* event, void* params ) {
     }
     return EVENT_CALLBACK_CONSUMED;
 }
-EventCallbackResult on_resize( Event* event, void* params ) {
+
+void on_close_listener( PlatformSurface* surface, void* params ) {
     unused(params);
-    renderer_subsystem_on_resize( event->data.resize.new_dimensions );
-    return EVENT_CALLBACK_NOT_CONSUMED;
+    unused(surface);
+    Event event = {};
+    event.code = EVENT_CODE_EXIT;
+    event_fire( event );
+}
+void on_resize_listener(
+    PlatformSurface* surface,
+    ivec2 old_dimensions, ivec2 new_dimensions,
+    void* params
+) {
+    unused(surface);
+    unused(old_dimensions);
+    unused(params);
+    Event event = {};
+    event.code = EVENT_CODE_SURFACE_RESIZE;
+    event.data.resize.new_dimensions = new_dimensions;
+    event_fire( event );
+}
+void on_activate_listener(
+    PlatformSurface* surface,
+    b32 is_active,
+    void* params
+) {
+    unused(surface);
+    unused(params);
+    Event event = {};
+    event.code  = EVENT_CODE_APP_ACTIVE;
+    event.data.app_active.active = is_active;
+    event_fire( event );
 }
 
 typedef struct ArgParseResult {
@@ -232,6 +273,7 @@ b32 engine_entry( int argc, char** argv ) {
         EVENT_SUBSYSTEM_SIZE    +
         INPUT_SUBSYSTEM_SIZE    +
         PLATFORM_SUBSYSTEM_SIZE +
+        PLATFORM_SURFACE_BUFFER_SIZE +
         renderer_subsystem_size +
         application_memory_size;
 
@@ -280,9 +322,7 @@ b32 engine_entry( int argc, char** argv ) {
 
     void* platform_buffer = stack_allocator_push(
         &ctx.stack, PLATFORM_SUBSYSTEM_SIZE );
-    if( !platform_subsystem_init(
-        DEFAULT_SURFACE_DIMENSIONS, platform_buffer
-    ) ) {
+    if( !platform_subsystem_init( platform_buffer ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
             "Failed to initialize platform services!\n "
@@ -291,13 +331,39 @@ b32 engine_entry( int argc, char** argv ) {
         return false;
     }
 
+    PlatformSurface* surface = stack_allocator_push(
+        &ctx.stack, PLATFORM_SURFACE_BUFFER_SIZE );
+
+    PlatformSurfaceCreateFlags surface_flags = 0;
+    surface_flags |=
+        PLATFORM_SURFACE_CREATE_HIDDEN | PLATFORM_SURFACE_CREATE_RESIZEABLE;
+    if( !platform_surface_create(
+        DEFAULT_SURFACE_DIMENSIONS,
+        "Liquid Engine",
+        surface_flags,
+        surface
+    ) ) {
+        MESSAGE_BOX_FATAL(
+            "Platform Layer Failure",
+            "Failed to create main surface!\n "
+            LD_CONTACT_MESSAGE
+        );
+        return false;
+    }
+    ctx.main_surface = surface;
+    platform_surface_show( surface );
+    platform_surface_set_resize_callback( surface, on_resize_listener, NULL );
+    platform_surface_set_activate_callback( surface, on_activate_listener, NULL );
+    platform_surface_set_close_callback( surface, on_close_listener, NULL );
+
     ctx.pause_on_surface_inactive = true;
-    void* renderer_subsystem_buffer =
+    ctx.main_surface_renderer_context =
         stack_allocator_push( &ctx.stack, renderer_subsystem_size );
 
     if( !renderer_subsystem_init(
+        ctx.main_surface,
         arg_parse.backend,
-        renderer_subsystem_buffer
+        ctx.main_surface_renderer_context
     ) ) {
         MESSAGE_BOX_FATAL(
             "Subsystem Failure",
@@ -381,6 +447,16 @@ b32 engine_entry( int argc, char** argv ) {
     );
 #endif // x86
 
+    EventListenerID event_resize_id = event_subscribe(
+        EVENT_CODE_SURFACE_RESIZE, on_resize, &ctx );
+    if( !event_resize_id ) {
+        MESSAGE_BOX_FATAL(
+            "Subsystem Failure",
+            "Failed to initialize event subsystem!\n "
+            LD_CONTACT_MESSAGE
+        );
+        return false;
+    }
     EventListenerID event_exit_id = event_subscribe(
         EVENT_CODE_EXIT, on_app_exit, &ctx );
     if( !event_exit_id ) {
@@ -401,16 +477,9 @@ b32 engine_entry( int argc, char** argv ) {
         );
         return false;
     }
-    EventListenerID event_on_surface_resize_id = event_subscribe(
-        EVENT_CODE_SURFACE_RESIZE, on_resize, &ctx );
-    if( !event_on_surface_resize_id ) {
-        MESSAGE_BOX_FATAL(
-            "Subsystem Failure",
-            "Failed to initialize event subsystem!\n "
-            LD_CONTACT_MESSAGE
-        );
-        return false;
-    }
+
+    void* application_memory =
+        stack_allocator_push( &ctx.stack, application_memory_size );
 
 #if defined(LD_LOGGING) && defined(LD_PROFILING)
     LOG_NOTE("System Memory: {f,b,02.3}", (f64)ctx.system_info.total_memory );
@@ -432,10 +501,7 @@ b32 engine_entry( int argc, char** argv ) {
 #endif
 
     engine_application_set_name( &ctx, SV( DEFAULT_APPLICATION_NAME ) );
-
     ctx.is_running = true;
-    void* application_memory =
-        stack_allocator_push( &ctx.stack, application_memory_size );
     if( !application_init( &ctx, application_memory ) ) {
         return false;
     }
@@ -443,9 +509,13 @@ b32 engine_entry( int argc, char** argv ) {
     while( ctx.is_running ) {
         input_swap();
         platform_poll_gamepad();
-        platform_pump_events();
+        platform_surface_pump_events( surface );
 
-        if( !platform_is_active() && ctx.pause_on_surface_inactive ) {
+        b32 is_active_now = platform_surface_query_active( surface );
+
+        if( !is_active_now &&
+            ctx.pause_on_surface_inactive
+        ) {
             continue;
         }
 
@@ -459,14 +529,22 @@ b32 engine_entry( int argc, char** argv ) {
             }
         }
 
-        RenderData render_data = {};
-        render_data.time = &ctx.time;
+        if( input_key_press( KEY_F11 ) ) {
+            b32 is_fullscreen = engine_surface_query_fullscreen( &ctx );
+            engine_surface_set_fullscreen( &ctx, !is_fullscreen );
+        }
+
+        ctx.render_data.delta_time   = ctx.time.delta_seconds;
+        ctx.render_data.elapsed_time = ctx.time.elapsed_seconds;
 
         if( !application_run( &ctx, application_memory ) ) {
             return false;
         }
 
-        if( !renderer_subsystem_on_draw( &render_data ) ) {
+        if( !renderer_subsystem_on_draw(
+            ctx.main_surface_renderer_context,
+            &ctx.render_data
+        ) ) {
             MESSAGE_BOX_FATAL(
                 "Renderer Failure",
                 "Unknown Error!\n"
@@ -477,6 +555,14 @@ b32 engine_entry( int argc, char** argv ) {
 
         event_fire_end_of_frame();
 
+#if defined(LD_PLATFORM_WINDOWS)
+        if(
+            ctx.time.frame_count %
+            WIN32_POLL_FOR_NEW_XINPUT_GAMEPAD_RATE == 0
+        ) {
+            platform_win32_signal_xinput_polling_thread();
+        }
+#endif
         ++ctx.time.frame_count;
 
         f64 seconds_elapsed = platform_s_elapsed();
@@ -486,10 +572,11 @@ b32 engine_entry( int argc, char** argv ) {
     }
 
     event_unsubscribe( event_exit_id );
-    event_unsubscribe( event_on_surface_resize_id );
+    event_unsubscribe( event_resize_id );
     event_unsubscribe( event_on_active_id );
 
-    renderer_subsystem_shutdown();
+    renderer_subsystem_shutdown( ctx.main_surface_renderer_context );
+    platform_surface_destroy( surface );
     platform_subsystem_shutdown();
     thread_subsystem_shutdown();
     log_subsystem_shutdown();
@@ -502,8 +589,9 @@ LD_API void engine_cursor_set_style( CursorStyle style ) {
 LD_API void engine_cursor_set_visibility( b32 visible ) {
     platform_cursor_set_visible( visible );
 }
-LD_API void engine_cursor_center() {
-    platform_cursor_center();
+LD_API void engine_cursor_center( EngineContext* opaque ) {
+    InternalEngineContext* ctx = opaque;
+    platform_cursor_center( ctx->main_surface );
 }
 LD_API CursorStyle engine_cursor_style() {
     return platform_cursor_style();
@@ -516,8 +604,10 @@ LD_API void engine_application_set_name(
 ) {
     InternalEngineContext* ctx = opaque;
     usize copy_size = name.len;
+    enum RendererBackend backend =
+        renderer_subsystem_query_backend( ctx->main_surface_renderer_context );
     StringView backend_name = SV(
-        renderer_backend_to_string( renderer_subsystem_query_backend() )
+        renderer_backend_to_string( backend )
     );
 
     usize backend_append_size = backend_name.len + 3;
@@ -538,7 +628,7 @@ LD_API void engine_application_set_name(
 
     usize name_size = copy_size + backend_append_size;
     ctx->application_name[name_size] = 0;
-    platform_application_set_name( ctx->application_name );
+    platform_surface_set_name( ctx->main_surface, ctx->application_name );
 }
 LD_API StringView engine_application_name( EngineContext* opaque ) {
     InternalEngineContext* ctx = opaque;
@@ -556,20 +646,37 @@ LD_API const char* engine_query_processor_name( EngineContext* opaque ) {
     InternalEngineContext* ctx = opaque;
     return ctx->system_info.cpu_name_buffer;
 }
-LD_API void engine_surface_set_dimensions( ivec2 new_dimensions ) {
-    LOG_NOTE( "Set surface dimensions: {iv2}", new_dimensions );
-    platform_surface_set_dimensions( new_dimensions );
-}
-LD_API ivec2 engine_surface_query_dimensions() {
-    return platform_surface_dimensions();
-}
-LD_API void engine_surface_center() {
-    LOG_NOTE( "Surface centered." );
-    platform_surface_center();
-}
-
-LD_API struct Timer* engine_get_time( EngineContext* opaque ) {
+LD_API void engine_surface_set_dimensions(
+    EngineContext* opaque, ivec2 new_dimensions
+) {
     InternalEngineContext* ctx = opaque;
-    return &ctx->time;
+    LOG_NOTE( "Set surface dimensions: {iv2}", new_dimensions );
+    platform_surface_set_dimensions( ctx->main_surface, new_dimensions );
+}
+LD_API ivec2 engine_surface_query_dimensions( EngineContext* opaque ) {
+    InternalEngineContext* ctx = opaque;
+    return platform_surface_query_dimensions( ctx->main_surface );
+}
+LD_API void engine_surface_center( EngineContext* opaque ) {
+    InternalEngineContext* ctx = opaque;
+    platform_surface_center( ctx->main_surface );
+}
+LD_API Timer engine_time( EngineContext* opaque ) {
+    InternalEngineContext* ctx = opaque;
+    return ctx->time;
+}
+LD_API void engine_surface_set_fullscreen(
+    EngineContext* opaque, b32 fullscreen
+) {
+    InternalEngineContext* ctx = opaque;
+    PlatformSurfaceMode mode = fullscreen ?
+        PLATFORM_SURFACE_MODE_FULLSCREEN :
+        PLATFORM_SURFACE_MODE_FLOATING_WINDOW;
+    platform_surface_set_mode( ctx->main_surface, mode );
+}
+LD_API b32 engine_surface_query_fullscreen( EngineContext* opaque ) {
+    InternalEngineContext* ctx = opaque;
+    return platform_surface_query_mode( ctx->main_surface ) ==
+        PLATFORM_SURFACE_MODE_FULLSCREEN;
 }
 

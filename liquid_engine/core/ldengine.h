@@ -8,10 +8,13 @@
 #include "core/ldstring.h"
 #include "core/ldmath/types.h"
 #include "core/ldevent.h"
+#include "core/ldtime.h"
 
 typedef void EngineContext;
+struct Camera;
 
-LD_API struct Timer* engine_get_time( EngineContext* ctx );
+/// Get timer from engine.
+LD_API Timer engine_time( EngineContext* ctx );
 
 /// Get memory requirement from application.
 /// Function should look like this:
@@ -90,13 +93,12 @@ LD_API void engine_cursor_set_style( CursorStyle style );
 /// Set cursor visibility.
 LD_API void engine_cursor_set_visibility( b32 visible );
 /// Center cursor.
-LD_API void engine_cursor_center();
+LD_API void engine_cursor_center( EngineContext* ctx );
 /// Query current cursor style.
 LD_API CursorStyle engine_cursor_style();
 /// Query if cursor is visible.
 LD_API b32 engine_cursor_visible();
 /// Set application name.
-/// Name must be a null-terminated string.
 LD_API void engine_application_set_name( EngineContext* ctx, StringView name );
 /// Query application name.
 LD_API StringView engine_application_name( EngineContext* ctx );
@@ -108,11 +110,16 @@ LD_API usize engine_query_total_system_memory( EngineContext* ctx );
 LD_API const char* engine_query_processor_name( EngineContext* ctx );
 /// Centers surface on screen.
 /// Does nothing on platforms that don't use windows.
-LD_API void engine_surface_center();
+LD_API void engine_surface_center( EngineContext* ctx );
 /// Set surface dimensions.
-LD_API void engine_surface_set_dimensions( ivec2 new_dimensions );
+LD_API void engine_surface_set_dimensions(
+    EngineContext* ctx, ivec2 new_dimensions );
 /// Query surface dimensions.
-LD_API ivec2 engine_surface_query_dimensions();
+LD_API ivec2 engine_surface_query_dimensions( EngineContext* ctx );
+/// Set fullscreen.
+LD_API void engine_surface_set_fullscreen( EngineContext* ctx, b32 fullscreen );
+/// Query if surface is fullscreen.
+LD_API b32 engine_surface_query_fullscreen( EngineContext* ctx );
 /// Send an exit event to the engine.
 header_only void engine_exit() {
     Event event = {};

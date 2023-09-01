@@ -152,7 +152,9 @@ typedef float f32;
 /// double precision IEEE-754 floating-point number
 typedef double f64;
 
-/// void* pointer alias, might come in handy at some point
+/// void* pointer alias
+/// useful for macros that name things
+/// based on type names
 typedef void* pvoid;
 
 #define MAKE_TUPLE(type)\
@@ -186,7 +188,12 @@ MAKE_TUPLE(pvoid);
 #endif
 
 #if !defined(NULL)
-    #define NULL 0
+    // NOTE(alicia): i hate c++
+    #if defined( __cplusplus )
+        #define NULL nullptr
+    #else
+        #define NULL ((void*)0)
+    #endif
 #endif
 
 #define LD_CONTACT_MESSAGE \
@@ -263,7 +270,7 @@ MAKE_TUPLE(pvoid);
 /// Value is global.
 #define global static
 /// Mark function/struct as deprecated.
-#define is_deprecated __attribute__((deprecated))
+#define deprecate __attribute__((deprecated))
 /// Mark union as transparent.
 #define transparent __attribute__((__transparent_union__))
 /// Mark function/type as possibly unused.
@@ -297,6 +304,21 @@ MAKE_TUPLE(pvoid);
 /// Define a 32-bit RGBA value
 #define RGBA_U32( r, g, b, a )\
     ( a << 24u | b << 16u | g << 8u | r )
+/// Spread an array with 2 elements
+#define SPEAD_2( array )\
+    (array)[0], (array)[1]
+/// Spread an array with 3 elements
+#define SPEAD_3( array )\
+    (array)[0], (array)[1], (array)[2]
+/// Spread an array with four elements.
+#define SPREAD_4( array )\
+    (array)[0], (array)[1], (array)[2], (array)[3]
+
+#if !defined(offsetof)
+    /// Calculate the offset of field in struct.
+    #define offsetof( struct, field )\
+        (usize)((&(((struct*)NULL)->field)))
+#endif
 
 /// Swap two values.
 #define SWAP( a, b ) do {\

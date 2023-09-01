@@ -27,24 +27,33 @@ typedef void PlatformSurface;
 /// On Resize callback.
 typedef void (PlatformSurfaceOnResizeFN)(
     PlatformSurface* surface,
-    ivec2 old_dimensions, ivec2 new_dimensions );
+    ivec2 old_dimensions, ivec2 new_dimensions, void* user_params );
 /// On Close callback.
 typedef void (PlatformSurfaceOnCloseFN)(
-    PlatformSurface* surface );
+    PlatformSurface* surface, void* user_params );
+/// On Activate callback.
+typedef void (PlatformSurfaceOnActivateFN)(
+    PlatformSurface* surface, b32 is_active, void* user_params );
 /// Size of surface data.
 extern usize PLATFORM_SURFACE_BUFFER_SIZE;
 /// If platform supports multiple surfaces.
 extern b32 PLATFORM_SUPPORTS_MULTIPLE_SURFACES;
 /// Flags for creating a surface.
-typedef u32 PlatformSurfaceCreateFlags;
+typedef u8 PlatformSurfaceCreateFlags;
 /// Create a surface but don't show it right away.
 /// Does nothing on platforms that don't support multiple surfaces.
 #define PLATFORM_SURFACE_CREATE_HIDDEN    (1 << 0)
-/// Create a surface that is DPI aware.
-#define PLATFORM_SURFACE_CREATE_DPI_AWARE (1 << 1)
 /// If surface should be resizeable by the user.
 /// Does nothing on platforms that don't support this feature.
-#define PLATFORM_SURFACE_CREATE_RESIZEABLE (1 << 2)
+#define PLATFORM_SURFACE_CREATE_RESIZEABLE (1 << 1)
+/// Create surface in fullscreen mode.
+/// Platforms that don't support windows already go to fullscreen.
+#define PLATFORM_SURFACE_CREATE_FULLSCREEN (1 << 2)
+/// Types of surface modes.
+typedef enum PlatformSurfaceMode : u8 {
+    PLATFORM_SURFACE_MODE_FLOATING_WINDOW,
+    PLATFORM_SURFACE_MODE_FULLSCREEN
+} PlatformSurfaceMode;
 /// Create a new platform surface.
 /// Can return false if surface creation for example,
 /// if platform does not support more than one surface.
@@ -66,6 +75,12 @@ void platform_surface_set_dimensions(
     PlatformSurface* surface, ivec2 dimensions );
 /// Query a surface's dimensions.
 ivec2 platform_surface_query_dimensions( PlatformSurface* surface );
+/// Set a surface's mode.
+/// Does nothing on platforms that don't support different surface modes.
+void platform_surface_set_mode(
+    PlatformSurface* surface, PlatformSurfaceMode mode );
+/// Get surface's mode.
+PlatformSurfaceMode platform_surface_query_mode( PlatformSurface* surface );
 /// Set surface name.
 /// Does nothing on platforms that don't name their surfaces.
 void platform_surface_set_name( PlatformSurface* surface, const char* name );
@@ -84,14 +99,28 @@ b32 platform_surface_query_active( PlatformSurface* surface );
 void platform_surface_center( PlatformSurface* surface );
 /// Set surface's on close callback.
 void platform_surface_set_close_callback(
-    PlatformSurface* surface, PlatformSurfaceOnCloseFN* close_callback );
+    PlatformSurface* surface,
+    PlatformSurfaceOnCloseFN* close_callback,
+    void* user_params
+);
 /// Clear a surface's close callback.
 void platform_surface_clear_close_callback( PlatformSurface* surface );
 /// Set surface's on resize callback.
 void platform_surface_set_resize_callback(
-    PlatformSurface* surface, PlatformSurfaceOnResizeFN* resize_callback );
+    PlatformSurface* surface,
+    PlatformSurfaceOnResizeFN* resize_callback,
+    void* user_params
+);
 /// Clear a surface's resize callback.
 void platform_surface_clear_resize_callback( PlatformSurface* surface );
+/// Set surface's on activate callback.
+void platform_surface_set_activate_callback(
+    PlatformSurface* surface,
+    PlatformSurfaceOnActivateFN* activate_callback,
+    void* user_params
+);
+/// Clear a surface's on activate callback.
+void platform_surface_clear_activate_callback( PlatformSurface* surface );
 /// Pump a surface's events.
 void platform_surface_pump_events( PlatformSurface* surface );
 
@@ -395,7 +424,18 @@ typedef struct SystemInfo {
 void platform_query_system_info( struct SystemInfo* sysinfo );
 
 #if defined(LD_PLATFORM_WINDOWS)
+    // IMPORTANT(alicia): WIN32 ONLY
+    // Output string to debugger ouput window.
     void platform_win32_output_debug_string( const char* str );
+    // IMPORTANT(alicia): WIN32 ONLY
+    // Number of frames before you should signal the xinput polling thread.
+    #define WIN32_POLL_FOR_NEW_XINPUT_GAMEPAD_RATE (200ull)
+    // IMPORTANT(alicia): WIN32 ONLY
+    // Signal the xinput polling thread.
+    // This is a workaround for an xinput bug where polling a
+    // disconnected gamepad will stall the main thread for way too
+    // many cycles.
+    void platform_win32_signal_xinput_polling_thread();
 #endif
 
 #define SURFACE_ICON_PATH "./icon.ico"

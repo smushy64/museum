@@ -12,7 +12,6 @@
 #include "core/ldlibrary.h"
 #include "ldplatform.h"
 
-#define NOGDI
 #include <windows.h>
 #include <windowsx.h>
 #include <psapi.h>
@@ -41,10 +40,17 @@ typedef struct Win32Surface {
     DWORD dwStyle;
     DWORD dwExStyle;
     PlatformSurfaceOnResizeFN* on_resize;
+    void* on_resize_user_params;
+    PlatformSurfaceOnActivateFN*  on_activate;
+    void* on_activate_user_params;
     PlatformSurfaceOnCloseFN*  on_close;
+    void* on_close_user_params;
+
+    WINDOWPLACEMENT placement;
 
     PlatformSurfaceCreateFlags creation_flags;
-    b32 is_active;
+    PlatformSurfaceMode mode;
+    b8 is_active;
 
     HGLRC glrc;
 } Win32Surface;
@@ -55,6 +61,7 @@ typedef struct Win32Platform {
     b32 cursor_visible;
 
     HINSTANCE instance;
+    HICON icon;
 
     union {
         struct {
@@ -75,9 +82,6 @@ typedef struct Win32Platform {
     Win32Thread xinput_polling_thread;
     PlatformSemaphore* xinput_polling_thread_semaphore;
     u32 event_pump_count;
-
-    UINT dpi;
-
 } Win32Platform;
 
 
@@ -91,125 +95,6 @@ LRESULT win32_winproc( HWND, UINT, WPARAM, LPARAM );
 
 DWORD win32_log_error( b32 present_message_box );
 
-#define BLACK_BRUSH 4
-/// from https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-pixelformatdescriptor
-typedef struct tagPIXELFORMATDESCRIPTOR {
-    WORD  nSize;
-    WORD  nVersion;
-    DWORD dwFlags;
-    BYTE  iPixelType;
-    BYTE  cColorBits;
-    BYTE  cRedBits;
-    BYTE  cRedShift;
-    BYTE  cGreenBits;
-    BYTE  cGreenShift;
-    BYTE  cBlueBits;
-    BYTE  cBlueShift;
-    BYTE  cAlphaBits;
-    BYTE  cAlphaShift;
-    BYTE  cAccumBits;
-    BYTE  cAccumRedBits;
-    BYTE  cAccumGreenBits;
-    BYTE  cAccumBlueBits;
-    BYTE  cAccumAlphaBits;
-    BYTE  cDepthBits;
-    BYTE  cStencilBits;
-    BYTE  cAuxBuffers;
-    BYTE  iLayerType;
-    BYTE  bReserved;
-    DWORD dwLayerMask;
-    DWORD dwVisibleMask;
-    DWORD dwDamageMask;
-} PIXELFORMATDESCRIPTOR, *PPIXELFORMATDESCRIPTOR, *LPPIXELFORMATDESCRIPTOR;
-
-/// The buffer can draw to a window or device surface.
-#define PFD_DRAW_TO_WINDOW 0x00000004
-/// The buffer can draw to a memory bitmap.
-#define PFD_DRAW_TO_BITMAP 0x00000008
-/// The buffer supports GDI drawing.
-/// This flag and PFD_DOUBLEBUFFER are mutually exclusive
-/// in the current generic implementation.
-#define PFD_SUPPORT_GDI 0x00000010
-/// The buffer supports OpenGL drawing.
-#define PFD_SUPPORT_OPENGL 0x00000020
-/// The pixel format is supported by a device driver
-/// that accelerates the generic implementation.
-/// If this flag is clear and the PFD_GENERIC_FORMAT flag is set,
-/// the pixel format is supported by the generic implementation only.
-#define PFD_GENERIC_ACCELERATED 0x00001000
-/// The pixel format is supported by the GDI software implementation,
-/// which is also known as the generic implementation.
-/// If this bit is clear, the pixel format is supported by
-/// a device driver or hardware.
-#define PFD_GENERIC_FORMAT 0x00000040
-/// The buffer uses RGBA pixels on a palette-managed device.
-/// A logical palette is required to achieve the best results
-/// for this pixel type. Colors in the palette should be specified
-/// according to the values of the cRedBits, cRedShift, cGreenBits,
-/// cGreenShift, cBluebits, and cBlueShift members.
-/// The palette should be created and realized in the device context
-/// before calling wglMakeCurrent.
-#define PFD_NEED_PALETTE 0x00000080
-/// Defined in the pixel format descriptors of hardware
-/// that supports one hardware palette in 256-color mode only.
-/// For such systems to use hardware acceleration,
-/// the hardware palette must be in a fixed order (for example, 3-3-2)
-/// when in RGBA mode or must match the logical palette when in
-/// color-index mode. When this flag is set, you must call
-/// SetSystemPaletteUse in your program to force a one-to-one mapping
-/// of the logical palette and the system palette. If your OpenGL
-/// hardware supports multiple hardware palettes and the device
-/// driver can allocate spare hardware palettes for OpenGL,
-/// this flag is typically clear.
-/// This flag is not set in the generic pixel formats.
-#define PFD_NEED_SYSTEM_PALETTE 0x00000100
-
-/// The buffer is double-buffered. This flag and
-/// PFD_SUPPORT_GDI are mutually exclusive in the current generic implementation.
-#define PFD_DOUBLEBUFFER 0x00000001
-/// The buffer is stereoscopic.
-/// This flag is not supported in the current generic implementation.
-#define PFD_STEREO 0x00000002
-/// Indicates whether a device can swap individual layer
-/// planes with pixel formats that include double-buffered
-/// overlay or underlay planes. Otherwise all layer planes are
-/// swapped together as a group. When this flag is set,
-/// wglSwapLayerBuffers is supported.
-#define PFD_SWAP_LAYER_BUFFERS 0x00000800
-/// The requested pixel format can either have or not have a depth buffer.
-/// To select a pixel format without a depth buffer,
-/// you must specify this flag. The requested pixel format
-/// can be with or without a depth buffer. Otherwise, only pixel formats
-/// with a depth buffer are considered.
-#define PFD_DEPTH_DONTCARE 0x20000000
-/// The requested pixel format can be either single- or double-buffered.
-#define PFD_DOUBLEBUFFER_DONTCARE 0x40000000
-/// The requested pixel format can be either monoscopic or stereoscopic.
-#define PFD_STEREO_DONTCARE 0x80000000
-/// Specifies the content of the back buffer in the
-/// double-buffered main color plane following a buffer swap.
-/// Swapping the color buffers causes the content of the back buffer
-/// to be copied to the front buffer. The content of the back buffer
-/// is not affected by the swap. PFD_SWAP_COPY is a hint only
-/// and might not be provided by a driver.
-#define PFD_SWAP_COPY 0x00000400
-/// Specifies the content of the back buffer in the double-buffered
-/// main color plane following a buffer swap. Swapping the color buffers
-/// causes the exchange of the back buffer's content with the
-/// front buffer's content. Following the swap, the back buffer's
-/// content contains the front buffer's content before the swap.
-/// PFD_SWAP_EXCHANGE is a hint only and might not be provided by a driver.
-#define PFD_SWAP_EXCHANGE 0x00000200
-/// RGBA pixels. Each pixel has four components
-/// in this order: red, green, blue, and alpha.
-#define PFD_TYPE_RGBA 0
-/// Color-index pixels. Each pixel uses a color-index value.
-#define PFD_TYPE_COLORINDEX 1
-
-#define PFD_MAIN_PLANE     0
-#define PFD_OVERLAY_PLANE  1
-#define PFD_UNDERLAY_PLANE (-1)
-
 #define DECLARE_WIN_FUNCTION( ret, fn, ... )\
     typedef ret fn##FN ( __VA_ARGS__ );\
     global fn##FN* ___internal_##fn = NULL
@@ -219,12 +104,16 @@ typedef struct tagPIXELFORMATDESCRIPTOR {
     internal ret fn##_stub( __VA_ARGS__ ) { return ret_val; }\
     global fn##FN* ___internal_##fn = fn##_stub
 
-DECLARE_WIN_FUNCTION( BOOL, SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT );
-DECLARE_WIN_FUNCTION( UINT, GetDpiForSystem );
-DECLARE_WIN_FUNCTION( BOOL, AdjustWindowRectExForDpi, LPRECT, DWORD, BOOL, DWORD, UINT );
+DECLARE_WIN_FUNCTION( BOOL, SetWindowPlacement, HWND, WINDOWPLACEMENT* );
+DECLARE_WIN_FUNCTION( BOOL, GetWindowPlacement, HWND, WINDOWPLACEMENT* );
+DECLARE_WIN_FUNCTION( BOOL, GetMonitorInfoA, HMONITOR, LPMONITORINFO );
+DECLARE_WIN_FUNCTION( HMONITOR, MonitorFromPoint, POINT, DWORD );
+DECLARE_WIN_FUNCTION( HMONITOR, MonitorFromWindow, HWND, DWORD );
+DECLARE_WIN_FUNCTION( int, GetDeviceCaps, HDC, int );
 DECLARE_WIN_FUNCTION( DWORD, XInputGetState, DWORD, XINPUT_STATE* );
 DECLARE_WIN_FUNCTION( DWORD, XInputSetState, DWORD, XINPUT_VIBRATION* );
 DECLARE_WIN_FUNCTION( HGDIOBJ, GetStockObject, int );
+DECLARE_WIN_FUNCTION( HGLRC, wglGetCurrentContext );
 DECLARE_WIN_FUNCTION( HGLRC, wglCreateContext, HDC );
 DECLARE_WIN_FUNCTION( BOOL, wglMakeCurrent, HDC, HGLRC );
 DECLARE_WIN_FUNCTION( BOOL, wglDeleteContext, HGLRC );
@@ -264,6 +153,12 @@ DECLARE_WIN_FUNCTION( BOOL, AdjustWindowRectEx, LPRECT, DWORD, BOOL, DWORD );
 DECLARE_WIN_FUNCTION( int, GetSystemMetrics, int );
 DECLARE_WIN_FUNCTION( BOOL, SetWindowPos, HWND, HWND, int, int, int, int, UINT );
 
+#define SetWindowPlacement            ___internal_SetWindowPlacement
+#define GetWindowPlacement            ___internal_GetWindowPlacement
+#define GetMonitorInfoA               ___internal_GetMonitorInfoA
+#define MonitorFromPoint              ___internal_MonitorFromPoint
+#define MonitorFromWindow             ___internal_MonitorFromWindow
+#define GetDeviceCaps                 ___internal_GetDeviceCaps
 #define SetWindowPos                  ___internal_SetWindowPos
 #define GetSystemMetrics              ___internal_GetSystemMetrics
 #define AdjustWindowRectEx            ___internal_AdjustWindowRectEx
@@ -292,12 +187,10 @@ DECLARE_WIN_FUNCTION( BOOL, SetWindowPos, HWND, HWND, int, int, int, int, UINT )
 #define GetWindowLongPtrA             ___internal_GetWindowLongPtrA
 #define LoadImageA                    ___internal_LoadImageA
 #define DirectSoundCreate             ___internal_DirectSoundCreate
-#define SetProcessDpiAwarenessContext ___internal_SetProcessDpiAwarenessContext
-#define GetDpiForSystem               ___internal_GetDpiForSystem
-#define AdjustWindowRectExForDpi      ___internal_AdjustWindowRectExForDpi
 #define XInputGetState                ___internal_XInputGetState
 #define XInputSetState                ___internal_XInputSetState
 #define XInputEnable                  ___internal_XInputEnable
+#define wglGetCurrentContext          ___internal_wglGetCurrentContext
 #define wglCreateContext              ___internal_wglCreateContext
 #define wglMakeCurrent                ___internal_wglMakeCurrent
 #define wglDeleteContext              ___internal_wglDeleteContext
