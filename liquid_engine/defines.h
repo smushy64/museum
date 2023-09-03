@@ -43,9 +43,9 @@
     #define LD_PLATFORM_ANDROID
 #elif defined(__APPLE__)
     #include <TargetConditionals.h>
-    #if defined(TARGET_IPHONE_SIMULATION) || defined(TARGET_OS_IPHONE)
+    #if TARGET_IPHONE_SIMULATOR || TARGET_OS_IPHONE
         #define LD_PLATFORM_IOS
-    #elif defined(TARGET_OS_MAC)
+    #elif TARGET_OS_MAC
         #define LD_PLATFORM_MACOS
     #endif
 #else
@@ -56,6 +56,10 @@
 #if defined(_M_IX86) || defined(__i386__)
     #define LD_ARCH_X86
     #define LD_ARCH_32_BIT
+
+    #if !defined(LD_ARCH_LITTLE_ENDIAN)
+        #define LD_ARCH_LITTLE_ENDIAN
+    #endif
 #endif
 
 #if defined(__x86_64__) || defined(_M_X64_)
@@ -66,6 +70,10 @@
         #undef LD_ARCH_32_BIT
     #endif
     #define LD_ARCH_64_BIT
+
+    #if !defined(LD_ARCH_LITTLE_ENDIAN)
+        #define LD_ARCH_LITTLE_ENDIAN
+    #endif
 #endif // if x86
 
 #if defined(__arm__) || defined(_M_ARM_)
@@ -90,6 +98,10 @@
         #error "LD_SIMD_WIDTH can only be 1, 4 or 8!!!"
     #endif
 #endif // simd
+
+#if defined(LD_ARCH_BIG_ENDIAN)
+    #error "Big endian architectures are not currently supported!"
+#endif
 
 #if defined(LD_ARCH_X86)
     typedef unsigned char       u8;
