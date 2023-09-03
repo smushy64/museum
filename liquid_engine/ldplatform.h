@@ -27,7 +27,8 @@ typedef void PlatformSurface;
 /// On Resize callback.
 typedef void (PlatformSurfaceOnResizeFN)(
     PlatformSurface* surface,
-    ivec2 old_dimensions, ivec2 new_dimensions, void* user_params );
+    ivec2 old_dimensions, ivec2 new_dimensions,
+    void* user_params );
 /// On Close callback.
 typedef void (PlatformSurfaceOnCloseFN)(
     PlatformSurface* surface, void* user_params );

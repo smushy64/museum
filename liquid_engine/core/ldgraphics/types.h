@@ -5,42 +5,14 @@
 // * File Created: August 21, 2023
 #include "defines.h"
 #include "core/ldmath/types.h"
-
-/// Renderer ID
-typedef u32 RendererID;
-/// Invalid renderer id.
-#define RENDERER_ID_INVALID (U32_MAX)
+#include "core/ldmath/type_functions.h"
 
 /// 3D camera.
-typedef struct Camera3D {
-    vec3 position;
-    vec3 target;
-    quat rotation;
-    f32  fov;
-    f32  near_;
-    f32  far_;
-} Camera3D;
-
-/// 2D camera.
-typedef struct Camera2D {
-    vec2 position;
-    f32  scale;
-    f32  rotation_radians;
-} Camera2D;
-
-/// Types of camera.
-typedef enum CameraType : u32 {
-    CAMERA_TYPE_3D,
-    CAMERA_TYPE_2D
-} CameraType;
-
-/// Combined camera.
 typedef struct Camera {
-    CameraType type;
-    union {
-        Camera3D camera_3d;
-        Camera2D camera_2d;
-    };
+    struct Transform* transform;
+    f32  fov_radians;
+    f32  near_clip;
+    f32  far_clip;
 } Camera;
 
 #define VERTEX_2D_LOCATION_POSITION (0)
@@ -81,6 +53,30 @@ struct Vertex3D vertex3d(
     result.uv       = uv;
     result.normal   = normal;
     result.tangent  = tangent;
+    return result;
+}
+
+/// Mesh
+typedef struct Mesh {
+    Transform* transform;
+    struct Vertex3D* vertices;
+    u32* indices;
+    u32 vertex_count;
+    u32 index_count;
+} Mesh;
+/// Make mesh.
+header_only always_inline
+Mesh mesh(
+    Transform* transform,
+    struct Vertex3D* vertices, u32 vertex_count,
+    u32* indices, u32 index_count
+) {
+    Mesh result;
+    result.transform    = transform;
+    result.vertices     = vertices;
+    result.vertex_count = vertex_count;
+    result.indices      = indices;
+    result.index_count  = index_count;
     return result;
 }
 

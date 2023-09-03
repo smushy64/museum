@@ -7,11 +7,17 @@
 #include "ldrenderer/opengl/functions.h"
 #include "ldrenderer/opengl/buffer.h"
 #include "core/ldgraphics.h"
+#include "core/ldgraphics/primitives.h"
 #include "core/ldgraphics/types.h"
 #include "core/ldmath.h"
+#include "core/ldmemory.h"
+#include "core/ldtime.h"
 #include "ldplatform.h"
 
-#define GL_DEFAULT_CLEAR_MASK (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)
+usize GL_RENDERER_BACKEND_SIZE = sizeof(OpenGLRendererContext);
+
+#define GL_DEFAULT_CLEAR_MASK\
+    (GL_COLOR_BUFFER_BIT)
 
 void gl_debug_callback(
     GLenum source, GLenum type, GLuint id,
@@ -20,23 +26,21 @@ void gl_debug_callback(
 );
 
 void gl_renderer_backend_shutdown( RendererContext* renderer_ctx );
-void gl_renderer_backend_on_resize(
-    RendererContext* renderer_ctx, ivec2 surface_dimensions );
+void gl_renderer_backend_on_resize( RendererContext* renderer_ctx );
 b32 gl_renderer_backend_begin_frame(
     RendererContext* renderer_ctx, RenderData* render_data );
 b32 gl_renderer_backend_end_frame(
     RendererContext* renderer_ctx, RenderData* render_data );
 
 internal void gl_init_buffers( OpenGLRendererContext* ctx );
+internal void gl_init_shaders( OpenGLRendererContext* ctx );
 
 b32 gl_renderer_backend_init( RendererContext* renderer_ctx ) {
     OpenGLRendererContext* ctx = renderer_ctx;
 
-    OpenGLRenderContextHandle* render_context = platform_gl_init();
-    if( !render_context ) {
+    if( !platform_gl_surface_init( ctx->ctx.surface ) ) {
         return false;
     }
-    ctx->render_context = render_context;
 
 #if defined(LD_LOGGING) && defined(DEBUG)
     glEnable( GL_DEBUG_OUTPUT );
@@ -62,9 +66,13 @@ b32 gl_renderer_backend_init( RendererContext* renderer_ctx ) {
     ctx->ctx.begin_frame = gl_renderer_backend_begin_frame;
     ctx->ctx.end_frame   = gl_renderer_backend_end_frame;
 
-    glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
-
     gl_init_buffers( ctx );
+    gl_init_shaders( ctx );
+
+    ctx->framebuffer_main = gl_framebuffer_create(
+        ctx->ctx.framebuffer_dimensions.width,
+        ctx->ctx.framebuffer_dimensions.height
+    );
 
     GL_LOG_NOTE( "OpenGL Backend successfully initialized." );
     return true;
@@ -72,102 +80,444 @@ b32 gl_renderer_backend_init( RendererContext* renderer_ctx ) {
 
 void gl_renderer_backend_shutdown( RendererContext* renderer_ctx ) {
     OpenGLRendererContext* ctx = renderer_ctx;
-    platform_gl_shutdown( ctx->render_context );
+    platform_gl_surface_shutdown( ctx->ctx.surface );
     GL_LOG_INFO( "OpenGL Backend shutdown." );
 }
-void gl_renderer_backend_on_resize(
-    RendererContext* renderer_ctx, ivec2 surface_dimensions
+
+internal void gl_draw_framebuffer(
+    OpenGLRendererContext* ctx, ivec2 viewport
 ) {
-    OpenGLRendererContext* ctx = renderer_ctx;
-    ctx->viewport = surface_dimensions;
+    glBindFramebuffer( GL_FRAMEBUFFER, 0 );
     glViewport(
         0, 0,
-        ctx->viewport.width,
-        ctx->viewport.height
+        viewport.width,
+        viewport.height
     );
-    gl_matrices_buffer_update_ui(
-        ctx->buffers[GL_MATRICES_BUFFER_INDEX],
+    glDisable( GL_DEPTH_TEST );
+
+    GLShaderProgramID program =
+        ctx->programs[GL_SHADER_PROGRAM_INDEX_FRAMEBUFFER];
+    GLVertexArrayID vertex_array =
+        ctx->vertex_arrays[GL_VERTEX_ARRAY_INDEX_FRAMEBUFFER];
+    glDisable( GL_DEPTH_TEST );
+    glBindVertexArray( vertex_array );
+    glUseProgram( program );
+
+    glBindTextureUnit(
+        GL_SHADER_PROGRAM_FRAMEBUFFER_TEXTURE_BINDING,
+        ctx->framebuffer_main.color_texture_id );
+    glDrawArrays( GL_TRIANGLES, 0, 6 );
+}
+
+void gl_renderer_backend_on_resize( RendererContext* renderer_ctx ) {
+    OpenGLRendererContext* ctx = renderer_ctx;
+    gl_camera_buffer_update_matrix_ui(
+        ctx->buffers[GL_BUFFER_INDEX_UBO_CAMERA],
         &ctx->ctx.projection_ui
     );
+
+    /// Redraw the framebuffer in new dimensions
+    gl_draw_framebuffer( ctx, ctx->ctx.surface_dimensions );
+    platform_gl_surface_swap_buffers( ctx->ctx.surface );
 }
+
 b32 gl_renderer_backend_begin_frame(
     RendererContext* renderer_ctx, RenderData* render_data
 ) {
     OpenGLRendererContext* ctx = renderer_ctx;
- 
-    struct Camera* camera = render_data->camera;
-    if( camera ) {
-        switch( camera->type ) {
-            case CAMERA_TYPE_2D: {
-                vec2 up = v2_rotate(
-                    VEC2_UP, camera->camera_2d.rotation_radians );
-                mat4 lookat = m4_lookat_2d( camera->camera_2d.position, up );
-                mat4 vp = m4_mul_m4( &lookat, &ctx->ctx.projection_2d );
-                gl_matrices_buffer_update_2d(
-                    ctx->buffers[GL_MATRICES_BUFFER_INDEX],
-                    &vp
-                );
-            } break;
-            case CAMERA_TYPE_3D: {
-                vec3 up = q_mul_v3( camera->camera_3d.rotation, VEC3_UP );
-                mat4 lookat = m4_lookat(
-                    camera->camera_3d.position,
-                    camera->camera_3d.target,
-                    up
-                );
-                mat4 vp = m4_mul_m4( &lookat, &ctx->ctx.projection_2d );
-                gl_matrices_buffer_update_3d(
-                    ctx->buffers[GL_MATRICES_BUFFER_INDEX],
-                    &vp
-                );
-            } break;
-        }
+    GLFramebufferID   framebuffer  = 0;
+    GLVertexArrayID   vertex_array = 0;
+    GLShaderProgramID program      = 0;
 
+    struct Camera* camera = render_data->camera;
+#if defined(LD_ASSERTIONS)
+    if( camera ) {
+        LOG_ASSERT(
+            camera->transform,
+            "All cameras passed into renderer MUST have a transform!"
+        );
+    }
+#endif
+
+    if( camera && camera->transform->camera_dirty ) {
+
+        vec3 camera_world_position =
+            transform_world_position( camera->transform );
+            
+        vec3 camera_world_forward_basis =
+            transform_world_forward_basis( camera->transform );
+        vec3 camera_world_up_basis =
+            transform_world_up_basis( camera->transform );
+
+        vec3 camera_target = v3_add(
+            camera_world_position, camera_world_forward_basis );
+
+        mat4 lookat = m4_lookat(
+            camera_world_position,
+            camera_target,
+            camera_world_up_basis
+        );
+        mat4 view_projection =
+            m4_mul_m4( &lookat, &ctx->ctx.projection_3d );
+        gl_camera_buffer_update_world_position(
+            ctx->buffers[GL_BUFFER_INDEX_UBO_CAMERA],
+            camera_world_position
+        );
+        gl_camera_buffer_update_near_far_planes(
+            ctx->buffers[GL_BUFFER_INDEX_UBO_CAMERA],
+            &camera->near_clip
+        );
+        gl_camera_buffer_update_matrix_3d(
+            ctx->buffers[GL_BUFFER_INDEX_UBO_CAMERA],
+            &view_projection
+        );
+
+        camera->transform->camera_dirty = false;
     }
 
-    glClear( GL_DEFAULT_CLEAR_MASK );
-    unused(ctx);
-    unused(render_data);
+    ivec2 resolution = ctx->ctx.framebuffer_dimensions;
+    vec2 resolutionf = iv2_to_v2( resolution );
+
+    // NOTE(alicia): recreate the framebuffer to match
+    // render resolution.
+    if( !iv2_cmp_eq(
+        resolution,
+        ctx->framebuffer_main.dimensions
+    ) ) {
+        /// Rescale the framebuffer
+        gl_framebuffer_resize(
+            &ctx->framebuffer_main,
+            resolution.width,
+            resolution.height
+        );
+    }
+
+    framebuffer = ctx->framebuffer_main.id;
+    glBindFramebuffer( GL_FRAMEBUFFER, framebuffer );
+    glBindTextureUnit( GL_SHADER_PROGRAM_FRAMEBUFFER_TEXTURE_BINDING, 0 );
+    glViewport(
+        0, 0,
+        resolution.width,
+        resolution.height
+    );
+    glEnable( GL_CULL_FACE );
+
+    // NOTE(alicia): UI Rendering
+    glDisable( GL_DEPTH_TEST );
+
+    rgba clear_color = RGBA_GRAY;
+    f32 clear_depth  = 1.0f;
+    glClearNamedFramebufferfv(
+        framebuffer,
+        GL_COLOR, 0,
+        clear_color.c
+    );
+    glClearNamedFramebufferfv(
+        framebuffer,
+        GL_DEPTH, 0,
+        &clear_depth
+    );
+
+    program      = ctx->programs[GL_SHADER_PROGRAM_INDEX_COLOR];
+    vertex_array = ctx->vertex_arrays[GL_VERTEX_ARRAY_INDEX_QUAD_2D];
+    glUseProgram( program );
+    glBindVertexArray( vertex_array );
+
+    vec2 position = v2_scalar( 0.5f );
+    vec2 scale    = v2_scalar( 0.4f );
+
+    position = v2_hadamard( position, resolutionf );
+    scale    = v2_hadamard( scale, resolutionf );
+
+    mat4 quad_transform = m4_transform_2d(
+        position, 0.0f, scale );
+
+    rgba quad_color = RGBA_CYAN;
+
+    glProgramUniformMatrix4fv(
+        program,
+        GL_SHADER_PROGRAM_COLOR_LOCATION_TRANSFORM,
+        1, GL_FALSE,
+        quad_transform.c
+    );
+    glProgramUniform4fv(
+        program,
+        GL_SHADER_PROGRAM_COLOR_LOCATION_COLOR,
+        1, quad_color.c
+    );
+
+    glDrawElements(
+        GL_TRIANGLES,
+        QUAD_2D_INDEX_COUNT,
+        GL_UNSIGNED_BYTE,
+        NULL
+    );
+
     return true;
 }
 b32 gl_renderer_backend_end_frame(
     RendererContext* renderer_ctx, RenderData* render_data
 ) {
     OpenGLRendererContext* ctx = renderer_ctx;
-    platform_gl_swap_buffers();
-    unused(ctx);
+
+    ivec2 surface_dimensions = ctx->ctx.surface_dimensions;
+    gl_draw_framebuffer( ctx, surface_dimensions );
+    platform_gl_surface_swap_buffers( ctx->ctx.surface );
+
     unused(render_data);
     return true;
 }
 
 internal void gl_init_buffers( OpenGLRendererContext* ctx ) {
     glCreateBuffers( GL_BUFFER_COUNT, ctx->buffers );
+    /* create matrices buffer */ {
+        GLBufferID ubo = ctx->buffers[GL_BUFFER_INDEX_UBO_CAMERA];
 
-    // create matrices buffer
-    ivec2 dimensions = DEFAULT_SURFACE_DIMENSIONS;
-    f32 aspect_ratio = (f32)dimensions.width / (f32)dimensions.height;
-    mat4 matrices[3];
-    /* vp 3d */ {
-        mat4 lookat_3d     = m4_lookat( VEC3_BACK, VEC3_ZERO, VEC3_UP );
-        mat4 projection_3d = m4_perspective(
-            to_rad(60.0f), aspect_ratio, 0.001f, 1000.0f );
-        matrices[0] = m4_mul_m4( &lookat_3d, &projection_3d );
-    }
-    /* vp ui */ {
-        mat4 projection_ui = m4_ortho(
-            0.0f, (f32)dimensions.width,
-            0.0f, (f32)dimensions.height,
-            0.0f, 1000.0f
+        struct GLCameraBuffer buffer = {};
+        buffer.camera_near = 0.001f;
+        buffer.camera_far  = 1000.0f;
+
+        ivec2 framebuffer_dimensions = ctx->ctx.framebuffer_dimensions;
+
+        f32 aspect_ratio =
+            (f32)framebuffer_dimensions.width /
+            (f32)framebuffer_dimensions.height;
+
+        mat4 lookat = m4_lookat( VEC3_BACK, VEC3_ZERO, VEC3_UP );
+        mat4 projection = m4_perspective(
+            to_rad(60.0f), aspect_ratio,
+            buffer.camera_near,
+            buffer.camera_far
         );
-        matrices[1] = projection_ui;
+
+        buffer.matrix_3d = m4_mul_m4( &lookat, &projection );
+        mat4 view_ui = m4_lookat_2d( VEC2_ZERO, VEC2_UP );
+        mat4 proj_ui = m4_ortho(
+            0.0f, (f32)framebuffer_dimensions.width,
+            0.0f, (f32)framebuffer_dimensions.height,
+            -1.0f, 1.0f
+        );
+
+        buffer.matrix_ui = m4_mul_m4( &view_ui, &proj_ui );
+
+        gl_camera_buffer_create( ubo, &buffer );
     }
-    /* vp 2d */ {
-        mat4 lookat_2d     = m4_lookat_2d( VEC2_ZERO, VEC2_UP );
-        mat4 projection_2d = m4_projection2d( aspect_ratio, 1.0f );
-        matrices[2] = m4_mul_m4( &lookat_2d, &projection_2d );
+
+    glCreateVertexArrays( GL_VERTEX_ARRAY_COUNT, ctx->vertex_arrays );
+    /* create quad 2d mesh */ {
+        GLuint vao = ctx->vertex_arrays[GL_VERTEX_ARRAY_INDEX_QUAD_2D];
+        GLuint vbo = ctx->buffers[GL_BUFFER_INDEX_VBO_QUAD_2D];
+        GLuint ebo = ctx->buffers[GL_BUFFER_INDEX_EBO_QUAD];
+        
+        glNamedBufferStorage(
+            vbo, QUAD_2D_VERTEX_BUFFER_SIZE,
+            QUAD_2D_LOWER_LEFT,
+            GL_DYNAMIC_STORAGE_BIT
+        );
+        glNamedBufferStorage(
+            ebo, QUAD_2D_INDEX_BUFFER_SIZE,
+            QUAD_2D_INDICES,
+            GL_DYNAMIC_STORAGE_BIT
+        );
+
+        glVertexArrayVertexBuffer(
+            vao, 0,
+            vbo, 0,
+            sizeof(struct Vertex2D)
+        );
+        glVertexArrayElementBuffer( vao, ebo );
+
+        glEnableVertexArrayAttrib( vao, 0 );
+        glEnableVertexArrayAttrib( vao, 1 );
+
+        glVertexArrayAttribFormat(
+            vao, 0,
+            2, GL_FLOAT,
+            GL_FALSE,
+            0
+        );
+        glVertexArrayAttribFormat(
+            vao, 1,
+            2, GL_FLOAT,
+            GL_FALSE,
+            sizeof(vec2)
+        );
+
+        glVertexArrayAttribBinding( vao, 0, 0 );
+        glVertexArrayAttribBinding( vao, 1, 0 );
     }
-    gl_matrices_buffer_create(
-        ctx->buffers[GL_MATRICES_BUFFER_INDEX], matrices );
+    /* create framebuffer quad */ {
+        GLuint vao = ctx->vertex_arrays[GL_VERTEX_ARRAY_INDEX_FRAMEBUFFER];
+        GLuint vbo = ctx->buffers[GL_BUFFER_INDEX_VBO_FRAMEBUFFER];
+     
+        f32 FRAMEBUFFER_VERTICES[] = {
+            -1.0f, -1.0f, /* uvs */ 0.0f, 0.0f,
+             1.0f,  1.0f, /* uvs */ 1.0f, 1.0f,
+            -1.0f,  1.0f, /* uvs */ 0.0f, 1.0f,
+
+            -1.0f, -1.0f, /* uvs */ 0.0f, 0.0f,
+             1.0f, -1.0f, /* uvs */ 1.0f, 0.0f,
+             1.0f,  1.0f, /* uvs */ 1.0f, 1.0f,
+        };
+
+        usize vbo_size = STATIC_ARRAY_SIZE( FRAMEBUFFER_VERTICES );
+        glNamedBufferStorage(
+            vbo, vbo_size,
+            FRAMEBUFFER_VERTICES,
+            GL_DYNAMIC_STORAGE_BIT
+        );
+
+        glVertexArrayVertexBuffer(
+            vao, 0,
+            vbo, 0,
+            sizeof(f32) * 4
+        );
+
+        glEnableVertexArrayAttrib( vao, 0 );
+        glEnableVertexArrayAttrib( vao, 1 );
+
+        glVertexArrayAttribFormat(
+            vao, 0,
+            2, GL_FLOAT,
+            GL_FALSE,
+            0
+        );
+        glVertexArrayAttribFormat(
+            vao, 1,
+            2, GL_FLOAT,
+            GL_FALSE,
+            sizeof(f32) * 2
+        );
+
+        glVertexArrayAttribBinding( vao, 0, 0 );
+        glVertexArrayAttribBinding( vao, 1, 0 );
+    }
+
+}
+
+internal void gl_init_shaders( OpenGLRendererContext* ctx ) {
+
+    /* framebuffer shader */ {
+        #define FRAMEBUFFER_SHADER_STAGE_COUNT (2)
+        GLShaderID framebuffer_shaders[FRAMEBUFFER_SHADER_STAGE_COUNT] = {};
+        GLShaderProgramID* program = ctx->programs + GL_SHADER_PROGRAM_INDEX_FRAMEBUFFER;
+
+        b32 result = gl_shader_compile_source(
+            GL_FRAMEBUFFER_SHADER_VERT_SOURCE_LENGTH,
+            GL_FRAMEBUFFER_SHADER_VERT_SOURCE,
+            GL_VERTEX_SHADER,
+            &framebuffer_shaders[0]
+        );
+        ASSERT( result );
+
+        result = gl_shader_compile_source(
+            GL_FRAMEBUFFER_SHADER_FRAG_SOURCE_LENGTH,
+            GL_FRAMEBUFFER_SHADER_FRAG_SOURCE,
+            GL_FRAGMENT_SHADER,
+            &framebuffer_shaders[1]
+        );
+        ASSERT( result );
+
+        result = gl_shader_program_link(
+            FRAMEBUFFER_SHADER_STAGE_COUNT, framebuffer_shaders,
+            program
+        );
+        ASSERT( result );
+
+        gl_shader_delete(
+            FRAMEBUFFER_SHADER_STAGE_COUNT, framebuffer_shaders );
+
+        GL_LOG_NOTE(
+            "Successfully compiled + "
+            "linked framebuffer shader program: {u32}",
+            *program
+        );
+
+    }
+
+    /* create ui color shader */ {
+        #define COLOR_SHADER_STAGE_COUNT (2)
+        GLShaderID color_shaders[COLOR_SHADER_STAGE_COUNT] = {};
+        GLShaderProgramID* program = ctx->programs + GL_SHADER_PROGRAM_INDEX_COLOR;
+
+        PlatformFile* color_vert_file = platform_file_open(
+            "./resources/shaders/ldcolor.vert.spv",
+            PLATFORM_FILE_OPEN_READ |
+            PLATFORM_FILE_OPEN_SHARE_READ
+        );
+        ASSERT( color_vert_file );
+        PlatformFile* color_frag_file = platform_file_open(
+            "./resources/shaders/ldcolor.frag.spv",
+            PLATFORM_FILE_OPEN_READ |
+            PLATFORM_FILE_OPEN_SHARE_READ
+        );
+        ASSERT( color_frag_file );
+
+        usize color_vert_file_size =
+            platform_file_query_size( color_vert_file );
+        usize color_frag_file_size =
+            platform_file_query_size( color_frag_file );
+        
+        usize shader_buffer_size =
+            color_vert_file_size + color_frag_file_size;
+        u8* shader_buffer = ldalloc( shader_buffer_size, MEMORY_TYPE_RENDERER );
+        ASSERT( shader_buffer );
+
+        b32 result = platform_file_read(
+            color_vert_file,
+            color_vert_file_size,
+            color_vert_file_size,
+            shader_buffer
+        );
+        ASSERT( result );
+
+        result = platform_file_read(
+            color_frag_file,
+            color_frag_file_size,
+            color_frag_file_size,
+            shader_buffer + color_vert_file_size
+        );
+        ASSERT( result );
+
+
+        result = gl_shader_compile_spirv(
+            color_vert_file_size,
+            shader_buffer,
+            GL_VERTEX_SHADER,
+            "main",
+            0, 0, 0,
+            &color_shaders[0]
+        );
+        ASSERT( result );
+
+        result = gl_shader_compile_spirv(
+            color_frag_file_size,
+            shader_buffer + color_vert_file_size,
+            GL_FRAGMENT_SHADER,
+            "main",
+            0, 0, 0,
+            &color_shaders[1]
+        );
+        ASSERT( result );
+
+        result = gl_shader_program_link(
+            COLOR_SHADER_STAGE_COUNT, color_shaders,
+            program
+        );
+        ASSERT( result );
+
+        gl_shader_delete( COLOR_SHADER_STAGE_COUNT, color_shaders );
+        ldfree( shader_buffer, shader_buffer_size, MEMORY_TYPE_RENDERER );
+        platform_file_close( color_vert_file );
+        platform_file_close( color_frag_file );
+
+        GL_LOG_NOTE(
+            "Successfully compiled + "
+            "linked debug color shader program: {u32}",
+            *program
+        );
+    }
+
 }
 
 const char* gl_debug_source_to_string( GLenum source ) {

@@ -3,22 +3,30 @@
 // * File Created: August 18, 2023
 #include "ldrenderer.h"
 #include "ldrenderer/context.h"
-#include "ldrenderer/ldopengl.h"
+#include "ldplatform.h"
+#include "core/ldengine.h"
 #include "core/ldgraphics.h"
 #include "core/ldgraphics/types.h"
 #include "core/ldlog.h"
 #include "core/ldmath.h"
+#include "core/ldmemory.h"
 
-global InternalRendererContext* RENDERER_CONTEXT = NULL;
+// TODO(alicia): should these be labeled extern?
+// it's all the same translation unit after all . . .
 
-b32 gl_renderer_backend_init( RendererContext* ctx );
-b32 vk_renderer_backend_init( RendererContext* ctx );
-b32 dx11_renderer_backend_init( RendererContext* ctx );
-b32 dx12_renderer_backend_init( RendererContext* ctx );
+// NOTE(alicia): found in ldrenderer/opengl/ldopengl.c
+extern usize GL_RENDERER_BACKEND_SIZE;
+extern b32 gl_renderer_backend_init( RendererContext* ctx );
+
+extern b32 vk_renderer_backend_init( RendererContext* ctx );
+
+extern b32 dx11_renderer_backend_init( RendererContext* ctx );
+
+extern b32 dx12_renderer_backend_init( RendererContext* ctx );
 
 usize renderer_subsystem_query_size( enum RendererBackend backend ) {
-    local const usize backend_sizes[] = {
-        sizeof(OpenGLRendererContext), // OpenGL
+    const usize backend_sizes[] = {
+        GL_RENDERER_BACKEND_SIZE, // OpenGL
         0, // Vulkan
         0, // DirectX11
         0, // DirectX12
@@ -27,15 +35,21 @@ usize renderer_subsystem_query_size( enum RendererBackend backend ) {
     return backend_sizes[backend];
 }
 b32 renderer_subsystem_init(
+    PlatformSurface* surface,
     enum RendererBackend backend,
     void* context_buffer
 ) {
-    RENDERER_CONTEXT          = context_buffer;
-    RENDERER_CONTEXT->backend = backend;
+    InternalRendererContext* ctx = context_buffer;
+    ctx->surface = surface;
+    ctx->backend = backend;
+    ivec2 dimensions = platform_surface_query_dimensions( ctx->surface );
+
+    ctx->surface_dimensions     = dimensions;
+    ctx->framebuffer_dimensions = dimensions;
 
     switch( backend ) {
         case RENDERER_BACKEND_OPENGL: {
-            if( !gl_renderer_backend_init( RENDERER_CONTEXT ) ) {
+            if( !gl_renderer_backend_init( ctx ) ) {
                 return false;
             }
         } break;
@@ -48,85 +62,87 @@ b32 renderer_subsystem_init(
         } break;
     }
 
+    renderer_subsystem_on_resize( context_buffer, dimensions, dimensions );
+
     return true;
 }
-void renderer_subsystem_shutdown() {
-    RENDERER_CONTEXT->shutdown( RENDERER_CONTEXT );
+void renderer_subsystem_shutdown( RendererContext* opaque ) {
+    InternalRendererContext* ctx = opaque;
+    ctx->shutdown( ctx );
 }
-void renderer_subsystem_on_resize( union ivec2 surface_dimensions ) {
+void renderer_subsystem_on_resize(
+    RendererContext* opaque,
+    union ivec2 surface_dimensions,
+    union ivec2 framebuffer_dimensions
+) {
+    InternalRendererContext* ctx = opaque;
+
+    ctx->surface_dimensions     = surface_dimensions;
+    ctx->framebuffer_dimensions = framebuffer_dimensions;
+
     f32 aspect_ratio =
-        (f32)surface_dimensions.width / (f32)surface_dimensions.height;
-    RENDERER_CONTEXT->aspect_ratio = aspect_ratio;
+        (f32)framebuffer_dimensions.width /
+        (f32)framebuffer_dimensions.height;
+    ctx->aspect_ratio = aspect_ratio;
 
-    RENDERER_CONTEXT->projection_2d = m4_projection2d(
-        RENDERER_CONTEXT->aspect_ratio,
-        RENDERER_CONTEXT->projection_2d_scale );
-    RENDERER_CONTEXT->projection_3d = m4_perspective(
-        RENDERER_CONTEXT->projection_3d_fov,
-        RENDERER_CONTEXT->aspect_ratio,
-        RENDERER_CONTEXT->projection_3d_near,
-        RENDERER_CONTEXT->projection_3d_far
-    );
-    RENDERER_CONTEXT->projection_ui = m4_ortho(
-        0.0f, (f32)surface_dimensions.width,
-        0.0f, (f32)surface_dimensions.height,
-        0.0f, 1000.0f
+    ctx->projection_3d = m4_perspective(
+        ctx->fov_radians,
+        ctx->aspect_ratio,
+        ctx->near_clip,
+        ctx->far_clip
     );
 
-    RENDERER_CONTEXT->on_resize( RENDERER_CONTEXT, surface_dimensions );
+    mat4 view_ui = m4_lookat_2d( VEC2_ZERO, VEC2_UP );
+    mat4 proj_ui = m4_ortho(
+        0.0f, (f32)framebuffer_dimensions.width,
+        0.0f, (f32)framebuffer_dimensions.height,
+        -10.0f, 10.0f
+    );
+
+    ctx->projection_ui = m4_mul_m4( &view_ui, &proj_ui );
+
+    ctx->on_resize( ctx );
 }
-internal b32 renderer_begin_frame( struct RenderData* render_data ) {
+internal b32 renderer_begin_frame(
+    RendererContext* opaque, struct RenderData* render_data
+) {
+
+    InternalRendererContext* ctx = opaque;
 
     struct Camera* camera = render_data->camera;
     if( camera ) {
-        switch( camera->type ) {
-            case CAMERA_TYPE_2D: {
-                if(
-                    RENDERER_CONTEXT->projection_2d_scale !=
-                    camera->camera_2d.scale
-                ) {
-                    RENDERER_CONTEXT->projection_2d_scale =
-                        camera->camera_2d.scale;
-                    RENDERER_CONTEXT->projection_2d = m4_projection2d(
-                        RENDERER_CONTEXT->aspect_ratio,
-                        RENDERER_CONTEXT->projection_2d_scale );
-                }
-            } break;
-            case CAMERA_TYPE_3D: {
-                if(
-                    RENDERER_CONTEXT->projection_3d_fov !=
-                    camera->camera_3d.fov ||
-                    RENDERER_CONTEXT->projection_3d_far !=
-                    camera->camera_3d.far_ ||
-                    RENDERER_CONTEXT->projection_3d_near !=
-                    camera->camera_3d.near_
-                ) {
-                    RENDERER_CONTEXT->projection_3d_fov =
-                        camera->camera_3d.fov;
-                    RENDERER_CONTEXT->projection_3d_near =
-                        camera->camera_3d.near_;
-                    RENDERER_CONTEXT->projection_3d_far =
-                        camera->camera_3d.far_;
-
-                    RENDERER_CONTEXT->projection_3d = m4_perspective(
-                        RENDERER_CONTEXT->projection_3d_fov,
-                        RENDERER_CONTEXT->aspect_ratio,
-                        RENDERER_CONTEXT->projection_3d_near,
-                        RENDERER_CONTEXT->projection_3d_far
-                    );
-                }
-            } break;
+        if( !mem_cmp(
+            &ctx->fov_radians,
+            &camera->fov_radians,
+            sizeof(f32) * 3
+        ) ) {
+            mem_copy(
+                &ctx->fov_radians,
+                &camera->fov_radians,
+                sizeof(f32) * 3
+            );
+            ctx->projection_3d = m4_perspective(
+                ctx->fov_radians,
+                ctx->aspect_ratio,
+                ctx->near_clip,
+                ctx->far_clip
+            );
         }
     }
 
-    return RENDERER_CONTEXT->begin_frame( RENDERER_CONTEXT, render_data );
+    return ctx->begin_frame( ctx, render_data );
 }
-internal b32 renderer_end_frame( struct RenderData* render_data ) {
-    return RENDERER_CONTEXT->end_frame( RENDERER_CONTEXT, render_data );
+internal b32 renderer_end_frame(
+    RendererContext* opaque, struct RenderData* render_data
+) {
+    InternalRendererContext* ctx = opaque;
+    return ctx->end_frame( ctx, render_data );
 }
-b32 renderer_subsystem_on_draw( struct RenderData* render_data ) {
-    if( renderer_begin_frame( render_data ) ) {
-        if( !renderer_end_frame( render_data ) ) {
+b32 renderer_subsystem_on_draw(
+    RendererContext* opaque, struct RenderData* render_data
+) {
+    if( renderer_begin_frame( opaque, render_data ) ) {
+        if( !renderer_end_frame( opaque, render_data ) ) {
             LOG_FATAL( "Renderer failure!" );
             return false;
         } else {
@@ -136,12 +152,14 @@ b32 renderer_subsystem_on_draw( struct RenderData* render_data ) {
         return false;
     }
 }
-
-enum RendererBackend renderer_subsystem_query_backend() {
-    if( !RENDERER_CONTEXT ) {
+enum RendererBackend renderer_subsystem_query_backend(
+    RendererContext* opaque
+) {
+    InternalRendererContext* ctx = opaque;
+    if( !ctx ) {
         return 0;
     } else {
-        return RENDERER_CONTEXT->backend;
+        return ctx->backend;
     }
 }
 

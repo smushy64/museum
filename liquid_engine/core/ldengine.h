@@ -111,11 +111,23 @@ LD_API const char* engine_query_processor_name( EngineContext* ctx );
 /// Centers surface on screen.
 /// Does nothing on platforms that don't use windows.
 LD_API void engine_surface_center( EngineContext* ctx );
-/// Set surface dimensions.
-LD_API void engine_surface_set_dimensions(
-    EngineContext* ctx, ivec2 new_dimensions );
-/// Query surface dimensions.
-LD_API ivec2 engine_surface_query_dimensions( EngineContext* ctx );
+
+/// Get the size of the surface.
+LD_API ivec2 engine_surface_query_size( EngineContext* ctx );
+/// Get the render resolution of the surface.
+/// The value returned is NOT scaled by resolution scale.
+LD_API ivec2 engine_surface_query_resolution( EngineContext* ctx );
+/// Get the resolution scale of the surface.
+LD_API f32 engine_surface_query_resolution_scale( EngineContext* ctx );
+
+/// Set surface size, render resolution and resolution scale.
+LD_API void engine_surface_set_resolution(
+    EngineContext* ctx,
+    ivec2 surface_size,
+    ivec2 render_resolution,
+    f32 render_resolution_scale
+);
+
 /// Set fullscreen.
 LD_API void engine_surface_set_fullscreen( EngineContext* ctx, b32 fullscreen );
 /// Query if surface is fullscreen.

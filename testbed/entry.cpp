@@ -8,32 +8,44 @@
 #include <core/ldmemory.h>
 #include <core/ldallocator.h>
 #include <core/ldthread.h>
+#include <core/ldgraphics.h>
+#include <core/ldgraphics/types.h>
+#include <core/ldinput.h>
 
-void thread_work( ThreadInfo* thread_info, void* params ) {
-    usize thread_index = thread_info_query_index( thread_info );
-    LOG_INFO( "Hello from thread {u64}", (u64)thread_index );
-    unused( params );
-}
+struct GameMemory {
+    Transform camera_transform;
+    Camera    camera;
+};
 
 extern_c usize application_query_memory_requirement() {
-    return 1;
+    return sizeof(GameMemory);
 }
-extern_c b32 application_init( EngineContext* ctx, void* memory ) {
+extern_c b32 application_init( EngineContext* ctx, void* opaque ) {
     engine_application_set_name( ctx, SV("testbed") );
-    engine_surface_set_dimensions( (ivec2){ 1280, 720 } );
-    engine_surface_center();
+    engine_surface_center( ctx );
 
-    for( usize i = 0; i < 30; ++i ) {
-        thread_work_queue_push( thread_work, nullptr );
-    }
+    GameMemory* memory = (GameMemory*)opaque;
+
+    memory->camera_transform = transform_zero();
+    memory->camera.transform = &memory->camera_transform;
+
+    memory->camera.transform->matrix_dirty = true;
 
     unused(ctx);
     unused(memory);
+
     return true;
 }
-extern_c b32 application_run( EngineContext* ctx, void* memory ) {
-    unused(ctx);
-    unused(memory);
+extern_c b32 application_run( EngineContext* ctx maybe_unused, void* opaque ) {
+    GameMemory* maybe_unused memory = (GameMemory*)opaque;
+
+    if( input_key_press( KEY_ESCAPE ) ) {
+        engine_exit();
+    }
+
+    if( input_key_press( KEY_SPACE ) ) {
+        engine_surface_center( ctx );
+    }
     return true;
 }
 

@@ -62,43 +62,45 @@ typedef u8 EventCode;
 typedef struct Event {
     EventCode code;
     union EventData {
-        pvoid pointer[2];
+        pvoid pointer[4];
 
-        mat2 m2;
+        mat2 m2[2];
 
-        vec4  v4;
-        ivec4 iv4;
+        vec4  v4[2];
+        ivec4 iv4[2];
 
-        vec3  v3;
-        ivec3 iv3;
+        vec3  v3[2];
+        ivec3 iv3[2];
 
-        i64 int64[2];
-        u64 uint64[2];
-        f64 float64[2];
+        i64 int64[4];
+        u64 uint64[4];
+        f64 float64[4];
 
-        vec2  v2[2];
-        ivec2 iv2[2];
+        vec2  v2[4];
+        ivec2 iv2[4];
 
-        i32 int32[4];
-        u32 uint32[4];
-        f32 float32[4];
-        b32 bool32[4];
+        i32 int32[8];
+        u32 uint32[8];
+        f32 float32[8];
+        b32 bool32[8];
 
-        i16 int16[8];
-        u16 uint16[8];
+        i16 int16[16];
+        u16 uint16[16];
 
-        i8 int8[16];
-        u8 uint8[16];
-        b8 bool8[16];
+        i8 int8[32];
+        u8 uint8[32];
+        b8 bool8[32];
 
-        char char8[16];
+        char str[32];
 
         struct EventAppActive {
             b32 active;
         } app_active;
 
         struct EventResize {
-            ivec2 new_dimensions;
+            ivec2 surface_dimensions;
+            ivec2 render_resolution;
+            f32   render_resolution_scale;
         } resize;
 
         struct EventGamepadActive {

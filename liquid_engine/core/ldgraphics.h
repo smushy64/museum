@@ -4,6 +4,7 @@
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: August 18, 2023
 #include "defines.h"
+#include "core/ldmath/types.h"
 
 /// Supported renderer backends
 typedef enum RendererBackend : u32 {
@@ -44,7 +45,5 @@ b32 renderer_backend_is_supported( RendererBackend backend ) {
     unused(backend);
     return true;
 }
-
-
 
 #endif // header guard

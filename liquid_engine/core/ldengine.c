@@ -29,11 +29,28 @@ typedef struct InternalEngineContext {
 
     RenderData render_data;
 
+    ivec2 render_resolution;
+    f32   render_resolution_scale;
+
     b8 is_running;                // 1
     b8 pause_on_surface_inactive; // 1
     
     char application_name[MAX_APPLICATION_NAME];
 } InternalEngineContext;
+
+internal ivec2 calculate_scaled_resolution(
+    ivec2 resolution, f32 resolution_scale
+) {
+    ivec2 result = (ivec2){
+        trunc_i32((f32)resolution.width * resolution_scale),
+        trunc_i32((f32)resolution.height * resolution_scale)
+    };
+
+    result.x = max( result.x, 1 );
+    result.y = max( result.y, 1 );
+
+    return result;
+}
 
 EventCallbackResult on_app_exit( Event* event, void* void_ctx ) {
     unused(event);
@@ -41,14 +58,6 @@ EventCallbackResult on_app_exit( Event* event, void* void_ctx ) {
     ctx->is_running = false;
     LOG_INFO( "Application requested engine exit." );
     return EVENT_CALLBACK_CONSUMED;
-}
-EventCallbackResult on_resize( Event* event, void* params ) {
-    InternalEngineContext* ctx = params;
-    renderer_subsystem_on_resize(
-        ctx->main_surface_renderer_context,
-        event->data.resize.new_dimensions
-    );
-    return EVENT_CALLBACK_NOT_CONSUMED;
 }
 EventCallbackResult on_active( Event* event, void* params ) {
     unused(params);
@@ -74,11 +83,27 @@ void on_resize_listener(
 ) {
     unused(surface);
     unused(old_dimensions);
-    unused(params);
+    InternalEngineContext* ctx = params;
+
+    ctx->render_resolution = new_dimensions;
+
+    ivec2 scaled_resolution = calculate_scaled_resolution(
+        ctx->render_resolution,
+        ctx->render_resolution_scale
+    );
+    renderer_subsystem_on_resize(
+        ctx->main_surface_renderer_context,
+        new_dimensions,
+        scaled_resolution
+    );
+
     Event event = {};
-    event.code = EVENT_CODE_SURFACE_RESIZE;
-    event.data.resize.new_dimensions = new_dimensions;
-    event_fire( event );
+    event.code  = EVENT_CODE_SURFACE_RESIZE;
+    event.data.resize = (struct EventResize) {
+        new_dimensions,
+        scaled_resolution,
+        ctx->render_resolution_scale
+    };
 }
 void on_activate_listener(
     PlatformSurface* surface,
@@ -219,6 +244,11 @@ b32 engine_entry( int argc, char** argv ) {
 #endif
 
     InternalEngineContext ctx = {};
+    ctx.render_resolution_scale = 1.0f;
+    ctx.render_resolution = calculate_scaled_resolution(
+        DEFAULT_SURFACE_DIMENSIONS,
+        ctx.render_resolution_scale
+    );
 
     ArgParseResult arg_parse = parse_args( argc, argv );
     if( !arg_parse.success ) {
@@ -350,11 +380,15 @@ b32 engine_entry( int argc, char** argv ) {
         );
         return false;
     }
+
     ctx.main_surface = surface;
     platform_surface_show( surface );
-    platform_surface_set_resize_callback( surface, on_resize_listener, NULL );
-    platform_surface_set_activate_callback( surface, on_activate_listener, NULL );
-    platform_surface_set_close_callback( surface, on_close_listener, NULL );
+    platform_surface_set_resize_callback(
+        surface, on_resize_listener, &ctx );
+    platform_surface_set_activate_callback(
+        surface, on_activate_listener, &ctx );
+    platform_surface_set_close_callback(
+        surface, on_close_listener, &ctx );
 
     ctx.pause_on_surface_inactive = true;
     ctx.main_surface_renderer_context =
@@ -447,16 +481,6 @@ b32 engine_entry( int argc, char** argv ) {
     );
 #endif // x86
 
-    EventListenerID event_resize_id = event_subscribe(
-        EVENT_CODE_SURFACE_RESIZE, on_resize, &ctx );
-    if( !event_resize_id ) {
-        MESSAGE_BOX_FATAL(
-            "Subsystem Failure",
-            "Failed to initialize event subsystem!\n "
-            LD_CONTACT_MESSAGE
-        );
-        return false;
-    }
     EventListenerID event_exit_id = event_subscribe(
         EVENT_CODE_EXIT, on_app_exit, &ctx );
     if( !event_exit_id ) {
@@ -572,7 +596,6 @@ b32 engine_entry( int argc, char** argv ) {
     }
 
     event_unsubscribe( event_exit_id );
-    event_unsubscribe( event_resize_id );
     event_unsubscribe( event_on_active_id );
 
     renderer_subsystem_shutdown( ctx.main_surface_renderer_context );
@@ -646,17 +669,6 @@ LD_API const char* engine_query_processor_name( EngineContext* opaque ) {
     InternalEngineContext* ctx = opaque;
     return ctx->system_info.cpu_name_buffer;
 }
-LD_API void engine_surface_set_dimensions(
-    EngineContext* opaque, ivec2 new_dimensions
-) {
-    InternalEngineContext* ctx = opaque;
-    LOG_NOTE( "Set surface dimensions: {iv2}", new_dimensions );
-    platform_surface_set_dimensions( ctx->main_surface, new_dimensions );
-}
-LD_API ivec2 engine_surface_query_dimensions( EngineContext* opaque ) {
-    InternalEngineContext* ctx = opaque;
-    return platform_surface_query_dimensions( ctx->main_surface );
-}
 LD_API void engine_surface_center( EngineContext* opaque ) {
     InternalEngineContext* ctx = opaque;
     platform_surface_center( ctx->main_surface );
@@ -679,4 +691,55 @@ LD_API b32 engine_surface_query_fullscreen( EngineContext* opaque ) {
     return platform_surface_query_mode( ctx->main_surface ) ==
         PLATFORM_SURFACE_MODE_FULLSCREEN;
 }
+
+LD_API ivec2 engine_surface_query_size( EngineContext* opaque ) {
+    InternalEngineContext* ctx = opaque;
+    return platform_surface_query_dimensions( ctx->main_surface );
+}
+LD_API ivec2 engine_surface_query_resolution( EngineContext* opaque ) {
+    InternalEngineContext* ctx = opaque;
+    return ctx->render_resolution;
+}
+LD_API f32 engine_surface_query_resolution_scale( EngineContext* opaque ) {
+    InternalEngineContext* ctx = opaque;
+    return ctx->render_resolution_scale;
+}
+LD_API void engine_surface_set_resolution(
+    EngineContext* opaque,
+    ivec2 surface_size,
+    ivec2 render_resolution,
+    f32 render_resolution_scale
+) {
+    InternalEngineContext* ctx = opaque;
+
+    ctx->render_resolution       = render_resolution;
+    ctx->render_resolution_scale = render_resolution_scale;
+
+    if( engine_surface_query_fullscreen( ctx ) ) {
+
+        ivec2 scaled_resolution = calculate_scaled_resolution(
+            ctx->render_resolution,
+            ctx->render_resolution_scale
+        );
+        renderer_subsystem_on_resize(
+            ctx->main_surface_renderer_context,
+            surface_size,
+            scaled_resolution
+        );
+
+        Event event = {};
+        event.code  = EVENT_CODE_SURFACE_RESIZE;
+        event.data.resize = (struct EventResize) {
+            surface_size,
+            render_resolution,
+            render_resolution_scale
+        };
+
+    } else {
+        // NOTE(alicia): the callback will take care of the rest.
+        platform_surface_set_dimensions( ctx->main_surface, surface_size );
+    }
+
+}
+
 

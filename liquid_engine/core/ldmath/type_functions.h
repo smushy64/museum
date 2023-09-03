@@ -1592,7 +1592,7 @@ header_only mat4 m4_rotate_q( quat q ) {
 }
 /// create rotation matrix for 2D
 header_only mat4 m4_rotate_2d( f32 theta ) {
-    return m4_rotate_roll( theta );
+    return m4_rotate_roll( -theta );
 }
 /// create scale matrix
 header_only mat4 m4_scale( f32 width, f32 height, f32 length ) {
@@ -1903,10 +1903,13 @@ header_only mat4 m3_to_m4( const mat3* m ) {
 
 /// create look at matrix for 2D rendering
 header_only mat4 m4_lookat_2d( vec2 position, vec2 up ) {
+    vec3 position_3d = v3( position.x, position.y, -1.0f );
+    vec3 target_3d   = v3( position.x, position.y, 0.0f );
+    vec3 up_3d       = v3( up.x, up.y, 0.0f );
     return m4_lookat(
-        v3_add( v2_to_v3(position), VEC3_FORWARD ),
-        v2_to_v3(position),
-        v2_to_v3(up)
+        position_3d,
+        target_3d,
+        up_3d
     );
 }
 

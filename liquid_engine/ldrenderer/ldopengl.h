@@ -7,6 +7,7 @@
 #include "ldrenderer.h"
 #include "ldrenderer/context.h"
 #include "ldrenderer/opengl/types.h"
+#include "ldrenderer/opengl/shader.h"
 #include "core/ldmath/types.h"
 #include "core/ldlog.h"
 
@@ -23,7 +24,26 @@ typedef struct OpenGLDeviceInfo {
     i32 extension_count;
 } OpenGLDeviceInfo;
 
-#define GL_BUFFER_COUNT (1)
+#define GL_VERTEX_ARRAY_COUNT   (2)
+#define GL_SHADER_PROGRAM_COUNT (2)
+#define GL_BUFFER_COUNT         (4)
+
+#define GL_SHADER_PROGRAM_INDEX_FRAMEBUFFER (0)
+#define GL_SHADER_PROGRAM_INDEX_COLOR       (1)
+
+#define GL_SHADER_PROGRAM_FRAMEBUFFER_TEXTURE_BINDING (0)
+
+#define GL_SHADER_PROGRAM_COLOR_LOCATION_TRANSFORM (0) 
+#define GL_SHADER_PROGRAM_COLOR_LOCATION_COLOR     (1) 
+
+#define GL_VERTEX_ARRAY_INDEX_FRAMEBUFFER (0)
+#define GL_VERTEX_ARRAY_INDEX_QUAD_2D     (1)
+
+#define GL_BUFFER_INDEX_UBO_CAMERA      (0)
+#define GL_BUFFER_INDEX_VBO_FRAMEBUFFER (1)
+#define GL_BUFFER_INDEX_VBO_QUAD_2D     (2)
+#define GL_BUFFER_INDEX_EBO_QUAD        (3)
+
 /// OpenGL Renderer Context
 typedef struct OpenGLRendererContext {
     InternalRendererContext ctx;
@@ -33,7 +53,11 @@ typedef struct OpenGLRendererContext {
 
     GLBufferID buffers[GL_BUFFER_COUNT];
 
-    ivec2 viewport;
+    GLShaderProgramID programs[GL_SHADER_PROGRAM_COUNT];
+
+    GLVertexArrayID vertex_arrays[GL_VERTEX_ARRAY_COUNT];
+
+    GLFramebuffer framebuffer_main;
 } OpenGLRendererContext;
 
 #if defined(LD_LOGGING)

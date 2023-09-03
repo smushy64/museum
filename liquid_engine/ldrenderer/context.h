@@ -17,18 +17,18 @@ typedef struct InternalRendererContext {
     RendererBackendBeginFrameFN begin_frame;
     RendererBackendEndFrameFN   end_frame;
 
-    f32 projection_2d_scale;
+    ivec2 surface_dimensions;
+    ivec2 framebuffer_dimensions;
 
-    f32 projection_3d_fov;
-    f32 projection_3d_near;
-    f32 projection_3d_far;
+    mat4 projection_3d;
+    mat4 projection_ui;
+    f32 fov_radians;
+    f32 near_clip;
+    f32 far_clip;
 
     f32 aspect_ratio;
 
-    mat4 projection_3d;
-    mat4 projection_2d;
-    mat4 projection_ui;
-
+    void* surface;
 } InternalRendererContext;
 
 #endif // header guard

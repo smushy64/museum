@@ -18,30 +18,29 @@ struct packed GLCameraBuffer {
     f32 camera_far;
 };
 
-#define GL_CAMERA_BUFFER_OFFSET_MATRIX_3D (0)
+#define GL_CAMERA_BUFFER_OFFSET_MATRIX_3D\
+    offsetof(struct GLCameraBuffer, matrix_3d)
 
 #define GL_CAMERA_BUFFER_OFFSET_MATRIX_UI\
-    (GL_CAMERA_BUFFER_OFFSET_MATRIX_3D + sizeof(mat4))
+    offsetof(struct GLCameraBuffer, matrix_ui)
 
 #define GL_CAMERA_BUFFER_OFFSET_MATRICES\
     (GL_CAMERA_BUFFER_OFFSET_MATRIX_3D)
 
 #define GL_CAMERA_BUFFER_OFFSET_CAMERA_WORLD_POSITION\
-    (GL_CAMERA_BUFFER_OFFSET_MATRIX_UI + sizeof(mat4))
+    offsetof(struct GLCameraBuffer, camera_world_position)
 
 #define GL_CAMERA_BUFFER_OFFSET_CAMERA_NEAR\
-    (GL_CAMERA_BUFFER_OFFSET_CAMERA_WORLD_POSITION + sizeof(vec4))
+    offsetof(struct GLCameraBuffer, camera_near)
 
 #define GL_CAMERA_BUFFER_OFFSET_CAMERA_FAR\
-    (GL_CAMERA_BUFFER_OFFSET_CAMERA_NEAR + sizeof(f32))
+    offsetof(struct GLCameraBuffer, camera_far)
 
 #define GL_CAMERA_BUFFER_OFFSET_CAMERA_PLANES\
     (GL_CAMERA_BUFFER_OFFSET_CAMERA_NEAR)
 
 #define GL_CAMERA_BUFFER_SIZE    (sizeof(struct GLCameraBuffer))
 #define GL_CAMERA_BUFFER_BINDING (0)
-
-#define GL_BUFFER_INDEX_CAMERA (0)
 
 /// Make camera buffer
 void gl_camera_buffer_create(
@@ -64,5 +63,13 @@ void gl_camera_buffer_update_world_position(
 /// Update camera near and far planes.
 void gl_camera_buffer_update_near_far_planes(
     GLBufferID buffer_id, f32 planes[2] );
+
+/// Create a framebuffer.
+GLFramebuffer gl_framebuffer_create( i32 width, i32 height );
+/// Resize a framebuffer
+void gl_framebuffer_resize(
+    GLFramebuffer* framebuffer, i32 width, i32 height );
+/// Destroy framebuffers.
+void gl_framebuffer_destroy( usize count, GLFramebuffer* framebuffers );
 
 #endif // header guard

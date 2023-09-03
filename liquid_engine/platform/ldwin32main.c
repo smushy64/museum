@@ -280,9 +280,9 @@ LPSTR* WINAPI CommandLineToArgvA(LPSTR lpCmdline, int* numargs) {
 }
 
 #if defined(DEBUG)
-void __stdcall mainCRTStartup() {
+    void __stdcall mainCRTStartup(void) {
 #else
-void __stdcall WinMainCRTStartup() {
+    void __stdcall WinMainCRTStartup(void) {
 #endif
 
     DWORD dwMode = 0;
@@ -531,7 +531,7 @@ b32 platform_subsystem_init( void* buffer ) {
 }
 void platform_subsystem_shutdown() {
     TerminateThread( PLATFORM->xinput_polling_thread.thread_handle, 0 );
-    platform_semaphore_destroy( &PLATFORM->xinput_polling_thread_semaphore );
+    platform_semaphore_destroy( PLATFORM->xinput_polling_thread_semaphore );
 }
 
 usize PLATFORM_SURFACE_BUFFER_SIZE = sizeof(Win32Surface);
@@ -659,6 +659,11 @@ void platform_surface_set_dimensions(
 ) {
     ASSERT( surface );
     Win32Surface* win32_surface = surface;
+
+    if( win32_surface->mode != PLATFORM_SURFACE_MODE_FLOATING_WINDOW ) {
+        return;
+    }
+
     ivec2 old_dimensions = win32_surface->dimensions;
 
     RECT window_rect = {};
