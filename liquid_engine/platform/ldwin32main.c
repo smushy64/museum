@@ -2111,8 +2111,8 @@ void* platform_heap_alloc( usize size ) {
     );
     return pointer;
 }
-void* platform_heap_realloc( void* memory, usize new_size ) {
-
+void* platform_heap_realloc( void* memory, usize old_size, usize new_size ) {
+    unused(old_size);
     void* pointer = (void*)HeapReAlloc(
         GetProcessHeap(),
         HEAP_ZERO_MEMORY,
@@ -2207,7 +2207,6 @@ void platform_thread_kill( PlatformThread* thread ) {
 PlatformSemaphore* platform_semaphore_create(
     const char* opt_name, u32 initial_count
 ) {
-
     HANDLE result = CreateSemaphoreEx(
         NULL,
         initial_count,

@@ -1,5 +1,5 @@
-#if !defined(PLATFORM_HPP)
-#define PLATFORM_HPP
+#if !defined(LD_PLATFORM_H)
+#define LD_PLATFORM_H
 /**
  * Description:  Operating System related functions
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
@@ -14,6 +14,8 @@
 #include "core/ldengine.h"
 #include "core/ldstring.h"
 #include "core/ldthread.h"
+
+#define SURFACE_ICON_PATH "./icon.ico"
 
 /// Size of platform subsystem.
 extern usize PLATFORM_SUBSYSTEM_SIZE;
@@ -259,8 +261,7 @@ typedef void PlatformMutex;
 
 /// Create a semaphore.
 PlatformSemaphore* platform_semaphore_create(
-    const char* opt_name, u32 initial_count
-);
+    const char* opt_name, u32 initial_count );
 /// Increment a semaphore.
 void platform_semaphore_increment( PlatformSemaphore* semaphore );
 /// Wait for semaphore to be incremented.
@@ -392,7 +393,7 @@ MessageBoxResult message_box(
 void* platform_heap_alloc( usize size );
 /// Reallocate memory on the heap.
 /// All platforms must zero out new memory before returning pointer.
-void* platform_heap_realloc( void* memory, usize new_size );
+void* platform_heap_realloc( void* memory, usize old_size, usize new_size );
 /// Free heap allocated memory.
 void platform_heap_free( void* memory );
 
@@ -438,8 +439,6 @@ void platform_query_system_info( struct SystemInfo* sysinfo );
     // many cycles.
     void platform_win32_signal_xinput_polling_thread();
 #endif
-
-#define SURFACE_ICON_PATH "./icon.ico"
 
 #endif // internal
 

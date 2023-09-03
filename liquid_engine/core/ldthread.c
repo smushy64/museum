@@ -177,8 +177,17 @@ LD_API void* interlocked_compare_exchange_pointer(
     );
 }
 
+char SEM_NAME_BUFFER[255] = {};
+usize SEM_NAME_INDEX = 0;
 LD_API Semaphore* semaphore_create() {
-    return platform_semaphore_create( NULL, 0 );
+    StringView name;
+    name.buffer = SEM_NAME_BUFFER;
+    name.len    = 255;
+
+    sv_format( name, "sem{u64}", (u64)SEM_NAME_INDEX );
+    SEM_NAME_INDEX++;
+
+    return platform_semaphore_create( SEM_NAME_BUFFER, 0 );
 }
 LD_API void semaphore_signal( Semaphore* semaphore ) {
     platform_semaphore_increment( semaphore );

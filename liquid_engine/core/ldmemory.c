@@ -55,7 +55,7 @@ LD_API void* internal_ldrealloc(
         LOG_WARN( "Allocating unknown memory!" );
     }
 #endif
-    void* result = platform_heap_realloc( memory, new_size );
+    void* result = platform_heap_realloc( memory, old_size, new_size );
     if( result ) {
         usize additional_size = new_size - old_size;
         USAGE.usage[type] += additional_size;
