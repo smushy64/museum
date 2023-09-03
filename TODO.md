@@ -5,7 +5,8 @@
 -->
 # TODO 
 ## General 
-- [ ] separate actual surface size from framebuffer size in renderer
+- [ ] rewrite build system to make it easier to work with
+- [x] separate actual surface size from framebuffer size in renderer
 - [ ] Proper frametiming (using platform_sleep?)
 - [ ] Audio subsystem
 - [ ] Resource manager
@@ -31,6 +32,8 @@
     ### Enhancements
 - [ ] format: more accurate float print out
 ## Linux
+- [x] Write platform layer using cstdlib
+- [x] Write thread functions using pthreads
 - [ ] Link testbed shared object to executable properly
 - [ ] Rewrite with platform.h changes
 
