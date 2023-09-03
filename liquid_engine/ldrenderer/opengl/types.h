@@ -4,6 +4,7 @@
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: August 18, 2023
 #include "defines.h"
+#include "core/ldmath/types.h"
 
 typedef i8  GLbyte;
 typedef i16 GLshort;
@@ -32,8 +33,65 @@ typedef i32 GLfixed;
 
 typedef isize GLintptr;
 
+/// Vertex Array ID
+typedef GLuint GLVertexArrayID;
 /// Buffer ID
 typedef GLuint GLBufferID;
+/// Shader ID
+typedef GLuint GLShaderID;
+/// Shader Program ID
+typedef GLuint GLShaderProgramID;
+/// Frame buffer ID
+typedef GLuint GLFramebufferID;
+/// Render buffer ID
+typedef GLuint GLRenderbufferID;
+/// Texture ID
+typedef GLuint GLTextureID;
+
+/// Shader Stage
+typedef GLenum GLShaderStage;
+/// Clear flags
+typedef GLenum GLClearFlags;
+
+typedef GLenum GLType;
+typedef GLenum GLFormat;
+typedef GLenum GLInternalFormat;
+typedef GLenum GLMagFilter;
+typedef GLenum GLMinFilter;
+typedef GLenum GLWrapMode;
+
+typedef GLenum GLDrawBuffer;
+
+#define FRAMEBUFFER_TEXTURE_ID_COUNT (2)
+/// Framebuffer.
+typedef struct GLFramebuffer {
+    union {
+        struct { i32 width, height; };
+        ivec2 dimensions;
+    };
+    GLFramebufferID  id;
+    union {
+        struct {
+            GLTextureID color_texture_id;
+            GLTextureID depth_texture_id;
+        };
+        GLTextureID texture_ids[FRAMEBUFFER_TEXTURE_ID_COUNT];
+    };
+} GLFramebuffer;
+
+/// 2D Texture.
+typedef struct GLTexture {
+    GLTextureID      id;
+    i32              width, height;
+    i32              mipmap_level;
+    GLType           type;
+    GLInternalFormat internal_format;
+    GLFormat         format;
+    GLWrapMode       wrap_x;
+    GLWrapMode       wrap_y;
+    GLMagFilter      mag_filter;
+    GLMinFilter      min_filter;
+} GLTexture;
 
 typedef void (*DEBUGPROC)(
     GLenum        source,
@@ -1426,5 +1484,22 @@ typedef void (*DEBUGPROC)(
 #define GL_TRANSFORM_FEEDBACK_OVERFLOW 0x82EC
 #define GL_TRANSFORM_FEEDBACK_STREAM_OVERFLOW 0x82ED
 
+header_only const char* gl_draw_buffer_to_string( GLDrawBuffer buffer ) {
+    switch( buffer ) {
+        case GL_NONE:        return "None";
+        case GL_FRONT_LEFT:  return "Front Left";
+        case GL_FRONT_RIGHT: return "Front Right";
+        case GL_BACK_LEFT:   return "Back Left";
+        case GL_BACK_RIGHT:  return "Back Right";
+        case GL_FRONT:       return "Front";
+        case GL_BACK:        return "Back";
+        case GL_LEFT:        return "Left";
+        case GL_RIGHT:       return "Right";
+        case GL_FRONT_AND_BACK: return "Front and Back";
+        case GL_COLOR_ATTACHMENT0 ... GL_COLOR_ATTACHMENT30:
+            return "Color Attachment 0-30";
+        default: return "Unknown Buffer";
+    }
+}
 
 #endif // header guard

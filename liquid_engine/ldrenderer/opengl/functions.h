@@ -42,6 +42,13 @@ DECLARE_GL_FUNCTION( void, glDeleteRenderbuffers, GLsizei, GLuint* );
 DECLARE_GL_FUNCTION( void, glBindFramebuffer, GLenum, GLuint );
 DECLARE_GL_FUNCTION( void, glBindRenderbuffer, GLenum, GLuint );
 DECLARE_GL_FUNCTION( void, glGenerateTextureMipmap, GLuint );
+DECLARE_GL_FUNCTION( void, glNamedFramebufferTexture, GLuint, GLenum, GLuint, GLint );
+DECLARE_GL_FUNCTION( void, glNamedRenderbufferStorage, GLuint, GLenum, GLsizei, GLsizei );
+DECLARE_GL_FUNCTION( void, glNamedFramebufferRenderbuffer, GLuint, GLenum, GLenum, GLuint );
+DECLARE_GL_FUNCTION( GLenum, glCheckNamedFramebufferStatus, GLuint, GLenum );
+DECLARE_GL_FUNCTION( void, glBlitNamedFramebuffer, GLuint, GLuint, GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLbitfield, GLenum );
+DECLARE_GL_FUNCTION( void, glNamedFramebufferDrawBuffer, GLuint, GLenum);
+DECLARE_GL_FUNCTION( void, glNamedFramebufferDrawBuffers, GLuint, GLsizei, const GLenum*);
 // Shaders -------------------------------------------------------------
 DECLARE_GL_FUNCTION( GLuint, glCreateShader, GLenum );
 DECLARE_GL_FUNCTION( GLuint, glCreateProgram );
@@ -147,6 +154,8 @@ DECLARE_GL_FUNCTION( void, glPixelStoref, GLenum, GLfloat );
 DECLARE_GL_FUNCTION( void, glPixelStorei, GLenum, GLint );
 DECLARE_GL_FUNCTION( void, glViewport, GLint, GLint, GLsizei, GLsizei );
 DECLARE_GL_FUNCTION( void, glScissor, GLint, GLint, GLsizei, GLsizei );
+DECLARE_GL_FUNCTION( void, glPolygonMode, GLenum, GLenum );
+DECLARE_GL_FUNCTION( void, glDepthFunc, GLenum );
 // Transform Feedback --------------------------------------------------
 // Utility -------------------------------------------------------------
 DECLARE_GL_FUNCTION( const GLubyte*, glGetString, GLenum );
@@ -256,6 +265,27 @@ IMPLEMENT_GL_FUNCTION( void, glBindRenderbuffer, GLenum target, GLuint renderbuf
 }
 IMPLEMENT_GL_FUNCTION( void, glGenerateTextureMipmap, GLuint texture ) {
     ___internal_glGenerateTextureMipmap( texture );
+}
+IMPLEMENT_GL_FUNCTION( void, glNamedFramebufferTexture, GLuint framebuffer, GLenum attachment, GLuint texture, GLint level ) {
+    ___internal_glNamedFramebufferTexture( framebuffer, attachment, texture, level );
+}
+IMPLEMENT_GL_FUNCTION( void, glNamedRenderbufferStorage, GLuint renderbuffer, GLenum internalFormat, GLsizei width, GLsizei height ) {
+    ___internal_glNamedRenderbufferStorage( renderbuffer, internalFormat, width, height );
+}
+IMPLEMENT_GL_FUNCTION( void, glNamedFramebufferRenderbuffer, GLuint framebuffer, GLenum attachment, GLenum renderbufferTarget, GLuint renderbuffer ) {
+    ___internal_glNamedFramebufferRenderbuffer( framebuffer, attachment, renderbufferTarget, renderbuffer );
+}
+IMPLEMENT_GL_FUNCTION( GLenum, glCheckNamedFramebufferStatus, GLuint framebuffer, GLenum target ) {
+    return ___internal_glCheckNamedFramebufferStatus( framebuffer, target );
+}
+IMPLEMENT_GL_FUNCTION( void, glBlitNamedFramebuffer, GLuint readFramebuffer, GLuint drawFramebuffer, GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter ) {
+    ___internal_glBlitNamedFramebuffer( readFramebuffer, drawFramebuffer, srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter );
+}
+IMPLEMENT_GL_FUNCTION( void, glNamedFramebufferDrawBuffer, GLuint framebuffer, GLenum buffer ) {
+    ___internal_glNamedFramebufferDrawBuffer( framebuffer, buffer );
+}
+IMPLEMENT_GL_FUNCTION( void, glNamedFramebufferDrawBuffers, GLuint framebuffer, GLsizei n, const GLenum* buffers ) {
+    ___internal_glNamedFramebufferDrawBuffers( framebuffer, n, buffers );
 }
 // Shaders -------------------------------------------------------------
 IMPLEMENT_GL_FUNCTION( GLuint, glCreateShader, GLenum shaderType ) {
@@ -565,6 +595,12 @@ IMPLEMENT_GL_FUNCTION( void, glViewport, GLint x, GLint y, GLsizei width, GLsize
 }
 IMPLEMENT_GL_FUNCTION( void, glScissor, GLint x, GLint y, GLsizei width, GLsizei height ) {
     ___internal_glScissor( x, y, width, height );
+}
+IMPLEMENT_GL_FUNCTION( void, glPolygonMode, GLenum face, GLenum mode ) {
+    ___internal_glPolygonMode( face, mode );
+}
+IMPLEMENT_GL_FUNCTION( void, glDepthFunc, GLenum func ) {
+    ___internal_glDepthFunc( func );
 }
 // Transform Feedback --------------------------------------------------
 // Utility -------------------------------------------------------------

@@ -59,6 +59,13 @@ DEFINE_GL_FUNCTION(glDeleteRenderbuffers  );
 DEFINE_GL_FUNCTION(glBindFramebuffer      ); 
 DEFINE_GL_FUNCTION(glBindRenderbuffer     ); 
 DEFINE_GL_FUNCTION(glGenerateTextureMipmap); 
+DEFINE_GL_FUNCTION(glNamedFramebufferTexture );
+DEFINE_GL_FUNCTION(glNamedRenderbufferStorage );
+DEFINE_GL_FUNCTION(glNamedFramebufferRenderbuffer);
+DEFINE_GL_FUNCTION(glCheckNamedFramebufferStatus);
+DEFINE_GL_FUNCTION(glBlitNamedFramebuffer);
+DEFINE_GL_FUNCTION(glNamedFramebufferDrawBuffer);
+DEFINE_GL_FUNCTION(glNamedFramebufferDrawBuffers);
 // Shaders -------------------------------------------------------------
 DEFINE_GL_FUNCTION(glCreateShader  );
 DEFINE_GL_FUNCTION(glCreateProgram );
@@ -164,6 +171,8 @@ DEFINE_GL_FUNCTION(glPixelStoref           );
 DEFINE_GL_FUNCTION(glPixelStorei           ); 
 DEFINE_GL_FUNCTION(glViewport              ); 
 DEFINE_GL_FUNCTION(glScissor               ); 
+DEFINE_GL_FUNCTION(glPolygonMode           ); 
+DEFINE_GL_FUNCTION(glDepthFunc);
 // Transform Feedback --------------------------------------------------
 // Utility -------------------------------------------------------------
 DEFINE_GL_FUNCTION(glGetString );
@@ -210,6 +219,13 @@ b32 gl_load_functions( GetProcAddressFN get_proc_address ) {
     LOAD_PROC_REQUIRED( glBindFramebuffer );
     LOAD_PROC_REQUIRED( glBindRenderbuffer );
     LOAD_PROC_REQUIRED( glGenerateTextureMipmap );
+    LOAD_PROC_REQUIRED( glNamedFramebufferTexture );
+    LOAD_PROC_REQUIRED( glNamedRenderbufferStorage );
+    LOAD_PROC_REQUIRED( glNamedFramebufferRenderbuffer );
+    LOAD_PROC_REQUIRED( glCheckNamedFramebufferStatus );
+    LOAD_PROC_REQUIRED( glBlitNamedFramebuffer );
+    LOAD_PROC_REQUIRED( glNamedFramebufferDrawBuffer );
+    LOAD_PROC_REQUIRED( glNamedFramebufferDrawBuffers );
 
     LOAD_PROC_REQUIRED( glCreateShader );
     LOAD_PROC_REQUIRED( glCreateProgram );
@@ -315,6 +331,8 @@ b32 gl_load_functions( GetProcAddressFN get_proc_address ) {
     LOAD_PROC_REQUIRED( glPixelStorei );
     LOAD_PROC_REQUIRED( glViewport );
     LOAD_PROC_REQUIRED( glScissor );
+    LOAD_PROC_REQUIRED( glPolygonMode );
+    LOAD_PROC_REQUIRED(glDepthFunc);
 
     LOAD_PROC_REQUIRED( glGetString );
     LOAD_PROC_REQUIRED( glGetStringi );

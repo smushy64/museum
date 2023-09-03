@@ -6,16 +6,22 @@
 #include "defines.h"
 #include "ldrenderer/opengl/types.h"
 
-typedef GLuint GLShaderProgram;
-typedef GLuint GLShader;
-typedef GLenum GLShaderStage;
+/// Embedded framebuffer shader vertex source.
+extern const char* GL_FRAMEBUFFER_SHADER_VERT_SOURCE;
+/// Embedded framebuffer shader vertex source length.
+extern usize GL_FRAMEBUFFER_SHADER_VERT_SOURCE_LENGTH;
+
+/// Embedded framebuffer shader fragment source.
+extern const char* GL_FRAMEBUFFER_SHADER_FRAG_SOURCE;
+/// Embedded framebuffer shader fragment source length.
+extern usize GL_FRAMEBUFFER_SHADER_FRAG_SOURCE_LENGTH;
 
 /// Compile shader from source.
 b32 gl_shader_compile_source(
     GLint         source_length,
     const char*   source,
     GLShaderStage shader_stage,
-    GLShader*     out_shader
+    GLShaderID*   out_shader
 );
 /// Compile SPIR-V Shader.
 b32 gl_shader_compile_spirv(
@@ -26,18 +32,18 @@ b32 gl_shader_compile_spirv(
     GLuint        num_specialization_constants,
     const GLuint* constant_index,
     const GLuint* constant_value,
-    GLShader*     out_shader
+    GLShaderID*     out_shader
 );
 /// Link OpenGL Shaders.
 b32 gl_shader_program_link(
-    usize            shader_count,
-    GLShader*        shaders,
-    GLShaderProgram* out_shader_program
+    usize              shader_count,
+    GLShaderID*        shaders,
+    GLShaderProgramID* out_shader_program
 );
 /// Delete shaders.
-void gl_shader_delete( usize shader_count, GLShader* shaders );
+void gl_shader_delete( usize shader_count, GLShaderID* shaders );
 /// Delete shader programs.
 void gl_shader_program_delete(
-    usize shader_program_count, GLShaderProgram* shader_programs );
+    usize shader_program_count, GLShaderProgramID* shader_programs );
 
 #endif // header guard
