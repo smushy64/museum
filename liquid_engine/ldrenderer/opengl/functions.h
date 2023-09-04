@@ -51,7 +51,7 @@ DECLARE_GL_FUNCTION( void, glNamedFramebufferDrawBuffer, GLuint, GLenum);
 DECLARE_GL_FUNCTION( void, glNamedFramebufferDrawBuffers, GLuint, GLsizei, const GLenum*);
 // Shaders -------------------------------------------------------------
 DECLARE_GL_FUNCTION( GLuint, glCreateShader, GLenum );
-DECLARE_GL_FUNCTION( GLuint, glCreateProgram );
+DECLARE_GL_FUNCTION( GLuint, glCreateProgram, void );
 DECLARE_GL_FUNCTION( GLuint, glCreateShaderProgramv, GLenum, GLsizei, const char** );
 DECLARE_GL_FUNCTION( void, glShaderSource, GLuint, GLsizei, const GLchar**, const GLint* );
 DECLARE_GL_FUNCTION( void, glUseProgram, GLuint );
@@ -171,7 +171,7 @@ DECLARE_GL_FUNCTION( void, glDeleteVertexArrays, GLsizei, const GLuint* );
 DECLARE_GL_FUNCTION( void, glDebugMessageCallback, DEBUGPROC, void* );
 
 #define IMPLEMENT_GL_FUNCTION( ret, name, ... )\
-    extern always_inline ret\
+    static always_inline ret\
     name( __VA_ARGS__ )
 
 // Textures ------------------------------------------------------------
@@ -291,7 +291,7 @@ IMPLEMENT_GL_FUNCTION( void, glNamedFramebufferDrawBuffers, GLuint framebuffer, 
 IMPLEMENT_GL_FUNCTION( GLuint, glCreateShader, GLenum shaderType ) {
     return ___internal_glCreateShader( shaderType );
 }
-IMPLEMENT_GL_FUNCTION( GLuint, glCreateProgram ) {
+IMPLEMENT_GL_FUNCTION( GLuint, glCreateProgram, void ) {
     return ___internal_glCreateProgram();
 }
 IMPLEMENT_GL_FUNCTION( void, glShaderSource, GLuint shader, GLsizei count, const GLchar** string, const GLint* length ) {

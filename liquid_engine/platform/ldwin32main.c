@@ -36,6 +36,10 @@ global Win32Platform* PLATFORM = NULL;
 #define WIN32_WINDOWED_DWSTYLE             WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU
 #define WIN32_WINDOWED_DWEXSTYLE           WS_EX_OVERLAPPEDWINDOW
 
+void* memmove( void* str1, const void* str2, size_t n ) {
+    mem_copy_overlapped( str1, str2, n );
+    return str1;
+}
 void* memset( void* ptr, int value, size_t num ) {
     u8 value_8 = *(u8*)&value;
     for( size_t i = 0; i < num; ++i ) {
@@ -529,7 +533,7 @@ b32 platform_subsystem_init( void* buffer ) {
     WIN32_LOG_INFO( "Platform subsystem successfully initialized." );
     return true;
 }
-void platform_subsystem_shutdown() {
+void platform_subsystem_shutdown(void) {
     TerminateThread( PLATFORM->xinput_polling_thread.thread_handle, 0 );
     platform_semaphore_destroy( PLATFORM->xinput_polling_thread_semaphore );
 }
@@ -982,11 +986,11 @@ void platform_surface_pump_events( PlatformSurface* surface ) {
         DispatchMessage( &message );
     }
 }
-void platform_win32_signal_xinput_polling_thread() {
+void platform_win32_signal_xinput_polling_thread(void) {
     platform_semaphore_increment( PLATFORM->xinput_polling_thread_semaphore );
 }
 
-f64 platform_us_elapsed() {
+f64 platform_us_elapsed(void) {
     LARGE_INTEGER current_ticks;
     QueryPerformanceCounter( &current_ticks );
     u64 ticks_elapsed = current_ticks.QuadPart -
@@ -995,7 +999,7 @@ f64 platform_us_elapsed() {
     return (f64)(ticks_elapsed * 1000000.0) /
         (f64)PLATFORM->performance_frequency.QuadPart;
 }
-f64 platform_ms_elapsed() {
+f64 platform_ms_elapsed(void) {
     LARGE_INTEGER current_ticks;
     QueryPerformanceCounter( &current_ticks );
     u64 ticks_elapsed = current_ticks.QuadPart -
@@ -1004,7 +1008,7 @@ f64 platform_ms_elapsed() {
     return (f64)(ticks_elapsed * 1000.0) /
         (f64)PLATFORM->performance_frequency.QuadPart;
 }
-f64 platform_s_elapsed() {
+f64 platform_s_elapsed(void) {
     LARGE_INTEGER current_ticks;
     QueryPerformanceCounter( &current_ticks );
     u64 ticks_elapsed = current_ticks.QuadPart -
@@ -1029,10 +1033,10 @@ internal inline LPCTSTR cursor_style_to_win32_style( CursorStyle style ) {
     ASSERT( style < CURSOR_STYLE_COUNT );
     return styles[style];
 }
-CursorStyle platform_cursor_style() {
+CursorStyle platform_cursor_style(void) {
     return PLATFORM->cursor_style;
 }
-b32 platform_cursor_visible() {
+b32 platform_cursor_visible(void) {
     return PLATFORM->cursor_visible;
 }
 void platform_cursor_set_style( CursorStyle cursor_style ) {
@@ -1083,7 +1087,7 @@ void platform_set_gamepad_motor_state(
 
     XInputSetState( gamepad_index, &vibration );
 }
-void platform_poll_gamepad() {
+void platform_poll_gamepad(void) {
     XINPUT_STATE gamepad_state = {};
     DWORD max_index = XUSER_MAX_COUNT > GAMEPAD_MAX_INDEX ?
         GAMEPAD_MAX_INDEX : XUSER_MAX_COUNT;
@@ -2242,7 +2246,7 @@ void platform_semaphore_wait(
 void platform_semaphore_destroy( PlatformSemaphore* semaphore ) {
     CloseHandle( (HANDLE)semaphore );
 }
-PlatformMutex* platform_mutex_create() {
+PlatformMutex* platform_mutex_create(void) {
     HANDLE result = CreateMutexA(
         NULL,
         false,
@@ -2293,10 +2297,10 @@ void* platform_interlocked_compare_exchange_pointer(
     );
 }
 
-void* platform_stdout_handle() {
+void* platform_stdout_handle(void) {
     return GetStdHandle( STD_OUTPUT_HANDLE );
 }
-void* platform_stderr_handle() {
+void* platform_stderr_handle(void) {
     return GetStdHandle( STD_ERROR_HANDLE );
 }
 void platform_write_console(

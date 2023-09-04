@@ -5,14 +5,14 @@
 -->
 # TODO 
 ## General 
-- [ ] rewrite build system to make it easier to work with
+- [x] rewrite build system to make it easier to work with
 - [x] separate actual surface size from framebuffer size in renderer
-- [ ] Proper frametiming (using platform_sleep?)
-- [ ] Audio subsystem
-- [ ] Resource manager
-- [ ] Write logs to file (timestamps?)
-- [ ] Customizable input actions + input processing
-- [ ] Block allocator
+- [ ] proper frametiming (using platform_sleep?)
+- [ ] audio subsystem
+- [ ] resource manager
+- [ ] write logs to file (timestamps?)
+- [ ] customizable input actions + input processing
+- [ ] block allocator
     - allocate big buffer to hold blocks of equal size
     - whenever an allocation is requested, search for a
         group of adjacent free blocks and return blocks
@@ -23,7 +23,7 @@
 - [ ] math: implement log, powf, no simd sqrtf
 - [ ] format: implement usize/isize specifier so no need to cast
     ### Optimizations
-- [ ] Optimize string formatting functions
+- [ ] optimize string formatting functions
     ### Bugs
 - [ ] format: integer binary format should only print necessary bits
 - [ ] make sure that atan actually produces good results.
@@ -32,8 +32,8 @@
     ### Enhancements
 - [ ] format: more accurate float print out
 ## Linux
-- [x] Write platform layer using cstdlib
-- [x] Write thread functions using pthreads
-- [ ] Link testbed shared object to executable properly
-- [ ] Rewrite with platform.h changes
+- [x] write platform layer using cstdlib
+- [x] write thread functions using pthreads
+- [ ] link testbed shared object to executable properly
+- [ ] rewrite with platform.h changes
 

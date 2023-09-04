@@ -381,7 +381,7 @@ header_only const char* gamepad_code_to_string( GamepadCode gamepad_code ) {
     void input_set_gamepad_active( u32 gamepad_index, b32 is_active );
 
     /// Swap input states.
-    void input_swap();
+    void input_swap(void);
 
 #endif // internal
 
@@ -406,25 +406,25 @@ header_only b32 input_mouse_button_press( MouseCode code ) {
     return (is != was) && is;
 }
 /// Current frame's mouse position.
-LD_API ivec2 input_mouse_position();
+LD_API ivec2 input_mouse_position(void);
 /// Last frame's mouse position.
-LD_API ivec2 input_last_mouse_position();
+LD_API ivec2 input_last_mouse_position(void);
 /// Current frame's mouse wheel state.
-LD_API i32 input_mouse_wheel();
+LD_API i32 input_mouse_wheel(void);
 /// Last frame's mouse wheel state.
-LD_API i32 input_last_mouse_wheel();
+LD_API i32 input_last_mouse_wheel(void);
 /// Did mouse wheel change this frame?
-header_only b32 input_mouse_wheel_moved() {
+header_only b32 input_mouse_wheel_moved(void) {
     i32 mw  = input_mouse_wheel();
     i32 lmw = input_last_mouse_wheel();
     return mw != lmw;
 }
 /// Current frame's horizontal mouse wheel state.
-LD_API i32 input_horizontal_mouse_wheel();
+LD_API i32 input_horizontal_mouse_wheel(void);
 /// Last frame's horizontal mouse wheel state.
-LD_API i32 input_last_horizontal_mouse_wheel();
+LD_API i32 input_last_horizontal_mouse_wheel(void);
 /// Did horizontal mouse wheel change this frame?
-header_only b32 input_horizontal_mouse_wheel_moved() {
+header_only b32 input_horizontal_mouse_wheel_moved(void) {
     i32 mw  = input_horizontal_mouse_wheel();
     i32 lmw = input_last_horizontal_mouse_wheel();
     return mw != lmw;

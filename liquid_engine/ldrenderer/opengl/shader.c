@@ -9,6 +9,7 @@
 #define MAX_INFO_LOG_BUFFER_LEN (256)
 char INFO_LOG_BUFFER[MAX_INFO_LOG_BUFFER_LEN];
 
+maybe_unused
 internal const char* shader_stage_to_string( GLShaderStage stage ) {
     switch( stage ) {
         case GL_VERTEX_SHADER: return "Vertex";
@@ -55,6 +56,9 @@ internal void gl_log_compilation_error(
         shader_stage_to_string( stage )
     );
     GL_LOG_ERROR( "{cc}", INFO_LOG_BUFFER );
+
+    unused(shader);
+    unused(stage);
 }
 
 internal void gl_log_linking_error( GLShaderProgramID shader_program ) {

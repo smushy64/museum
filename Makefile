@@ -1,232 +1,256 @@
-# * Description:  Makefile for Project Museum
+# * Description:  Project build system
 # * Author:       Alicia Amarilla (smushyaa@gmail.com)
-# * File Created: April 27, 2023
+# * File Created: September 04, 2023
 
-# silent make output
-MAKEFLAGS += -s
-MAKEFLAGS += -j
+MAKEFLAGS += -j -s
 
-export CC   := clang -std=c99
-export CCPP := clang++ -std=c++20
+export CC     := clang
+export CSTD   := -std=c99
+export CXX    := clang++
+export CXXSTD := -std=c++20
 
-RELEASE ?= 
-export IS_DEBUG := $(if $(RELEASE),,true)
+export RELEASE ?=
 
-# valid arch: x86_64, arm, wasm
-export TARGET_ARCH := x86_64
-export BUILD_PATH  := build/$(if $(IS_DEBUG),debug,release)
-export RESOURCES_LOCAL_PATH := resources
-export SHADERS_LOCAL_PATH   := $(RESOURCES_LOCAL_PATH)/shaders
-export RESOURCES_PATH := $(BUILD_PATH)/$(RESOURCES_LOCAL_PATH)
-export SHADERS_PATH   := $(BUILD_PATH)/$(SHADERS_LOCAL_PATH)
+export LD_MAJOR        := 0
+export LD_MINOR        := 2
+export LD_VERSION      := $(LD_MAJOR).$(LD_MINOR)
+export LD_NAME         := liquid-engine
+export LD_VERSION_PATH := $(subst .,-,$(LD_VERSION))
 
-export LIQUID_VERSION_MAJOR := 0
-export LIQUID_VERSION_MINOR := 2
-export LIQUID_VERSION       := $(LIQUID_VERSION_MAJOR).$(LIQUID_VERSION_MINOR)
-export LIQUID_NAME          := liquid-engine
-export LIQUID_VERSION_PATH  := $(subst .,-,$(LIQUID_VERSION))
 
-export VULKAN_VERSION_MAJOR := 1
-export VULKAN_VERSION_MINOR := 2
-
-export GL_VERSION_MAJOR := 4
-export GL_VERSION_MINOR := 5
-
-ifeq ($(OS), Windows_NT)
-	export SO_EXT       := .dll
-	export EXE_EXT      := .exe
-	export IS_WINDOWS   := true
-	export HOST_OS_NAME := win32
-else
-	UNAME_S := $(shell uname -s)
-	ifeq ($(UNAME_S),Linux)
-		export HOST_OS_NAME := linux
-		export IS_LINUX := true
+# x86_64, arm64, wasm64
+ifndef $(TARGET_ARCH)
+	ifeq ($(OS), Windows_NT)
+		# NOTE(alicia): can't find a good uname alternative
+		# that is builtin on Windows :(
+		export TARGET_ARCH := x86_64
 	else
-		export HOST_OS_NAME := unknown
+		export TARGET_ARCH := $(shell uname -m)
 	endif
-	export SO_EXT  := .so
-	export EXE_EXT := 
 endif
 
-export EXE_NAME := $(LIQUID_NAME)-$(LIQUID_VERSION_PATH)-$(if $(IS_DEBUG),debug-,)$(HOST_OS_NAME)
-export EXE_PATH := $(BUILD_PATH)/$(EXE_NAME)$(EXE_EXT)
+# win32, linux, wasm
+ifndef $(TARGET_PLATFORM)
+	ifeq ($(OS), Windows_NT)
+		export TARGET_PLATFORM := win32
+	else
+		UNAME_S := $(shell uname -s)
+		ifeq ($(UNAME_S), Linux)
+			export TARGET_PLATFORM := linux
+		else
+			export TARGET_PLATFORM := macos
+		endif
+	endif
+endif
 
-export MUSEUM_NAME  := museum-$(if $(IS_DEBUG),debug,release)$(SO_EXT)
-export TESTBED_NAME := testbed-$(if $(IS_DEBUG),debug,release)$(SO_EXT)
+ifeq ($(TARGET_PLATFORM), win32)
+	export EXE_EXT := exe
+	export SO_EXT  := dll
 
-RC_FLAGS := -O2 -g -Werror -Wall -Wextra
-DC_FLAGS := -O0 -g -Werror -Wall -Wextra -pedantic
+	LDMAIN := liquid_engine/platform/ldwin32main.c
+else
+	export EXE_EXT :=
+	export SO_EXT  := so
 
-C_FLAGS := -fno-rtti -Werror=vla -ffast-math
-C_FLAGS += -fno-strict-enums -MMD -MP
-C_FLAGS += -Wno-missing-braces -Wno-c11-extensions
-C_FLAGS += -Wno-gnu-zero-variadic-macro-arguments
-C_FLAGS += -Wno-gnu-anonymous-struct -Wno-nested-anon-types
-C_FLAGS += -Wno-unused-variable -Wno-ignored-attributes
-C_FLAGS += -Wno-gnu-case-range -Wno-incompatible-library-redeclaration
-C_FLAGS += -Wno-fixed-enum-extension -Wno-strict-prototypes
-C_FLAGS += -Wno-gnu-empty-initializer -Wno-static-in-inline
-C_FLAGS += -Wno-c99-extensions -Wno-duplicate-decl-specifier
+	ifeq ($(TARGET_PLATFORM), linux)
+		LDMAIN := liquid_engine/platform/ldlinuxmain.c
+	endif
+endif
 
-ifeq ($(IS_WINDOWS), true)
-	DC_FLAGS += -gcodeview
-	RC_FLAGS += -gcodeview -Wno-unused-value -mwindows
+# NOTE(alicia): idk about these C_FLAGs
+# -Wno-incompatible-library-redeclaration
+export CFLAGS := -Werror -Wall -Wextra -pedantic -Werror=vla
+CFLAGS += -fno-strict-enums -Wno-missing-braces
+CFLAGS += -Wno-c11-extensions -Wno-gnu-zero-variadic-macro-arguments
+CFLAGS += -Wno-gnu-anonymous-struct -Wno-nested-anon-types
+CFLAGS += -Wno-ignored-attributes -Wno-gnu-case-range
+CFLAGS += -Wno-fixed-enum-extension -Wno-static-in-inline
+CFLAGS += -Wno-c99-extensions -Wno-duplicate-decl-specifier
+CFLAGS += -Wno-gnu-empty-initializer
+CFLAGS += -MMD -MP -MF $(OBJ_PATH)/$(LD_NAME).d
+
+ifeq ($(RELEASE), true)
+	CFLAGS += -O2 -ffast-math
+else
+	CFLAGS += -O0 -g
 endif
 
 ifeq ($(TARGET_ARCH), x86_64)
-	C_FLAGS += -masm=intel -march=native
-endif
-ifeq ($(TARGET_ARCH), arm)
-	C_FLAGS += -target-arm64
-endif
-ifeq ($(TARGET_ARCH), wasm)
-	C_FLAGS += -target-wasm64
+	CFLAGS += -masm=intel -mcpu=x86-64
+else
+	CFLAGS += -mcpu=$(TARGET_ARCH)
 endif
 
-RCPP_FLAGS := 
-DCPP_FLAGS := -DDEBUG -DLD_LOGGING -DLD_ASSERTIONS -DLD_PROFILING
-
-CPP_FLAGS := -DLD_SIMD_WIDTH=4
-CPP_FLAGS += -DLIQUID_ENGINE_VERSION=\""$(LIQUID_NAME) $(LIQUID_VERSION)"\"
-CPP_FLAGS += -DLIQUID_ENGINE_VERSION_MAJOR=$(LIQUID_VERSION_MAJOR)
-CPP_FLAGS += -DLIQUID_ENGINE_VERSION_MINOR=$(LIQUID_VERSION_MINOR)
-CPP_FLAGS += -DLIQUID_ENGINE_EXECUTABLE=\"$(EXE_NAME)$(EXE_EXT)"\""
-CPP_FLAGS += -DGL_VERSION_MAJOR=$(GL_VERSION_MAJOR)
-CPP_FLAGS += -DGL_VERSION_MINOR=$(GL_VERSION_MINOR)
-CPP_FLAGS += -DVULKAN_VERSION_MAJOR=$(VULKAN_VERSION_MAJOR)
-CPP_FLAGS += -DVULKAN_VERSION_MINOR=$(VULKAN_VERSION_MINOR)
-
-RLINK_FLAGS :=
-DLINK_FLAGS :=
-LINK_FLAGS  := 
-
-ifeq ($(IS_WINDOWS), true)
-	LINK_FLAGS  += -fuse-ld=lld
-	DLINK_FLAGS += -Wl,//debug
-	RLINK_FLAGS += -Wl,//debug
-
-	LINK_FLAGS  += -nostdlib
-	LINK_FLAGS  += -lkernel32 -mstack-probe-size=999999999 -Wl,//stack:0x100000
+ifeq ($(TARGET_PLATFORM), win32)
+	ifeq ($(RELEASE), true)
+		CFLAGS += -mwindows
+	else
+		CFLAGS += -gcodeview
+	endif
 endif
 
-export c_flags := $(if $(IS_DEBUG),$(DC_FLAGS),$(RC_FLAGS)) $(C_FLAGS)
-export rc_flags := $(RC_FLAGS)
-export dc_flags := $(DC_FLAGS)
-export common_c_flags := $(c_flags)
+export BUILD_PATH := build/$(if $(RELEASE),release,debug)
+export OBJ_PATH   := $(BUILD_PATH)/obj
 
-export link_flags := $(if $(IS_DEBUG),$(DLINK_FLAGS),$(RLINK_FLAGS)) $(LINK_FLAGS)
-export rlink_flags := $(RLINK_FLAGS)
-export dlink_flags := $(DLINK_FLAGS)
-export common_link_flags := $(LINK_FLAGS)
+export VK_MAJOR := 1
+export VK_MINOR := 2
 
-export cpp_flags := $(if $(IS_DEBUG),$(DCPP_FLAGS),$(RCPP_FLAGS)) $(CPP_FLAGS)
-export rcpp_flags := $(RCPP_FLAGS)
-export dcpp_flags := $(DCPP_FLAGS)
-export common_cpp_flags := $(CPP_FLAGS)
+export GL_MAJOR := 4
+export GL_MINOR := 5
 
-export object_path := $(BUILD_PATH)/obj
+export LD_EXE_NAME := $(LD_NAME)-$(LD_VERSION_PATH)-$(TARGET_PLATFORM)-$(TARGET_ARCH)$(if $(RELEASE),,-debug)
+export TARGET      := $(BUILD_PATH)/$(LD_EXE_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)
 
-LIQUID_ENGINE_FLAGS := $(c_flags) $(cpp_flags) $(link_flags) -Iliquid_engine -Ivendor
-LIQUID_ENGINE_FLAGS += -DLD_EXPORT -MF $(object_path)/$(LIQUID_NAME).d
+export CPPFLAGS := -DLD_SIMD_WIDTH=4
+CPPFLAGS += -DLIQUID_ENGINE_VERSION=\""$(LD_NAME) $(LD_VERSION)"\"
+CPPFLAGS += -DLIQUID_ENGINE_VERSION_MAJOR=$(LD_MAJOR)
+CPPFLAGS += -DLIQUID_ENGINE_VERSION_MINOR=$(LD_MINOR)
+CPPFLAGS += -DLIQUID_ENGINE_EXECUTABLE=\"$(TARGET)\"
+CPPFLAGS += -DGL_VERSION_MAJOR=$(GL_MAJOR)
+CPPFLAGS += -DGL_VERSION_MINOR=$(GL_MINOR)
+CPPFLAGS += -DVULKAN_VERSION_MAJOR=$(VK_MAJOR)
+CPPFLAGS += -DVULKAN_VERSION_MINOR=$(VK_MINOR)
+CPPFLAGS += -DLD_EXPORT
 
-ifeq ($(IS_WINDOWS), true)
-	LIQUID_ENGINE_FLAGS += -Wl,--out-implib=$(BUILD_PATH)/$(EXE_NAME).lib
-
-	LIQUID_COMPILE_FILE   := liquid_engine/platform/ldwin32main.c
-	LIQUID_RESOURCES_PATH := win32/resources.rc
-	LIQUID_RESOURCES_FILE := $(object_path)/win32_resources.o
+ifeq ($(RELEASE), true)
+else
+	CPPFLAGS += -DDEBUG -DLD_LOGGING -DLD_ASSERTIONS -DLD_PROFILING
 endif
+
+export LIB_TESTBED_NAME := testbed-$(LD_VERSION_PATH)-$(TARGET_PLATFORM)-$(TARGET_ARCH)$(if $(RELEASE),,-debug)
+export LIB_TESTBED      := $(LIB_TESTBED_NAME).$(SO_EXT)
+
+export LDFLAGS := 
+
+ifeq ($(TARGET_PLATFORM), win32)
+	LDFLAGS += -fuse-ld=lld -nostdlib -lkernel32 -mstack-probe-size=999999999 -Wl,//stack:0x100000
+
+	ifeq ($(RELEASE), true)
+		LDFLAGS += -Wl,//release
+	else
+		LDFLAGS += -Wl,//debug
+	endif
+
+	LDFLAGS += -Wl,--out-implib=$(BUILD_PATH)/$(LD_EXE_NAME).lib
+endif
+
+INCLUDE := -Iliquid_engine -Ivendor
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
-deps := $(call recurse,$(object_path),*.d)
+dependencies := $(call recurse,$(OBJ_PATH),*.d)
 
-c := $(call recurse,liquid_engine/core/,*.c) $(call recurse,liquid_engine/ldrenderer/,*.c)
-h := $(call recurse,liquid_engine,*.h)
+C := $(call recurse,liquid_engine/core/,*.c) $(call recurse,liquid_engine/ldrenderer/,*.c)
+H := $(call recurse,liquid_engine,*.h)
 
-corec := $(c)
-corec := $(subst liquid_engine/,,$(corec))
-corec := $(addsuffix \",$(corec))
-corec := $(addprefix "#include \"",$(corec))
+COREC := $(C)
+COREC := $(subst liquid_engine/,,$(COREC))
+COREC := $(addsuffix \",$(COREC))
+COREC := $(addprefix "#include \"",$(COREC))
 
-corec_path := liquid_engine/platform/corec.inl
+COREC_PATH := liquid_engine/platform/corec.inl
 
-all: print_info shaders resources $(EXE_PATH)
+all: shaders $(if $(SHADER_ONLY),,$(TARGET))
+
+test: build_testbed
+	@mkdir -p $(BUILD_PATH)/resources/shaders
+	@cp resources/shaders/ldcolor.vert.spv $(BUILD_PATH)/resources/shaders/ldcolor.vert.spv
+	@cp resources/shaders/ldcolor.frag.spv $(BUILD_PATH)/resources/shaders/ldcolor.frag.spv
+	@cd $(BUILD_PATH) && ./$(LD_EXE_NAME)$(if $(EXE_EXT),.$(EXE_EXT),) --libload=$(LIB_TESTBED) --gl
+
+build_testbed: all
 	@$(MAKE) --directory=testbed --no-print-directory
-
-print_info:
-	@echo "Make: compilation target:" $(HOST_OS_NAME)-$(TARGET_ARCH)-$(if $(RELEASE),release,debug)
-
-ldpkg:
-	@$(MAKE) --directory=ldpkg --no-print-directory
-
-resources: shaders
-	@$(MAKE) --directory=resources --no-print-directory
 
 shaders:
 	@$(MAKE) --directory=shaders --no-print-directory
 
-$(corec_path): $(c)
-	@echo "// * Description:     Includes all source files" > $(corec_path)
-	@echo "// * Author:          Alicia Amarilla (smushyaa@gmail.com)" >> $(corec_path)
-	@echo "// * File Generated:  "$(shell date) >> $(corec_path)
-	@echo "// IMPORTANT(alicia): This file should only ever be included ONCE." >> $(corec_path)
-	@echo "" >> $(corec_path)
-	for i in $(corec); do echo $$i >> $(corec_path); done
+run:
+	@echo run none
 
-$(EXE_PATH): $(corec_path) $(if $(IS_WINDOWS),$(LIQUID_RESOURCES_FILE),)
-	@echo "Make: compiling" $(EXE_NAME)$(EXE_EXT) ". . ."
-	@mkdir -p $(object_path)
-	@$(CC) $(LIQUID_COMPILE_FILE) $(LIQUID_RESOURCES_FILE) -o $(EXE_PATH) $(LIQUID_ENGINE_FLAGS)
-
-$(LIQUID_RESOURCES_FILE): $(LIQUID_RESOURCES_PATH)
-	@echo "Make: compiling" $(LIQUID_RESOURCES_FILE) ". . ."
-	@mkdir -p $(object_path)
-	@windres $(LIQUID_RESOURCES_PATH) -o $(LIQUID_RESOURCES_FILE)
-
-# TODO(alicia): update this when project museum is being worked on
-run: all
-	@echo "Make: project museum is not yet ready :("
-
-test: all
-	@echo "Make: running test bed . . ."
-	@cd $(BUILD_PATH) && ./$(EXE_NAME)$(EXE_EXT) --libload=$(TESTBED_NAME) --gl
-
-pack:
-	@$(MAKE) --directory=ldpkg run
-
-# for debugging variables
 spit:
+	@echo "platform:   "$(TARGET_PLATFORM)
+	@echo "arch:       "$(TARGET_ARCH)
+	@echo "build path: "$(BUILD_PATH)
+	@echo "target:     "$(TARGET)
+	@echo "compiler:   "$(CC)
+	@echo "standard:   "$(CSTD)
+	@echo "cflags:     "$(CFLAGS)
+	@echo
+	@echo "cppflags:   "$(CPPFLAGS)
+	@echo
+	@echo "include:    "$(INCLUDE)
+	@echo
+	@echo "ldflags:    "$(LDFLAGS)
+	@echo
+	@echo "corec:      "$(COREC)
+	@echo
+	@echo "main:       "$(LDMAIN)
 	@$(MAKE) --directory=testbed spit
+	@$(MAKE) --directory=shaders spit
 
-# @$(MAKE) --directory=shader spit
- 
+clean: $(if $(SHADER_ONLY),clean_shaders, $(if $(RELEASE), clean_shaders clean_release, clean_debug clean_shaders))
+
+clean_shaders:
+	@echo "Make: cleaning shaders . . ."
+	rm -r -f resources/shaders
+
+clean_debug:
+	@echo "Make: cleaning debug directory . . ."
+	rm -f $(COREC_PATH)
+	rm -r -f build/debug/*
+
+clean_release:
+	@echo "Make: cleaning release directory . . ."
+	rm -f $(COREC_PATH)
+	rm -r -f build/release/*
+
 help:
-	@echo "Usage: make [argument]"
-	@echo ""
 	@echo "Arguments:"
 	@echo "  all:    compile everything"
-	@echo "  run:    compile and run \"Project Museum\""
-	@echo "  test:   compile and run \"Testbed\""
-	@echo "  shader: compile shaders only"
+	@echo "  run:    compile and run project museum"
+	@echo "  test:   compile and run testbed"
+	@echo "  clean:  clean build directory"
 	@echo "  help:   display this message"
-	@echo "  clean:  delete everything in build directory"
-	@echo "  cleanr: delete resources only"
+	@echo
+	@echo "Options:"
+	@echo "  RELEASE=true          build/clean only for release mode"
+	@echo "  TARGET_ARCH=...       set target architecture"
+	@echo "                            valid values: x86_64, arm64, wasm64"
+	@echo "                            default: current architecture"
+	@echo "  TARGET_PLATFORM=...   set target platform"
+	@echo "                            valid values: win32, linux, macos, wasm"
+	@echo "                            default: current platform"
+	@echo "  SHADER_ONLY=true      build/clean only shaders"
+	@echo "                            valid values: true"
+	@echo "                            default: "
 
-clean: print_clean_info cleanr
-	@rm -r -f build/debug/*
-	@rm -r -f build/release/*
-	@rm -r -f resources/shaders
-	@rm $(corec_path)
+$(COREC_PATH): $(C)
+	@echo "// * Description:     Includes all source files" > $(COREC_PATH)
+	@echo "// * Author:          Alicia Amarilla (smushyaa@gmail.com)" >> $(COREC_PATH)
+	@echo "// * File Generated:  "$(shell date) >> $(COREC_PATH)
+	@echo "// IMPORTANT(alicia): This file should only ever be included ONCE." >> $(COREC_PATH)
+	@echo "" >> $(COREC_PATH)
+	for i in $(COREC); do echo $$i >> $(COREC_PATH); done
 
-print_clean_info:
-	@echo "Make: removing everything from build directory . . ."
+IS_WINDOWS     :=
+WIN32RESOURCES := 
 
-cleanr:
-	@$(MAKE) --directory=resources clean
+ifeq ($(TARGET_PLATFORM), win32)
+	IS_WINDOWS     := true
+	WIN32RESOURCES := $(OBJ_PATH)/win32_resources.o
+endif
 
-.PHONY: all run test spit help clean shaders print_info resources cleanr print_clean_info ldpkg pack
+$(WIN32RESOURCES):win32/resources.rc
+	@echo "Make: compiling win32 resources . . ."
+	@mkdir -p $(OBJ_PATH)
+	@windres win32/resources.rc -o $(WIN32RESOURCES)
 
--include $(deps)
+$(TARGET): $(COREC_PATH) $(if $(IS_WINDOWS),$(WIN32RESOURCES),)
+	@echo "Make: compiling "$(LD_EXE_NAME).$(EXE_EXT)" . . ."
+	@mkdir -p $(OBJ_PATH)
+	@$(CC) $(CSTD) $(LDMAIN) $(WIN32RESOURCES) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
+
+.PHONY: all test shaders run clean clean_shaders clean_debug clean_release help build_testbed
+
+-include $(dependencies)
 

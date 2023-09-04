@@ -39,7 +39,7 @@ b32 event_subsystem_init( void* buffer ) {
     LOG_INFO( "Event subsystem successfully initialized." );
     return true;
 }
-void event_fire_end_of_frame() {
+void event_fire_end_of_frame(void) {
     // TODO(alicia): Fire events at the end of a frame.
 }
 

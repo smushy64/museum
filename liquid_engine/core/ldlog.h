@@ -15,7 +15,7 @@ typedef u32 LogLevel;
 /// Set logging level.
 LD_API void log_set_log_level( LogLevel level );
 /// Get current logging level.
-LD_API LogLevel log_query_log_level();
+LD_API LogLevel log_query_log_level(void);
 
 /// log a formatted message, uses a mutex
 /// to prevent crosstalk between threads.
@@ -92,11 +92,11 @@ LD_API void log_formatted_unlocked(
         LogLevel level, usize log_buffer_size, void* log_buffer );
 
     /// shutdown logging subsystem
-    void log_subsystem_shutdown();
+    void log_subsystem_shutdown(void);
 
 #if defined(LD_PLATFORM_WINDOWS)
     /// enable output debug string [win32 only]
-    void log_subsystem_win32_enable_output_debug_string();
+    void log_subsystem_win32_enable_output_debug_string(void);
 #endif // if platform windows
 
 #endif // if api internal
@@ -333,8 +333,11 @@ LD_API void log_formatted_unlocked(
             PANIC();\
         } while(0)
 #else
+    #define LOG_ASSERT_CUSTOM_TRACE( function, file, line, condition, format, ... )\
+        unused(function); unused(file); unused(line); unused(format); unused(condition);
+    #define LOG_ASSERT_NO_TRACE( condition, format, ... ) unused(condition); unused(format);
     #define LOG_PANIC( format, ... ) unused(format)
-    #define LOG_ASSERT( condition, format, ... ) unused(condition)
+    #define LOG_ASSERT( condition, format, ... ) unused(condition); unused(format);
     #define UNIMPLEMENTED()
 #endif
 

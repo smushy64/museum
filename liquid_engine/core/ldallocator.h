@@ -230,7 +230,7 @@ typedef struct Allocator {
     };
 } Allocator;
 /// Create generic allocator that uses system allocator.
-header_only Allocator allocator_system() {
+header_only Allocator allocator_system(void) {
     Allocator result = {};
     result.type = ALLOCATOR_TYPE_SYSTEM;
     return result;

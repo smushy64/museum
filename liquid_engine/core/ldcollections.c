@@ -46,6 +46,7 @@ LD_API b32 internal_list_realloc( List* list, usize new_capacity ) {
     // TODO(alicia): 
     unused(list); unused(new_capacity);
     UNIMPLEMENTED();
+    return false;
 }
 LD_API void internal_list_free( List* list ) {
     if( list->buffer ) {

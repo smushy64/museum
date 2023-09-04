@@ -52,7 +52,7 @@ typedef struct GamepadState {
     b32 is_active;
 } GamepadState;
 
-internal GamepadState gamepad_state_default() {
+internal GamepadState gamepad_state_default(void) {
     GamepadState result = {0};
     result.stick_left_deadzone     = GAMEPAD_DEFAULT_STICK_DEADZONE;
     result.stick_right_deadzone    = GAMEPAD_DEFAULT_STICK_DEADZONE;
@@ -140,7 +140,7 @@ void input_set_gamepad_active(
 ) {
     INPUT_STATE->gamepads[gamepad_index].is_active = is_active;
 }
-void input_swap() {
+void input_swap(void) {
     mem_copy(
         INPUT_STATE->last_keys,
         INPUT_STATE->keys,
@@ -187,22 +187,22 @@ LD_API b32 input_is_mouse_button_down( MouseCode mousecode ) {
 LD_API b32 input_was_mouse_button_down( MouseCode mousecode ) {
     return INPUT_STATE->last_mouse_buttons[mousecode];
 }
-LD_API ivec2 input_mouse_position() {
+LD_API ivec2 input_mouse_position(void) {
     return INPUT_STATE->mouse_position;
 }
-LD_API ivec2 input_last_mouse_position() {
+LD_API ivec2 input_last_mouse_position(void) {
     return INPUT_STATE->last_mouse_position;
 }
-LD_API i32 input_mouse_wheel() {
+LD_API i32 input_mouse_wheel(void) {
     return INPUT_STATE->mouse_wheel;
 }
-LD_API i32 input_last_mouse_wheel() {
+LD_API i32 input_last_mouse_wheel(void) {
     return INPUT_STATE->last_mouse_wheel;
 }
-LD_API i32 input_horizontal_mouse_wheel() {
+LD_API i32 input_horizontal_mouse_wheel(void) {
     return INPUT_STATE->horizontal_mouse_wheel;
 }
-LD_API i32 input_last_horizontal_mouse_wheel() {
+LD_API i32 input_last_horizontal_mouse_wheel(void) {
     return INPUT_STATE->last_horizontal_mouse_wheel;
 }
 LD_API b32 input_is_gamepad_button_down( u32 index, GamepadCode code ) {

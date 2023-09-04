@@ -118,6 +118,11 @@ LD_API void _library_free_trace(
     LOG_NOTE_LIBRARY_FREE( library->path_storage );
 #endif
     mem_zero( library, sizeof(DynamicLibrary) );
+
+    unused(library);
+    unused(function);
+    unused(file);
+    unused(line);
 }
 LD_API void* _library_load_function(
     DynamicLibrary* library,
@@ -147,6 +152,10 @@ LD_API void* _library_load_function_trace(
     }
 #endif
 
+    unused(library);
+    unused(function);
+    unused(file);
+    unused(line);
     return load_result;
 }
 

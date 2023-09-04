@@ -20,7 +20,7 @@ LD_API usize thread_info_query_index( ThreadInfo* thread_info );
 /// Opaque Semaphore
 typedef void Semaphore;
 /// Create a semaphore.
-LD_API Semaphore* semaphore_create();
+LD_API Semaphore* semaphore_create(void);
 /// Signal a semaphore.
 LD_API void semaphore_signal( Semaphore* semaphore );
 /// Wait for a semaphore to be signaled.
@@ -33,7 +33,7 @@ LD_API void semaphore_destroy( Semaphore* semaphore );
 /// Opaque Mutex
 typedef void Mutex;
 /// Create a mutex.
-LD_API Mutex* mutex_create();
+LD_API Mutex* mutex_create(void);
 /// Lock a mutex.
 LD_API void mutex_lock( Mutex* mutex );
 /// Unlock a mutex.
@@ -91,7 +91,7 @@ LD_API void* interlocked_compare_exchange_pointer(
     /// Initialize thread subsystem
     b32 thread_subsystem_init( u32 logical_processor_count, void* buffer );
     /// Shutdown thread subsystem
-    void thread_subsystem_shutdown();
+    void thread_subsystem_shutdown(void);
 
 #endif
 

@@ -190,7 +190,7 @@ LD_API void internal_ldpage_free_trace(
 /// Query memory usage for each memory type.
 LD_API usize query_memory_usage( MemoryType memtype );
 /// Query total memory usage in bytes.
-LD_API usize query_total_memory_usage();
+LD_API usize query_total_memory_usage(void);
 
 /// Copy memory from source pointer to destination pointer.
 LD_API void mem_copy( void* dst, const void* src, usize size );

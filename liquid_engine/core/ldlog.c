@@ -11,7 +11,7 @@
 #if defined(LD_PLATFORM_WINDOWS)
     #include "ldplatform.h"
     global b32 OUTPUT_DEBUG_STRING_ENABLED = false;
-    void log_subsystem_win32_enable_output_debug_string() {
+    void log_subsystem_win32_enable_output_debug_string(void) {
 #if defined(LD_LOGGING)
         OUTPUT_DEBUG_STRING_ENABLED = true;
 #endif
@@ -55,7 +55,7 @@ b32 log_subsystem_init(
 #endif
     return true;
 }
-void log_subsystem_shutdown() {
+void log_subsystem_shutdown(void) {
     mutex_destroy( MUTEX );
 #if defined(LD_LOGGING)
     if( CHECK_BITS( LOG_LEVEL, LOG_LEVEL_INFO ) ) {
@@ -78,7 +78,7 @@ void log_subsystem_shutdown() {
 LD_API void log_set_log_level( LogLevel level ) {
     LOG_LEVEL = level;
 }
-LD_API LogLevel log_query_log_level() {
+LD_API LogLevel log_query_log_level(void) {
     return LOG_LEVEL;
 }
 

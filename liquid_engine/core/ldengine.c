@@ -125,7 +125,7 @@ typedef struct ArgParseResult {
     b32 quit_instant;
 } ArgParseResult;
 
-internal void print_help() {
+internal void print_help(void) {
     println(
         "OVERVIEW: Liquid Engine {i}.{i}\n",
         LIQUID_ENGINE_VERSION_MAJOR,
@@ -438,6 +438,7 @@ b32 engine_entry( int argc, char** argv ) {
     b32 avx    = CHECK_BITS( ctx.system_info.features, AVX_MASK );
     b32 avx2   = CHECK_BITS( ctx.system_info.features, AVX2_MASK );
     b32 avx512 = CHECK_BITS( ctx.system_info.features, AVX512_MASK );
+    unused(avx512);
     ProcessorFeatures features = ctx.system_info.features;
     if( LD_SIMD_WIDTH == 4 && !sse ) {
         #define ERROR_MESSAGE_SIZE 256
@@ -616,10 +617,10 @@ LD_API void engine_cursor_center( EngineContext* opaque ) {
     InternalEngineContext* ctx = opaque;
     platform_cursor_center( ctx->main_surface );
 }
-LD_API CursorStyle engine_cursor_style() {
+LD_API CursorStyle engine_cursor_style(void) {
     return platform_cursor_style();
 }
-LD_API b32 engine_cursor_visible() {
+LD_API b32 engine_cursor_visible(void) {
     return platform_cursor_visible();
 }
 LD_API void engine_application_set_name(

@@ -156,7 +156,7 @@ LD_API void event_unsubscribe( EventListenerID id );
     /// Initialize Event Subsystem.
     b32 event_subsystem_init( void* event_subsystem_buffer );
     /// Fire end of frame events.
-    void event_fire_end_of_frame();
+    void event_fire_end_of_frame(void);
 
 #endif
 

@@ -19,7 +19,7 @@ LD_API Timer engine_time( EngineContext* ctx );
 /// Get memory requirement from application.
 /// Function should look like this:
 /// usize application_query_memory_requirement();
-typedef usize ApplicationQueryMemoryRequirementFN();
+typedef usize ApplicationQueryMemoryRequirementFN(void);
 /// Application init. Called once before run loop.
 /// Function should look like this:
 /// b32 application_init( EngineContext* ctx, void* memory );
@@ -95,9 +95,9 @@ LD_API void engine_cursor_set_visibility( b32 visible );
 /// Center cursor.
 LD_API void engine_cursor_center( EngineContext* ctx );
 /// Query current cursor style.
-LD_API CursorStyle engine_cursor_style();
+LD_API CursorStyle engine_cursor_style(void);
 /// Query if cursor is visible.
-LD_API b32 engine_cursor_visible();
+LD_API b32 engine_cursor_visible(void);
 /// Set application name.
 LD_API void engine_application_set_name( EngineContext* ctx, StringView name );
 /// Query application name.
@@ -133,7 +133,7 @@ LD_API void engine_surface_set_fullscreen( EngineContext* ctx, b32 fullscreen );
 /// Query if surface is fullscreen.
 LD_API b32 engine_surface_query_fullscreen( EngineContext* ctx );
 /// Send an exit event to the engine.
-header_only void engine_exit() {
+header_only void engine_exit(void) {
     Event event = {};
     event.code  = EVENT_CODE_EXIT;
     event_fire( event );

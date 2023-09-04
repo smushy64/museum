@@ -1940,7 +1940,7 @@ header_only mat3 m4_normal_matrix_unchecked( const mat4* m ) {
 }
 
 /// Create a default transform.
-header_only Transform transform_zero() {
+header_only Transform transform_zero(void) {
     Transform result;
     result.position = VEC3_ZERO;
     result.rotation = QUAT_IDENTITY;

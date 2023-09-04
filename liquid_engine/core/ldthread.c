@@ -139,7 +139,7 @@ b32 thread_subsystem_init( u32 logical_processor_count, void* buffer ) {
     LOG_NOTE( "Instantiated {u} threads.", THREAD_HANDLE_COUNT );
     return true;
 }
-void thread_subsystem_shutdown() {
+void thread_subsystem_shutdown(void) {
     for( u32 i = 0; i < THREAD_HANDLE_COUNT; ++i ) {
         PlatformThread* thread =
             (u8*)THREAD_HANDLE_BUFFER + (i * PLATFORM_THREAD_HANDLE_SIZE);
@@ -179,7 +179,7 @@ LD_API void* interlocked_compare_exchange_pointer(
 
 char SEM_NAME_BUFFER[255] = {};
 usize SEM_NAME_INDEX = 0;
-LD_API Semaphore* semaphore_create() {
+LD_API Semaphore* semaphore_create(void) {
     StringView name;
     name.buffer = SEM_NAME_BUFFER;
     name.len    = 255;
@@ -202,7 +202,7 @@ LD_API void semaphore_destroy( Semaphore* semaphore ) {
     platform_semaphore_destroy( semaphore );
 }
 
-LD_API Mutex* mutex_create() {
+LD_API Mutex* mutex_create(void) {
     return platform_mutex_create();
 }
 LD_API void mutex_lock( Mutex* mutex ) {

@@ -284,7 +284,7 @@ LD_API void internal_ldpage_free_trace(
 LD_API usize query_memory_usage( MemoryType memtype ) {
     return USAGE.usage[memtype] + USAGE.page_usage[memtype];
 }
-LD_API usize query_total_memory_usage() {\
+LD_API usize query_total_memory_usage(void) {\
     usize result = 0;
     for( u64 i = 0; i < MEMORY_TYPE_COUNT; ++i ) {
         result += query_memory_usage( (MemoryType)i );

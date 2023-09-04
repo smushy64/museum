@@ -1,38 +1,49 @@
-# * Description:  Makefile for shaders
+# * Description:  Shaders build system
 # * Author:       Alicia Amarilla (smushyaa@gmail.com)
-# * File Created: June 13, 2023
+# * File Created: September 04, 2023
 
-SLC := glslc -std=450core --target-env=opengl -x glsl
-SL_DEBUG_C_FLAGS := -O0
-SL_RELEASE_C_FLAGS := -O
-SL_C_FLAGS := -I.
+SCC    := glslc
+SCCSTD := -std=450core --target-env=opengl -x glsl
 
-sl_flags := $(SL_C_FLAGS) $(if $(IS_DEBUG),$(SL_DEBUG_C_FLAGS),$(SL_RELEASE_C_FLAGS))
+SCCFLAGS :=
+
+ifeq ($(RELEASE), true)
+	SCCFLAGS += -O
+else
+	SCCFLAGS += -O0
+endif
+
+INCLUDE := -I.
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
-TARGET := ../resources/shaders
+BUILD_PATH := ../resources/shaders
 
-vert := $(call recurse,,*.vert)
-frag := $(call recurse,,*.frag)
+VERT := $(call recurse,,*.vert)
+FRAG := $(call recurse,,*.frag)
 
-vert_spv := $(vert:%=$(TARGET)/%.spv)
-frag_spv := $(frag:%=$(TARGET)/%.spv)
+VERT_SPV := $(VERT:%=$(BUILD_PATH)/%.spv)
+FRAG_SPV := $(FRAG:%=$(BUILD_PATH)/%.spv)
 
-all: $(vert_spv) $(frag_spv)
+all: $(VERT_SPV) $(FRAG_SPV)
 
 spit:
-	@echo $(vert_spv)
+	@echo
+	@echo "shader compiler: "$(SCC)
+	@echo "shader standard: "$(SCCSTD)
+	@echo "shader flags:    "$(SCCFLAGS)
+	@echo "vert targets:    "$(VERT_SPV)
+	@echo "frag targets:    "$(FRAG_SPV)
 
-$(TARGET)/%.vert.spv:%.vert
+$(BUILD_PATH)/%.vert.spv:%.vert
 	@echo "Make: compiling vertex shader $< . . ."
 	@mkdir -p $(dir $@)
-	@$(SLC) -c $< -o $@ $(sl_flags) -DGLSL_VERTEX=1
+	@$(SCC) $(SCCSTD) -c $< -o $@ $(SCCFLAGS) -DGLSL_VERTEX=1
 
-$(TARGET)/%.frag.spv:%.frag
+$(BUILD_PATH)/%.frag.spv:%.frag
 	@echo "Make: compiling fragment shader $< . . ."
 	@mkdir -p $(dir $@)
-	@$(SLC) -c $< -o $@ $(sl_flags) -DGLSL_FRAGMENT=1
+	@$(SCC) $(SCCSTD) -c $< -o $@ $(SCCFLAGS) -DGLSL_FRAGMENT=1
 
-.PHONY: all spit clean
+.PHONY: all spit
 

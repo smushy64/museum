@@ -22,7 +22,7 @@ extern usize PLATFORM_SUBSYSTEM_SIZE;
 /// Initialize platform state. Returns true if successful.
 b32 platform_subsystem_init( void* buffer );
 /// Shutdown platform subsystem.
-void platform_subsystem_shutdown();
+void platform_subsystem_shutdown(void);
 
 /// Opaque surface handle.
 typedef void PlatformSurface;
@@ -128,15 +128,15 @@ void platform_surface_clear_activate_callback( PlatformSurface* surface );
 void platform_surface_pump_events( PlatformSurface* surface );
 
 /// Get microseconds (μs) elapsed since start of the program.
-f64 platform_us_elapsed();
+f64 platform_us_elapsed(void);
 /// Get milliseconds elapsed since start of the program.
-f64 platform_ms_elapsed();
+f64 platform_ms_elapsed(void);
 /// Get seconds elapsed since start of the program.
-f64 platform_s_elapsed();
+f64 platform_s_elapsed(void);
 /// Query cursor style.
-CursorStyle platform_cursor_style();
+CursorStyle platform_cursor_style(void);
 /// Query if cursor is visible.
-b32 platform_cursor_visible();
+b32 platform_cursor_visible(void);
 /// Set cursor style.
 /// Does nothing on platforms that don't use a cursor.
 void platform_cursor_set_style( CursorStyle cursor_style );
@@ -153,7 +153,7 @@ void platform_sleep( u32 ms );
 void platform_set_gamepad_motor_state(
     u32 gamepad_index, u32 motor, f32 value );
 /// Poll gamepad.
-void platform_poll_gamepad();
+void platform_poll_gamepad(void);
 /// Swap buffers. OpenGL only.
 void platform_gl_surface_swap_buffers( PlatformSurface* surface );
 /// Initialize OpenGL.
@@ -162,9 +162,9 @@ b32 platform_gl_surface_init( PlatformSurface* surface );
 void platform_gl_surface_shutdown( PlatformSurface* surface );
 
 /// Get stdout handle.
-void* platform_stdout_handle();
+void* platform_stdout_handle(void);
 /// Get stderr handle.
-void* platform_stderr_handle();
+void* platform_stderr_handle(void);
 
 /// Write a string to the console.
 /// Get console handle using platform_stdout_handle() or
@@ -275,7 +275,7 @@ void platform_semaphore_wait(
 void platform_semaphore_destroy( PlatformSemaphore* semaphore );
 
 /// Create a mutex.
-PlatformMutex* platform_mutex_create();
+PlatformMutex* platform_mutex_create(void);
 /// Lock a mutex. Stalls until the mutex is available if another
 /// thread already has ownership of it.
 void platform_mutex_lock( PlatformMutex* mutex );
@@ -437,7 +437,7 @@ void platform_query_system_info( struct SystemInfo* sysinfo );
     // This is a workaround for an xinput bug where polling a
     // disconnected gamepad will stall the main thread for way too
     // many cycles.
-    void platform_win32_signal_xinput_polling_thread();
+    void platform_win32_signal_xinput_polling_thread(void);
 #endif
 
 #endif // internal
