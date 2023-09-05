@@ -32,9 +32,9 @@ Currently, only Windows is supported as a build target
 - windres 2.41 [^1]
     - should be installed with mingw by default
 ### Linux requirements
-- libX11
-- libXcb
-- libX11-Xcb
+- pkg-config command
+- [SDL2](https://www.libsdl.org/)
+- pthreads
 ### Optional Software
 - [RemedyBG Debugger](https://remedybg.itch.io/remedybg)
 - [gf gdb frontend for linux](https://github.com/nakst/gf)
@@ -93,23 +93,37 @@ Linux: Unavailable
 Mac: Unavailable
 
 ### RemedyBG
-Under Session/Application and Parameters, set 'Command'
-to 'build/debug/liquid-engine-x-x-debug-win32.exe' where x-x is the
-current version of LiquidEngine.
+Under Session/Application and Parameters, set 'Command' to
+```
+build/debug/liquid-engine-x-x-win32-x86_64-debug.exe
+```
+where x-x is the current version of LiquidEngine.
 
-Press F10 to begin debugging and break on entry point.
+Set the command line arguments to
+```
+--libload=testbed-x-x-win32-x86_64-debug.dll
+```
+where x-x is the current version of LiquidEngine.
 
 Additionally, the command argument
-(again, under Session/Application and Parameters)
 --output-debug-string is recommended to enable print out to the
 debugger's output window.
+
+Press F10 to begin debugging and break on entry point.
 
 RemedyBG is available [here](https://remedybg.itch.io/remedybg).
 
 ### gf
-Set Command/Executable to 
-'build/debug/liquid-engine-x-x-debug-linux' where x-x is the
-current version of LiquidEngine.
+1) Change directory to build/debug and run gf2.
+2) Set 'Path to Executable' to
+```
+build/debug/liquid-engine-x-x-linux-x86_64-debug
+```
+where x-x is the current version of LiquidEngine.
+3) Set 'Command line arguments' to
+```
+--libload=testbed-x-x-linux-x86_64-debug.so
+```
 
 gf is available [here](https://github.com/nakst/gf).
 
