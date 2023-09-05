@@ -3,7 +3,7 @@
 // * File Created: July 22, 2023
 #include "core/ldlibrary.h"
 #include "core/ldlog.h"
-#include "core/ldstring.h"
+#include "core/ldcstr.h"
 #include "ldplatform.h"
 
 #if defined(LD_LOGGING)
@@ -86,7 +86,7 @@ LD_API b32 _library_load_trace(
     i32 line
 ) {
 #if defined(LD_LOGGING)
-    usize path_len = str_length( library_path ) + 1;
+    usize path_len = cstr_len( library_path ) + 1;
     if( path_len >= LIB_MAX_PATH_STORAGE ) {
         path_len = LIB_MAX_PATH_STORAGE;
     }

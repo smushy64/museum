@@ -4,7 +4,7 @@
  * File Created: April 27, 2023
 */
 #include "core/ldlog.h"
-#include "core/ldstring.h"
+#include "core/ldcstr.h"
 #include "core/ldmemory.h"
 #include "core/ldthread.h"
 
@@ -135,9 +135,9 @@ hot internal void log_formatted(
         }
 
         if( is_error ) {
-            str_output_stderr( buffer_view.str );
+            cstr_output_stderr( buffer_view.str );
         } else {
-            str_output_stdout( buffer_view.str );
+            cstr_output_stdout( buffer_view.str );
         }
 
 #if defined(LD_PLATFORM_WINDOWS)

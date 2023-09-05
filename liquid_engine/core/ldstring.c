@@ -6,28 +6,16 @@
 #include "core/ldstring.h"
 #include "core/ldlog.h"
 #include "core/ldmemory.h"
+#include "core/ldcstr.h"
 
 #include "core/ldmath.h"
 
 #include "ldplatform.h"
 
-internal b32 string_cmp_internal(
-    usize a_len, const char* a_buffer,
-    usize b_len, const char* b_buffer
-) {
-    if( a_len != b_len ) {
-        return false;
-    }
+// FIXME(alicia): actually rename all instances
+// of String -> DynamicString.
+typedef DynamicString String;
 
-    // TODO(alicia): traverse by u64 instead
-    for( usize i = 0; i < a_len; ++i ) {
-        if( a_buffer[i] != b_buffer[i] ) {
-            return false;
-        }
-    }
-
-    return true;
-}
 internal void string_copy_internal(
     usize src_len, const char* src_buffer,
     usize dst_capacity, char* dst_buffer
@@ -43,30 +31,11 @@ LD_API void char_output_stderr( char character ) {
     platform_write_console( platform_stderr_handle(), 1, &character );
 }
 
-LD_API usize str_length( const char* string ) {
-    usize result = 0;
-
-    if( string ) {
-        while( *string++ ) {
-            result++;
-        }
-    }
-
+LD_API StringView sv_from_cstr( const char* cstr ) {
+    StringView result;
+    result.str = cstr;
+    result.len = cstr_len( cstr );
     return result;
-}
-hot LD_API void str_output_stdout( const char* str ) {
-    usize str_len = str_length( str );
-    platform_write_console(
-        platform_stdout_handle(),
-        str_len, str
-    );
-}
-hot LD_API void str_output_stderr( const char* str ) {
-    usize str_len = str_length( str );
-    platform_write_console(
-        platform_stderr_handle(),
-        str_len, str
-    );
 }
 
 internal i32 parse_i32_internal( char** at_init ) {
@@ -98,16 +67,18 @@ hot LD_API void sv_output_stderr( StringView string_view ) {
     );
 }
 LD_API b32 sv_cmp( StringView  a, StringView  b ) {
-    return string_cmp_internal(
-        a.len, a.buffer,
-        b.len, b.buffer
-    );
-}
-LD_API b32 sv_cmp_string( StringView  a, String* b ) {
-    return string_cmp_internal(
-        a.len, a.buffer,
-        b->len, b->buffer
-    );
+    if( a.len != b.len ) {
+        return false;
+    }
+
+    // TODO(alicia): traverse by u64 instead
+    for( usize i = 0; i < a.len; ++i ) {
+        if( a.buffer[i] != b.buffer[i] ) {
+            return false;
+        }
+    }
+
+    return true;
 }
 LD_API void sv_trim_trailing_whitespace( StringView* sv ) {
     for( usize i = 0; i < sv->len; ++i ) {
@@ -632,7 +603,7 @@ internal u32 format_internal(
                             ASSERT( char_is_digit( *at ) );
                             padding = parse_i32_internal( &at );
                         }
-                        i32 str_len = (i32)str_length( str );
+                        i32 str_len = (i32)cstr_len( str );
                         if( padding && !padding_is_negative ) {
                             padding = padding - str_len;
                             for( i32 i = 0; i < padding; ++i ) {

@@ -10,6 +10,7 @@
 
 #include "core/ldlog.h"
 #include "core/ldstring.h"
+#include "core/ldcstr.h"
 #include "core/ldmemory.h"
 #include "core/ldcollections.h"
 #include "core/ldevent.h"
@@ -175,7 +176,7 @@ LPSTR* WINAPI CommandLineToArgvA(LPSTR lpCmdline, int* numargs) {
         LMEM_FIXED,
         ( argc + 1 ) *
         sizeof(LPSTR) +
-        ( str_length( lpCmdline ) + 1 ) *
+        ( cstr_len( lpCmdline ) + 1 ) *
         sizeof(char)
     );
     if( !argv ) {

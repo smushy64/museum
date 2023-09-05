@@ -38,7 +38,6 @@ that is unlikely to happen.
     - [Types](./string.md#types)
     - [Functions](./string.md#functions)
         - [Character](./string.md#character)
-        - [C null-terminated string](./string.md#c-null-terminated-string)
         - [String View](./string.md#string-view)
         - [Dynamic String](./string.md#dynamic-string)
         - [IO](./string.md#io)
@@ -51,4 +50,6 @@ that is unlikely to happen.
         - [Parameters for Float Specifiers](./string.md#parameters-for-float-specifiers)
         - [Parameters for Boolean Specifiers](./string.md#parameters-for-boolean-specifiers)
     - [Formatting Examples](./string.md#formatting-examples)
+- [C String](./cstr.md)
+    - [Functions](./cstr.md#functions)
 

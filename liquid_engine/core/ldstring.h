@@ -23,19 +23,13 @@ header_only b32 char_is_whitespace( char character ) {
 header_only b32 char_is_digit( char character ) {
     return character >= '0' && character <= '9';
 }
-/// Calculate null-terminated string length
-LD_API usize str_length( const char* str );
-/// Output a null-terminated string to stdout.
-LD_API void str_output_stdout( const char* str );
-/// Output a null-terminated string to stderr.
-LD_API void str_output_stderr( const char* str );
 
 /// Dynamic heap allocated string that owns its buffer.
-typedef struct String {
+typedef struct DynamicString {
     char* buffer;
     usize len;
     usize capacity;
-} String;
+} DynamicString;
 
 /// View into existing string. Does not own its buffer.
 typedef struct StringView {
@@ -47,14 +41,9 @@ typedef struct StringView {
 } StringView;
 
 /// Create a string view from C null-terminated string.
-header_only StringView sv_from_str( const char* str ) {
-    StringView result = {};
-    result.len = str_length( str );
-    result.str = str;
-    return result;
-}
+LD_API StringView sv_from_cstr( const char* cstr );
 /// Create a string view from dynamic string.
-header_only StringView sv_from_string( String string ) {
+header_only StringView sv_from_string( DynamicString string ) {
     StringView result = {};
     result.len    = string.len;
     result.buffer = string.buffer;
@@ -67,9 +56,6 @@ LD_API void sv_output_stderr( StringView sv );
 /// Compare string views for equality.
 /// Returns true if string contents are equal and lengths are equal.
 LD_API b32 sv_cmp( StringView a, StringView b );
-/// Compare strings for equality.
-/// Returns true if string contents are equal and lengths are equal.
-LD_API b32 sv_cmp_string( StringView a, String* b );
 /// Format string into string view buffer.
 /// Returns required size for formatting.
 /// Format specifiers are in docs/format.md
@@ -104,45 +90,45 @@ header_only StringView sv_clone( StringView sv ) {
     return result;
 }
 /// Make a string view from const char* 
-#define SV( str ) sv_from_str( str )
+#define SV( cstr ) sv_from_cstr( cstr )
 
 /// Create new dynamic string from string view.
 LD_API b32 dstring_new(
-    Allocator* allocator, StringView sv, String* out_string );
+    Allocator* allocator, StringView sv, DynamicString* out_string );
 /// Create new empty dynamic string with given capacity.
 LD_API b32 dstring_with_capacity(
-    Allocator* allocator, usize capacity, String* out_string );
+    Allocator* allocator, usize capacity, DynamicString* out_string );
 /// Reallocate string with given capacity.
 /// Does nothing if given capacity is smaller than string's capacity.
 LD_API b32 dstring_reserve(
-    Allocator* allocator, String* string, usize new_capacity );
+    Allocator* allocator, DynamicString* string, usize new_capacity );
 /// Clear a string.
 /// All this does is set the length of a string to zero.
 /// It does not free string buffer.
-header_only void dstring_clear( String* string ) { string->len = 0; }
+header_only void dstring_clear( DynamicString* string ) { string->len = 0; }
 /// Append the contents of a string view to existing string.
 /// Alloc determines if will fill to the end of the existing buffer
 /// or if it will reallocate.
 LD_API b32 dstring_append(
-    Allocator* allocator, String* string, StringView append, b32 alloc );
+    Allocator* allocator, DynamicString* string, StringView append, b32 alloc );
 /// Push a character onto end of string.
 /// Realloc determines how much extra buffer bytes will be allocated if
 /// character is at the end of string buffer.
 /// 0 means that it will not realloc string.
 /// Only returns false if reallocation fails, otherwise always returns true.
 LD_API b32 dstring_push_char(
-    Allocator* allocator, String* string, char character, u32 realloc );
+    Allocator* allocator, DynamicString* string, char character, u32 realloc );
 /// Pop last character in string.
 /// Returns 0 if string length is zero.
-LD_API char dstring_pop_char( String* string );
+LD_API char dstring_pop_char( DynamicString* string );
 /// Make a string view into string that respects string capacity.
 LD_API StringView dstring_view_capacity_bounds(
-    String string, usize offset );
+    DynamicString string, usize offset );
 /// Make a string view into string that respects string length.
 LD_API StringView dstring_view_len_bounds(
-    String string, usize offset );
+    DynamicString string, usize offset );
 /// Free a dynamic string.
-LD_API void dstring_free( Allocator* allocator, String* string );
+LD_API void dstring_free( Allocator* allocator, DynamicString* string );
 
 /// Print to stdout.
 /// Format specifiers are in docs/format.md

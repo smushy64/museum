@@ -1,5 +1,5 @@
 <!--
- * Description:  String Formatting Documentation
+ * Description:  String Documentation
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: July 19, 2023
 -->
@@ -24,7 +24,6 @@ Includes:
 - [Types](#types)
 - [Functions](#functions)
     - [Character](#character)
-    - [C null-terminated string](#c-null-terminated-string)
     - [String View](#string-view)
     - [Dynamic String](#dynamic-string)
     - [IO](#io)
@@ -40,10 +39,27 @@ Includes:
 
 ## Types
 
-| Name       | Size | Description                                        |
-| ---------- | ---- | -------------------------------------------------- |
-| String     | 24   | Dynamic heap allocated string that owns its buffer |
-| StringView | 16   | View into string buffer. Does not own buffers      |
+```cpp
+/// Dynamic heap allocated string that owns its buffer
+/// Size: 24
+typedef struct DynamicString {
+    char* buffer;
+    usize len;
+    usize capacity;
+} DynamicString;
+```
+
+```cpp
+/// View into string buffer. Does not own its buffer.
+/// Size: 16
+typedef struct StringView {
+    union {
+        const char* str;
+        char* buffer;
+    };
+    usize len;
+} StringView;
+```
 
 ## Functions
 
@@ -64,21 +80,6 @@ b32 char_is_whitespace( char character );
 ```cpp
 /// Returns true if character is a digit.
 b32 char_is_digit( char character );
-```
-
-### C null-terminated string
-
-```cpp
-/// Calculate null-terminated string length.
-usize str_length( const char* str );
-```
-```cpp
-/// Output null-terminated string to stdout.
-void str_output_stdout( const char* str );
-```
-```cpp
-/// Output null-terminated string to stderr.
-void str_output_stderr( const char* str );
 ```
 
 ### String View
