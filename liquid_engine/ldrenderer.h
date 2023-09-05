@@ -15,6 +15,28 @@ union ivec2;
 /// Opaque RendererContext handle
 typedef void RendererContext;
 
+typedef u32 RenderID;
+#define RENDER_SHADER_DEBUG_COLOR (0)
+
+#define RENDER_MESH_QUAD_2D_LOWER_LEFT (0)
+
+typedef struct {
+    rgba color;
+} ShaderDebugColor;
+
+typedef struct {
+    RenderID shader;
+    mat4     transform;
+    union {
+        ShaderDebugColor debug_color;
+    };
+} Material;
+
+typedef struct {
+    RenderID mesh;
+    Material material;
+} RenderObject;
+
 struct Timer;
 struct Camera;
 /// Render Data
@@ -22,6 +44,10 @@ typedef struct RenderData {
     struct Camera* camera;
     f32 elapsed_time;
     f32 delta_time;
+
+    usize max_object_count;
+    usize object_count;
+    RenderObject* objects;
 } RenderData;
 
 /// Renderer backend shutdown function prototype.

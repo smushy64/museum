@@ -10,6 +10,7 @@
 #include <core/ldthread.h>
 #include <core/ldgraphics.h>
 #include <core/ldgraphics/types.h>
+#include <core/ldgraphics/ui.h>
 #include <core/ldinput.h>
 
 struct GameMemory {
@@ -24,7 +25,7 @@ extern_c b32 application_init( EngineContext* ctx, void* opaque ) {
 
     StringView name;
 #if defined(LD_PLATFORM_WINDOWS)
-    name = SV(testbed-win32);
+    name = SV("testbed-win32");
 #elif defined(LD_PLATFORM_LINUX)
     name = SV("testbed-linux");
 #else
@@ -63,6 +64,28 @@ extern_c b32 application_run( EngineContext* ctx maybe_unused, void* opaque ) {
     if( input_key_press( KEY_ENTER ) ) {
         LOG_DEBUG( "Delta time: {f}", time.delta_seconds );
     }
+
+    ui_draw_quad(
+        NULL,
+        v2_scalar( 0.5f ),
+        v2_scalar( 0.1f ),
+        UI_ANCHOR_X_LEFT, UI_ANCHOR_Y_BOTTOM,
+        { 1.0f, 0.0f, 0.0f, 0.5f }
+    );
+    ui_draw_quad(
+        NULL,
+        v2_scalar( 0.5f ),
+        v2_scalar( 0.1f ),
+        UI_ANCHOR_X_CENTER, UI_ANCHOR_Y_CENTER,
+        { 0.0f, 1.0f, 0.0f, 0.5f }
+    );
+    ui_draw_quad(
+        NULL,
+        v2_scalar( 0.5f ),
+        v2_scalar( 0.1f ),
+        UI_ANCHOR_X_RIGHT, UI_ANCHOR_Y_TOP,
+        { 0.0f, 0.0f, 1.0f, 0.5f }
+    );
     return true;
 }
 

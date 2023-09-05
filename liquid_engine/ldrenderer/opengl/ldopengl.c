@@ -94,6 +94,7 @@ internal void gl_draw_framebuffer(
         viewport.height
     );
     glDisable( GL_DEPTH_TEST );
+    glDisable( GL_BLEND );
 
     GLShaderProgramID program =
         ctx->programs[GL_SHADER_PROGRAM_INDEX_FRAMEBUFFER];
@@ -126,8 +127,6 @@ b32 gl_renderer_backend_begin_frame(
 ) {
     OpenGLRendererContext* ctx = renderer_ctx;
     GLFramebufferID   framebuffer  = 0;
-    GLVertexArrayID   vertex_array = 0;
-    GLShaderProgramID program      = 0;
 
     struct Camera* camera = render_data->camera;
 #if defined(LD_ASSERTIONS)
@@ -176,7 +175,6 @@ b32 gl_renderer_backend_begin_frame(
     }
 
     ivec2 resolution = ctx->ctx.framebuffer_dimensions;
-    vec2 resolutionf = iv2_to_v2( resolution );
 
     // NOTE(alicia): recreate the framebuffer to match
     // render resolution.
@@ -201,10 +199,6 @@ b32 gl_renderer_backend_begin_frame(
         resolution.height
     );
     glEnable( GL_CULL_FACE );
-
-    // NOTE(alicia): UI Rendering
-    glDisable( GL_DEPTH_TEST );
-
     rgba clear_color = RGBA_GRAY;
     f32 clear_depth  = 1.0f;
     glClearNamedFramebufferfv(
@@ -218,40 +212,49 @@ b32 gl_renderer_backend_begin_frame(
         &clear_depth
     );
 
-    program      = ctx->programs[GL_SHADER_PROGRAM_INDEX_COLOR];
-    vertex_array = ctx->vertex_arrays[GL_VERTEX_ARRAY_INDEX_QUAD_2D];
-    glUseProgram( program );
-    glBindVertexArray( vertex_array );
+    // NOTE(alicia): UI Rendering
+    glDisable( GL_DEPTH_TEST );
+    glEnable( GL_BLEND );
+    glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
-    vec2 position = v2_scalar( 0.5f );
-    vec2 scale    = v2_scalar( 0.4f );
+    for( usize i = 0; i < render_data->object_count; ++i ) {
+        RenderObject* object = render_data->objects + i;
+        GLShaderProgramID program_id = 0;
 
-    position = v2_hadamard( position, resolutionf );
-    scale    = v2_hadamard( scale, resolutionf );
+        switch( object->material.shader ) {
+            case RENDER_SHADER_DEBUG_COLOR: {
+                program_id = ctx->programs[GL_SHADER_PROGRAM_INDEX_COLOR];
+                glUseProgram( program_id );
+                glProgramUniform4fv(
+                    program_id,
+                    GL_SHADER_PROGRAM_COLOR_LOCATION_COLOR,
+                    1, object->material.debug_color.color.c
+                );
+            } break;
+            default: continue;
+        }
 
-    mat4 quad_transform = m4_transform_2d(
-        position, 0.0f, scale );
+        switch( object->mesh ) {
+            case RENDER_MESH_QUAD_2D_LOWER_LEFT: {
+                glBindVertexArray(
+                    ctx->vertex_arrays[GL_VERTEX_ARRAY_INDEX_QUAD_2D] );
+            } break;
+            default: continue;
+        }
 
-    rgba quad_color = RGBA_CYAN;
-
-    glProgramUniformMatrix4fv(
-        program,
-        GL_SHADER_PROGRAM_COLOR_LOCATION_TRANSFORM,
-        1, GL_FALSE,
-        quad_transform.c
-    );
-    glProgramUniform4fv(
-        program,
-        GL_SHADER_PROGRAM_COLOR_LOCATION_COLOR,
-        1, quad_color.c
-    );
-
-    glDrawElements(
-        GL_TRIANGLES,
-        QUAD_2D_INDEX_COUNT,
-        GL_UNSIGNED_BYTE,
-        NULL
-    );
+        glProgramUniformMatrix4fv(
+            program_id,
+            GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
+            1, GL_FALSE,
+            object->material.transform.c
+        );
+        glDrawElements(
+            GL_TRIANGLES,
+            QUAD_2D_INDEX_COUNT,
+            GL_UNSIGNED_BYTE,
+            NULL
+        );
+    }
 
     return true;
 }

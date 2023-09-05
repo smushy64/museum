@@ -23,6 +23,9 @@ typedef struct OpenGLDeviceInfo {
 
     i32 extension_count;
 } OpenGLDeviceInfo;
+// NOTE(alicia): all shader programs must
+// define their transform at location 0
+#define GL_SHADER_PROGRAM_LOCATION_TRANSFORM (0) 
 
 #define GL_VERTEX_ARRAY_COUNT   (2)
 #define GL_SHADER_PROGRAM_COUNT (2)
@@ -33,7 +36,6 @@ typedef struct OpenGLDeviceInfo {
 
 #define GL_SHADER_PROGRAM_FRAMEBUFFER_TEXTURE_BINDING (0)
 
-#define GL_SHADER_PROGRAM_COLOR_LOCATION_TRANSFORM (0) 
 #define GL_SHADER_PROGRAM_COLOR_LOCATION_COLOR     (1) 
 
 #define GL_VERTEX_ARRAY_INDEX_FRAMEBUFFER (0)
