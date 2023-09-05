@@ -7,7 +7,7 @@
 #include "core/ldmath/types.h"
 #include "ldrenderer/opengl/types.h"
 
-struct packed GLCameraBuffer {
+struct packedpad GLCameraBuffer {
     mat4 matrix_3d;
     mat4 matrix_ui;
 

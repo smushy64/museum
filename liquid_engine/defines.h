@@ -244,7 +244,7 @@ MAKE_TUPLE(pvoid);
     #define extern_c extern "C"
 #else
     /// External C linkage
-    #define extern_c
+    #define extern_c extern
 #endif
 
 /// Crash the program >:)
@@ -271,11 +271,11 @@ MAKE_TUPLE(pvoid);
 /// Always optimize regardless of optimization level.
 #define hot __attribute__((hot))
 /// Always inline function.
-#define always_inline __attribute__((always_inline)) inline
+#define force_inline __attribute__((always_inline)) inline
 /// Never inline function.
 #define no_inline __attribute__((noinline))
 /// Don't introduce padding to struct.
-#define packed __attribute__((__packed__))
+#define packedpad __attribute__((__packed__))
 /// Function is internal to translation unit.
 #define internal static
 /// Value is local to function.

@@ -34,6 +34,10 @@
 ## Linux
 - [x] write platform layer using cstdlib
 - [x] write thread functions using pthreads
-- [ ] link testbed shared object to executable properly
-- [ ] rewrite with platform.h changes
+- [x] link testbed shared object to executable properly
+- [x] rewrite with platform.h changes
+- [ ] make linux platform layer feature complete
+- [ ] raw wayland/x11 api rather than require sdl2
+    ### Bugs
+- [ ] segfault on app exit only in release mode?
 

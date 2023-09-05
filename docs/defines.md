@@ -178,8 +178,8 @@ Includes:
 | global          | static - for global static variables                     |
 | hot             | always optimize following function                       |
 | no_optimize     | never optimize following function                        |
-| packed          | struct is packed (no C padding)                          |
-| always_inline   | always inline following function                         |
+| packedpad       | struct is packed (no C padding)                          |
+| force_inline    | always inline following function                         |
 | no_inline       | never inline following function                          |
 | header_only     | mark header function (extern inline in C, inline in C++) |
 | extern_c        | mark function as extern "C" (C++ only)                   |

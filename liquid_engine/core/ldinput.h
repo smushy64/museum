@@ -149,6 +149,7 @@ typedef enum KeyboardCode : u8 {
     KEY_UNKNOWN = U8_MAX,
 } KeyboardCode;
 
+maybe_unused
 header_only const char* keyboard_code_to_string( KeyboardCode keycode ) {
     switch( keycode ) {
         case KEY_SPACE:          return "Space";
@@ -275,6 +276,7 @@ typedef enum MouseCode : u8 {
 
     MOUSE_BUTTON_COUNT
 } MouseCode;
+maybe_unused
 header_only const char* mouse_code_to_string( MouseCode mouse_code ) {
     const char* strings[MOUSE_BUTTON_COUNT] = {
         "Mouse Button Left",
@@ -320,6 +322,8 @@ typedef enum GamepadCode : u8 {
 
     GAMEPAD_CODE_COUNT
 } GamepadCode;
+
+maybe_unused
 header_only const char* gamepad_code_to_string( GamepadCode gamepad_code ) {
     const char* strings[GAMEPAD_CODE_COUNT] = {
         "Unknown",
@@ -390,6 +394,7 @@ LD_API b32 input_is_key_down( KeyboardCode code );
 /// Was key down last frame?
 LD_API b32 input_was_key_down( KeyboardCode code );
 /// Has key been pressed this frame?
+maybe_unused
 header_only b32 input_key_press( KeyboardCode code ) {
     b32 is  = input_is_key_down( code );
     b32 was = input_was_key_down( code );
@@ -400,6 +405,7 @@ LD_API b32 input_is_mouse_button_down( MouseCode code );
 /// Was mouse button down last frame?
 LD_API b32 input_was_mouse_button_down( MouseCode code );
 /// Has mouse button been pressed this frame?
+maybe_unused
 header_only b32 input_mouse_button_press( MouseCode code ) {
     b32 is  = input_is_mouse_button_down( code );
     b32 was = input_was_mouse_button_down( code );
@@ -414,6 +420,7 @@ LD_API i32 input_mouse_wheel(void);
 /// Last frame's mouse wheel state.
 LD_API i32 input_last_mouse_wheel(void);
 /// Did mouse wheel change this frame?
+maybe_unused
 header_only b32 input_mouse_wheel_moved(void) {
     i32 mw  = input_mouse_wheel();
     i32 lmw = input_last_mouse_wheel();
@@ -424,6 +431,7 @@ LD_API i32 input_horizontal_mouse_wheel(void);
 /// Last frame's horizontal mouse wheel state.
 LD_API i32 input_last_horizontal_mouse_wheel(void);
 /// Did horizontal mouse wheel change this frame?
+maybe_unused
 header_only b32 input_horizontal_mouse_wheel_moved(void) {
     i32 mw  = input_horizontal_mouse_wheel();
     i32 lmw = input_last_horizontal_mouse_wheel();
@@ -436,6 +444,7 @@ LD_API b32 input_is_gamepad_button_down( u32 index, GamepadCode code );
 /// Was gamepad button down last frame?
 LD_API b32 input_was_gamepad_button_down( u32 index, GamepadCode code );
 /// Has gamepad button been pressed this frame?
+maybe_unused
 header_only b32 input_gamepad_button_press( u32 index, GamepadCode code ) {
     b32 is  = input_is_gamepad_button_down( index, code );
     b32 was = input_was_gamepad_button_down( index, code );
@@ -484,6 +493,7 @@ LD_API void input_gamepad_set_trigger_right_deadzone( u32 index, f32 deadzone );
 /// This is the value at which the trigger registers as a button press.
 LD_API void input_gamepad_set_trigger_press_threshold( u32 index, f32 threshold );
 /// Convert mouse pixel position to normalized device coordinates.
+maybe_unused
 header_only vec2 mouse_position_to_ndc( ivec2 position, ivec2 surface_dimensions ) {
     vec2 result = {
         (f32)position.x / (f32)surface_dimensions.x,

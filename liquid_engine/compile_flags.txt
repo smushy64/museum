@@ -1,9 +1,7 @@
 clang
 -std=c99
--Werror
 -Wall
 -Wextra
--pedantic
 -Werror=vla
 -fno-strict-enums
 -Wno-missing-braces
@@ -34,5 +32,6 @@ clang
 -DLD_LOGGING
 -DLD_ASSERTIONS
 -DLD_PROFILING
+-D_XOPEN_SOURCE=600
 -I.
 -I../vendor

@@ -254,7 +254,7 @@ LD_API void log_formatted_unlocked(
 
 #if defined(LD_ASSERTIONS)
     #define LOG_PANIC( format, ... )\
-         log_formatted_unlocked(\
+        log_formatted_unlocked(\
             LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
             true, true,\
             LOG_COLOR_RED\

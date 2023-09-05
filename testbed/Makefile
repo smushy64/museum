@@ -23,7 +23,7 @@ else
 endif
 
 ifeq ($(TARGET_ARCH), x86_64)
-	CXXFLAGS += -masm=intel -mcpu=x86-64
+	CXXFLAGS += -masm=intel
 else
 	CXXFLAGS += -mcpu=$(TARGET_ARCH)
 endif
@@ -42,6 +42,11 @@ CPPFLAGS += -DLIQUID_ENGINE_VERSION=\""$(LD_NAME) $(LD_VERSION)"\"
 CPPFLAGS += -DLIQUID_ENGINE_VERSION_MAJOR=$(LD_MAJOR)
 CPPFLAGS += -DLIQUID_ENGINE_VERSION_MINOR=$(LD_MINOR)
 
+ifeq ($(RELEASE), true)
+else
+	CPPFLAGS += -DDEBUG -DLD_LOGGING -DLD_ASSERTIONS -DLD_PROFILING
+endif
+
 LDFLAGS :=
 ifeq ($(TARGET_PLATFORM), win32)
 	LDFLAGS += -fuse-ld=lld -nostdlib++
@@ -53,6 +58,10 @@ ifeq ($(TARGET_PLATFORM), win32)
 	else
 		LDFLAGS += -Wl,//debug
 	endif
+endif
+
+ifeq ($(TARGET_PLATFORM), linux)
+	LDFLAGS += -shared -fPIC -L../$(BUILD_PATH)/$(LD_EXE_NAME)
 endif
 
 INCLUDE := -I../liquid_engine/ -I.

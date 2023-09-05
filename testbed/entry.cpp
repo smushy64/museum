@@ -21,7 +21,17 @@ extern_c usize application_query_memory_requirement() {
     return sizeof(GameMemory);
 }
 extern_c b32 application_init( EngineContext* ctx, void* opaque ) {
-    engine_application_set_name( ctx, SV("testbed") );
+
+    StringView name;
+#if defined(LD_PLATFORM_WINDOWS)
+    name = SV(testbed-win32);
+#elif defined(LD_PLATFORM_LINUX)
+    name = SV("testbed-linux");
+#else
+    name = SV("testbed-unknown");
+#endif
+
+    engine_application_set_name( ctx, name );
     engine_surface_center( ctx );
 
     GameMemory* memory = (GameMemory*)opaque;
@@ -39,12 +49,19 @@ extern_c b32 application_init( EngineContext* ctx, void* opaque ) {
 extern_c b32 application_run( EngineContext* ctx maybe_unused, void* opaque ) {
     GameMemory* maybe_unused memory = (GameMemory*)opaque;
 
+    Timer time = engine_time( ctx );
+    unused(time);
+
     if( input_key_press( KEY_ESCAPE ) ) {
         engine_exit();
     }
 
     if( input_key_press( KEY_SPACE ) ) {
         engine_surface_center( ctx );
+    }
+
+    if( input_key_press( KEY_ENTER ) ) {
+        LOG_DEBUG( "Delta time: {f}", time.delta_seconds );
     }
     return true;
 }

@@ -370,6 +370,7 @@ b32 engine_entry( int argc, char** argv ) {
     if( !platform_surface_create(
         DEFAULT_SURFACE_DIMENSIONS,
         "Liquid Engine",
+        arg_parse.backend,
         surface_flags,
         surface
     ) ) {

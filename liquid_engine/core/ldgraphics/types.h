@@ -23,7 +23,7 @@ struct Vertex2D {
     vec2 uv;
 };
 /// Make vertex 2d.
-header_only always_inline
+header_only force_inline maybe_unused
 struct Vertex2D vertex2d( vec2 position, vec2 uv ) {
     struct Vertex2D result;
     result.position = position;
@@ -43,7 +43,7 @@ struct Vertex3D {
     vec4 tangent; 
 };
 /// Make vertex 3d.
-header_only always_inline
+header_only force_inline maybe_unused
 struct Vertex3D vertex3d(
     vec3 position, vec2 uv,
     vec3 normal, vec4 tangent
@@ -65,7 +65,7 @@ typedef struct Mesh {
     u32 index_count;
 } Mesh;
 /// Make mesh.
-header_only always_inline
+header_only force_inline maybe_unused
 Mesh mesh(
     Transform* transform,
     struct Vertex3D* vertices, u32 vertex_count,

@@ -6,9 +6,10 @@
 #include <pthread.h>
 #include <signal.h>
 #include <semaphore.h>
+#include <time.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <time.h>
+#include <errno.h>
 #include "core/ldmemory.h"
 
 typedef struct CStdThread {
@@ -16,18 +17,19 @@ typedef struct CStdThread {
     void*         params;
     pthread_t     handle;
     u32           id;
-    PlatformSemaphore* suspend_semaphore;
+    PlatformMutex* suspend;
+    b32 resumed;
 } CStdThread;
 
 internal void* cstd_thread_proc( void* params ) {
     CStdThread* thread = params;
-    if( thread->suspend_semaphore ) {
-        platform_semaphore_wait( thread->suspend_semaphore, true, 0 );
+    if( thread->suspend ) {
+        platform_mutex_lock( thread->suspend );
     }
 
     b32 result = thread->thread_proc( thread->params );
 
-    return result ? NULL : NULL;
+    pthread_exit( (void*)( result ? 0ULL : -1ULL ) );
 }
 
 usize PLATFORM_THREAD_HANDLE_SIZE = sizeof( CStdThread );
@@ -45,6 +47,7 @@ b32 platform_thread_create(
     thread->thread_proc = thread_proc;
     thread->params      = thread_proc_params;
     thread->id          = RUNNING_THREAD_ID++;
+    thread->resumed = true;
 
     pthread_attr_t attributes;
     int result = pthread_attr_init( &attributes );
@@ -63,11 +66,14 @@ b32 platform_thread_create(
     }
 
     if( create_suspended ) {
-        thread->suspend_semaphore = platform_semaphore_create( "", 0 );
-        if( !thread->suspend_semaphore ) {
-            LOG_ERROR( "Failed to create suspend semaphore!" );
+        thread->suspend = platform_mutex_create();
+        if( !thread->suspend ) {
+            LOG_ERROR( "Failed to create suspend mutex!" );
             return false;
         }
+
+        platform_mutex_lock( thread->suspend );
+        thread->resumed = false;
     }
 
     read_write_fence();
@@ -87,27 +93,25 @@ b32 platform_thread_create(
 }
 void platform_thread_resume( PlatformThread* t ) {
     CStdThread* thread = t;
-    platform_semaphore_increment( thread->suspend_semaphore );
+    if( thread->resumed ) {
+        LOG_WARN( "Attempted to resume an already resumed thread!" );
+    } else {
+        platform_mutex_unlock( thread->suspend );
+        thread->resumed = true;
+    }
 }
 void platform_thread_suspend( PlatformThread* t ) {
     CStdThread* thread = t;
-    LOG_WARN( "pthread does not have a function for suspending a thread!" );
-    LOG_WARN( "Attempted to suspend thread {u}.", thread->id );
+    if( thread->resumed ) {
+        LOG_WARN( "Attempted to pause a running thread!" );
+    }
 }
 void platform_thread_kill( PlatformThread* t ) {
     CStdThread* thread = t;
-#if defined(SIGKILL)
-    pthread_kill( thread->handle, SIGKILL );
-#else
-    LOG_WARN( "Current platform does not define SIGKILL!" );
-    LOG_WARN(
-        "Attempted to kill thread {u} on non-posix platform!",
-        thread->id
-    );
     unused(thread);
-#endif
 }
 
+maybe_unused
 internal struct timespec ms_to_ts( u32 ms ) {
     struct timespec result;
     result.tv_sec  = ms / 1000;
@@ -118,10 +122,21 @@ internal struct timespec ms_to_ts( u32 ms ) {
 PlatformSemaphore* platform_semaphore_create(
     const char* opt_name, u32 initial_count
 ) {
-    // TODO(alicia): make sure mode is correct.
     mode_t mode   = S_IRWXU;
     int    oflag  = O_CREAT;
+    errno = 0;
     sem_t* result = sem_open( opt_name, oflag, mode, initial_count );
+
+#if defined(LD_LOGGING)
+    if( result == SEM_FAILED ) {
+        LOG_ERROR( "Failed to create semaphore" );
+        LOG_ERROR( "Name:  {cc}", opt_name );
+        LOG_ERROR( "mode:  {u}", mode );
+        LOG_ERROR( "oflag: {i}", oflag );
+        LOG_ERROR( "errno = {i}", errno );
+    }
+#endif
+
     return result;
 }
 void platform_semaphore_increment( PlatformSemaphore* semaphore ) {
@@ -134,19 +149,27 @@ void platform_semaphore_wait(
     if( infinite_timeout ) {
         sem_wait( semaphore );
     } else {
-        struct timespec ts = ms_to_ts( opt_timeout_ms );
-        sem_timedwait( semaphore, &ts );
+        #if _POSIX_C_SOURCE >= 2200112L || _XOPEN_SOURCE >= 600
+            struct timespec ts = ms_to_ts( opt_timeout_ms );
+            sem_timedwait( semaphore, &ts );
+        #else
+            sem_wait( semaphore );
+            unused(opt_timeout_ms);
+            LOG_WARN( "sem_timedwait is not available!" );
+        #endif
+        
     }
 }
 void platform_semaphore_destroy( PlatformSemaphore* semaphore ) {
     sem_close( semaphore );
 }
 
+#if defined(LD_PLATFORM_WINDOWS)
 STATIC_ASSERT(
     sizeof(pthread_mutex_t) == sizeof(PlatformMutex*),
     "sizes don't match!!!"
 );
-PlatformMutex* platform_mutex_create() {
+PlatformMutex* platform_mutex_create(void) {
     pthread_mutex_t mutex;
     if( pthread_mutex_init( &mutex, NULL ) ) {
         return NULL;
@@ -165,6 +188,28 @@ void platform_mutex_destroy( PlatformMutex* platform_mutex ) {
     pthread_mutex_t mutex = (pthread_mutex_t)platform_mutex;
     pthread_mutex_destroy( &mutex );
 }
+#else
+PlatformMutex* platform_mutex_create(void) {
+    pthread_mutex_t* mutex = malloc(sizeof(pthread_mutex_t));
+    if( pthread_mutex_init( mutex, NULL ) ) {
+        return NULL;
+    }
+    return (PlatformMutex*)mutex;
+}
+void platform_mutex_lock( PlatformMutex* platform_mutex ) {
+    pthread_mutex_t* mutex = (pthread_mutex_t*)platform_mutex;
+    pthread_mutex_lock( mutex );
+}
+void platform_mutex_unlock( PlatformMutex* platform_mutex ) {
+    pthread_mutex_t* mutex = (pthread_mutex_t*)platform_mutex;
+    pthread_mutex_unlock( mutex );
+}
+void platform_mutex_destroy( PlatformMutex* platform_mutex ) {
+    pthread_mutex_t* mutex = (pthread_mutex_t*)platform_mutex;
+    pthread_mutex_destroy( mutex );
+    free( mutex );
+}
+#endif
 
 u32 platform_interlocked_increment_u32( volatile u32* addend ) {
     return __sync_fetch_and_add( addend, 1 );
@@ -187,6 +232,5 @@ void* platform_interlocked_compare_exchange_pointer(
 ) {
     return __sync_val_compare_and_swap( dst, exchange, comperand );
 }
-
 
 

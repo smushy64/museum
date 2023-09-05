@@ -9,12 +9,9 @@
 
 // TODO(alicia): log errors!
 
-void* platform_stdout_handle() {
-    return stdout;
-}
-void* platform_stderr_handle() {
-    return stderr;
-}
+void* platform_stdout_handle(void) { return stdout; }
+void* platform_stderr_handle(void) { return stderr; }
+
 void platform_write_console(
     void* output_handle,
     usize write_count,

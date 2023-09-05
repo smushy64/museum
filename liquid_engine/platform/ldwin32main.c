@@ -542,8 +542,10 @@ usize PLATFORM_SURFACE_BUFFER_SIZE = sizeof(Win32Surface);
 b32 PLATFORM_SUPPORTS_MULTIPLE_SURFACES = true;
 b32 platform_surface_create(
     ivec2 surface_dimensions, const char* surface_name,
+    enum RendererBackend backend,
     PlatformSurfaceCreateFlags flags, PlatformSurface* out_surface
 ) {
+    unused(backend);
     ASSERT( out_surface );
     Win32Surface* win32_surface = out_surface;
 

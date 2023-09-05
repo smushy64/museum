@@ -17,6 +17,8 @@
 
 #define SURFACE_ICON_PATH "./icon.ico"
 
+enum RendererBackend : u32;
+
 /// Size of platform subsystem.
 extern usize PLATFORM_SUBSYSTEM_SIZE;
 /// Initialize platform state. Returns true if successful.
@@ -64,6 +66,7 @@ typedef enum PlatformSurfaceMode : u8 {
 /// PLATFORM_SURFACE_BUFFER_SIZE.
 b32 platform_surface_create(
     ivec2 surface_dimensions, const char* surface_name,
+    enum RendererBackend backend,
     PlatformSurfaceCreateFlags flags, PlatformSurface* out_surface );
 /// Destroy a surface.
 void platform_surface_destroy( PlatformSurface* surface );
@@ -310,7 +313,8 @@ typedef enum MessageBoxType : u32 {
     MESSAGE_BOX_TYPE_YESNOCANCEL,
     MESSAGE_BOX_TYPE_COUNT
 } MessageBoxType;
-inline const char* message_box_type_to_string( MessageBoxType type ) {
+maybe_unused
+static inline const char* message_box_type_to_string( MessageBoxType type ) {
     const char* strings[MESSAGE_BOX_TYPE_COUNT] = {
         "Message Box with OK button.",
         "Message Box with OK and CANCEL buttons.",
@@ -332,7 +336,8 @@ typedef enum MessageBoxIcon : u32 {
 
     MESSAGE_BOX_ICON_COUNT
 } MessageBoxIcon;
-inline const char* message_box_icon_to_string( MessageBoxIcon icon ) {
+maybe_unused
+static inline const char* message_box_icon_to_string( MessageBoxIcon icon ) {
     const char* strings[MESSAGE_BOX_ICON_COUNT] = {
         "Message Box \"information\" icon.",
         "Message Box \"warning\" icon.",
@@ -357,7 +362,9 @@ typedef enum MessageBoxResult : u32 {
 
     MESSAGE_BOX_RESULT_COUNT
 } MessageBoxResult;
-inline const char* message_box_result_to_string( MessageBoxResult result ) {
+maybe_unused
+static inline const char*
+message_box_result_to_string( MessageBoxResult result ) {
     const char* strings[MESSAGE_BOX_RESULT_COUNT] = {
         "Message Box OK selected.",
         "Message Box CANCEL selected.",

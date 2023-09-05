@@ -147,15 +147,32 @@
 /// normalize float to int min-max.
 /// float must be in -1.0-1.0 range
 #define normalize_range_f32_i16( f )\
-    ((i8)( absof( (f) ) * (f32)I16_MAX ) * (i8)(signof((f))))
+    ((i16)( absof( (f) ) * (f32)I16_MAX ) * (i16)(signof((f))))
 /// normalize float to int min-max.
 /// float must be in -1.0-1.0 range
 #define normalize_range_f32_i32( f )\
-    ((i8)( absof( (f) ) * (f32)I32_MAX ) * (i8)(signof((f))))
+    ((i32)( absof( (f) ) * (f32)I32_MAX ) * (i32)(signof((f))))
 /// normalize float to int min-max.
 /// float must be in -1.0-1.0 range
 #define normalize_range_f32_i64( f )\
-    ((i8)( absof( (f) ) * (f32)I64_MAX ) * (i8)(signof((f))))
+    ((i64)( absof( (f) ) * (f32)I64_MAX ) * (i64)(signof((f))))
+
+/// normalize float to int min-max.
+/// float must be in 0.0-1.0 range
+#define normalize_range_f32_u8( f )\
+    ( (u8)( (f) * (f32)U8_MAX ) )
+/// normalize float to int min-max.
+/// float must be in 0.0-1.0 range
+#define normalize_range_f32_u16( f )\
+    ( (u16)( (f) * (f32)U16_MAX ) )
+/// normalize float to int min-max.
+/// float must be in 0.0-1.0 range
+#define normalize_range_f32_u32( f )\
+    ( (u32)( (f) * (f32)U32_MAX ) )
+/// normalize float to int min-max.
+/// float must be in 0.0-1.0 range
+#define normalize_range_f32_u64( f )\
+    ( (u64)( (f) * (f32)U64_MAX ) )
 
 /// square root
 header_only f32 sqrt32( f32 x ) {

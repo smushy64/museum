@@ -171,7 +171,7 @@ DECLARE_GL_FUNCTION( void, glDeleteVertexArrays, GLsizei, const GLuint* );
 DECLARE_GL_FUNCTION( void, glDebugMessageCallback, DEBUGPROC, void* );
 
 #define IMPLEMENT_GL_FUNCTION( ret, name, ... )\
-    static always_inline ret\
+    static force_inline maybe_unused ret\
     name( __VA_ARGS__ )
 
 // Textures ------------------------------------------------------------
