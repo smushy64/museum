@@ -9,19 +9,6 @@
 #include "core/ldlog.h"
 #include "core/ldstring.h"
 
-LD_API u64 hash( StringView sv ) {
-    local const u64 multiplier = 97;
-
-    u64 result = 0;
-    for( usize i = 0; i < sv.len; ++i ) {
-        result = result * multiplier + sv.str[i];
-    }
-
-    result %= sv.len;
-
-    return result;
-}
-
 LD_API b32 internal_list_create(
     struct Allocator* allocator, usize capacity,
     usize stride, List* out_list

@@ -17,6 +17,8 @@ export LD_VERSION      := $(LD_MAJOR).$(LD_MINOR)
 export LD_NAME         := liquid-engine
 export LD_VERSION_PATH := $(subst .,-,$(LD_VERSION))
 
+export LD_MEMORY_PAGE_SIZE := 4096
+
 # x86_64, arm64, wasm64
 ifndef $(TARGET_ARCH)
 	ifeq ($(OS), Windows_NT)
@@ -53,6 +55,7 @@ else
 
 	ifeq ($(TARGET_PLATFORM), linux)
 		LDMAIN := liquid_engine/platform/ldlinuxmain.c
+		LD_MEMORY_PAGE_SIZE := $(shell getconf PAGESIZE)
 	endif
 endif
 
@@ -110,6 +113,7 @@ CPPFLAGS += -DGL_VERSION_MINOR=$(GL_MINOR)
 CPPFLAGS += -DVULKAN_VERSION_MAJOR=$(VK_MAJOR)
 CPPFLAGS += -DVULKAN_VERSION_MINOR=$(VK_MINOR)
 CPPFLAGS += -DLD_EXPORT
+CPPFLAGS += -DPLATFORM_MEMORY_PAGE_SIZE=$(LD_MEMORY_PAGE_SIZE)
 
 ifeq ($(RELEASE), true)
 else
@@ -184,6 +188,7 @@ run:
 spit:
 	@echo "platform:   "$(TARGET_PLATFORM)
 	@echo "arch:       "$(TARGET_ARCH)
+	@echo "page size:  "$(MEMORY_PAGE_SIZE)
 	@echo "build path: "$(BUILD_PATH)
 	@echo "target:     "$(TARGET)
 	@echo "compiler:   "$(CC)

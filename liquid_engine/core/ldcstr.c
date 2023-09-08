@@ -15,15 +15,15 @@ LD_API usize cstr_len( const char* cstr ) {
     return result;
 }
 LD_API b32 cstr_cmp( const char* a, const char* b ) {
-    usize a_len = cstr_len( a );
-    usize b_len = cstr_len( b );
-
-    if( a_len != b_len ) {
+    if( !a || !b ) {
         return false;
     }
 
-    for( usize i = 0; i < a_len; ++i ) {
-        if( a[i] != b[i] ) {
+    while( *a && *b ) {
+        if( *a++ != *b++ ) {
+            return false;
+        }
+        if( (*a && !*b) || (!*a && *b) ) {
             return false;
         }
     }

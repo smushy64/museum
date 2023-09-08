@@ -6,7 +6,9 @@
 #include "defines.h"
 #if defined(LD_API_INTERNAL)
 
+#include "core/ldgraphics/types.h"
 #include "core/ldmath/types.h"
+#include "core/ldstring.h"
 
 enum RendererBackend : u32;
 struct Platform;
@@ -16,19 +18,31 @@ union ivec2;
 typedef void RendererContext;
 
 typedef u32 RenderID;
-#define RENDER_SHADER_DEBUG_COLOR (0)
+enum : RenderID {
+    RENDER_SHADER_DEBUG_COLOR,
+    RENDER_SHADER_TEXT,
+};
 
-#define RENDER_MESH_QUAD_2D_LOWER_LEFT (0)
+enum : RenderID {
+    RENDER_MESH_QUAD_2D_LOWER_LEFT,
+};
 
 typedef struct {
     rgba color;
 } ShaderDebugColor;
 
 typedef struct {
+    StringSlice text;
+    FontID      font;
+    rgba        color;
+} ShaderText;
+
+typedef struct {
     RenderID shader;
     mat4     transform;
     union {
         ShaderDebugColor debug_color;
+        ShaderText       text;
     };
 } Material;
 

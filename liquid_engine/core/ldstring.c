@@ -12,32 +12,12 @@
 
 #include "ldplatform.h"
 
-// FIXME(alicia): actually rename all instances
-// of String -> DynamicString.
-typedef DynamicString String;
-
-internal void string_copy_internal(
-    usize src_len, const char* src_buffer,
-    usize dst_capacity, char* dst_buffer
-) {
-    usize max_len = src_len > dst_capacity ? dst_capacity : src_len;
-    mem_copy( dst_buffer, src_buffer, max_len );
-}
-
 LD_API void char_output_stdout( char character ) {
     platform_write_console( platform_stdout_handle(), 1, &character );
 }
 LD_API void char_output_stderr( char character ) {
     platform_write_console( platform_stderr_handle(), 1, &character );
 }
-
-LD_API StringView sv_from_cstr( const char* cstr ) {
-    StringView result;
-    result.str = cstr;
-    result.len = cstr_len( cstr );
-    return result;
-}
-
 internal i32 parse_i32_internal( char** at_init ) {
     b32 is_negative = false;
     i32 result = 0;
@@ -54,220 +34,302 @@ internal i32 parse_i32_internal( char** at_init ) {
     *at_init = at;
     return result * (is_negative ? -1 : 1);
 }
-hot LD_API void sv_output_stdout( StringView string_view ) {
+hot LD_API void ss_output_stdout( StringSlice* slice ) {
     platform_write_console(
         platform_stdout_handle(),
-        string_view.len, string_view.buffer
+        slice->len, slice->buffer
     );
 }
-hot LD_API void sv_output_stderr( StringView string_view ) {
+hot LD_API void ss_output_stderr( StringSlice* slice ) {
     platform_write_console(
         platform_stderr_handle(),
-        string_view.len, string_view.buffer
+        slice->len, slice->buffer
     );
 }
-LD_API b32 sv_cmp( StringView  a, StringView  b ) {
-    if( a.len != b.len ) {
+LD_API b32 ss_parse_i32( StringSlice* slice, i32* out_integer ) {
+    // TODO(alicia): rewrite!
+    i32 result = parse_i32_internal( (char**)&slice->buffer );
+    *out_integer = result;
+    return true;
+}
+LD_API b32 ss_parse_u32( StringSlice* slice, u32* out_integer ) {
+    // TODO(alicia): rewrite!
+    i32 result = parse_i32_internal( (char**)&slice->buffer );
+    *out_integer = REINTERPRET( u32, result );
+    return true;
+}
+LD_API StringSlice ss_from_cstr( usize opt_len, const char* cstr ) {
+    StringSlice result;
+    result.buffer = (char*)cstr;
+    if( opt_len ) {
+        result.len = opt_len;
+    } else {
+        result.len = cstr_len( cstr );
+    }
+    result.capacity = result.len + 1;
+    return result;
+}
+LD_API b32 ss_cmp( StringSlice* a, StringSlice* b ) {
+    if( a->len != b->len ) {
         return false;
     }
-
-    // TODO(alicia): traverse by u64 instead
-    for( usize i = 0; i < a.len; ++i ) {
-        if( a.buffer[i] != b.buffer[i] ) {
+    for( usize i = 0; i < a->len; ++i ) {
+        if( a->buffer[i] != b->buffer[i] ) {
             return false;
         }
     }
 
     return true;
 }
-LD_API void sv_trim_trailing_whitespace( StringView* sv ) {
-    for( usize i = 0; i < sv->len; ++i ) {
-        if( char_is_whitespace( sv->buffer[i] ) ) {
-            sv->len = i;
+LD_API b32 ss_find(
+    StringSlice* slice, StringSlice* phrase, usize* opt_out_index
+) {
+    if( slice->len < phrase->len ) {
+        return false;
+    }
+    
+    for( usize i = 0; i < slice->len; ++i ) {
+        usize remaining_len = slice->len - i;
+        if( remaining_len < phrase->len ) {
+            return false;
+        }
+        StringSlice remaining;
+        remaining.buffer   = slice->buffer + i;
+        remaining.len      = phrase->len;
+        remaining.capacity = remaining.len;
+
+        if( ss_cmp( &remaining, phrase ) ) {
+            if( opt_out_index ) {
+                *opt_out_index = i;
+            }
+            return true;
+        }
+    }
+
+    return false;
+
+}
+LD_API b32 ss_find_char(
+    StringSlice* slice, char character, usize* opt_out_index
+) {
+    for( usize i = 0; i < slice->len; ++i ) {
+        if( slice->buffer[i] == character ) {
+            if( opt_out_index ) {
+                *opt_out_index = i;
+            }
+            return true;
+        }
+    }
+    return false;
+}
+LD_API usize ss_phrase_count( StringSlice* slice, StringSlice* phrase ) {
+    usize count = 0;
+    if( slice->len < phrase->len ) {
+        return 0;
+    }
+
+    for( usize i = 0; i < slice->len; ++i ) {
+        usize remaining_len = slice->len - i;
+        if( remaining_len < phrase->len ) {
+            return count;
+        }
+
+        if( slice->buffer[i] == phrase->buffer[0] ) {
+            StringSlice remaining;
+            remaining.buffer = slice->buffer + i;
+            remaining.len    = phrase->len;
+            remaining.capacity = remaining.len;
+
+            if( ss_cmp( &remaining, phrase ) ) {
+                count++;
+            }
+        }
+    }
+
+    return count;
+}
+LD_API usize ss_char_count( StringSlice* slice, char character ) {
+    usize count = 0;
+    for( usize i = 0; i < slice->len; ++i ) {
+        if( slice->buffer[i] == character ) {
+            count++;
+        }
+    }
+    return count;
+}
+LD_API void ss_mut_copy( StringSlice* dst, StringSlice* src ) {
+    ASSERT( dst->capacity );
+
+    usize max_copy = dst->capacity > src->len ?
+        src->len : dst->capacity;
+    mem_copy( dst->buffer, src->buffer, max_copy );
+
+    if( max_copy > dst->len ) {
+        dst->len = max_copy;
+    }
+}
+LD_API void ss_mut_copy_to_len( StringSlice* dst, StringSlice* src ) {
+    usize max_copy = dst->len > src->len ?
+        src->len : dst->len;
+    mem_copy( dst->buffer, src->buffer, max_copy );
+}
+LD_API void ss_mut_copy_cstr(
+    StringSlice* dst, usize opt_len, const char* src
+) {
+    StringSlice cstr;
+    cstr.buffer = (char*)src;
+    if( opt_len ) {
+        cstr.len = opt_len;
+    } else {
+        cstr.len = cstr_len( src );
+    }
+    ss_mut_copy( dst, &cstr );
+}
+LD_API void ss_mut_copy_cstr_to_len(
+    StringSlice* dst, usize opt_len, const char* src
+) {
+    StringSlice cstr;
+    cstr.buffer = (char*)src;
+    if( opt_len ) {
+        cstr.len = opt_len;
+    } else {
+        cstr.len = cstr_len( src );
+    }
+    ss_mut_copy_to_len( dst, &cstr );
+}
+LD_API void ss_mut_reverse( StringSlice* slice ) {
+    if( !slice->buffer || !slice->len || slice->len == 1 ) {
+        return;
+    }
+
+    char* begin = slice->buffer;
+    char* end   = begin + slice->len - 1;
+
+    while( begin != end ) {
+        char temp = *end;
+        *end--   = *begin;
+        b32 should_end = begin == end;
+        *begin++ = temp;
+
+        if( should_end ) {
             return;
         }
     }
 }
-LD_API isize sv_find_first_char( StringView string_view, char character ) {
-    for( usize i = 0; i < string_view.len; ++i ) {
-        if( string_view.buffer[i] == character ) {
-            return i;
+LD_API void ss_mut_trim_trailing_whitespace( StringSlice* slice ) {
+    for( usize i = slice->len; i-- > 0; ) {
+        char current = slice->buffer[i];
+        if( current != ' ' || current != '\t' || current != '\n' ) {
+            slice->len = i;
+            return;
         }
     }
-    return -1;
 }
-LD_API i32 sv_parse_i32( StringView s ) {
-    i32 result = parse_i32_internal( (char**)&s.buffer );
-    return result;
+LD_API void ss_mut_fill( StringSlice* slice, char character ) {
+    // TODO(alicia): maybe do this by 64-bit integers?
+    for( usize i = 0; i < slice->len; ++i ) {
+        slice->buffer[i] = character;
+    }
 }
-LD_API u32 sv_parse_u32( StringView s ) {
-    i32 result = parse_i32_internal( (char**)&s.buffer );
-    return *(u32*)&result;
+LD_API void ss_mut_fill_to_capacity( StringSlice* slice, char character ) {
+    for( usize i = 0; i < slice->capacity; ++i ) {
+        slice->buffer[i] = character;
+    }
+    slice->len = slice->capacity;
 }
-LD_API b32 sv_contains( StringView s, StringView phrase ) {
-    if( s.len < phrase.len ) {
+LD_API b32 ss_mut_push( StringSlice* slice, char character ) {
+    if( slice->len == slice->capacity ) {
         return false;
     }
-   
-    usize i = 0;
-    do {
-        usize remaining_len = s.len - i;
-        if( remaining_len < phrase.len ) {
-            return false;
-        }
-        StringView window = {};
-        window.buffer = &s.buffer[i];
-        window.len    = phrase.len;
-        if( sv_cmp( window, phrase ) ) {
-            return true;
-        }
-        ++i;
-    } while( i < s.len );
 
-    return false;
+    slice->buffer[slice->len++] = character;
+
+    return true;
 }
-LD_API void sv_copy( StringView src, StringView dst ) {
-    string_copy_internal(
-        src.len, src.buffer,
-        dst.len, (char*)dst.buffer
+LD_API b32 ss_mut_insert(
+    StringSlice* slice, char character, usize position
+) {
+    if( position == slice->len ) {
+        return ss_mut_push( slice, character );
+    }
+    if( slice->len == slice->capacity ) {
+        return false;
+    }
+
+    usize remaining_len = slice->len - position;
+    mem_copy_overlapped(
+        slice->buffer + position + 1,
+        slice->buffer + position,
+        remaining_len
     );
-}
-LD_API void sv_fill( StringView s, char character ) {
-    for( usize i = 0; i < s.len; ++i ) {
-        s.buffer[i] = character;
-    }
-}
-
-internal b32 dstring_allocate(
-    Allocator* allocator, u32 capacity, String* out_string
-) {
-    void* buffer = allocator_alloc(
-        allocator, capacity, MEMORY_TYPE_STRING );
-    if( !buffer ) {
-        return false;
-    }
-    out_string->buffer   = (char*)buffer;
-    out_string->capacity = capacity;
-    return true;
-}
-internal b32 dstring_reallocate(
-    Allocator* allocator, String* string, u32 new_capacity
-) {
-    void* new_buffer = allocator_realloc(
-        allocator,
-        string->buffer, string->capacity,
-        new_capacity, MEMORY_TYPE_STRING
-    );
-    if( !new_buffer ) {
-        return false;
-    }
-    string->buffer   = (char*)new_buffer;
-    string->capacity = new_capacity;
-    return true;
-}
-LD_API b32 dstring_new(
-    Allocator* allocator, StringView view, String* out_string
-) {
-    u32 capacity = view.len;
-    if( !dstring_allocate( allocator, capacity, out_string ) ) {
-        return false;
-    }
-    out_string->len = capacity;
-    mem_copy( out_string->buffer, view.buffer, view.len );
+    slice->buffer[position] = character;
+    slice->len++;
 
     return true;
+
 }
-LD_API b32 dstring_with_capacity(
-    Allocator* allocator, usize capacity, String* out_string
-) {
-    out_string->len = 0;
-    return dstring_allocate( allocator, capacity, out_string );
+LD_API b32 ss_mut_append( StringSlice* slice, StringSlice* append ) {
+    b32 full_append = slice->capacity >= append->len;
+
+    usize max_copy = append->len > slice->capacity ?
+        slice->capacity - append->len : append->len;
+    
+    if( !max_copy ) {
+        return false;
+    }
+
+    mem_copy(
+        slice->buffer + slice->len,
+        append->buffer, max_copy );
+
+    slice->len += max_copy;
+    return full_append;
 }
-LD_API b32 dstring_reserve(
-    Allocator* allocator, String* string, usize new_capacity
+LD_API void ss_split_at(
+    StringSlice* slice_to_split, usize index,
+    StringSlice* out_first, StringSlice* out_last
 ) {
-    return dstring_reallocate( allocator, string, new_capacity );
+    ASSERT( index + 1 < slice_to_split->len );
+
+    out_first->buffer   = slice_to_split->buffer;
+    out_first->len      = index;
+    out_first->capacity = out_first->len;
+
+    usize offset = index + 1;
+    out_last->buffer    = slice_to_split->buffer + offset;
+    out_last->len       = slice_to_split->len - offset;
+    out_last->capacity  = slice_to_split->capacity - offset;
 }
-LD_API b32 dstring_append(
-    Allocator* allocator, String* string, StringView append, b32 alloc
+LD_API b32 ss_split_at_whitespace(
+    StringSlice* slice_to_split,
+    StringSlice* out_first, StringSlice* out_last
 ) {
-    u32 new_len = string->len + append.len;
-    u32 max_len = new_len > string->capacity ? string->capacity : new_len;
-    if( alloc ) {
-        if( string->capacity < new_len ) {
-            if( !dstring_reallocate( allocator, string, new_len ) ) {
+    usize index = 0;
+    if( !ss_find_char( slice_to_split, ' ', &index ) ) {
+        if( !ss_find_char( slice_to_split, '\t', &index ) ) {
+            if( !ss_find_char( slice_to_split, '\n', &index ) ) {
                 return false;
             }
-            max_len = new_len;
         }
     }
 
-    mem_copy( string->buffer + string->len, append.buffer, max_len );
-    string->len = max_len;
+    ss_split_at( slice_to_split, index, out_first, out_last );
 
     return true;
 }
-LD_API b32 dstring_push_char(
-    Allocator* allocator,
-    String* string, char character, u32 realloc
-) {
-    if( string->len == string->capacity ) {
-        if( realloc ) {
-            if( !dstring_reserve(
-                allocator,
-                string, string->capacity + realloc
-            ) ) {
-                return false;
-            }
-        } else {
-            return true;
-        }
+LD_API u64 ss_hash( StringSlice* slice ) {
+    local const u64 multiplier = 97;
+
+    u64 result = 0;
+    for( usize i = 0; i < slice->len; ++i ) {
+        result = result * multiplier + slice->buffer[i];
     }
 
-    string->buffer[string->len++] = character;
-    return true;
-}
-LD_API char dstring_pop_char( String* string ) {
-    if( !string->len ) {
-        return 0;
-    }
-    return string->buffer[string->len--];
-}
-LD_API StringView dstring_view_capacity_bounds(
-    String string, usize offset
-) {
-    StringView result = {};
-    if( offset >= string.capacity ) {
-        LOG_FATAL("Attempted to create dstring view with invalid offset!");
-        PANIC();
-    }
-    result.buffer = string.buffer + offset;
-    result.len    = string.capacity;
+    result %= slice->len;
+
     return result;
 }
-LD_API StringView dstring_view_len_bounds(
-    String string, usize offset
-) {
-    StringView result = {};
-    if( offset >= string.len ) {
-        LOG_FATAL("Attempted to create dstring view with invalid offset!");
-        PANIC();
-    }
-    result.buffer = string.buffer + offset;
-    result.len    = string.len - offset;
-    return result;
-}
-LD_API void dstring_free( Allocator* allocator, String* string ) {
-    if( string->buffer ) {
-        allocator_free(
-            allocator,
-            string->buffer,
-            string->capacity,
-            MEMORY_TYPE_STRING
-        );
-    }
-    mem_zero( string, sizeof( String ) );
-}
+
 
 global char DECIMAL_DIGITS[10] = {
     '0', '1', '2',
@@ -286,7 +348,7 @@ global char HEX_DIGITS[16] = {
 #define DECIMAL_BASE 10
 #define HEX_BASE 16
 internal u32 int_to_string(
-    StringView view,
+    StringSlice slice,
     u64 value,
     u64 base,
     char* digits,
@@ -295,39 +357,39 @@ internal u32 int_to_string(
     b32 use_zero_padding,
     b32 is_negative
 ) {
-    if( !view.len ) {
+    if( !slice.len ) {
         return 0;
     }
-    u32 view_index = 0;
-    char* view_buffer = (char*)view.buffer;
+    u32 slice_index = 0;
+    char* slice_buffer = (char*)slice.buffer;
 
     if( value == 0 ) {
-        view_buffer[view_index++] = digits[0];
+        slice_buffer[slice_index++] = digits[0];
     }
 
-    while( view_index < view.len && value ) {
+    while( slice_index < slice.len && value ) {
         u64 digit = value % base;
-        view_buffer[view_index++] = digits[digit];
+        slice_buffer[slice_index++] = digits[digit];
         value /= base;
     }
-    if( base == HEX_BASE && (view_index + 2) < view.len ) {
-        view_buffer[view_index++] = 'x';
-        view_buffer[view_index++] = '0';
+    if( base == HEX_BASE && (slice_index + 2) < slice.len ) {
+        slice_buffer[slice_index++] = 'x';
+        slice_buffer[slice_index++] = '0';
     }
 
-    if( !padding_is_negative && padding && padding >= view_index ) {
-        padding = padding - view_index;
+    if( !padding_is_negative && padding && padding >= slice_index ) {
+        padding = padding - slice_index;
         if( padding ) {
             padding -= is_negative;
         }
-        u32 remaining_len = view.len - view_index;
+        u32 remaining_len = slice.len - slice_index;
         u32 max_len = padding > remaining_len ? remaining_len : padding;
         for( u32 i = 0; i < max_len; ++i ) {
-            view_buffer[view_index++] =
+            slice_buffer[slice_index++] =
                 use_zero_padding ? '0' : ' ';
         }
     }
-    return view_index;
+    return slice_index;
 }
 
 #define FLOAT_BYTE_BYTES 0
@@ -358,21 +420,21 @@ internal FloatByteFormatResult float_byte_format( f64 f ) {
 }
 
 internal u32 float_to_string(
-    StringView view,
+    StringSlice slice,
     f64 value,
     i32 padding,
     u32 precision,
     b32 use_zero_padding
 ) {
-    if( !view.len ) {
+    if( !slice.len ) {
         return 0;
     }
-    char* view_buffer = (char*)view.buffer;
+    char* slice_buffer = (char*)slice.buffer;
 
     if( is_nan32( value ) ) {
-        view_buffer[0] = 'N';
-        view_buffer[1] = 'A';
-        view_buffer[2] = 'N';
+        slice_buffer[0] = 'N';
+        slice_buffer[1] = 'A';
+        slice_buffer[2] = 'N';
         return 3;
     }
 
@@ -381,7 +443,7 @@ internal u32 float_to_string(
     u32 write_count = 0;
     u32 integer_write_count = 0;
     u32 fract_write_count   = 0;
-    u32 view_index  = 0;
+    u32 slice_index  = 0;
 
     b32 value_is_negative = value < 0.0;
     if( value_is_negative ) {
@@ -391,36 +453,36 @@ internal u32 float_to_string(
     u64 integer_part = trunc_i64( value );
     f64 fract_part   = value - (f64)integer_part;
 
-    u32 max_fract_write_count = precision > view.len ? view.len - 1 : precision;
+    u32 max_fract_write_count = precision > slice.len ? slice.len - 1 : precision;
     for( u32 i = 0; i < max_fract_write_count; ++i ) {
         fract_part *= 10.0;
         u64 fract_part_int = clamp(trunc_i64(fract_part), 0ll, 9ll);
         fract_part -= (f64)fract_part_int;
         u32 buffer_index = (max_fract_write_count - 1) - i;
-        view_buffer[buffer_index] = DECIMAL_DIGITS[fract_part_int];
+        slice_buffer[buffer_index] = DECIMAL_DIGITS[fract_part_int];
         fract_write_count++;
-        view_index++;
+        slice_index++;
     }
 
-    if( view_index < view.len ) {
-        view_buffer[view_index++] = '.';
+    if( slice_index < slice.len ) {
+        slice_buffer[slice_index++] = '.';
         write_count++;
     }
 
-    if( !integer_part && view_index < view.len ) {
-        view_buffer[view_index++] = '0';
+    if( !integer_part && slice_index < slice.len ) {
+        slice_buffer[slice_index++] = '0';
         integer_write_count++;
     }
-    while( view_index < view.len && integer_part ) {
+    while( slice_index < slice.len && integer_part ) {
         u64 digit = clamp((integer_part % 10ull), 0ull, 9ull);
-        view_buffer[view_index++] = DECIMAL_DIGITS[digit];
+        slice_buffer[slice_index++] = DECIMAL_DIGITS[digit];
         integer_part /= 10;
         integer_write_count++;
     }
 
     if( !use_zero_padding ) {
-        if( value_is_negative && view_index < view.len ) {
-            view_buffer[view_index++] = '-';
+        if( value_is_negative && slice_index < slice.len ) {
+            slice_buffer[slice_index++] = '-';
             write_count++;
         }
     }
@@ -433,18 +495,18 @@ internal u32 float_to_string(
         if( padding ) {
             padding -= value_is_negative;
         }
-        u32 remaining_len = view.len - integer_write_count;
+        u32 remaining_len = slice.len - integer_write_count;
         u32 max_len = padding > (i32)remaining_len ? remaining_len : padding;
         for( u32 i = 0; i < max_len; ++i ) {
-            view_buffer[view_index++] =
+            slice_buffer[slice_index++] =
                 use_zero_padding ? '0' : ' ';
             write_count++;
         }
     }
 
     if( use_zero_padding ) {
-        if( value_is_negative && view_index < view.len ) {
-            view_buffer[view_index++] = '-';
+        if( value_is_negative && slice_index < slice.len ) {
+            slice_buffer[slice_index++] = '-';
             write_count++;
         }
     }
@@ -453,9 +515,9 @@ internal u32 float_to_string(
     return write_count;
 }
 
-typedef b32 (*WriteCharFN)( StringView*, char );
+typedef b32 (*WriteCharFN)( StringSlice*, char );
 
-no_inline internal b32 write_char_dst( StringView* dst, char character ) {
+no_inline internal b32 write_char_dst( StringSlice* dst, char character ) {
     if( dst->len ) {
         --dst->len;
         *dst->buffer++ = character;
@@ -464,25 +526,29 @@ no_inline internal b32 write_char_dst( StringView* dst, char character ) {
         return false;
     }
 }
-no_inline internal b32 write_char_stdout( StringView* sv, char character ) {
-    unused(sv);
+no_inline internal b32 write_char_stdout(
+    StringSlice* slice, char character
+) {
+    unused(slice);
     char_output_stderr( character );
     return true;
 }
-no_inline internal b32 write_char_stderr( StringView* sv, char character ) {
-    unused(sv);
+no_inline internal b32 write_char_stderr(
+    StringSlice* slice, char character
+) {
+    unused(slice);
     char_output_stderr( character );
     return true;
 }
 
 no_inline hot
 internal u32 format_internal(
-    StringView buffer,
+    StringSlice buffer,
     const char* format,
     WriteCharFN write_char_fn,
     va_list list
 ) {
-    StringView dst = sv_clone( buffer );
+    StringSlice dst = ss_clone( &buffer );
     if( !dst.len ) {
         u32 result = dst.buffer - buffer.buffer;
         return result;
@@ -491,7 +557,7 @@ internal u32 format_internal(
     char* at = (char*)format;
     #define TEMP_BUFFER_SIZE 64
     char temp_buffer[TEMP_BUFFER_SIZE];
-    StringView temp_buffer_view = {};
+    StringSlice temp_buffer_view = {};
     temp_buffer_view.buffer = temp_buffer;
     temp_buffer_view.len = TEMP_BUFFER_SIZE;
 
@@ -633,16 +699,11 @@ internal u32 format_internal(
                     const char* string_buffer = NULL;
                     u32         string_length = 0;
                     ++at;
-                    if( *at == 'v' || *at == 'V' ) {
-                        StringView arg = va_arg(list, StringView);
-                        ++at;
-                        string_buffer = arg.buffer;
-                        string_length = arg.len;
-                    } else {
-                        String arg = va_arg( list, String );
-                        string_buffer = arg.buffer;
-                        string_length = arg.len;
-                    }
+
+                    StringSlice arg = va_arg(list, StringSlice);
+                    string_buffer = arg.buffer;
+                    string_length = arg.len;
+
                     b32 padding_is_negative = false;
                     i32 padding = 0;
 
@@ -1070,23 +1131,23 @@ internal u32 format_internal(
     return result;
 }
 
-LD_API u32 sv_format_va(
-    StringView buffer,
+LD_API usize ss_mut_format_va(
+    StringSlice* buffer,
     const char* format,
     va_list variadic
 ) {
-    return format_internal( buffer, format, write_char_dst, variadic );
+    return format_internal( *buffer, format, write_char_dst, variadic );
 }
-LD_API u32 sv_format( StringView buffer, const char* format, ... ) {
+LD_API usize ss_mut_format( StringSlice* buffer, const char* format, ... ) {
     va_list list;
     va_start( list, format );
-    u32 result = format_internal( buffer, format, write_char_dst, list );
+    usize result = format_internal( *buffer, format, write_char_dst, list );
     va_end( list );
     return result;
 }
 
 LD_API void print( const char* format, ... ) {
-    StringView buffer = {};
+    StringSlice buffer = {};
     buffer.len = U32_MAX;
     va_list list;
     va_start( list, format );
@@ -1095,7 +1156,7 @@ LD_API void print( const char* format, ... ) {
     char_output_stderr(0);
 }
 LD_API void print_err( const char* format, ... ) {
-    StringView buffer = {};
+    StringSlice buffer = {};
     buffer.len = U32_MAX;
     va_list list;
     va_start( list, format );
@@ -1104,7 +1165,7 @@ LD_API void print_err( const char* format, ... ) {
     char_output_stderr(0);
 }
 LD_API void print_va( const char* format, va_list variadic ) {
-    StringView buffer = {};
+    StringSlice buffer = {};
     buffer.len = U32_MAX;
     format_internal(
         buffer,
@@ -1115,7 +1176,7 @@ LD_API void print_va( const char* format, va_list variadic ) {
     char_output_stderr(0);
 }
 LD_API void print_err_va( const char* format, va_list variadic ) {
-    StringView buffer = {};
+    StringSlice buffer = {};
     buffer.len = U32_MAX;
     format_internal(
         buffer,

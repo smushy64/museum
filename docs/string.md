@@ -24,8 +24,7 @@ Includes:
 - [Types](#types)
 - [Functions](#functions)
     - [Character](#character)
-    - [String View](#string-view)
-    - [Dynamic String](#dynamic-string)
+    - [String Slice](#string-slice)
     - [IO](#io)
 - [Macro Functions](#macro-functions)
 - [Format Specifiers](#format-specifiers)
@@ -40,24 +39,12 @@ Includes:
 ## Types
 
 ```cpp
-/// Dynamic heap allocated string that owns its buffer
+/// Slice of string buffer.
 /// Size: 24
-typedef struct DynamicString {
+typedef struct StringView {
     char* buffer;
     usize len;
     usize capacity;
-} DynamicString;
-```
-
-```cpp
-/// View into string buffer. Does not own its buffer.
-/// Size: 16
-typedef struct StringView {
-    union {
-        const char* str;
-        char* buffer;
-    };
-    usize len;
 } StringView;
 ```
 
@@ -82,132 +69,158 @@ b32 char_is_whitespace( char character );
 b32 char_is_digit( char character );
 ```
 
-### String View
+### String Slice
 
 ```cpp
-/// Create a string view from C null-terminated string.
-StringView sv_from_str( const char* str );
+/// Create a string slice.
+/// The lifetime of the string slice is the lifetime
+/// of the provided buffer.
+StringSlice ss( usize buffer_size, char* buffer );
 ```
 ```cpp
-/// Create a string view from dynamic string.
-StringView sv_from_string( String string );
+/// Clone a string slice.
+StringSlice ss_clone( StringSlice* slice );
 ```
 ```cpp
-/// Output string view to stdout.
-void sv_output_stdout( StringView sv );
+/// Create a string slice from null-terminated string buffer.
+/// Optionally takes in length of the string buffer but
+/// this can be left out as the function can calculate it.
+/// It is recommended that you use the STRING macro to create
+/// string slices from string literals as that will ensure that
+/// the string slice can be mutated.
+/// The lifetime of a string slice of a string literal is
+/// up to the end of the scope.
+StringSlice ss_from_cstr( usize opt_len, const char* cstr );
 ```
 ```cpp
-/// Output string view to stderr.
-void sv_output_stderr( StringView sv );
-
+/// Returns true if slice is empty.
+b32 ss_is_empty( StringSlice* slice );
 ```
 ```cpp
-/// Compare string views for equality.
-/// Returns true if string view contents are equal and lengths are equal.
-b32 sv_cmp( StringView a, StringView b );
+/// Returns true of slice is full.
+b32 ss_is_full( StringSlice* slice );
 ```
 ```cpp
-/// Compare strings for equality.
-/// Returns true if string contents are equal and lengths are equal.
-b32 sv_cmp_string( StringView a, String* b );
+/// Create a hash for given string.
+u64 ss_hash( StringSlice* slice );
 ```
 ```cpp
-/// Format string into string view buffer.
-/// Returns required size for formatting.
-u32 sv_format( StringView sv, const char* format, ... );
+/// Compare two string slices for equality.
+b32 ss_cmp( StringSlice* a, StringSlice* b );
 ```
 ```cpp
-/// Format string into string view buffer using variadic list.
-/// Returns required size for formatting.
-u32 sv_format_va( StringView sv, const char* format, va_list variadic );
+/// Find phrase in string slice.
+/// Returns true if phrase is found and sets out_index to result's index.
+/// If out_index is NULL, just returns if phrase was found.
+b32 ss_find( StringSlice* slice, StringSlice* phrase, usize* opt_out_index );
 ```
 ```cpp
-/// Trim trailing whitespace from string view.
-void sv_trim_trailing_whitespace( StringView* sv );
+/// Find character in string slice.
+/// Returns true if character is found and sets out_index to result's index.
+/// If out_index is NULL, just returns if character was found.
+b32 ss_find_char( StringSlice* slice, char character, usize* opt_out_index );
 ```
 ```cpp
-/// Find the first instance of a character in string view.
-/// Returns -1 if character is not found.
-isize sv_find_first_char( StringView sv, char character );
+/// Count how many times phrase appears in string slice.
+usize ss_phrase_count( StringSlice* slice, StringSlice* phrase );
 ```
 ```cpp
-/// Parse an int32 from string view buffer.
-i32 sv_parse_i32( StringView sv );
+/// Count how many times character appears in string slice.
+usize ss_char_count( StringSlice* slice, char character );
 ```
 ```cpp
-/// Parse a uint32 from string view buffer.
-u32 sv_parse_u32( StringView sv );
+/// Copy the contents of src string slice up to
+/// the capacity of dst string slice.
+void ss_mut_copy( StringSlice* dst, StringSlice* src );
 ```
 ```cpp
-/// Returns true if string view contains the given phrase.
-b32 sv_contains( StringView sv, StringView phrase );
+/// Copy the contents of src string slice up to
+/// the len of dst string slice.
+void ss_mut_copy_to_len( StringSlice* dst, StringSlice* src );
 ```
 ```cpp
-/// Copy contents of src string view buffer to
-/// dst string view buffer.
-/// Copies only up to dst length.
-void sv_copy( StringView src, StringView dst );
+/// Copy the contents of src string up to
+/// the capacity of dst string slice.
+/// Optionally takes in length of the src string but
+/// this can be left out as it can be calculated.
+void ss_mut_copy_cstr( StringSlice* dst, usize opt_len, const char* src );
 ```
 ```cpp
-/// Set all characters in string view to given character.
-void sv_fill( StringView sv, char character );
+/// Copy the contents of src string up to
+/// the len of dst string slice.
+/// Optionally takes in length of the src string but
+/// this can be left out as it can be calculated.
+void ss_mut_copy_cstr_to_len( StringSlice* dst, usize opt_len, const char* src );
 ```
 ```cpp
-/// Clone a string view.
-StringView sv_clone( StringView sv );
-```
-
-### Dynamic String
-
-```cpp
-/// Create a new dynamic string from string view.
-b32 dstring_new( Allocator* allocator, StringView sv, String* out_string );
+/// Reverse contents of string slice.
+void ss_mut_reverse( StringSlice* slice );
 ```
 ```cpp
-/// Create a new empty dynamic string with given capacity.
-b32 dstring_with_capacity( Allocator* allocator, usize capacity, String* out_string );
+/// Trim trailing whitespace.
+/// Note: this does not change the buffer contents,
+/// it just changes the slice's length.
+void ss_mut_trim_trailing_whitespace( StringSlice* slice );
 ```
 ```cpp
-/// Reallocate string with given capacity.
-/// Does nothing if new capcity is smaller than existing capacity.
-b32 dstring_reserve( Allocator* allocator, String* string, usize new_capacity );
+/// Set all characters in string slice to given character.
+void ss_mut_fill( StringSlice* slice, char character );
 ```
 ```cpp
-/// Clear a string.
-/// All this does is set the length to zero.
-/// It does not free buffer.
-void dstring_clear( String* string );
+/// Set all characters in string slice to given character.
+/// Goes up to the capacity of string slice rather than len.
+void ss_mut_fill_to_capacity( StringSlice* slice, char character );
 ```
 ```cpp
-/// Append the contents of string view to the end of string.
-/// Alloc determines if it will fill to the end of the buffer
-/// or reallocate to fit string view.
-b32 dstring_append( Allocator* allocator, String* string, StringView append, b32 alloc );
+/// Push character to end of string slice.
+/// Returns true if slice had enough capacity to push character.
+b32 ss_mut_push( StringSlice* slice, char character );
 ```
 ```cpp
-/// Push a character onto end of string.
-/// Realloc determines how much extra buffer bytes will be allocated if
-/// character is at the end of string buffer.
-/// 0 means that it will not realloc string.
-/// Only returns false if reallocation fails, otherwise always returns true.
-b32 dstring_push_char( Allocator* allocator, String* string, char character, u32 realloc );
+/// Insert character into string slice.
+/// Returns true if slice had enough capacity to insert character.
+b32 ss_mut_insert( StringSlice* slice, char character, usize position );
 ```
 ```cpp
-/// Pop last character in string.
-/// Returns 0 if string length is zero.
-char dstring_pop_char( String* string );
+/// Append slice to end of slice.
+/// Appends up to slice's capacity.
+/// Returns true if full slice was appended.
+b32 ss_mut_append( StringSlice* slice, StringSlice* append );
 ```
 ```cpp
-/// Make a string view into string that respects string capacity.
-StringView dstring_view_capacity_bounds( String string, usize offset );
+/// Write a formatted string to string slice.
+usize ss_mut_format( StringSlice* slice, const char* format, ... );
 ```
 ```cpp
-/// Make a string view into string that respects string length.
-StringView dstring_view_len_bounds( String string, usize offset );
+/// Write a formatted string to string slice using variadic list.
+usize ss_mut_format_va( StringSlice* slice, const char* format, va_list variadic );
 ```
 ```cpp
-/// Free a dynamic string.
-void dstring_free( Allocator* allocator, String* string );
+/// Split string slice at given index.
+void ss_split_at( StringSlice* slice_to_split, usize index, StringSlice* out_first, StringSlice* out_last );
+```
+```cpp
+/// Split string slice at first ocurrence of whitespace.
+/// If none is found, returns false and out pointers are not modified.
+b32 ss_split_at_whitespace( StringSlice* slice_to_split, StringSlice* out_first, StringSlice* out_last );
+```
+```cpp
+/// Attempt to parse i32 from string slice.
+/// Returns true if successful.
+b32 ss_parse_i32( StringSlice* slice, i32* out_integer );
+```
+```cpp
+/// Attempt to parse u32 from string slice.
+/// Returns true if successful.
+b32 ss_parse_u32( StringSlice* slice, u32* out_integer );
+```
+```cpp
+/// Output string slice to standard out.
+void ss_output_stdout( StringSlice* slice );
+```
+```cpp
+/// Output string slice to standard error.
+void ss_output_stderr( StringSlice* slice );
 ```
 
 ### IO
@@ -235,8 +248,10 @@ void print_err_va( const char* format, va_list variadic );
 ## Macro Functions
 
 ```cpp
-/// Make a string view from const char*
-#define SV( str )
+/// Create a mutable string slice from literal.
+/// This is a bad attempt to get around the
+/// limitations of the C language but whatever.
+#define STRING( variable_name, literal )
 ```
 ```cpp
 /// Print to stdout with a new line at the end.
@@ -267,8 +282,7 @@ use {} to wrap a format specifier and use commas to separate parameters
 | {{               | -              | literal '{'                              |
 | c                | Character      | 8-bit ASCII character                    |
 | cc               | String         | const char* ASCII null-terminated string |
-| s                | String         | String                                   |
-| sv               | String         | StringView                               |
+| s                | String         | StringSlice                              |
 | u                | Number/Integer | unsigned int32                           |
 | u8/16/32/64      | Number/Integer | unsigned sized int                       |
 | i                | Number/Integer | int32                                    |

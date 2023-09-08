@@ -10,8 +10,7 @@
 */
 #include "defines.h"
 
-// TODO(alicia): check to see if this needs to be changed for other platforms
-#define MEMORY_PAGE_SIZE (KILOBYTES(4))
+extern usize MEMORY_PAGE_SIZE;
 
 /// Fat pointer.
 /// Contains pointer to a buffer and
@@ -143,7 +142,7 @@ LD_API void internal_ldfree_aligned_trace(
 #endif
 
 /// Calculate number of pages required for bytes.
-header_only usize calculate_page_size( usize byte_size ) {
+header_only usize calculate_page_count( usize byte_size ) {
     usize required = byte_size / MEMORY_PAGE_SIZE;
     required += byte_size % MEMORY_PAGE_SIZE ? 1 : 0;
     return required;

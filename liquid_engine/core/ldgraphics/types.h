@@ -7,6 +7,10 @@
 #include "core/ldmath/types.h"
 #include "core/ldmath/type_functions.h"
 
+/// Opaque id for font.
+typedef u32 FontID;
+#define FONT_ID_DEFAULT (0)
+
 /// 3D camera.
 typedef struct Camera {
     struct Transform* transform;

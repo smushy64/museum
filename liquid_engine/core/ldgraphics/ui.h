@@ -1,11 +1,12 @@
-#if !defined(LD_CORE_GRAPHICS_UI_HPP)
-#define LD_CORE_GRAPHICS_UI_HPP
+#if !defined(LD_CORE_GRAPHICS_UI_H)
+#define LD_CORE_GRAPHICS_UI_H
 // * Description:  Graphics UI
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: August 25, 2023
 #include "defines.h"
 #include "core/ldmath/types.h"
 #include "core/ldstring.h"
+#include "core/ldgraphics/types.h"
 
 typedef void UIHandle;
 
@@ -49,13 +50,14 @@ LD_API b32 ui_draw_quad(
 /// Returns true if successful.
 /// Only fails if exceeded max number of ui elements.
 LD_API b32 ui_draw_text(
-    UIHandle* handle,
-    StringView text,
-    vec2 normalized_position,
-    vec2 normalized_scale,
-    UIAnchorX anchor_x,
-    UIAnchorY anchor_y,
-    rgba color
+    UIHandle*   handle,
+    FontID      font_id,
+    StringSlice text,
+    vec2        normalized_position,
+    vec2        normalized_scale,
+    UIAnchorX   anchor_x,
+    UIAnchorY   anchor_y,
+    rgba        color
 );
 
 #endif // header guard

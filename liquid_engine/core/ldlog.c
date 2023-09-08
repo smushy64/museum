@@ -105,11 +105,13 @@ hot internal void log_formatted(
     read_write_fence();
 
     if( BUFFER ) {
-        StringView buffer_view;
-        buffer_view.buffer = BUFFER;
-        buffer_view.len    = BUFFER_SIZE;
+        StringSlice buffer_view;
+        buffer_view.buffer   = BUFFER;
+        buffer_view.len      = BUFFER_SIZE;
+        buffer_view.capacity = BUFFER_SIZE;
 
-        usize chars_written = sv_format_va( buffer_view, format, variadic );
+        usize chars_written =
+            ss_mut_format_va( &buffer_view, format, variadic );
         if( !chars_written ) {
             read_write_fence();
             if( locked ) {
@@ -135,14 +137,14 @@ hot internal void log_formatted(
         }
 
         if( is_error ) {
-            cstr_output_stderr( buffer_view.str );
+            cstr_output_stderr( buffer_view.buffer );
         } else {
-            cstr_output_stdout( buffer_view.str );
+            cstr_output_stdout( buffer_view.buffer );
         }
 
 #if defined(LD_PLATFORM_WINDOWS)
         if( OUTPUT_DEBUG_STRING_ENABLED ) {
-            const char* str = buffer_view.str;
+            const char* str = buffer_view.buffer;
             platform_win32_output_debug_string( str );
         }
 #endif

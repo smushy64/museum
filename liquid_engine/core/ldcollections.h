@@ -7,11 +7,8 @@
 */
 #include "defines.h"
 
-struct StringView;
+struct StringSlice;
 struct Allocator;
-
-/// Hash a string view.
-LD_API u64 hash( struct StringView sv );
 
 /// Dynamically allocated list
 typedef struct List {

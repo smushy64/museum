@@ -24,111 +24,139 @@ header_only b32 char_is_digit( char character ) {
     return character >= '0' && character <= '9';
 }
 
-/// Dynamic heap allocated string that owns its buffer.
-typedef struct DynamicString {
+/// Slice of string buffer.
+struct StringSlice {
     char* buffer;
     usize len;
     usize capacity;
-} DynamicString;
+};
+/// Slice of string buffer.
+typedef struct StringSlice StringSlice;
 
-/// View into existing string. Does not own its buffer.
-typedef struct StringView {
-    union {
-        const char* str;
-        char* buffer;
-    };
-    usize len;
-} StringView;
+/// Create a mutable string slice from literal.
+/// This is a bad attempt to get around the
+/// limitations of the C language but whatever.
+#define STRING( variable_name, literal )\
+    char variable_name##_buffer[] = literal;\
+    StringSlice variable_name = ss_from_cstr(\
+        sizeof( variable_name##_buffer ) - 1, variable_name##_buffer )
 
-/// Create a string view from C null-terminated string.
-LD_API StringView sv_from_cstr( const char* cstr );
-/// Create a string view from dynamic string.
-header_only StringView sv_from_string( DynamicString string ) {
-    StringView result = {};
-    result.len    = string.len;
-    result.buffer = string.buffer;
+/// Create a string slice.
+/// The lifetime of the string slice is the lifetime
+/// of the provided buffer.
+header_only StringSlice ss( usize buffer_size, char* buffer ) {
+    StringSlice result;
+    result.buffer   = buffer;
+    result.capacity = buffer_size;
+    result.len      = 0;
     return result;
 }
-/// Output a string view to stdout.
-LD_API void sv_output_stdout( StringView sv );
-/// Output a string view to stderr.
-LD_API void sv_output_stderr( StringView sv );
-/// Compare string views for equality.
-/// Returns true if string contents are equal and lengths are equal.
-LD_API b32 sv_cmp( StringView a, StringView b );
-/// Format string into string view buffer.
-/// Returns required size for formatting.
-/// Format specifiers are in docs/format.md
-LD_API u32 sv_format( StringView sv, const char* format, ... );
-/// Format string into string view buffer using variadic list.
-/// Returns required size for formatting.
-/// Format specifiers are in docs/format.md
-LD_API u32 sv_format_va(
-    StringView sv, const char* format, va_list variadic );
-/// Trim trailing whitespace from string view.
-LD_API void sv_trim_trailing_whitespace( StringView* sv );
-/// Find the first instance of a character in string view.
-/// Returns -1 if character is not found.
-LD_API isize sv_find_first_char( StringView sv, char character );
-/// Parse an int32 from string view buffer.
-LD_API i32 sv_parse_i32( StringView sv );
-/// Parse a uint32 from string view buffer.
-LD_API u32 sv_parse_u32( StringView sv );
-/// Returns true if string view contains the given phrase.
-LD_API b32 sv_contains( StringView sv, StringView phrase );
-/// Copy contents of src string view buffer to
-/// dst string view buffer.
-/// Copies only up to dst length.
-LD_API void sv_copy( StringView src, StringView dst );
-/// Set all characters in string view to given character.
-LD_API void sv_fill( StringView sv, char character );
-/// Clone string view
-header_only StringView sv_clone( StringView sv ) {
-    StringView result;
-    result.len    = sv.len;
-    result.buffer = sv.buffer;
+/// Clone a string slice.
+header_only StringSlice ss_clone( StringSlice* slice ) {
+    StringSlice result;
+    result.buffer   = slice->buffer;
+    result.capacity = slice->capacity;
+    result.len      = slice->len;
     return result;
 }
-/// Make a string view from const char* 
-#define SV( cstr ) sv_from_cstr( cstr )
-
-/// Create new dynamic string from string view.
-LD_API b32 dstring_new(
-    Allocator* allocator, StringView sv, DynamicString* out_string );
-/// Create new empty dynamic string with given capacity.
-LD_API b32 dstring_with_capacity(
-    Allocator* allocator, usize capacity, DynamicString* out_string );
-/// Reallocate string with given capacity.
-/// Does nothing if given capacity is smaller than string's capacity.
-LD_API b32 dstring_reserve(
-    Allocator* allocator, DynamicString* string, usize new_capacity );
-/// Clear a string.
-/// All this does is set the length of a string to zero.
-/// It does not free string buffer.
-header_only void dstring_clear( DynamicString* string ) { string->len = 0; }
-/// Append the contents of a string view to existing string.
-/// Alloc determines if will fill to the end of the existing buffer
-/// or if it will reallocate.
-LD_API b32 dstring_append(
-    Allocator* allocator, DynamicString* string, StringView append, b32 alloc );
-/// Push a character onto end of string.
-/// Realloc determines how much extra buffer bytes will be allocated if
-/// character is at the end of string buffer.
-/// 0 means that it will not realloc string.
-/// Only returns false if reallocation fails, otherwise always returns true.
-LD_API b32 dstring_push_char(
-    Allocator* allocator, DynamicString* string, char character, u32 realloc );
-/// Pop last character in string.
-/// Returns 0 if string length is zero.
-LD_API char dstring_pop_char( DynamicString* string );
-/// Make a string view into string that respects string capacity.
-LD_API StringView dstring_view_capacity_bounds(
-    DynamicString string, usize offset );
-/// Make a string view into string that respects string length.
-LD_API StringView dstring_view_len_bounds(
-    DynamicString string, usize offset );
-/// Free a dynamic string.
-LD_API void dstring_free( Allocator* allocator, DynamicString* string );
+/// Create a string slice from null-terminated string buffer.
+/// Optionally takes in length of the string buffer but
+/// this can be left out as the function can calculate it.
+/// It is recommended that you use the STRING macro to create
+/// string slices from string literals as that will ensure that
+/// the string slice can be mutated.
+/// The lifetime of a string slice of a string literal is
+/// up to the end of the scope.
+LD_API StringSlice ss_from_cstr( usize opt_len, const char* cstr );
+/// Returns true if slice is empty.
+header_only b32 ss_is_empty( StringSlice* slice ) {
+    return !slice->len;
+}
+/// Returns true of slice is full.
+header_only b32 ss_is_full( StringSlice* slice ) {
+    return slice->len == slice->capacity;
+}
+/// Create a hash for given string.
+LD_API u64 ss_hash( StringSlice* slice );
+/// Compare two string slices for equality.
+LD_API b32 ss_cmp( StringSlice* a, StringSlice* b );
+/// Find phrase in string slice.
+/// Returns true if phrase is found and sets out_index to result's index.
+/// If out_index is NULL, just returns if phrase was found.
+LD_API b32 ss_find(
+    StringSlice* slice, StringSlice* phrase, usize* opt_out_index );
+/// Find character in string slice.
+/// Returns true if character is found and sets out_index to result's index.
+/// If out_index is NULL, just returns if character was found.
+LD_API b32 ss_find_char(
+    StringSlice* slice, char character, usize* opt_out_index );
+/// Count how many times phrase appears in string slice.
+LD_API usize ss_phrase_count( StringSlice* slice, StringSlice* phrase );
+/// Count how many times character appears in string slice.
+LD_API usize ss_char_count( StringSlice* slice, char character );
+/// Copy the contents of src string slice up to
+/// the capacity of dst string slice.
+LD_API void ss_mut_copy( StringSlice* dst, StringSlice* src );
+/// Copy the contents of src string slice up to
+/// the len of dst string slice.
+LD_API void ss_mut_copy_to_len( StringSlice* dst, StringSlice* src );
+/// Copy the contents of src string up to
+/// the capacity of dst string slice.
+/// Optionally takes in length of the src string but
+/// this can be left out as it can be calculated.
+LD_API void ss_mut_copy_cstr(
+    StringSlice* dst, usize opt_len, const char* src );
+/// Copy the contents of src string up to
+/// the len of dst string slice.
+/// Optionally takes in length of the src string but
+/// this can be left out as it can be calculated.
+LD_API void ss_mut_copy_cstr_to_len(
+    StringSlice* dst, usize opt_len, const char* src );
+/// Reverse contents of string slice.
+LD_API void ss_mut_reverse( StringSlice* slice );
+/// Trim trailing whitespace.
+/// Note: this does not change the buffer contents,
+/// it just changes the slice's length.
+LD_API void ss_mut_trim_trailing_whitespace( StringSlice* slice );
+/// Set all characters in string slice to given character.
+LD_API void ss_mut_fill( StringSlice* slice, char character );
+/// Set all characters in string slice to given character.
+/// Goes up to the capacity of string slice rather than len.
+LD_API void ss_mut_fill_to_capacity( StringSlice* slice, char character );
+/// Push character to end of string slice.
+/// Returns true if slice had enough capacity to push character.
+LD_API b32 ss_mut_push( StringSlice* slice, char character );
+/// Insert character into string slice.
+/// Returns true if slice had enough capacity to insert character.
+LD_API b32 ss_mut_insert( StringSlice* slice, char character, usize position );
+/// Append slice to end of slice.
+/// Appends up to slice's capacity.
+/// Returns true if full slice was appended.
+LD_API b32 ss_mut_append( StringSlice* slice, StringSlice* append );
+/// Write a formatted string to string slice.
+LD_API usize ss_mut_format( StringSlice* slice, const char* format, ... );
+/// Write a formatted string to string slice using variadic list.
+LD_API usize ss_mut_format_va(
+    StringSlice* slice, const char* format, va_list variadic );
+/// Split string slice at given index.
+LD_API void ss_split_at(
+    StringSlice* slice_to_split, usize index,
+    StringSlice* out_first, StringSlice* out_last );
+/// Split string slice at first ocurrence of whitespace.
+/// If none is found, returns false and out pointers are not modified.
+LD_API b32 ss_split_at_whitespace(
+    StringSlice* slice_to_split,
+    StringSlice* out_first, StringSlice* out_last );
+/// Attempt to parse i32 from string slice.
+/// Returns true if successful.
+LD_API b32 ss_parse_i32( StringSlice* slice, i32* out_integer );
+/// Attempt to parse u32 from string slice.
+/// Returns true if successful.
+LD_API b32 ss_parse_u32( StringSlice* slice, u32* out_integer );
+/// Output string slice to standard out.
+LD_API void ss_output_stdout( StringSlice* slice );
+/// Output string slice to standard error.
+LD_API void ss_output_stderr( StringSlice* slice );
 
 /// Print to stdout.
 /// Format specifiers are in docs/format.md

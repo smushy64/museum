@@ -23,16 +23,15 @@ extern_c usize application_query_memory_requirement() {
 }
 extern_c b32 application_init( EngineContext* ctx, void* opaque ) {
 
-    StringView name;
 #if defined(LD_PLATFORM_WINDOWS)
-    name = SV("testbed-win32");
+    STRING( name, "testbed-win32" );
 #elif defined(LD_PLATFORM_LINUX)
-    name = SV("testbed-linux");
+    STRING( name, "testbed-linux" );
 #else
-    name = SV("testbed-unknown");
+    STRING( name, "testbed-unknown" );
 #endif
 
-    engine_application_set_name( ctx, name );
+    engine_application_set_name( ctx, &name );
     engine_surface_center( ctx );
 
     GameMemory* memory = (GameMemory*)opaque;

@@ -9,8 +9,14 @@
 
 typedef enum {
     UI_ELEMENT_TYPE_QUAD,
+    UI_ELEMENT_TYPE_TEXT,
     UI_ELEMENT_TYPE_COUNT
 } UIElementType;
+
+typedef struct {
+    FontID      font;
+    StringSlice text;
+} UIText;
 
 typedef struct {
     UIHandle*     handle;
@@ -20,6 +26,10 @@ typedef struct {
     vec2 position;
     vec2 scale;
     rgba color;
+
+    union {
+        UIText text;
+    };
 } UIElement;
 
 typedef struct {
@@ -36,6 +46,19 @@ LD_API usize ui_query_max_elements(void) {
 LD_API usize ui_query_element_count(void) {
     return UI_CONTEXT->element_count;
 }
+internal force_inline
+b32 ui_check_bounds(void) {
+    if( UI_CONTEXT->element_count >= UI_CONTEXT->max_elements ) {
+        LOG_WARN( "Exceeded max ui element count!" );
+        LOG_WARN( "Max element count: {u64}", (u64)UI_CONTEXT->max_elements );
+        return false;
+    }
+    return true;
+}
+internal force_inline
+void ui_push_element( UIElement element ) {
+    UI_CONTEXT->elements[UI_CONTEXT->element_count++] = element;
+}
 LD_API b32 ui_draw_quad(
     UIHandle*   handle,
     vec2        normalized_position,
@@ -44,9 +67,7 @@ LD_API b32 ui_draw_quad(
     UIAnchorY   anchor_y,
     rgba        color
 ) {
-    if( UI_CONTEXT->element_count >= UI_CONTEXT->max_elements ) {
-        LOG_WARN( "Exceeded max ui element count!" );
-        LOG_WARN( "Max element count: {u64}", (u64)UI_CONTEXT->max_elements );
+    if( !ui_check_bounds() ) {
         return false;
     }
 
@@ -59,7 +80,36 @@ LD_API b32 ui_draw_quad(
     element.anchor_x  = anchor_x;
     element.anchor_y  = anchor_y;
 
-    UI_CONTEXT->elements[UI_CONTEXT->element_count++] = element;
+    ui_push_element( element );
+
+    return true;
+}
+LD_API b32 ui_draw_text(
+    UIHandle*   handle,
+    FontID      font_id,
+    StringSlice text,
+    vec2        normalized_position,
+    vec2        normalized_scale,
+    UIAnchorX   anchor_x,
+    UIAnchorY   anchor_y,
+    rgba        color
+) {
+    if( !ui_check_bounds() ) {
+        return false;
+    }
+
+    UIElement element = {};
+    element.type      = UI_ELEMENT_TYPE_TEXT;
+    element.handle    = handle;
+    element.position  = normalized_position;
+    element.scale     = normalized_scale;
+    element.color     = color;
+    element.anchor_x  = anchor_x;
+    element.anchor_y  = anchor_y;
+    element.text.text = text;
+    element.text.font = font_id;
+
+    ui_push_element( element );
 
     return true;
 }
@@ -67,7 +117,6 @@ LD_API b32 ui_draw_quad(
 usize ui_calculate_required_size( usize max_elements ) {
     return (max_elements * sizeof(UIElement)) + sizeof(UIContext);
 }
-// TODO(alicia): 
 b32 ui_subsystem_init( usize max_elements, void* buffer ) {
     if( !max_elements ) {
         return false;

@@ -99,9 +99,9 @@ LD_API CursorStyle engine_cursor_style(void);
 /// Query if cursor is visible.
 LD_API b32 engine_cursor_visible(void);
 /// Set application name.
-LD_API void engine_application_set_name( EngineContext* ctx, StringView name );
+LD_API void engine_application_set_name( EngineContext* ctx, StringSlice* name );
 /// Query application name.
-LD_API StringView engine_application_name( EngineContext* ctx );
+LD_API StringSlice engine_application_name( EngineContext* ctx );
 /// Query logical processor count.
 LD_API usize engine_query_logical_processor_count( EngineContext* ctx );
 /// Query total system memory.

@@ -18,6 +18,7 @@
 #include "core/ldgraphics.h"
 #include "core/ldgraphics/types.h"
 #include "core/ldgraphics/ui.h"
+#include "core/ldcstr.h"
 
 #define MAX_APPLICATION_NAME (255)
 #define DEFAULT_APPLICATION_NAME "Liquid Engine"
@@ -122,7 +123,7 @@ void on_activate_listener(
 typedef struct ArgParseResult {
     b32 success;
     RendererBackend backend;
-    StringView library_path;
+    StringSlice library_path;
     b32 quit_instant;
 } ArgParseResult;
 
@@ -162,19 +163,30 @@ internal void print_help(void) {
 ArgParseResult parse_args( int argc, char** argv ) {
     ArgParseResult result = {};
 
-    result.library_path = SV( DEFAULT_LIBRARY_PATH );
+    result.library_path.buffer = DEFAULT_LIBRARY_PATH;
+    result.library_path.len    = sizeof DEFAULT_LIBRARY_PATH;
 
     result.backend = RENDERER_BACKEND_OPENGL;
     result.success = true;
 
-    StringView libload = SV("--libload=");
+    STRING( libload, "--libload=" );
+    STRING( help, "--help" );
+    STRING( h, "-h" );
+    STRING( output_debug_string, "--output-debug-string" );
+    STRING( gl, "--gl" );
+    STRING( vk, "--vk" );
+    STRING( dx11, "--dx11" );
+    STRING( dx12, "--dx12" );
 
     for( i32 i = 1; i < argc; ++i ) {
-        StringView current_arg = SV( argv[i] );
+        StringSlice current_arg;
+        current_arg.buffer = argv[i];
+        current_arg.len    = cstr_len( current_arg.buffer );
+
 
         if(
-            sv_cmp( current_arg, SV( "--help" ) ) ||
-            sv_cmp( current_arg, SV( "-h" ) )
+            ss_cmp( &current_arg, &help ) ||
+            ss_cmp( &current_arg, &h )
         ) {
             print_help();
             result.quit_instant = true;
@@ -182,16 +194,16 @@ ArgParseResult parse_args( int argc, char** argv ) {
         }
 
 #if defined(LD_PLATFORM_WINDOWS)
-        if( sv_cmp( current_arg, SV( "--output-debug-string" ) ) ) {
+        if( ss_cmp( &current_arg, &output_debug_string ) ) {
             log_subsystem_win32_enable_output_debug_string();
             continue;
         }
 #endif
-        if( sv_cmp( current_arg, SV( "--gl" ) ) ) {
+        if( ss_cmp( &current_arg, &gl ) ) {
             result.backend = RENDERER_BACKEND_OPENGL;
-        } else if( sv_cmp( current_arg, SV( "--vk" ) ) ) {
+        } else if( ss_cmp( &current_arg, &vk ) ) {
             result.backend = RENDERER_BACKEND_VULKAN;
-        } else if( sv_cmp( current_arg, SV( "--dx11" ) ) ) {
+        } else if( ss_cmp( &current_arg, &dx11 ) ) {
 #if defined(LD_PLATFORM_WINDOWS)
             result.backend = RENDERER_BACKEND_DX11;
 #else
@@ -200,7 +212,7 @@ ArgParseResult parse_args( int argc, char** argv ) {
             result.quit_instant = true;
             return result;
 #endif
-        } else if( sv_cmp( current_arg, SV( "--dx12" ) ) ) {
+        } else if( ss_cmp( &current_arg, &dx12 ) ) {
 #if defined(LD_PLATFORM_WINDOWS)
             result.backend = RENDERER_BACKEND_DX12;
 #else
@@ -209,11 +221,11 @@ ArgParseResult parse_args( int argc, char** argv ) {
             result.quit_instant = true;
             return result;
 #endif
-        } else if( sv_contains( current_arg, libload ) ) {
-            result.library_path.str = &current_arg.str[libload.len];
-            result.library_path.len = current_arg.len - libload.len;
+        } else if( ss_find( &current_arg, &libload, NULL ) ) {
+            result.library_path.buffer = &current_arg.buffer[libload.len];
+            result.library_path.len    = current_arg.len - libload.len;
         } else {
-            println_err( "Unrecognized argument: {sv}", current_arg );
+            println_err( "Unrecognized argument: {s}", current_arg );
             print_help();
             result.success      = false;
             result.quit_instant = true;
@@ -298,10 +310,10 @@ b32 engine_entry( int argc, char** argv ) {
     usize renderer_subsystem_size =
         renderer_subsystem_query_size( arg_parse.backend );
 
-    usize ui_max_elements = 10;
+    usize ui_max_elements = 1000;
     usize ui_subsystem_size = ui_calculate_required_size( ui_max_elements );
 
-    usize max_render_objects = 10;
+    usize max_render_objects = 1000;
     usize render_object_buffer_size = max_render_objects * sizeof(RenderObject);
 
     // calculate required stack arena size
@@ -316,7 +328,7 @@ b32 engine_entry( int argc, char** argv ) {
         ui_subsystem_size +
         render_object_buffer_size;
 
-    usize stack_allocator_pages  = calculate_page_size( required_stack_size );
+    usize stack_allocator_pages  = calculate_page_count( required_stack_size );
     void* stack_allocator_buffer =
         ldpage_alloc( stack_allocator_pages, MEMORY_TYPE_ENGINE );
     if( !stack_allocator_buffer ) {
@@ -469,13 +481,12 @@ b32 engine_entry( int argc, char** argv ) {
         #define ERROR_MESSAGE_SIZE 256
         char error_message_buffer[ERROR_MESSAGE_SIZE];
 
-        StringView error_message_buffer_view;
-        error_message_buffer_view.buffer = error_message_buffer;
-        error_message_buffer_view.len    = ERROR_MESSAGE_SIZE;
+        StringSlice error_message =
+            ss_from_cstr( ERROR_MESSAGE_SIZE - 1, error_message_buffer );
 
-        sv_fill( error_message_buffer_view, ' ' );
-        sv_format(
-            error_message_buffer_view,
+        ss_mut_fill( &error_message, ' ' );
+        ss_mut_format(
+            &error_message,
             "Your CPU does not support SSE instructions!\n"
             "Missing instructions: {cc}{cc}{cc}{cc}{cc}{cc}",
             CHECK_BITS(features, SSE_MASK)    ? "" : "SSE, ",
@@ -533,6 +544,7 @@ b32 engine_entry( int argc, char** argv ) {
 
 #if defined(LD_LOGGING) && defined(LD_PROFILING)
     LOG_NOTE("System Memory: {f,b,02.3}", (f64)ctx.system_info.total_memory );
+    LOG_NOTE("Page Size: {u64}", (u64)MEMORY_PAGE_SIZE);
     LOG_NOTE("Initial Memory Usage:");
 
     f64 total_memory_usage = 0.0;
@@ -547,10 +559,12 @@ b32 engine_entry( int argc, char** argv ) {
         total_memory_usage += memory_usage_f64;
     }
     LOG_NOTE("    {cc,-25} {f,b,4.2}", "Total Memory Usage", total_memory_usage);
+    LOG_NOTE( "Stack usage: {f,b,.2} out of {f,b,.2}", (f64)ctx.stack.current, (f64)ctx.stack.size );
     LOG_NOTE("Engine stack pointer: {u64}", (u64)ctx.stack.current);
 #endif
 
-    engine_application_set_name( &ctx, SV( DEFAULT_APPLICATION_NAME ) );
+    STRING( default_name, DEFAULT_APPLICATION_NAME );
+    engine_application_set_name( &ctx, &default_name );
     ctx.is_running = true;
     if( !application_init( &ctx, application_memory ) ) {
         return false;
@@ -654,15 +668,14 @@ LD_API b32 engine_cursor_visible(void) {
     return platform_cursor_visible();
 }
 LD_API void engine_application_set_name(
-    EngineContext* opaque, StringView name
+    EngineContext* opaque, StringSlice* name
 ) {
     InternalEngineContext* ctx = opaque;
-    usize copy_size = name.len;
+    usize copy_size = name->len;
     enum RendererBackend backend =
         renderer_subsystem_query_backend( ctx->main_surface_renderer_context );
-    StringView backend_name = SV(
-        renderer_backend_to_string( backend )
-    );
+    StringSlice backend_name =
+        ss_from_cstr( 0, renderer_backend_to_string( backend ) );
 
     usize backend_append_size = backend_name.len + 3;
 
@@ -670,7 +683,7 @@ LD_API void engine_application_set_name(
     if( copy_size >= max_copy_size ) {
         copy_size = max_copy_size;
     }
-    mem_copy( ctx->application_name, name.buffer, copy_size );
+    mem_copy( ctx->application_name, name->buffer, copy_size );
 
     ctx->application_name[copy_size + 0] = ' ';
     ctx->application_name[copy_size + 1] = '|';
@@ -684,9 +697,10 @@ LD_API void engine_application_set_name(
     ctx->application_name[name_size] = 0;
     platform_surface_set_name( ctx->main_surface, ctx->application_name );
 }
-LD_API StringView engine_application_name( EngineContext* opaque ) {
+LD_API StringSlice engine_application_name( EngineContext* opaque ) {
     InternalEngineContext* ctx = opaque;
-    return SV( ctx->application_name );
+    StringSlice result = ss_from_cstr( 0, ctx->application_name );
+    return result;
 }
 LD_API usize engine_query_logical_processor_count( EngineContext* opaque ) {
     InternalEngineContext* ctx = opaque;

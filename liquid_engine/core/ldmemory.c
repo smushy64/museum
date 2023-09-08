@@ -7,6 +7,12 @@
 #include "core/ldlog.h"
 #include "ldplatform.h"
 
+#if !defined(PLATFORM_MEMORY_PAGE_SIZE)
+    #define PLATFORM_MEMORY_PAGE_SIZE (KILOBYTES(4))
+#endif
+
+usize MEMORY_PAGE_SIZE = PLATFORM_MEMORY_PAGE_SIZE;
+
 #define stack_alloc(size) __builtin_alloca(size)
 
 typedef struct {
@@ -70,7 +76,8 @@ LD_API void internal_ldfree_aligned(
     void* memory, usize size, MemoryType type, usize alignment
 ) {
     ASSERT( alignment % 2 == 0 );
-    internal_ldfree( ((void**)memory)[-1], size, type );
+    usize aligned_size = size + sizeof(void*) + (alignment - 1);
+    internal_ldfree( ((void**)memory)[-1], aligned_size, type );
 }
 
 LD_API void* internal_ldalloc_trace(

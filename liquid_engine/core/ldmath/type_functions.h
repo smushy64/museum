@@ -77,8 +77,7 @@ header_only f32 v2_mag( vec2 x ) {
 /// normalize vector
 header_only vec2 v2_normalize( vec2 x ) {
     f32 magnitude = v2_mag( x );
-    const vec2 ZERO = VEC2_ZERO;
-    return magnitude < F32_EPSILON ? ZERO : v2_div( x, magnitude );
+    return magnitude < F32_EPSILON ? VEC2_ZERO : v2_div( x, magnitude );
 }
 /// angle(radians) between two vectors
 header_only f32 v2_angle( vec2 a, vec2 b ) {
@@ -233,9 +232,8 @@ header_only f32 iv2_mag( ivec2 x ) {
 /// normalize vector
 header_only ivec2 iv2_normalize( ivec2 x ) {
     f32 magnitude = iv2_mag( x );
-    const ivec2 ZERO = IVEC2_ZERO;
     return magnitude < F32_EPSILON ?
-        ZERO :
+        IVEC2_ZERO :
         iv2_div( x, magnitude );
 }
 /// angle(radians) between two vectors
@@ -410,7 +408,7 @@ header_only f32 v3_dot( vec3 lhs, vec3 rhs ) {
 }
 header_only vec3 v3_normalize( vec3 x ) {
     f32 magnitude = v3_mag( x );
-    return magnitude < F32_EPSILON ? VEC3_ONE : v3_div( x, magnitude );
+    return magnitude < F32_EPSILON ? VEC3_ZERO : v3_div( x, magnitude );
 }
 /// cross product
 header_only vec3 v3_cross( vec3 lhs, vec3 rhs ) {
@@ -818,10 +816,6 @@ header_only f32 iv4_mag( ivec4 x ) {
 header_only ivec4 iv4_normalize( ivec4 x ) {
     f32 magnitude = iv4_mag( x );
     return magnitude < F32_EPSILON ? IVEC4_ZERO : iv4_div( x, magnitude );
-}
-/// angle(radians) between two vectors
-header_only f32 iv4_angle( ivec4 a, ivec4 b ) {
-    return acos32( iv4_dot( a, b ) );
 }
 /// compare two vectors for equality
 header_only b32 iv4_cmp_eq( ivec4 a, ivec4 b ) {

@@ -2090,11 +2090,12 @@ DWORD win32_log_error( b32 present_message_box ) {
         );
 
         if( present_message_box ) {
-            StringView error_message_buffer_view = {};
-            error_message_buffer_view.buffer = ERROR_MESSAGE_BUFFER + message_length;
-            error_message_buffer_view.len    = ERROR_MESSAGE_BUFFER_SIZE - (message_length + 1);
-            sv_format(
-                error_message_buffer_view,
+            StringSlice error_message = {};
+            error_message.buffer = ERROR_MESSAGE_BUFFER + message_length;
+            error_message.len    =
+                ERROR_MESSAGE_BUFFER_SIZE - ( message_length + 1 );
+            ss_mut_format(
+                &error_message,
                 "Encountered a fatal Windows error!\n"
                 LD_CONTACT_MESSAGE "\n{c}",
                 0
@@ -2224,7 +2225,7 @@ PlatformSemaphore* platform_semaphore_create(
     );
     if( !result ) {
         win32_log_error( false );
-        return false;
+        return NULL;
     }
 
     return (PlatformSemaphore*)result;

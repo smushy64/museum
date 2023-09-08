@@ -180,11 +180,12 @@ LD_API void* interlocked_compare_exchange_pointer(
 char SEM_NAME_BUFFER[255] = {};
 usize SEM_NAME_INDEX = 0;
 LD_API Semaphore* semaphore_create(void) {
-    StringView name;
-    name.buffer = SEM_NAME_BUFFER;
-    name.len    = 255;
+    StringSlice name;
+    name.buffer   = SEM_NAME_BUFFER;
+    name.len      = 255;
+    name.capacity = 255;
 
-    sv_format( name, "sem{u64}", (u64)SEM_NAME_INDEX );
+    ss_mut_format( &name, "sem{u64}", (u64)SEM_NAME_INDEX );
     SEM_NAME_INDEX++;
 
     return platform_semaphore_create( SEM_NAME_BUFFER, 0 );
