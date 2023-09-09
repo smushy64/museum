@@ -484,6 +484,11 @@ global char HEX_DIGITS[16] = {
 LD_API usize ss_mut_fmt_i8(
     StringSlice* slice, i8 value, FormatInteger fmt
 ) {
+    usize result = 0;
+    if( !value ) {
+        ___push_slice( '0' );
+        return result;
+    }
     u8 abs;
     if( value < 0 ) {
         abs = (u8)( value * -1 );
@@ -491,7 +496,6 @@ LD_API usize ss_mut_fmt_i8(
         abs = (u8)(value);
     }
 
-    usize result = 0;
     u8 base;
     char* digits;
 
@@ -541,6 +545,11 @@ LD_API usize ss_mut_fmt_i8(
 LD_API usize ss_mut_fmt_i16(
     StringSlice* slice, i16 value, FormatInteger fmt
 ) {
+    usize result = 0;
+    if( !value ) {
+        ___push_slice( '0' );
+        return result;
+    }
     u16 abs;
     if( value < 0 ) {
         abs = (u16)( value * -1 );
@@ -548,7 +557,6 @@ LD_API usize ss_mut_fmt_i16(
         abs = (u16)(value);
     }
 
-    usize result = 0;
     u16 base;
     char* digits;
 
@@ -599,6 +607,11 @@ LD_API usize ss_mut_fmt_i16(
 LD_API usize ss_mut_fmt_i32(
     StringSlice* slice, i32 value, FormatInteger fmt
 ) {
+    usize result = 0;
+    if( !value ) {
+        ___push_slice( '0' );
+        return result;
+    }
     u32 abs;
     if( value < 0 ) {
         abs = (u32)( value * -1 );
@@ -606,7 +619,6 @@ LD_API usize ss_mut_fmt_i32(
         abs = (u32)(value);
     }
 
-    usize result = 0;
     u32 base;
     char* digits;
 
@@ -658,6 +670,11 @@ LD_API usize ss_mut_fmt_i32(
 LD_API usize ss_mut_fmt_i64(
     StringSlice* slice, i64 value, FormatInteger fmt
 ) {
+    usize result = 0;
+    if( !value ) {
+        ___push_slice( '0' );
+        return result;
+    }
     u64 abs;
     if( value < 0 ) {
         abs = (u64)( value * -1 );
@@ -665,7 +682,6 @@ LD_API usize ss_mut_fmt_i64(
         abs = (u64)(value);
     }
 
-    usize result = 0;
     u64 base;
     char* digits;
 
@@ -718,6 +734,10 @@ LD_API usize ss_mut_fmt_u8(
     StringSlice* slice, u8 value, FormatInteger fmt
 ) {
     usize result = 0;
+    if( !value ) {
+        ___push_slice( '0' );
+        return result;
+    }
     u8 base;
     char* digits;
 
@@ -764,6 +784,10 @@ LD_API usize ss_mut_fmt_u16(
     StringSlice* slice, u16 value, FormatInteger fmt
 ) {
     usize result = 0;
+    if( !value ) {
+        ___push_slice( '0' );
+        return result;
+    }
     u16 base;
     char* digits;
 
@@ -810,6 +834,10 @@ LD_API usize ss_mut_fmt_u32(
     StringSlice* slice, u32 value, FormatInteger fmt
 ) {
     usize result = 0;
+    if( !value ) {
+        ___push_slice( '0' );
+        return result;
+    }
     u32 base;
     char* digits;
 
@@ -856,6 +884,10 @@ LD_API usize ss_mut_fmt_u64(
     StringSlice* slice, u64 value, FormatInteger fmt
 ) {
     usize result = 0;
+    if( !value ) {
+        ___push_slice( '0' );
+        return result;
+    }
     u64 base;
     char* digits;
 
@@ -930,7 +962,6 @@ LD_API usize ss_mut_fmt_f64(
     } else {
         abs = value;
     }
-
 
     u64   base   = 10;
     char* digits = DECIMAL_DIGITS;
@@ -1435,6 +1466,23 @@ internal usize ___fmt(
                             goto fmt_end;
                         }
                     }
+                    char size_word[4] = { 's', 'i', 'z', 'e' };
+                    for(
+                        u32 i = 0;
+                        i < STATIC_ARRAY_COUNT(size_word);
+                        ++i
+                    ) {
+                        if( *at == size_word[i] ) {
+                            ___incr();
+                        } else {
+                            goto fmt_end;
+                        }
+                    }
+                    #if defined(LD_ARCH_64_BIT)
+                        int_precision = FMT_INT_PRECISION_64;
+                    #else
+                        int_precision = FMT_INT_PRECISION_32;
+                    #endif
                 }
 
                 while( *at == ',' ) {

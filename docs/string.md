@@ -348,14 +348,16 @@ use {} to wrap a format specifier and use commas to separate parameters
 | Specifier        | Type           | Description                              |
 | ---------------- | -------------- | ---------------------------------------- |
 | {{               | -              | literal '{'                              |
-| }}               | -              | literal '}', doesn't need to be escaped but still |
+| }}               | -              | literal '}'                              |
 | c                | Character      | 8-bit ASCII character                    |
 | cc               | String         | const char* ASCII null-terminated string |
 | s                | String         | StringSlice                              |
 | u                | Number/Integer | unsigned int32                           |
 | u8/16/32/64      | Number/Integer | unsigned sized int                       |
+| usize            | Number/Integer | unsigned pointer sized int               |
 | i                | Number/Integer | int32                                    |
 | i8/16/32/64      | Number/Integer | sized int                                |
+| isize            | Number/Integer | pointer sized int                        |
 | iv2/3/4          | Number/Integer | int vectors                              |
 | f                | Number/Float   | float (f32 gets promoted to f64)         |
 | v2/3/4           | Number/Float   | float vectors                            |

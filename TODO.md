@@ -20,12 +20,13 @@
         has enough space for allocation. if it does not have
         enough space, try to allocate a group of blocks that is
         large enough to hold reallocation. if all fails, return null
-- [ ] math: implement log, powf, no simd sqrtf
-- [ ] format: implement usize/isize specifier so no need to cast
+- [ ] math: implement log, powf
+- [x] format: implement usize/isize specifier so no need to cast
     ### Optimizations
 - [ ] optimize string formatting functions
     ### Bugs
 - [x] format: integer binary format should only print necessary bits
+- [x] format: integer 0 not getting formatted
 - [ ] make sure that atan actually produces good results.
     outside the -1 -> 1 range, it diverges heavily.
     it may not actually be that big of a problem but still.
