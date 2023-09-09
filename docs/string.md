@@ -47,6 +47,14 @@ typedef struct StringView {
     usize capacity;
 } StringView;
 ```
+```cpp
+/// Options for formatting integers.
+typedef enum : u32 {
+    FMT_INT_DECIMAL,
+    FMT_INT_BINARY,
+    FMT_INT_HEX
+} FormatInteger;
+```
 
 ## Functions
 
@@ -205,14 +213,19 @@ void ss_split_at( StringSlice* slice_to_split, usize index, StringSlice* out_fir
 b32 ss_split_at_whitespace( StringSlice* slice_to_split, StringSlice* out_first, StringSlice* out_last );
 ```
 ```cpp
-/// Attempt to parse i32 from string slice.
+/// Attempt to parse integer from string slice.
 /// Returns true if successful.
-b32 ss_parse_i32( StringSlice* slice, i32* out_integer );
+b32 ss_parse_int( StringSlice* slice, i64* out_integer );
 ```
 ```cpp
-/// Attempt to parse u32 from string slice.
+/// Attempt to parse unsigned integer from string slice.
 /// Returns true if successful.
-b32 ss_parse_u32( StringSlice* slice, u32* out_integer );
+b32 ss_parse_uint( StringSlice* slice, u64* out_integer );
+```
+```cpp
+/// Attempt to parse float from string slice.
+/// Returns true if successful.
+b32 ss_parse_float( StringSlice* slice, f64* out_float );
 ```
 ```cpp
 /// Output string slice to standard out.
@@ -221,6 +234,61 @@ void ss_output_stdout( StringSlice* slice );
 ```cpp
 /// Output string slice to standard error.
 void ss_output_stderr( StringSlice* slice );
+```
+```cpp
+/// Format signed integer into string slice.
+/// Returns additional capacity required to fit value in slice.
+usize ss_mut_fmt_i8( StringSlice* slice, i8 value, FormatInteger fmt );
+```
+```cpp
+/// Format signed integer into string slice.
+/// Returns additional capacity required to fit value in slice.
+usize ss_mut_fmt_i16( StringSlice* slice, i16 value, FormatInteger fmt );
+```
+```cpp
+/// Format signed integer into string slice.
+/// Returns additional capacity required to fit value in slice.
+usize ss_mut_fmt_i32( StringSlice* slice, i32 value, FormatInteger fmt );
+```
+```cpp
+/// Format signed integer into string slice.
+/// Returns additional capacity required to fit value in slice.
+usize ss_mut_fmt_i64( StringSlice* slice, i64 value, FormatInteger fmt );
+```
+```cpp
+/// Format integer into string slice.
+/// Returns additional capacity required to fit value in slice.
+usize ss_mut_fmt_u8( StringSlice* slice, u8 value, FormatInteger fmt );
+```
+```cpp
+/// Format integer into string slice.
+/// Returns additional capacity required to fit value in slice.
+usize ss_mut_fmt_u16( StringSlice* slice, u16 value, FormatInteger fmt );
+```
+```cpp
+/// Format integer into string slice.
+/// Returns additional capacity required to fit value in slice.
+usize ss_mut_fmt_u32( StringSlice* slice, u32 value, FormatInteger fmt );
+```
+```cpp
+/// Format integer into string slice.
+/// Returns additional capacity required to fit value in slice.
+usize ss_mut_fmt_u64( StringSlice* slice, u64 value, FormatInteger fmt );
+```
+```cpp
+/// Format float into string slice.
+/// Returns additional capacity required to fit value in slice.
+usize ss_mut_fmt_f32( StringSlice* slice, f32 value, u32 precision );
+```
+```cpp
+/// Format float into string slice.
+/// Returns additional capacity required to fit value in slice.
+usize ss_mut_fmt_f64( StringSlice* slice, f64 value, u32 precision );
+```
+```cpp
+/// Format boolean into string slice.
+/// Returns additional capacity required to fit value in slice.
+usize ss_mut_fmt_b32( StringSlice* slice, b32 value );
 ```
 
 ### IO
@@ -280,6 +348,7 @@ use {} to wrap a format specifier and use commas to separate parameters
 | Specifier        | Type           | Description                              |
 | ---------------- | -------------- | ---------------------------------------- |
 | {{               | -              | literal '{'                              |
+| }}               | -              | literal '}', doesn't need to be escaped but still |
 | c                | Character      | 8-bit ASCII character                    |
 | cc               | String         | const char* ASCII null-terminated string |
 | s                | String         | StringSlice                              |
@@ -314,7 +383,7 @@ use {} to wrap a format specifier and use commas to separate parameters
 | Parameter                 | Description                              |
 | ------------------------- | ---------------------------------------- |
 | . followed by int         | fractional precision, cannot be negative |
-| b (does nothing with v/q) | storage formatting (bytes/kb/mb/gb)      |
+| b (does nothing with v/q) | storage formatting (bytes/kb/mb/gb/tb)   |
 
 ### Parameters for Boolean Specifiers
 | Parameter | Description                   |

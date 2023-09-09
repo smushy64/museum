@@ -25,7 +25,7 @@
     ### Optimizations
 - [ ] optimize string formatting functions
     ### Bugs
-- [ ] format: integer binary format should only print necessary bits
+- [x] format: integer binary format should only print necessary bits
 - [ ] make sure that atan actually produces good results.
     outside the -1 -> 1 range, it diverges heavily.
     it may not actually be that big of a problem but still.

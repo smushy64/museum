@@ -18,22 +18,6 @@ LD_API void char_output_stdout( char character ) {
 LD_API void char_output_stderr( char character ) {
     platform_write_console( platform_stderr_handle(), 1, &character );
 }
-internal i32 parse_i32_internal( char** at_init ) {
-    b32 is_negative = false;
-    i32 result = 0;
-    char* at = *at_init;
-    if( *at == '-' ) {
-        ++at;
-        is_negative = true;
-    }
-    while( (*at >= '0') && (*at <= '9') ) {
-        result *= 10;
-        result += (*at - '0');
-        ++at;
-    }
-    *at_init = at;
-    return result * (is_negative ? -1 : 1);
-}
 hot LD_API void ss_output_stdout( StringSlice* slice ) {
     platform_write_console(
         platform_stdout_handle(),
@@ -46,17 +30,158 @@ hot LD_API void ss_output_stderr( StringSlice* slice ) {
         slice->len, slice->buffer
     );
 }
-LD_API b32 ss_parse_i32( StringSlice* slice, i32* out_integer ) {
-    // TODO(alicia): rewrite!
-    i32 result = parse_i32_internal( (char**)&slice->buffer );
+internal b32 ___safe_increment( usize* val, usize max ) {
+    if( *val + 1 >= max ) {
+        return false;
+    } else {
+        *val += 1;
+        return true;
+    }
+}
+LD_API b32 ss_parse_int( StringSlice* slice, i64* out_integer ) {
+    if( !slice->len ) {
+        return false;
+    }
+
+    b32 is_negative = false;
+    i64 result = 0;
+
+    usize at = 0;
+    StringSlice parse = ss_clone( slice );
+    if( parse.buffer[at] == '-' ) {
+        if( !___safe_increment( &at, parse.len ) ) {
+            return false;
+        }
+        is_negative = true;
+    }
+
+    do {
+        if( !char_is_digit( parse.buffer[at] ) ) {
+            return false;
+        }
+
+        result *= 10;
+        result += (parse.buffer[at] - '0');
+    } while( ___safe_increment( &at, parse.len ) );
+
+    *out_integer = result * ( is_negative ? -1 : 1 );
+    return true;
+}
+LD_API b32 ss_parse_uint( StringSlice* slice, u64* out_integer ) {
+    if( !slice->len ) {
+        return false;
+    }
+
+    u64 result = 0;
+
+    usize at = 0;
+    StringSlice parse = ss_clone( slice );
+
+    do {
+        if( !char_is_digit( parse.buffer[at] ) ) {
+            return false;
+        }
+
+        result *= 10;
+        result += (parse.buffer[at] - '0');
+    } while( ___safe_increment( &at, parse.len ) );
+
     *out_integer = result;
     return true;
 }
-LD_API b32 ss_parse_u32( StringSlice* slice, u32* out_integer ) {
-    // TODO(alicia): rewrite!
-    i32 result = parse_i32_internal( (char**)&slice->buffer );
-    *out_integer = REINTERPRET( u32, result );
-    return true;
+internal u64 ___places( u64 i ) {
+    if( i < 10 ) {
+        return 1;
+    } else if( i < 100 ) {
+        return 2;
+    } else if( i < 1000 ) {
+        return 3;
+    } else if( i < 10000 ) {
+        return 4;
+    } else if( i < 100000 ) {
+        return 5;
+    } else if( i < 1000000 ) {
+        return 6;
+    } else if( i < 10000000 ) {
+        return 7;
+    } else if( i < 100000000 ) {
+        return 8;
+    } else if( i < 1000000000 ) {
+        return 9;
+    } else if( i < 10000000000 ) {
+        return 10;
+    } else if( i < 100000000000 ) {
+        return 11;
+    } else if( i < 1000000000000 ) {
+        return 12;
+    } else if( i < 10000000000000 ) {
+        return 13;
+    } else if( i < 100000000000000 ) {
+        return 14;
+    } else if( i < 1000000000000000 ) {
+        return 15;
+    } else if( i < 10000000000000000 ) {
+        return 16;
+    } else if( i < 100000000000000000 ) {
+        return 17;
+    } else if( i < 1000000000000000000 ) {
+        return 18;
+    }
+
+    return 0;
+}
+
+LD_API b32 ss_parse_float( StringSlice* slice, f64* out_float ) {
+    // f64 result = 0.0;
+    i64 whole_part      = 0;
+    u64 fractional_part = 0;
+
+    usize dot_position = 0;
+    if(
+        ss_find_char( slice, '.', &dot_position ) &&
+        dot_position + 1 < slice->len
+    ) {
+        StringSlice first = {}, last = {};
+        ss_split_at( slice, dot_position, &first, &last );
+        if( !ss_parse_int( &first, &whole_part ) ) {
+            return false;
+        }
+
+        usize zero_count = 0;
+        for( usize i = 0; i < last.len; ++i ) {
+            if( last.buffer[i] == '0' ) {
+                zero_count++;
+            }
+        }
+
+        last.buffer += zero_count;
+        last.len    -= zero_count;
+
+        if( !ss_parse_uint( &last, &fractional_part ) ) {
+            return false;
+        }
+
+        *out_float = (f64)whole_part;
+        f64 fractional_part_f64 = (f64)fractional_part;
+        u64 places = ___places( fractional_part );
+
+        u64 power = places + zero_count;
+        if( power ) {
+            fractional_part_f64 /= powi64( 10.0, power );
+        }
+
+        *out_float += fractional_part_f64;
+
+        return true;
+    } else {
+        b32 success = ss_parse_int( slice, &whole_part );
+        if( success ) {
+            *out_float = (f64)whole_part;
+            return success;
+        } else {
+            return success;
+        }
+    }
 }
 LD_API StringSlice ss_from_cstr( usize opt_len, const char* cstr ) {
     StringSlice result;
@@ -325,12 +450,14 @@ LD_API u64 ss_hash( StringSlice* slice ) {
         result = result * multiplier + slice->buffer[i];
     }
 
-    result %= slice->len;
+    if( slice->len ) {
+        result %= slice->len;
+    }
 
     return result;
 }
 
-
+global char BINARY_DIGITS[2] = { '0', '1' };
 global char DECIMAL_DIGITS[10] = {
     '0', '1', '2',
     '3', '4', '5',
@@ -346,844 +473,1397 @@ global char HEX_DIGITS[16] = {
     'F'
 };
 #define DECIMAL_BASE 10
-#define HEX_BASE 16
-internal u32 int_to_string(
-    StringSlice slice,
-    u64 value,
-    u64 base,
-    char* digits,
-    u32 padding,
-    b32 padding_is_negative,
-    b32 use_zero_padding,
-    b32 is_negative
+#define HEX_BASE     16
+
+#define ___push_slice( c ) do {\
+    if( !slice || !ss_mut_push( slice, c ) ) {\
+        result++;\
+    }\
+} while(0)
+
+LD_API usize ss_mut_fmt_i8(
+    StringSlice* slice, i8 value, FormatInteger fmt
 ) {
-    if( !slice.len ) {
-        return 0;
-    }
-    u32 slice_index = 0;
-    char* slice_buffer = (char*)slice.buffer;
-
-    if( value == 0 ) {
-        slice_buffer[slice_index++] = digits[0];
+    u8 abs;
+    if( value < 0 ) {
+        abs = (u8)( value * -1 );
+    } else {
+        abs = (u8)(value);
     }
 
-    while( slice_index < slice.len && value ) {
-        u64 digit = value % base;
-        slice_buffer[slice_index++] = digits[digit];
-        value /= base;
-    }
-    if( base == HEX_BASE && (slice_index + 2) < slice.len ) {
-        slice_buffer[slice_index++] = 'x';
-        slice_buffer[slice_index++] = '0';
+    usize result = 0;
+    u8 base;
+    char* digits;
+
+    switch( fmt ) {
+        case FMT_INT_BINARY: {
+            base = 2;
+            digits = BINARY_DIGITS;
+        } break;
+        case FMT_INT_HEX: {
+            base = 16;
+            digits = HEX_DIGITS;
+        } break;
+        case FMT_INT_DECIMAL: {
+            base = 10;
+            digits = DECIMAL_DIGITS;
+        } break;
     }
 
-    if( !padding_is_negative && padding && padding >= slice_index ) {
-        padding = padding - slice_index;
-        if( padding ) {
-            padding -= is_negative;
-        }
-        u32 remaining_len = slice.len - slice_index;
-        u32 max_len = padding > remaining_len ? remaining_len : padding;
-        for( u32 i = 0; i < max_len; ++i ) {
-            slice_buffer[slice_index++] =
-                use_zero_padding ? '0' : ' ';
-        }
+    while( abs ) {
+        u8 digit = abs % base;
+        ___push_slice( digits[digit] );
+        abs /= base;
     }
-    return slice_index;
-}
 
-#define FLOAT_BYTE_BYTES 0
-#define FLOAT_BYTE_KILO  1
-#define FLOAT_BYTE_MEGA  2
-#define FLOAT_BYTE_GIGA  3
-typedef struct {
-    u32 format;
-    f64 f;
-} FloatByteFormatResult;
-internal FloatByteFormatResult float_byte_format( f64 f ) {
-    FloatByteFormatResult result = {};
-    result.format = FLOAT_BYTE_BYTES;
-    if( f >= 1024.0 ) {
-        result.format = FLOAT_BYTE_KILO;
-        f /= 1024.0;
-        if( f >= 1024.0 ) {
-            result.format = FLOAT_BYTE_MEGA;
-            f /= 1024.0;
-            if( f >= 1024.0 ) {
-                result.format = FLOAT_BYTE_GIGA;
-                f /= 1024.0;
+    switch( fmt ) {
+        case FMT_INT_BINARY: {
+            ___push_slice( 'b' );
+            ___push_slice( '0' );
+        } break;
+        case FMT_INT_HEX: {
+            ___push_slice( 'x' );
+            ___push_slice( '0' );
+        } break;
+        case FMT_INT_DECIMAL: {
+            if( value < 0 ) {
+                ___push_slice( '-' );
             }
-        }
+        } break;
     }
-    result.f = f;
+
+    if( slice ) {
+        ss_mut_reverse( slice );
+    }
+
+    return result;
+}
+LD_API usize ss_mut_fmt_i16(
+    StringSlice* slice, i16 value, FormatInteger fmt
+) {
+    u16 abs;
+    if( value < 0 ) {
+        abs = (u16)( value * -1 );
+    } else {
+        abs = (u16)(value);
+    }
+
+    usize result = 0;
+    u16 base;
+    char* digits;
+
+    switch( fmt ) {
+        case FMT_INT_BINARY: {
+            base = 2;
+            digits = BINARY_DIGITS;
+        } break;
+        case FMT_INT_HEX: {
+            base = 16;
+            digits = HEX_DIGITS;
+        } break;
+        case FMT_INT_DECIMAL: {
+            base = 10;
+            digits = DECIMAL_DIGITS;
+        } break;
+    }
+
+    while( abs ) {
+        u16 digit = abs % base;
+        ___push_slice( digits[digit] );
+        abs /= base;
+    }
+
+    switch( fmt ) {
+        case FMT_INT_BINARY: {
+            ___push_slice( 'b' );
+            ___push_slice( '0' );
+        } break;
+        case FMT_INT_HEX: {
+            ___push_slice( 'x' );
+            ___push_slice( '0' );
+        } break;
+        case FMT_INT_DECIMAL: {
+            if( value < 0 ) {
+                ___push_slice( '-' );
+            }
+        } break;
+        default: break;
+    }
+
+    if( slice ) {
+        ss_mut_reverse( slice );
+    }
+
+    return result;
+}
+LD_API usize ss_mut_fmt_i32(
+    StringSlice* slice, i32 value, FormatInteger fmt
+) {
+    u32 abs;
+    if( value < 0 ) {
+        abs = (u32)( value * -1 );
+    } else {
+        abs = (u32)(value);
+    }
+
+    usize result = 0;
+    u32 base;
+    char* digits;
+
+    switch( fmt ) {
+        case FMT_INT_BINARY: {
+            base = 2;
+            digits = BINARY_DIGITS;
+        } break;
+        case FMT_INT_HEX: {
+            base = 16;
+            digits = HEX_DIGITS;
+        } break;
+        case FMT_INT_DECIMAL: {
+            base = 10;
+            digits = DECIMAL_DIGITS;
+        } break;
+    }
+
+    while( abs ) {
+        u32 digit = abs % base;
+        ___push_slice( digits[digit] );
+        abs /= base;
+    }
+
+    switch( fmt ) {
+        case FMT_INT_BINARY: {
+            ___push_slice( 'b' );
+            ___push_slice( '0' );
+        } break;
+        case FMT_INT_HEX: {
+            ___push_slice( 'x' );
+            ___push_slice( '0' );
+        } break;
+        case FMT_INT_DECIMAL: {
+            if( value < 0 ) {
+                ___push_slice( '-' );
+            }
+        } break;
+        default: break;
+    }
+
+    if( slice ) {
+        ss_mut_reverse( slice );
+    }
+
+    return result;
+
+}
+LD_API usize ss_mut_fmt_i64(
+    StringSlice* slice, i64 value, FormatInteger fmt
+) {
+    u64 abs;
+    if( value < 0 ) {
+        abs = (u64)( value * -1 );
+    } else {
+        abs = (u64)(value);
+    }
+
+    usize result = 0;
+    u64 base;
+    char* digits;
+
+    switch( fmt ) {
+        case FMT_INT_BINARY: {
+            base = 2;
+            digits = BINARY_DIGITS;
+        } break;
+        case FMT_INT_HEX: {
+            base = 16;
+            digits = HEX_DIGITS;
+        } break;
+        case FMT_INT_DECIMAL: {
+            base = 10;
+            digits = DECIMAL_DIGITS;
+        } break;
+    }
+
+    while( abs ) {
+        u64 digit = abs % base;
+        ___push_slice( digits[digit] );
+        abs /= base;
+    }
+
+    switch( fmt ) {
+        case FMT_INT_BINARY: {
+            ___push_slice( 'b' );
+            ___push_slice( '0' );
+        } break;
+        case FMT_INT_HEX: {
+            ___push_slice( 'x' );
+            ___push_slice( '0' );
+        } break;
+        case FMT_INT_DECIMAL: {
+            if( value < 0 ) {
+                ___push_slice( '-' );
+            }
+        } break;
+        default: break;
+    }
+
+    if( slice ) {
+        ss_mut_reverse( slice );
+    }
+
     return result;
 }
 
-internal u32 float_to_string(
-    StringSlice slice,
-    f64 value,
-    i32 padding,
-    u32 precision,
-    b32 use_zero_padding
+LD_API usize ss_mut_fmt_u8(
+    StringSlice* slice, u8 value, FormatInteger fmt
 ) {
-    if( !slice.len ) {
-        return 0;
-    }
-    char* slice_buffer = (char*)slice.buffer;
+    usize result = 0;
+    u8 base;
+    char* digits;
 
-    if( is_nan32( value ) ) {
-        slice_buffer[0] = 'N';
-        slice_buffer[1] = 'A';
-        slice_buffer[2] = 'N';
-        return 3;
-    }
-
-    b32 padding_is_negative = padding < 0;
-
-    u32 write_count = 0;
-    u32 integer_write_count = 0;
-    u32 fract_write_count   = 0;
-    u32 slice_index  = 0;
-
-    b32 value_is_negative = value < 0.0;
-    if( value_is_negative ) {
-        value = -value;
+    switch( fmt ) {
+        case FMT_INT_BINARY: {
+            base = 2;
+            digits = BINARY_DIGITS;
+        } break;
+        case FMT_INT_HEX: {
+            base = 16;
+            digits = HEX_DIGITS;
+        } break;
+        case FMT_INT_DECIMAL: {
+            base = 10;
+            digits = DECIMAL_DIGITS;
+        } break;
     }
 
-    u64 integer_part = trunc_i64( value );
-    f64 fract_part   = value - (f64)integer_part;
-
-    u32 max_fract_write_count = precision > slice.len ? slice.len - 1 : precision;
-    for( u32 i = 0; i < max_fract_write_count; ++i ) {
-        fract_part *= 10.0;
-        u64 fract_part_int = clamp(trunc_i64(fract_part), 0ll, 9ll);
-        fract_part -= (f64)fract_part_int;
-        u32 buffer_index = (max_fract_write_count - 1) - i;
-        slice_buffer[buffer_index] = DECIMAL_DIGITS[fract_part_int];
-        fract_write_count++;
-        slice_index++;
+    while( value ) {
+        u8 digit = value % base;
+        ___push_slice( digits[digit] );
+        value /= base;
     }
 
-    if( slice_index < slice.len ) {
-        slice_buffer[slice_index++] = '.';
-        write_count++;
+    switch( fmt ) {
+        case FMT_INT_BINARY: {
+            ___push_slice( 'b' );
+            ___push_slice( '0' );
+        } break;
+        case FMT_INT_HEX: {
+            ___push_slice( 'x' );
+            ___push_slice( '0' );
+        } break;
+        default: break;
     }
 
-    if( !integer_part && slice_index < slice.len ) {
-        slice_buffer[slice_index++] = '0';
-        integer_write_count++;
-    }
-    while( slice_index < slice.len && integer_part ) {
-        u64 digit = clamp((integer_part % 10ull), 0ull, 9ull);
-        slice_buffer[slice_index++] = DECIMAL_DIGITS[digit];
-        integer_part /= 10;
-        integer_write_count++;
+    if( slice ) {
+        ss_mut_reverse( slice );
     }
 
-    if( !use_zero_padding ) {
-        if( value_is_negative && slice_index < slice.len ) {
-            slice_buffer[slice_index++] = '-';
-            write_count++;
-        }
-    }
-    if(
-        !padding_is_negative &&
-        padding &&
-        padding >= (i32)integer_write_count
-    ) {
-        padding = padding - integer_write_count;
-        if( padding ) {
-            padding -= value_is_negative;
-        }
-        u32 remaining_len = slice.len - integer_write_count;
-        u32 max_len = padding > (i32)remaining_len ? remaining_len : padding;
-        for( u32 i = 0; i < max_len; ++i ) {
-            slice_buffer[slice_index++] =
-                use_zero_padding ? '0' : ' ';
-            write_count++;
-        }
+    return result;
+}
+LD_API usize ss_mut_fmt_u16(
+    StringSlice* slice, u16 value, FormatInteger fmt
+) {
+    usize result = 0;
+    u16 base;
+    char* digits;
+
+    switch( fmt ) {
+        case FMT_INT_BINARY: {
+            base = 2;
+            digits = BINARY_DIGITS;
+        } break;
+        case FMT_INT_HEX: {
+            base = 16;
+            digits = HEX_DIGITS;
+        } break;
+        case FMT_INT_DECIMAL: {
+            base = 10;
+            digits = DECIMAL_DIGITS;
+        } break;
     }
 
-    if( use_zero_padding ) {
-        if( value_is_negative && slice_index < slice.len ) {
-            slice_buffer[slice_index++] = '-';
-            write_count++;
-        }
+    while( value ) {
+        u16 digit = value % base;
+        ___push_slice( digits[digit] );
+        value /= base;
     }
 
-    write_count += integer_write_count + fract_write_count;
-    return write_count;
+    switch( fmt ) {
+        case FMT_INT_BINARY: {
+            ___push_slice( 'b' );
+            ___push_slice( '0' );
+        } break;
+        case FMT_INT_HEX: {
+            ___push_slice( 'x' );
+            ___push_slice( '0' );
+        } break;
+        default: break;
+    }
+
+    if( slice ) {
+        ss_mut_reverse( slice );
+    }
+
+    return result;
+}
+LD_API usize ss_mut_fmt_u32(
+    StringSlice* slice, u32 value, FormatInteger fmt
+) {
+    usize result = 0;
+    u32 base;
+    char* digits;
+
+    switch( fmt ) {
+        case FMT_INT_BINARY: {
+            base = 2;
+            digits = BINARY_DIGITS;
+        } break;
+        case FMT_INT_HEX: {
+            base = 16;
+            digits = HEX_DIGITS;
+        } break;
+        case FMT_INT_DECIMAL: {
+            base = 10;
+            digits = DECIMAL_DIGITS;
+        } break;
+    }
+
+    while( value ) {
+        u32 digit = value % base;
+        ___push_slice( digits[digit] );
+        value /= base;
+    }
+
+    switch( fmt ) {
+        case FMT_INT_BINARY: {
+            ___push_slice( 'b' );
+            ___push_slice( '0' );
+        } break;
+        case FMT_INT_HEX: {
+            ___push_slice( 'x' );
+            ___push_slice( '0' );
+        } break;
+        default: break;
+    }
+
+    if( slice ) {
+        ss_mut_reverse( slice );
+    }
+
+    return result;
+}
+LD_API usize ss_mut_fmt_u64(
+    StringSlice* slice, u64 value, FormatInteger fmt
+) {
+    usize result = 0;
+    u64 base;
+    char* digits;
+
+    switch( fmt ) {
+        case FMT_INT_BINARY: {
+            base = 2;
+            digits = BINARY_DIGITS;
+        } break;
+        case FMT_INT_HEX: {
+            base = 16;
+            digits = HEX_DIGITS;
+        } break;
+        case FMT_INT_DECIMAL: {
+            base = 10;
+            digits = DECIMAL_DIGITS;
+        } break;
+    }
+
+    while( value ) {
+        u64 digit = value % base;
+        ___push_slice( digits[digit] );
+        value /= base;
+    }
+
+    switch( fmt ) {
+        case FMT_INT_BINARY: {
+            ___push_slice( 'b' );
+            ___push_slice( '0' );
+        } break;
+        case FMT_INT_HEX: {
+            ___push_slice( 'x' );
+            ___push_slice( '0' );
+        } break;
+        default: break;
+    }
+
+    if( slice ) {
+        ss_mut_reverse( slice );
+    }
+
+    return result;
 }
 
-typedef b32 (*WriteCharFN)( StringSlice*, char );
-
-no_inline internal b32 write_char_dst( StringSlice* dst, char character ) {
-    if( dst->len ) {
-        --dst->len;
-        *dst->buffer++ = character;
-        return true;
-    } else {
-        return false;
-    }
+LD_API usize ss_mut_fmt_f32( StringSlice* slice, f32 value, u32 precision ) {
+    return ss_mut_fmt_f64( slice, (f64)value, precision );
 }
-no_inline internal b32 write_char_stdout(
-    StringSlice* slice, char character
+LD_API usize ss_mut_fmt_f64(
+    StringSlice* slice, f64 value, u32 precision
 ) {
-    unused(slice);
-    char_output_stderr( character );
-    return true;
-}
-no_inline internal b32 write_char_stderr(
-    StringSlice* slice, char character
-) {
-    unused(slice);
-    char_output_stderr( character );
-    return true;
-}
-
-no_inline hot
-internal u32 format_internal(
-    StringSlice buffer,
-    const char* format,
-    WriteCharFN write_char_fn,
-    va_list list
-) {
-    StringSlice dst = ss_clone( &buffer );
-    if( !dst.len ) {
-        u32 result = dst.buffer - buffer.buffer;
+    usize result = 0;
+    if( is_nan64( value ) ) {
+        ___push_slice( 'N' );
+        ___push_slice( 'a' );
+        ___push_slice( 'N' );
+        return result;
+    } else if( value == F64_POS_INFINITY ) {
+        ___push_slice( 'I' );
+        ___push_slice( 'N' );
+        ___push_slice( 'F' );
+        return result;
+    } else if( value == F64_NEG_INFINITY ) {
+        ___push_slice( '-' );
+        ___push_slice( 'I' );
+        ___push_slice( 'N' );
+        ___push_slice( 'F' );
         return result;
     }
 
-    char* at = (char*)format;
-    #define TEMP_BUFFER_SIZE 64
-    char temp_buffer[TEMP_BUFFER_SIZE];
-    StringSlice temp_buffer_view = {};
-    temp_buffer_view.buffer = temp_buffer;
-    temp_buffer_view.len = TEMP_BUFFER_SIZE;
+    f64 abs;
+    if( value < 0 ) {
+        abs = value * -1.0;
+    } else {
+        abs = value;
+    }
 
-    #define CHECK_FOR_CLOSING_BRACE()\
-        LOG_ASSERT(\
-            *at == '}',\
-            "Malformed format string \"{cc}\"! "\
-            "Missing closing brace!",\
-            format\
-        )
 
-    #define write_char( dst, character ) do {\
-        if( !write_char_fn( dst, character ) ) {\
-            quick_exit = true;\
+    u64   base   = 10;
+    char* digits = DECIMAL_DIGITS;
+
+    u64 whole_part = (u64)abs;
+    f64 fractional = abs - (f64)whole_part;
+
+    if( !whole_part ) {
+        ___push_slice( digits[0] );
+    } else while( whole_part ) {
+        u64 digit = whole_part % base;
+        ___push_slice( digits[digit] );
+        whole_part /= base;
+    }
+
+    u32 precision_left = min( precision, 10 );
+    fractional *= 10.0;
+    whole_part = (u64)(fractional);
+
+    if( value < 0 ) {
+        ___push_slice( '-' );
+    }
+    usize rev_end = 0;
+    if( slice ) {
+        rev_end = slice->len;
+    }
+
+    if( precision_left ) {
+        ___push_slice( '.' );
+    }
+
+    while( precision_left ) {
+        u64 digit = whole_part % base;
+        ___push_slice( digits[digit] );
+        fractional *= 10.0;
+        whole_part = (u64)(fractional);
+        precision_left--;
+    }
+
+    if( slice ) {
+        StringSlice rev;
+        rev.buffer = slice->buffer;
+        rev.len    = rev_end;
+        ss_mut_reverse( &rev );
+    }
+
+    return result;
+}
+LD_API usize ss_mut_fmt_b32( StringSlice* slice, b32 value ) {
+    STRING(ss_true, "true");
+    STRING(ss_false, "false");
+
+    StringSlice* value_slice = value ? &ss_true : &ss_false;
+
+    usize result = 0;
+
+    for( usize i = 0; i < value_slice->len; ++i ) {
+        ___push_slice( value_slice->buffer[i] );
+    }
+
+    return result;
+}
+
+typedef enum {
+    FMT_STORAGE_BYTES,
+    FMT_STORAGE_KB   ,
+    FMT_STORAGE_MB   ,
+    FMT_STORAGE_GB   ,
+    FMT_STORAGE_TB   ,
+} FormatFloatStorageType;
+maybe_unused
+internal f64 ___determine_storage( f64 f, FormatFloatStorageType* out_type ) {
+    f64 result = f;
+    *out_type = FMT_STORAGE_BYTES;
+    if( result >= 1024.0 ) {
+        *out_type = FMT_STORAGE_KB;
+        result /= 1024.0;
+        if( result >= 1024.0 ) {
+            *out_type = FMT_STORAGE_MB;
+            result /= 1024.0;
+            if( result >= 1024.0 ) {
+                *out_type = FMT_STORAGE_GB;
+                result /= 1024.0;
+                if( result >= 1024.0 ) {
+                    *out_type = FMT_STORAGE_TB;
+                    result /= 1024.0;
+                }
+            }
+        }
+    }
+    return result;
+}
+
+typedef b32 PutCharFN( StringSlice*, char );
+
+maybe_unused
+no_inline internal b32 ___put_slice( StringSlice* slice, char c ) {
+    if( !slice ) {
+        return false;
+    }
+    return ss_mut_push( slice, c );
+}
+maybe_unused
+no_inline internal b32 ___put_stdout( StringSlice* _, char c ) {
+    unused(_);
+    char_output_stdout( c );
+    return true;
+}
+maybe_unused
+no_inline internal b32 ___put_stderr( StringSlice* _, char c ) {
+    unused(_);
+    char_output_stderr( c );
+    return true;
+}
+
+internal hot b32 ___precision_dot( const char* outer_at, usize* out_offset ) {
+    usize offset = 0;
+    const char* at = outer_at;
+    while( *at ) {
+        if( *at == ',' || *at == '}' ) {
+            return false;
+        }
+        if( *at == '.' ) {
+            if( out_offset ) {
+                *out_offset = offset;
+            }
+            return true;
+        }
+        at++;
+        offset++;
+    }
+    return false;
+}
+internal hot b32 ___closing_brace( const char* outer_at, usize* out_offset ) {
+    usize offset = 0;
+    const char* at = outer_at;
+    while( *at ) {
+        if( *at == '}' || *at == ',' ) {
+            if( out_offset ) {
+                *out_offset = offset;
+            }
+            return true;
+        }
+        at++;
+        offset++;
+    }
+    return false;
+}
+typedef enum : u32 {
+    FMT_INT_PRECISION_8,
+    FMT_INT_PRECISION_16,
+    FMT_INT_PRECISION_32,
+    FMT_INT_PRECISION_64,
+} FormatIntegerPrecision;
+
+typedef union {
+    i32 _vector[4];
+} FormatIntegerValues;
+
+no_inline hot
+internal usize ___fmt(
+    StringSlice* slice,
+    const char* format,
+    PutCharFN* put,
+    va_list va
+) {
+    
+    #define ___intermediate_buffer_size 64
+    char intermediate_buffer[___intermediate_buffer_size] = {};
+    StringSlice intermediate = {};
+    intermediate.buffer   = intermediate_buffer;
+    intermediate.capacity = ___intermediate_buffer_size;
+
+    STRING( ss_true, "true" );
+    STRING( ss_false, "false" );
+
+    usize result = 0;
+    
+    #define ___incr() do {\
+        at++;\
+        if( !at ) {\
+            goto fmt_end;\
         }\
     } while(0)
 
-    b32 quick_exit = false;
-    while( *at && !quick_exit ) {
-        if( *at == '{' ) {
-            ++at;
-            if( *at == '{' ) {
-                ++at;
-                write_char( &dst, '{' );
+    #define ___put( c ) do {\
+        if( !put( slice, c ) ) {\
+            result++;\
+        }\
+    } while(0)
+
+    const char* at = format;
+    while( *at ) {
+        if( *at != '{' ) {
+            if( *at == '}' ) {
+                ___incr();
+                ___put( '}' );
+                if( *at == '}' ) {
+                    ___incr();
+                }
                 continue;
             }
-            b32 is_unsigned  = true;
-            u32 vector_count = 0;
-            b32 is_quaternion = false;
-            switch( *at ) {
-                case 'b':
-                case 'B': {
-                    ++at;
-                    int boolean = va_arg( list, int );
-                    b32 use_binary = false;
-                    b32 padding_is_negative = false;
-                    i32 padding = 0;
-                    while( *at == ',') {
-                        ++at;
-                        if( *at == 'b' || *at == 'B' ) {
-                            use_binary = true;
-                            ++at;
-                            continue;
-                        }
-                        if( *at == '-' ) {
-                            padding_is_negative = true;
-                            ++at;
-                        }
-                        if( char_is_digit( *at ) ) {
-                            padding = parse_i32_internal( &at );
-                            continue;
-                        }
-                        PANIC();
-                    }
-                    u32 write_count = 0;
-                    if( use_binary ) {
-                        write_count = 1;
-                    } else {
-                        write_count = boolean ? 4 : 5;
-                    }
+            ___put( *at++ );
+            continue;
+        }
+        ___incr();
 
-                    if( !padding_is_negative && padding ) {
-                        padding = padding - write_count;
-                        for( i32 i = 0; i < padding; ++i ) {
-                            write_char( &dst, ' ' );
-                        }
-                    }
+        b32 is_signed                        = false;
+        char padding_char                    = ' ';
+        i64  padding                         = 0;
+        FormatInteger fmt                    = FMT_INT_DECIMAL;
+        FormatIntegerPrecision int_precision = FMT_INT_PRECISION_32;
+        u32 component_count                  = 1;
 
-                    if( use_binary ) {
-                        write_char( &dst, boolean ? '1' : '0' );
-                    } else {
-                        if( boolean ) {
-                            write_char( &dst, 't' );
-                            write_char( &dst, 'r' );
-                            write_char( &dst, 'u' );
-                            write_char( &dst, 'e' );
-                        } else {
-                            write_char( &dst, 'f' );
-                            write_char( &dst, 'a' );
-                            write_char( &dst, 'l' );
-                            write_char( &dst, 's' );
-                            write_char( &dst, 'e' );
-                        }
-                    }
-                    if( padding_is_negative && padding ) {
-                        padding = padding - write_count;
-                        for( i32 i = 0; i < padding; ++i ) {
-                            write_char( &dst, ' ' );
-                        }
-                    }
-                    CHECK_FOR_CLOSING_BRACE();
-                } break;
-                case 'C':
-                case 'c': {
-                    ++at;
-                    if( *at == 'c' || *at == 'C' ) {
-                        // const char
-                        ++at;
-                        char* str = va_arg(list, char*);
-                        b32 padding_is_negative = false;
-                        i32 padding = 0;
+        switch( *at ) {
 
-                        if( *at == ',' ) {
-                            ++at;
-                            if( *at == '-' ) {
-                                ++at;
-                                padding_is_negative = true;
-                            }
-                            ASSERT( char_is_digit( *at ) );
-                            padding = parse_i32_internal( &at );
-                        }
-                        i32 str_len = (i32)cstr_len( str );
-                        if( padding && !padding_is_negative ) {
-                            padding = padding - str_len;
-                            for( i32 i = 0; i < padding; ++i ) {
-                                write_char( &dst, ' ' );
-                            }
-                        }
+            case '{': {
+                ___put( *at );
+                ___incr();
+            } break;
 
-                        for( char* src = str; *src; ++src ) {
-                            write_char( &dst, *src );
-                        }
-                        if( padding_is_negative && padding ) {
-                            padding = padding - str_len;
-                            for( i32 i = 0; i < padding; ++i ) {
-                                write_char(&dst, ' ');
-                            }
-                        }
-                        CHECK_FOR_CLOSING_BRACE();
-                    } else {
-                        char character = (char)va_arg( list, int );
-                        write_char( &dst, character );
+            case 'b':
+            case 'B': {
+                ___incr();
+                int val = va_arg( va, int );
 
-                        CHECK_FOR_CLOSING_BRACE();
-                    }
-                } break;
-                case 'S':
-                case 's': {
-                    const char* string_buffer = NULL;
-                    u32         string_length = 0;
-                    ++at;
+                b32 fmt_binary = false;
+                padding = 0;
 
-                    StringSlice arg = va_arg(list, StringSlice);
-                    string_buffer = arg.buffer;
-                    string_length = arg.len;
-
-                    b32 padding_is_negative = false;
-                    i32 padding = 0;
-
-                    if( *at == ',' ) {
-                        ++at;
-                        if( *at == '-' ) {
-                            padding_is_negative = true;
-                            ++at;
-                        }
-                        ASSERT( char_is_digit( *at ) );
-                        padding = parse_i32_internal( &at );
-                    }
-                    if( padding && !padding_is_negative ) {
-                        padding = padding - string_length;
-                        for( i32 i = 0; i < padding; ++i ) {
-                            write_char( &dst, ' ' );
-                        }
-                    }
-
-                    for( u32 i = 0; i < string_length; ++i ) {
-                        if( string_buffer[i] ) {
-                            write_char( &dst, string_buffer[i] );
-                        }
-                    }
-
-                    if( padding && padding_is_negative ) {
-                        padding = padding - string_length;
-                        for( i32 i = 0; i < padding; ++i ) {
-                            write_char( &dst, ' ' );
-                        }
-                    }
-                    CHECK_FOR_CLOSING_BRACE();
-                } break;
-                case 'I':
-                case 'i':
-                    is_unsigned = false;
-                case 'U':
-                case 'u': {
-                    ++at;
-                    b32 value_is_64bit = false;
-                    u32 size = 32;
-                    if( *at == 'v' || *at == 'V' ) {
-                        ++at;
-                        ASSERT( char_is_digit( *at ) );
-                        i32 parsed_count = parse_i32_internal( &at );
-                        ASSERT( parsed_count >= 2 && parsed_count <= 4 );
-                        vector_count = (u32)parsed_count;
-                    } else {
-                        if( char_is_digit( *at ) ) {
-                            i32 parsed_size = parse_i32_internal( &at );
-                            switch( parsed_size ) {
-                                case 8:
-                                    size = 8;
-                                    break;
-                                case 16:
-                                    size = 16;
-                                    break;
-                                case 32:
-                                    size = 32;
-                                    break;
-                                case 64:
-                                    value_is_64bit = true;
-                                    size = 64;
-                                    break;
-                                default:
-                                    PANIC();
-                            }
-                        } else if( !(*at == '}' || *at == ',') ) {
-                            PANIC();
-                        }
-                    }
-
-                    b32 format_hex    = false;
-                    b32 format_binary = false;
-                    b32 format_zero_padding = false;
-                    b32 padding_is_negative = false;
-                    i32 padding = 0;
-                    while( *at == ',' ) {
-                        ++at;
-                        if( *at == ',' ) {
-                            continue;
-                        }
-                        if( *at == '}' ) {
-                            break;
-                        }
-
-                        if( *at == '-' ) {
-                            ++at;
-                            padding_is_negative = true;
-                        }
-
-                        if( *at == '0' ) {
-                            ++at;
-                            format_zero_padding = true;
-                        }
-
-                        if( char_is_digit( *at ) ) {
-                            padding = parse_i32_internal( &at );
-                            continue;
-                        } 
-
-                        switch( *at ) {
-                            case 'B':
-                            case 'b':
-                                ++at;
-                                format_binary = true;
-                                break;
-                            case 'X':
-                            case 'x':
-                                ++at;
-                                format_hex = true;
-                                break;
-
-                            default:
-                                PANIC();
-                        }
-                    }
-
-                    if( format_binary && format_hex ) {
+                while( *at == ',' ) {
+                    ___incr();
+                    if( *at == 'b' || *at == 'B' ) {
+                        fmt_binary = true;
+                        ___incr();
                         continue;
                     }
-                    if( format_zero_padding && format_hex ) {
-                        format_zero_padding = false;
-                    }
 
-                    if( vector_count ) {
-                        write_char( &dst, '{' );
-                        write_char( &dst, ' ' );
-                    }
+                    usize end = 0;
+                    if( ___closing_brace( at, &end ) ) {
+                        StringSlice number;
+                        number.buffer = (char*)at;
+                        number.len    = end;
 
-                    b32 is_negative = false;
-                    u64 number = 0;
-                    i64 numbers[3];
-                    if( !vector_count ) {
-                        if( value_is_64bit ) {
-                            number = va_arg( list, u64 );
-                            if( !is_unsigned ) {
-                                i64 signed_ = *(i64*)&number;
-                                if( signed_ < 0 ) {
-                                    is_negative = true;
-                                    signed_ = -signed_;
-                                }
-                                number = signed_;
-                            }
-                        } else {
-                            u32 number32 = va_arg( list, u32 );
-                            if( !is_unsigned ) {
-                                i32 signed_ = *(i32*)&number32;
-                                if( signed_ < 0 ) {
-                                    is_negative = true;
-                                    signed_ = -signed_;
-                                }
-                                number32 = signed_;
-                            }
-                            number = (u64)number32;
+                        if( !ss_parse_int( &number, &padding ) ) {
+                            goto fmt_end;
                         }
+
+                        at = at + end;
                     } else {
-                        i64 signed_number = 0;
-                        if( vector_count == 2 ) {
-                            ivec2 v = va_arg( list, ivec2 );
-                            signed_number = v.x;
-                            numbers[0] = v.y;
-                        } else if( vector_count == 3 ) {
-                            ivec3 v = va_arg( list, ivec3 );
-                            signed_number = v.x;
-                            numbers[0] = v.y;
-                            numbers[1] = v.z;
-                        } else if( vector_count == 4 ) {
-                            ivec4 v = va_arg( list, ivec4 );
-                            signed_number = v.x;
-                            numbers[0] = v.y;
-                            numbers[1] = v.z;
-                            numbers[2] = v.w;
-                        } 
-                        if( signed_number < 0 ) {
-                            is_negative = true;
-                            signed_number = -signed_number;
+                        goto fmt_end;
+                    }
+                }
+
+                intermediate.len = 0;
+                if( fmt_binary ) {
+                    StringSlice bin;
+                    bin.buffer = val ? "1" : "0";
+                    bin.len    = 1;
+                    ss_mut_copy( &intermediate, &bin );
+                } else {
+                    ss_mut_copy(
+                        &intermediate, val ? &ss_true : &ss_false );
+                }
+
+                if( padding > 0 ) {
+                    i32 pad_count = padding - intermediate.len;
+                    for( i32 i = 0; i < pad_count; ++i ) {
+                        ___put( ' ' );
+                    }
+                    padding = 0;
+                }
+
+                for( usize i = 0; i < intermediate.len; ++i ) {
+                    ___put( intermediate.buffer[i] );
+                }
+
+                if( padding < 0 ) {
+                    padding *= -1;
+                    i32 pad_count = padding - intermediate.len;
+                    for( i32 i = 0; i < pad_count; ++i ) {
+                        ___put( ' ' );
+                    }
+                }
+
+                ___incr();
+            } break;
+
+            case 'c':
+            case 'C': {
+                ___incr();
+                b32 is_string = false;
+                if( *at == 'c' || *at == 'C' ) {
+                    is_string = true;
+                    ___incr();
+                }
+
+                padding = 0;
+
+                while( *at == ',' ) {
+                    ___incr();
+                    usize end = 0;
+                    if( ___closing_brace( at, &end ) ) {
+                        StringSlice number;
+                        number.buffer = (char*)at;
+                        number.len    = end;
+
+                        if( !ss_parse_int( &number, &padding ) ) {
+                            goto fmt_end;
                         }
-                        number = (u64)signed_number;
+
+                        at = at + end;
+                    } else {
+                        goto fmt_end;
+                    }
+                }
+
+                if( is_string ) {
+                    const char* val = va_arg( va, const char* );
+                    if( !val ) {
+                        goto fmt_end;
+                    }
+                    usize val_len = 0;
+                    if( padding ) {
+                        val_len = cstr_len( val );
                     }
 
-                    u32 vector_index = 0;
-                    do {
-                        if( format_binary ) {
-                            u32 temp_buffer_index = 0;
-                            u32 max_len = is_unsigned ? size : size - 1;
-                            for( u32 i = 0; i < max_len; ++i ) {
-                                char binary = (number & (1 << i)) != 0;
-                                binary = binary ? '1' : '0';
-                                temp_buffer[temp_buffer_index++] = binary;
-                            }
-                            if( !is_unsigned ) {
-                                temp_buffer[temp_buffer_index++] =
-                                    is_negative ? '1' : '0';
-                            }
-                            if( !padding_is_negative && padding ) {
-                                padding = padding - temp_buffer_index;
-                                for( i32 i = 0; i < padding; ++i ) {
-                                    temp_buffer[temp_buffer_index++] =
-                                        format_zero_padding ? '0' : ' ';
-                                }
-                            }
-                            for( i32 i = temp_buffer_index - 1; i >= 0; --i ) {
-                                write_char( &dst, temp_buffer[i] );
-                            }
-                            if( padding_is_negative && padding ) {
-                                padding = padding - temp_buffer_index;
-                                for( i32 i = 0; i < padding; ++i ) {
-                                    write_char(&dst, format_zero_padding ? '0' : ' ');
-                                }
-                            }
-                        } else {
-                            if( is_negative && !format_hex ) {
-                                write_char( &dst, '-' );
-                            }
-                            u32 temp_buffer_index = int_to_string(
-                                temp_buffer_view,
-                                number,
-                                format_hex ? HEX_BASE : DECIMAL_BASE,
-                                format_hex ? HEX_DIGITS : DECIMAL_DIGITS,
-                                padding,
-                                padding_is_negative,
-                                format_zero_padding,
-                                is_negative
-                            );
-                            for( i32 i = temp_buffer_index - 1; i >= 0; --i ) {
-                                write_char( &dst, temp_buffer[i] );
-                            }
-                            if( padding_is_negative && padding ) {
-                                padding = padding - temp_buffer_index;
-                                for( i32 i = 0; i < padding; ++i ) {
-                                    write_char(&dst, format_zero_padding ? '0' : ' ');
-                                }
-                            }
+                    if( padding > 0 ) {
+                        i32 pad_count = padding - val_len;
+                        for( i32 i = 0; i < pad_count; ++i ) {
+                            ___put( ' ' );
                         }
-                        if( vector_count ) {
-                            i32 next = numbers[vector_index];
-                            is_negative = next < 0;
-                            if( is_negative ) {
-                                next = -next;
-                            }
-                            number = (u64)next;
-
-                            vector_index++;
-                            if( vector_index < vector_count ) {
-                                write_char( &dst, ',' );
-                            }
-                            write_char( &dst, ' ' );
-                        }
-                    } while( vector_index < vector_count );
-
-                    if( vector_count ) {
-                        write_char( &dst, '}' );
+                        padding = 0;
                     }
 
-                    CHECK_FOR_CLOSING_BRACE();
-                } break;
-                case 'Q':
-                case 'q':
-                    is_quaternion = true;
-                case 'V':
-                case 'v':
-                    vector_count = 1;
-                case 'F':
-                case 'f': {
-                    ++at;
-                    if( vector_count ) {
-                        if( !is_quaternion ) {
-                            ASSERT( char_is_digit( *at ) );
-                            i32 parsed_vector_count =
-                                parse_i32_internal( &at );
-                            ASSERT(
-                                parsed_vector_count == 2 ||
-                                parsed_vector_count == 3 ||
-                                parsed_vector_count == 4
-                            );
 
-                            vector_count = (u32)parsed_vector_count;
-                        } else {
-                            vector_count = 4;
+                    while( *val ) {
+                        ___put( *val++ );
+                    }
+
+                    if( padding < 0 ) {
+                        padding *= -1;
+                        i32 pad_count = padding - val_len;
+                        for( i32 i = 0; i < pad_count; ++i ) {
+                            ___put( ' ' );
                         }
                     }
-                    b32 use_zero_padding = false;
-                    b32 padding_is_negative = false;
-                    i32 padding   = 0;
-                    u32 precision = 6;
-                    b32 byte_format = false;
-                    u32 byte_formatter = FLOAT_BYTE_BYTES;
-                    while( *at == ',' ) {
-                        ++at;
-                        if( *at == 'b' || *at == 'B' ) {
-                            byte_format = true;
-                            ++at;
+                } else {
+                    int val = va_arg( va, int );
+
+                    if( padding > 0 ) {
+                        i32 pad_count = padding - 1;
+                        for( i32 i = 0; i < pad_count; ++i ) {
+                            ___put( ' ' );
+                        }
+                        padding = 0;
+                    }
+
+                    ___put( (char)val );
+
+                    if( padding < 0 ) {
+                        padding *= -1;
+                        i32 pad_count = padding - 1;
+                        for( i32 i = 0; i < pad_count; ++i ) {
+                            ___put( ' ' );
+                        }
+                    }
+                }
+
+                ___incr();
+            } break;
+
+            case 'S':
+            case 's': {
+                ___incr();
+
+                padding = 0;
+
+                while( *at == ',' ) {
+                    ___incr();
+                    usize end = 0;
+                    if( ___closing_brace( at, &end ) ) {
+                        StringSlice number;
+                        number.buffer = (char*)at;
+                        number.len    = end;
+
+                        if( !ss_parse_int( &number, &padding ) ) {
+                            goto fmt_end;
+                        }
+
+                        at = at + end;
+                    } else {
+                        goto fmt_end;
+                    }
+                }
+
+                StringSlice val = va_arg( va, StringSlice );
+
+                if( padding > 0 ) {
+                    i32 pad_count = padding - val.len;
+                    for( i32 i = 0; i < pad_count; ++i ) {
+                        ___put( ' ' );
+                    }
+                    padding = 0;
+                }
+
+                for( usize i = 0; i < val.len; ++i ) {
+                    ___put( val.buffer[i] );
+                }
+
+                if( padding < 0 ) {
+                    padding *= -1;
+                    i32 pad_count = padding - val.len;
+                    for( i32 i = 0; i < pad_count; ++i ) {
+                        ___put( ' ' );
+                    }
+                }
+
+                ___incr();
+            } break;
+
+            case 'i':
+            case 'I':
+                ___incr();
+
+                is_signed = true;
+                if( !(*at == 'v' || *at == 'V') ) {
+                    goto fmt_int;
+                }
+
+                ___incr();
+
+                component_count = 0;
+                if( *at == '2' ) {
+                    component_count = 2;
+                } else if( *at == '3' ) {
+                    component_count = 3;
+                } else if( *at == '4' ) {
+                    component_count = 4;
+                } else {
+                    goto fmt_end;
+                }
+
+            case 'U':
+            case 'u': {
+                ___incr();
+
+            fmt_int:
+                padding_char  = ' ';
+                padding       = 0;
+                fmt           = FMT_INT_DECIMAL;
+                int_precision = FMT_INT_PRECISION_32;
+
+                while(
+                    component_count == 1 &&
+                    *at != ',' &&
+                    *at != '}'
+                ) {
+                    if( *at == '8' ) {
+                        int_precision = FMT_INT_PRECISION_8;
+                        ___incr();
+                        if( !(*at == ',' || *at == '}') ) {
+                            goto fmt_end;
+                        }
+                        continue;
+                    }
+                    if( *at == '1' ) {
+                        ___incr();
+                        if( *at == '6' ) {
+                            int_precision = FMT_INT_PRECISION_16;
+                            ___incr();
+                            if( !(*at == ',' || *at == '}') ) {
+                                goto fmt_end;
+                            }
                             continue;
-                        }
-                        if( *at == '0' ) {
-                            ++at;
-                            use_zero_padding = true;
-                        }
-                        if( *at == '-' ) {
-                            padding_is_negative = true;
-                            ++at;
-                        }
-                        ASSERT( char_is_digit( *at ) || *at == '.' );
-                        padding = parse_i32_internal( &at );
-                        if( *at == '.' ) {
-                            ++at;
-                            ASSERT( char_is_digit( *at ) );
-                            precision = parse_i32_internal( &at );
-                        }
-                    }
-                    padding *= padding_is_negative ? -1 : 1;
-                    if( !vector_count ) {
-                        f64 f = va_arg( list, f64 );
-                        if( byte_format ) {
-                            FloatByteFormatResult format =
-                                float_byte_format( f );
-                            f = format.f;
-                            byte_formatter = format.format;
-                        }
-                        u32 write_count = float_to_string(
-                            temp_buffer_view,
-                            f,
-                            padding,
-                            precision,
-                            use_zero_padding
-                        );
-                        for( i32 i = write_count - 1; i >= 0; --i ) {
-                            write_char( &dst, temp_buffer[i] );
-                        }
-                        if( byte_format ) {
-                            write_char(&dst, ' ');
-                            switch( byte_formatter ) {
-                                case FLOAT_BYTE_BYTES:
-                                    write_char( &dst, ' ' );
-                                    break;
-                                case FLOAT_BYTE_KILO:
-                                    write_char(&dst, 'K');
-                                    break;
-                                case FLOAT_BYTE_MEGA:
-                                    write_char(&dst, 'M');
-                                    break;
-                                case FLOAT_BYTE_GIGA:
-                                    write_char(&dst, 'G');
-                                    break;
-                            }
-                            write_char(&dst, 'B');
-                            write_count += 3;
-                        }
-                        if( padding_is_negative ) {
-                            padding = -padding - (write_count - precision);
-                            for( i32 i = 0; i < padding; ++i ) {
-                                write_char( &dst, use_zero_padding ? '0' : ' ' );
-                            }
-                        }
-                    } else {
-                        write_char( &dst, '{' );
-                        write_char( &dst, ' ' );
-
-                        f32 values[4];
-                        if( is_quaternion ) {
-                            quat q = va_arg(list, quat);
-                            values[0] = q.w;
-                            values[1] = q.x;
-                            values[2] = q.y;
-                            values[3] = q.z;
                         } else {
-                            if( vector_count == 2 ) {
-                                vec2 v = va_arg( list, vec2 );
-                                values[0] = v.x;
-                                values[1] = v.y;
-                            } else if( vector_count == 3 ) {
-                                vec3 v = va_arg( list, vec3 );
-                                values[0] = v.x;
-                                values[1] = v.y;
-                                values[2] = v.z;
-                            } else if( vector_count == 4 ) {
-                                vec4 v = va_arg( list, vec4 );
-                                values[0] = v.x;
-                                values[1] = v.y;
-                                values[2] = v.z;
-                                values[3] = v.w;
-                            } else {
-                                PANIC();
-                            }
+                            goto fmt_end;
                         }
+                    }
+                    if( *at == '3' ) {
+                        ___incr();
+                        if( *at == '2' ) {
+                            int_precision = FMT_INT_PRECISION_32;
+                            ___incr();
+                            if( !(*at == ',' || *at == '}') ) {
+                                goto fmt_end;
+                            }
+                            continue;
+                        } else {
+                            goto fmt_end;
+                        }
+                    }
+                    if( *at == '6' ) {
+                        ___incr();
+                        if( *at == '4' ) {
+                            int_precision = FMT_INT_PRECISION_64;
+                            ___incr();
+                            if( !(*at == ',' || *at == '}') ) {
+                                goto fmt_end;
+                            }
+                            continue;
+                        } else {
+                            goto fmt_end;
+                        }
+                    }
+                }
 
-                        for( u32 i = 0; i < vector_count; ++i ) {
-                            u32 write_count = float_to_string(
-                                temp_buffer_view,
-                                values[i],
-                                padding,
-                                precision,
-                                use_zero_padding
-                            );
-                            for( i32 i = write_count - 1; i >= 0; --i ) {
-                                write_char( &dst, temp_buffer[i] );
-                            }
-                            if( i + 1 != vector_count ) {
-                                write_char( &dst, ',' );
-                            }
-                            write_char( &dst, ' ' );
-                        }
-                        write_char( &dst, '}' );
+                while( *at == ',' ) {
+                    ___incr();
+
+                    if( *at == 'b' ) {
+                        fmt = FMT_INT_BINARY;
+                        ___incr();
+                        continue;
                     }
 
-                    CHECK_FOR_CLOSING_BRACE();
-                } break;
-                case '}': {
-                } break;
+                    if( *at == 'x' ) {
+                        fmt = FMT_INT_HEX;
+                        ___incr();
+                        continue;
+                    }
 
-                default:
-                    PANIC();
-            }
+                    usize end = 0;
+                    if( ___closing_brace( at, &end ) ) {
+                        StringSlice number;
+                        number.buffer = (char*)at;
+                        number.len    = end;
 
-            if( *at ) {
-                ++at;
-            }
-        } else {
-            write_char( &dst, *at++ );
+                        if( *at == '0' ) {
+                            padding_char = '0';
+                        }
+
+                        if( !ss_parse_int( &number, &padding ) ) {
+                            goto fmt_end;
+                        }
+
+                        at = at + end;
+                    } else {
+                        goto fmt_end;
+                    }
+                }
+
+                if( component_count > 1 ) {
+                    ___put( '{' );
+                    ___put( ' ' );
+                }
+
+                intermediate.len = 0;
+                FormatIntegerValues values = {};
+                if( component_count == 1 ) {
+                    switch( int_precision ) {
+                        case FMT_INT_PRECISION_8: {
+                            int val_ = va_arg( va, int );
+                            if( is_signed ) {
+                                i8 val = (i8)val_;
+                                ss_mut_fmt_i8(
+                                    &intermediate, val, fmt );
+                            } else {
+                                u8 val = (u8)REINTERPRET( u32, val_ );
+                                ss_mut_fmt_u8(
+                                    &intermediate, val, fmt );
+                            }
+                        } break;
+                        case FMT_INT_PRECISION_16: {
+                            int val_ = va_arg( va, int );
+                            if( is_signed ) {
+                                i16 val = (i16)val_;
+                                ss_mut_fmt_i16(
+                                    &intermediate, val, fmt );
+                            } else {
+                                u16 val = (u16)REINTERPRET( u32, val_ );
+                                ss_mut_fmt_u16(
+                                    &intermediate, val, fmt );
+                            }
+                        } break;
+                        case FMT_INT_PRECISION_32: {
+                            int val_ = va_arg( va, int );
+                            if( is_signed ) {
+                                i32 val = (i32)val_;
+                                ss_mut_fmt_i32(
+                                    &intermediate, val, fmt );
+                            } else {
+                                u32 val = (u32)REINTERPRET( u32, val_ );
+                                ss_mut_fmt_u32(
+                                    &intermediate, val, fmt );
+                            }
+                        } break;
+                        case FMT_INT_PRECISION_64: {
+                            long long val_ = va_arg( va, long long );
+                            if( is_signed ) {
+                                i64 val = (i64)val_;
+                                ss_mut_fmt_i64(
+                                    &intermediate, val, fmt );
+                            } else {
+                                u64 val = (u64)REINTERPRET( u64, val_ );
+                                ss_mut_fmt_u64(
+                                    &intermediate, val, fmt );
+                            }
+                        } break;
+                    }
+                } else {
+                    switch( component_count ) {
+                        case 2: {
+                            ivec2 val_ = va_arg( va, ivec2 );
+                            values._vector[0] = val_.x;
+                            values._vector[1] = val_.y;
+                        } break;
+                        case 3: {
+                            ivec3 val_ = va_arg( va, ivec3 );
+                            values._vector[0] = val_.x;
+                            values._vector[1] = val_.y;
+                            values._vector[2] = val_.z;
+                        } break;
+                        case 4: {
+                            ivec4 val_ = va_arg( va, ivec4 );
+                            values._vector[0] = val_.x;
+                            values._vector[1] = val_.y;
+                            values._vector[2] = val_.z;
+                            values._vector[3] = val_.w;
+                        } break;
+                        default: goto fmt_end;
+                    }
+                }
+
+                for( u32 i = 0; i < component_count; ++i ) {
+                    i32 padding_ = padding;
+                    if( component_count > 1 ) {
+                        intermediate.len = 0;
+                        ss_mut_fmt_i32(
+                            &intermediate, values._vector[i], fmt );
+                    }
+
+                    if( padding_ > 0 ) {
+                        i32 pad_count = padding_ - intermediate.len;
+                        for( i32 i = 0; i < pad_count; ++i ) {
+                            ___put( padding_char );
+                        }
+                        padding_ = 0;
+                    }
+
+                    for( usize i = 0; i < intermediate.len; ++i ) {
+                        ___put( intermediate.buffer[i] );
+                    }
+
+                    if( padding_ < 0 ) {
+                        padding_ *= -1;
+                        i32 pad_count = padding_ - intermediate.len;
+                        for( i32 i = 0; i < pad_count; ++i ) {
+                            ___put( padding_char );
+                        }
+                    }
+
+                    if(
+                        component_count > 1 &&
+                        i + 1 < component_count
+                    ) {
+                        ___put( ',' );
+                        ___put( ' ' );
+                    }
+                }
+
+                if( component_count > 1 ) {
+                    ___put( ' ' );
+                    ___put( '}' );
+                }
+
+                ___incr();
+            } break;
+
+            case 'q':
+            case 'Q':
+                component_count = 4;
+            case 'v':
+            case 'V':
+                if( component_count == 1 ) {
+                    ___incr();
+                    switch( *at ) {
+                        case '2': {
+                            component_count = 2;
+                        } break;
+                        case '3': {
+                            component_count = 3;
+                        } break;
+                        case '4': {
+                            component_count = 4;
+                        } break;
+                        default: goto fmt_end;
+                    }
+                }
+            case 'f':
+            case 'F': {
+                ___incr();
+
+                u64 precision   = 0;
+                b32 fmt_storage = false;
+                padding_char    = ' ';
+                padding         = 0;
+                while( *at == ',' ) {
+                    ___incr();
+
+                    if( *at == 'b' ) {
+                        if( component_count != 1 ) {
+                            goto fmt_end;
+                        }
+                        fmt_storage = true;
+                        ___incr();
+                        continue;
+                    }
+
+                    usize padding_end = 0;
+                    if( ___precision_dot( at, &padding_end ) ) {
+                        StringSlice number;
+                        if( padding_end ) {
+                            number.buffer = (char*)at;
+                            number.len    = padding_end;
+
+                            if( *at == '0' ) {
+                                padding_char = '0';
+                            }
+
+                            if( !ss_parse_int( &number, &padding ) ) {
+                                goto fmt_end;
+                            }
+
+                        }
+                        at = at + (padding_end ? padding_end + 1 : 1);
+
+                        usize precision_end = 0;
+                        if( ___closing_brace( at, &precision_end ) ) {
+                            number.buffer = (char*)at;
+                            number.len    = precision_end;
+
+                            if(
+                                !ss_parse_uint( &number, &precision )
+                            ) {
+                                goto fmt_end;
+                            }
+                            at = at + precision_end;
+                        } else {
+                            goto fmt_end;
+                        }
+                    } else if(
+                        ___closing_brace( at, &padding_end )
+                    ) {
+                        StringSlice number;
+                        number.buffer = (char*)at;
+                        number.len    = padding_end;
+
+                        if( *at == '0' ) {
+                            padding_char = '0';
+                        }
+
+                        if( !ss_parse_int( &number, &padding ) ) {
+                            goto fmt_end;
+                        }
+
+                        at = at + padding_end;
+                    } else {
+                        goto fmt_end;
+                    }
+
+                }
+
+                precision = precision ? precision : 6;
+                intermediate.len = 0;
+
+                FormatFloatStorageType storage_type;
+
+                usize padding_offset = 0;
+
+                f64 values[4] = {};
+                switch( component_count ) {
+                    case 1: {
+                        f64 val = va_arg( va, double );
+                        if( fmt_storage ) {
+                            val = ___determine_storage(
+                                val, &storage_type );
+                        }
+                        values[0] = val;
+                    } break;
+                    case 2: {
+                        vec2 val = va_arg( va, vec2 );
+                        values[0] = val.x;
+                        values[1] = val.y;
+                    } break;
+                    case 3: {
+                        vec3 val = va_arg( va, vec3 );
+                        values[0] = val.x;
+                        values[1] = val.y;
+                        values[2] = val.z;
+                    } break;
+                    case 4: {
+                        vec4 val = va_arg( va, vec4 );
+                        values[0] = val.x;
+                        values[1] = val.y;
+                        values[2] = val.z;
+                        values[3] = val.w;
+                    } break;
+                    default: break;
+                }
+
+                if( component_count > 1 ) {
+                    ___put( '{' );
+                    ___put( ' ' );
+                }
+                for( u32 i = 0; i < component_count; ++i ) {
+                    intermediate.len = 0;
+
+                    ss_mut_fmt_f64(
+                        &intermediate,
+                        values[i],
+                        precision
+                    );
+
+                    if(
+                        intermediate.len >= precision &&
+                        padding > 0
+                    ) {
+                        padding_offset =
+                            intermediate.len - precision;
+                    } else {
+                        padding_offset = intermediate.len;
+                    }
+
+                    padding_offset = padding_offset ?
+                        padding_offset - 1 : padding_offset;
+
+                    if( padding > 0 ) {
+                        i32 pad_count = padding - padding_offset;
+                        for( i32 i = 0; i < pad_count; ++i ) {
+                            ___put( padding_char );
+                        }
+                        padding = 0;
+                    }
+
+                    for( usize i = 0; i < intermediate.len; ++i ) {
+                        ___put( intermediate.buffer[i] );
+                    }
+
+                    if( fmt_storage ) {
+                        ___put( ' ' );
+                        switch( storage_type ) {
+                            case FMT_STORAGE_KB: {
+                                ___put( 'K' );
+                            } break;
+                            case FMT_STORAGE_MB: {
+                                ___put( 'M' );
+                            } break;
+                            case FMT_STORAGE_GB: {
+                                ___put( 'G' );
+                            } break;
+                            case FMT_STORAGE_TB: {
+                                ___put( 'T' );
+                            } break;
+                            default: break;
+                        }
+                        ___put( 'B' );
+                    }
+
+                    if( padding < 0 ) {
+                        padding *= -1;
+                        i32 pad_count = padding - padding_offset;
+                        for( i32 i = 0; i < pad_count; ++i ) {
+                            ___put( ' ' );
+                        }
+                    }
+
+                    if(
+                        component_count > 1 &&
+                        i + 1 != component_count
+                    ) {
+                        ___put( ',' );
+                        ___put( ' ' );
+                    }
+                }
+
+                if( component_count > 1 ) {
+                    ___put( ' ' );
+                    ___put( '}' );
+                }
+
+                ___incr();
+            } break;
         }
+
     }
 
-    u32 result = dst.buffer - buffer.buffer;
+fmt_end:
     return result;
 }
 
 LD_API usize ss_mut_format_va(
     StringSlice* buffer,
     const char* format,
-    va_list variadic
+    va_list va
 ) {
-    return format_internal( *buffer, format, write_char_dst, variadic );
+    return ___fmt( buffer, format, ___put_slice, va );
 }
 LD_API usize ss_mut_format( StringSlice* buffer, const char* format, ... ) {
-    va_list list;
-    va_start( list, format );
-    usize result = format_internal( *buffer, format, write_char_dst, list );
-    va_end( list );
+    va_list va;
+    va_start( va, format );
+
+    usize result = ss_mut_format_va( buffer, format, va );
+
+    va_end( va );
     return result;
 }
 
 LD_API void print( const char* format, ... ) {
-    StringSlice buffer = {};
-    buffer.len = U32_MAX;
-    va_list list;
-    va_start( list, format );
-    format_internal( buffer, format, write_char_stdout, list );
-    va_end( list );
-    char_output_stderr(0);
+    va_list va;
+    va_start( va, format );
+
+    ___fmt( NULL, format, ___put_stdout, va );
+
+    va_end( va );
+
+    ___put_stdout( NULL, 0 );
 }
 LD_API void print_err( const char* format, ... ) {
-    StringSlice buffer = {};
-    buffer.len = U32_MAX;
-    va_list list;
-    va_start( list, format );
-    format_internal( buffer, format, write_char_stderr, list );
-    va_end( list );
-    char_output_stderr(0);
+    va_list va;
+    va_start( va, format );
+
+    ___fmt( NULL, format, ___put_stderr, va );
+
+    va_end( va );
+
+    ___put_stderr( NULL, 0 );
 }
-LD_API void print_va( const char* format, va_list variadic ) {
-    StringSlice buffer = {};
-    buffer.len = U32_MAX;
-    format_internal(
-        buffer,
-        format,
-        write_char_stdout,
-        variadic
-    );
-    char_output_stderr(0);
+LD_API void print_va( const char* format, va_list va ) {
+    ___fmt( NULL, format, ___put_stdout, va );
+    ___put_stdout( NULL, 0 );
 }
-LD_API void print_err_va( const char* format, va_list variadic ) {
-    StringSlice buffer = {};
-    buffer.len = U32_MAX;
-    format_internal(
-        buffer,
-        format,
-        write_char_stderr,
-        variadic
-    );
-    char_output_stderr(0);
+LD_API void print_err_va( const char* format, va_list va ) {
+    ___fmt( NULL, format, ___put_stderr, va );
+    ___put_stderr( NULL, 0 );
 }
 

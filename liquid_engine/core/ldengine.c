@@ -183,7 +183,6 @@ ArgParseResult parse_args( int argc, char** argv ) {
         current_arg.buffer = argv[i];
         current_arg.len    = cstr_len( current_arg.buffer );
 
-
         if(
             ss_cmp( &current_arg, &help ) ||
             ss_cmp( &current_arg, &h )

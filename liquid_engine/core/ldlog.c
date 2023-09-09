@@ -105,47 +105,34 @@ hot internal void log_formatted(
     read_write_fence();
 
     if( BUFFER ) {
-        StringSlice buffer_view;
-        buffer_view.buffer   = BUFFER;
-        buffer_view.len      = BUFFER_SIZE;
-        buffer_view.capacity = BUFFER_SIZE;
-
-        usize chars_written =
-            ss_mut_format_va( &buffer_view, format, variadic );
-        if( !chars_written ) {
-            read_write_fence();
-            if( locked ) {
-                mutex_unlock( MUTEX );
-            }
-            return;
-        }
-
+        StringSlice buffer = {};
+        buffer.buffer      = BUFFER;
+        buffer.capacity    = BUFFER_SIZE;
+        
+        ss_mut_format_va( &buffer, format, variadic );
         if( new_line ) {
-            if( chars_written + 1 >= BUFFER_SIZE ) {
-                buffer_view.buffer[chars_written - 1] = '\n';
-                buffer_view.buffer[chars_written]     = 0;
-            } else {
-                buffer_view.buffer[chars_written]     = '\n';
-                buffer_view.buffer[chars_written + 1] = 0;
+            if( buffer.len == buffer.capacity ) {
+                buffer.len -= 2;
             }
+            ss_mut_push( &buffer, '\n' );
         } else {
-            if( chars_written >= BUFFER_SIZE ) {
-                buffer_view.buffer[chars_written - 1] = 0;
-            } else {
-                buffer_view.buffer[chars_written] = 0;
+            if( buffer.len == buffer.capacity ) {
+                buffer.len--;
             }
         }
+
+        ss_mut_push( &buffer, 0 );
 
         if( is_error ) {
-            cstr_output_stderr( buffer_view.buffer );
+            cstr_output_stderr( buffer.buffer );
         } else {
-            cstr_output_stdout( buffer_view.buffer );
+            cstr_output_stdout( buffer.buffer );
         }
 
 #if defined(LD_PLATFORM_WINDOWS)
         if( OUTPUT_DEBUG_STRING_ENABLED ) {
-            const char* str = buffer_view.buffer;
-            platform_win32_output_debug_string( str );
+            // const char* str = buffer_view.buffer;
+            // platform_win32_output_debug_string( str );
         }
 #endif
     } else {

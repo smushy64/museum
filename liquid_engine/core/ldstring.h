@@ -24,6 +24,13 @@ header_only b32 char_is_digit( char character ) {
     return character >= '0' && character <= '9';
 }
 
+/// Options for formatting integers.
+typedef enum : u32 {
+    FMT_INT_DECIMAL,
+    FMT_INT_BINARY,
+    FMT_INT_HEX
+} FormatInteger;
+
 /// Slice of string buffer.
 struct StringSlice {
     char* buffer;
@@ -147,16 +154,52 @@ LD_API void ss_split_at(
 LD_API b32 ss_split_at_whitespace(
     StringSlice* slice_to_split,
     StringSlice* out_first, StringSlice* out_last );
-/// Attempt to parse i32 from string slice.
+/// Attempt to parse integer from string slice.
 /// Returns true if successful.
-LD_API b32 ss_parse_i32( StringSlice* slice, i32* out_integer );
-/// Attempt to parse u32 from string slice.
+LD_API b32 ss_parse_int( StringSlice* slice, i64* out_integer );
+/// Attempt to parse unsigned integer from string slice.
 /// Returns true if successful.
-LD_API b32 ss_parse_u32( StringSlice* slice, u32* out_integer );
+LD_API b32 ss_parse_uint( StringSlice* slice, u64* out_integer );
+/// Attempt to parse float from string slice.
+/// Returns true if successful.
+LD_API b32 ss_parse_float( StringSlice* slice, f64* out_float );
 /// Output string slice to standard out.
 LD_API void ss_output_stdout( StringSlice* slice );
 /// Output string slice to standard error.
 LD_API void ss_output_stderr( StringSlice* slice );
+/// Format signed integer into string slice.
+/// Returns additional capacity required to fit value in slice.
+LD_API usize ss_mut_fmt_i8( StringSlice* slice, i8 value, FormatInteger fmt );
+/// Format signed integer into string slice.
+/// Returns additional capacity required to fit value in slice.
+LD_API usize ss_mut_fmt_i16( StringSlice* slice, i16 value, FormatInteger fmt );
+/// Format signed integer into string slice.
+/// Returns additional capacity required to fit value in slice.
+LD_API usize ss_mut_fmt_i32( StringSlice* slice, i32 value, FormatInteger fmt );
+/// Format signed integer into string slice.
+/// Returns additional capacity required to fit value in slice.
+LD_API usize ss_mut_fmt_i64( StringSlice* slice, i64 value, FormatInteger fmt );
+/// Format integer into string slice.
+/// Returns additional capacity required to fit value in slice.
+LD_API usize ss_mut_fmt_u8( StringSlice* slice, u8 value, FormatInteger fmt );
+/// Format integer into string slice.
+/// Returns additional capacity required to fit value in slice.
+LD_API usize ss_mut_fmt_u16( StringSlice* slice, u16 value, FormatInteger fmt );
+/// Format integer into string slice.
+/// Returns additional capacity required to fit value in slice.
+LD_API usize ss_mut_fmt_u32( StringSlice* slice, u32 value, FormatInteger fmt );
+/// Format integer into string slice.
+/// Returns additional capacity required to fit value in slice.
+LD_API usize ss_mut_fmt_u64( StringSlice* slice, u64 value, FormatInteger fmt );
+/// Format float into string slice.
+/// Returns additional capacity required to fit value in slice.
+LD_API usize ss_mut_fmt_f32( StringSlice* slice, f32 value, u32 precision );
+/// Format float into string slice.
+/// Returns additional capacity required to fit value in slice.
+LD_API usize ss_mut_fmt_f64( StringSlice* slice, f64 value, u32 precision );
+/// Format boolean into string slice.
+/// Returns additional capacity required to fit value in slice.
+LD_API usize ss_mut_fmt_b32( StringSlice* slice, b32 value );
 
 /// Print to stdout.
 /// Format specifiers are in docs/format.md

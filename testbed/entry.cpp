@@ -41,9 +41,6 @@ extern_c b32 application_init( EngineContext* ctx, void* opaque ) {
 
     memory->camera.transform->matrix_dirty = true;
 
-    unused(ctx);
-    unused(memory);
-
     return true;
 }
 extern_c b32 application_run( EngineContext* ctx maybe_unused, void* opaque ) {
