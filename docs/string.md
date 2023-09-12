@@ -8,17 +8,16 @@
 
 To include in game DLL:
 ```cpp
-#include <core/ldstring.h>
+#include <core/strings.h>
 ```
 To include in engine:
 ```cpp
-#include "core/ldstring.h"
+#include "core/strings.h"
 ```
 
 Includes:
 - "defines.h"
-- "core/ldvariadic.h"
-- "core/ldallocator.h"
+- "core/variadic.h"
 
 ## Jump Table
 - [Types](#types)
@@ -197,11 +196,11 @@ b32 ss_mut_append( StringSlice* slice, StringSlice* append );
 ```
 ```cpp
 /// Write a formatted string to string slice.
-usize ss_mut_format( StringSlice* slice, const char* format, ... );
+usize ss_mut_fmt( StringSlice* slice, const char* format, ... );
 ```
 ```cpp
 /// Write a formatted string to string slice using variadic list.
-usize ss_mut_format_va( StringSlice* slice, const char* format, va_list variadic );
+usize ss_mut_fmt_va( StringSlice* slice, const char* format, va_list variadic );
 ```
 ```cpp
 /// Split string slice at given index.

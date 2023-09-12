@@ -8,12 +8,12 @@
 
 To include in game DLL:
 ```cpp
-#include <core/ldcstr.h>
+#include <core/cstr.h>
 ```
 
 To include in engine:
 ```cpp
-#include "core/ldcstr.h"
+#include "core/cstr.h"
 ```
 
 Includes:

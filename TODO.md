@@ -7,6 +7,11 @@
 ## General 
 - [x] rewrite build system to make it easier to work with
 - [x] separate actual surface size from framebuffer size in renderer
+- [x] math: separate functions into source file instead of header-only lib.
+- [x] math: implement log, powf
+- [x] format: implement usize/isize specifier so no need to cast
+- [x] defines: change all macro function names to lower case
+- [x] defines: move constants out to a separate file
 - [ ] proper frametiming (using platform_sleep?)
 - [ ] audio subsystem
 - [ ] resource manager
@@ -20,8 +25,6 @@
         has enough space for allocation. if it does not have
         enough space, try to allocate a group of blocks that is
         large enough to hold reallocation. if all fails, return null
-- [ ] math: implement log, powf
-- [x] format: implement usize/isize specifier so no need to cast
     ### Optimizations
 - [ ] optimize string formatting functions
     ### Bugs
@@ -31,7 +34,7 @@
     outside the -1 -> 1 range, it diverges heavily.
     it may not actually be that big of a problem but still.
     ### Enhancements
-- [ ] format: more accurate float print out
+- [ ] format: more accurate float print out (grisu3? or maybe errol)
 ## Linux
 - [x] write platform layer using cstdlib
 - [x] write thread functions using pthreads

@@ -48,13 +48,13 @@ ifeq ($(TARGET_PLATFORM), win32)
 	export EXE_EXT := exe
 	export SO_EXT  := dll
 
-	LDMAIN := liquid_engine/platform/ldwin32main.c
+	LDMAIN := liquid_engine/platform/platform_win32_main.c
 else
 	export EXE_EXT :=
 	export SO_EXT  := so
 
 	ifeq ($(TARGET_PLATFORM), linux)
-		LDMAIN := liquid_engine/platform/ldlinuxmain.c
+		LDMAIN := liquid_engine/platform/platform_linux_main.c
 		LD_MEMORY_PAGE_SIZE := $(shell getconf PAGESIZE)
 	endif
 endif
@@ -158,7 +158,7 @@ recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
 dependencies := $(call recurse,$(OBJ_PATH),*.d)
 
-C := $(call recurse,liquid_engine/core/,*.c) $(call recurse,liquid_engine/ldrenderer/,*.c)
+C := $(call recurse,liquid_engine/core/,*.c) $(call recurse,liquid_engine/renderer/,*.c)
 H := $(call recurse,liquid_engine,*.h)
 
 COREC := $(C)
@@ -193,6 +193,7 @@ spit:
 	@echo "target:     "$(TARGET)
 	@echo "compiler:   "$(CC)
 	@echo "standard:   "$(CSTD)
+	@echo "c:          "$(C)
 	@echo "cflags:     "$(CFLAGS)
 	@echo
 	@echo "cppflags:   "$(CPPFLAGS)
@@ -204,8 +205,9 @@ spit:
 	@echo "corec:      "$(COREC)
 	@echo
 	@echo "main:       "$(LDMAIN)
-	@$(MAKE) --directory=testbed spit
-	@$(MAKE) --directory=shaders spit
+
+	# @$(MAKE) --directory=testbed spit
+	# @$(MAKE) --directory=shaders spit
 
 clean: $(if $(SHADER_ONLY),clean_shaders, $(if $(RELEASE), clean_shaders clean_release, clean_debug clean_shaders))
 

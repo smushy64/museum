@@ -2,20 +2,21 @@
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: August 09, 2023
 #include <defines.h>
-#include <core/ldengine.h>
-#include <core/ldlog.h>
-#include <core/ldmath.h>
-#include <core/ldmemory.h>
-#include <core/ldallocator.h>
-#include <core/ldthread.h>
-#include <core/ldgraphics.h>
-#include <core/ldgraphics/types.h>
-#include <core/ldgraphics/ui.h>
-#include <core/ldinput.h>
+#include <core/engine.h>
+#include <core/log.h>
+#include <core/mathf.h>
+#include <core/mem.h>
+#include <core/allocator.h>
+#include <core/thread.h>
+#include <core/graphics.h>
+#include <core/graphics/types.h>
+#include <core/graphics/ui.h>
+#include <core/input.h>
 
 struct GameMemory {
     Transform camera_transform;
     Camera    camera;
+    hsv       color;
 };
 
 extern_c usize application_query_memory_requirement() {
@@ -41,6 +42,8 @@ extern_c b32 application_init( EngineContext* ctx, void* opaque ) {
 
     memory->camera.transform->matrix_dirty = true;
 
+    memory->color = v3_hsv( 0.0f, 1.0f, 1.0f );
+
     return true;
 }
 extern_c b32 application_run( EngineContext* ctx maybe_unused, void* opaque ) {
@@ -57,31 +60,41 @@ extern_c b32 application_run( EngineContext* ctx maybe_unused, void* opaque ) {
         engine_surface_center( ctx );
     }
 
-    if( input_key_press( KEY_ENTER ) ) {
-        LOG_DEBUG( "Delta time: {f}", time.delta_seconds );
-    }
+    rgba color_rgba = rgba_rgb( hsv_to_rgb( memory->color ) );
+    color_rgba.a = 0.5f;
 
+    f32 x = 0.5f, y = 0.5f;
+    f32 scale = 100.0f;
     ui_draw_quad(
         NULL,
-        v2_scalar( 0.5f ),
-        v2_scalar( 0.1f ),
+        UI_COORDINATE_NORMALIZED,
+        UI_COORDINATE_PIXEL,
+        v2( x, y ),
+        v2_scalar( scale ),
         UI_ANCHOR_X_LEFT, UI_ANCHOR_Y_BOTTOM,
-        { 1.0f, 0.0f, 0.0f, 0.5f }
+        color_rgba
     );
     ui_draw_quad(
         NULL,
-        v2_scalar( 0.5f ),
-        v2_scalar( 0.1f ),
+        UI_COORDINATE_NORMALIZED,
+        UI_COORDINATE_PIXEL,
+        v2( x, y ),
+        v2_scalar( scale ),
         UI_ANCHOR_X_CENTER, UI_ANCHOR_Y_CENTER,
-        { 0.0f, 1.0f, 0.0f, 0.5f }
+        color_rgba
     );
     ui_draw_quad(
         NULL,
-        v2_scalar( 0.5f ),
-        v2_scalar( 0.1f ),
+        UI_COORDINATE_NORMALIZED,
+        UI_COORDINATE_PIXEL,
+        v2( x, y ),
+        v2_scalar( scale ),
         UI_ANCHOR_X_RIGHT, UI_ANCHOR_Y_TOP,
-        { 0.0f, 0.0f, 1.0f, 0.5f }
+        color_rgba
     );
+
+    memory->color.hue =
+        wrap_deg32( memory->color.hue + time.delta_seconds * 15.0f );
     return true;
 }
 
