@@ -767,6 +767,40 @@ LD_API vec4 v4_smooth_step( vec4 a, vec4 b, f32 t );
 /// Smoother step interpolate vectors.
 LD_API vec4 v4_smoother_step( vec4 a, vec4 b, f32 t );
 
+/// Negate vector.
+LD_API ivec4 iv4_neg( ivec4 v );
+/// Add vectors.
+LD_API ivec4 iv4_add( ivec4 lhs, ivec4 rhs );
+/// Sub vectors.
+LD_API ivec4 iv4_sub( ivec4 lhs, ivec4 rhs );
+/// Scale vector.
+LD_API ivec4 iv4_mul( ivec4 lhs, i32 rhs );
+/// Divide vector.
+LD_API ivec4 iv4_div( ivec4 lhs, i32 rhs );
+/// Horizontal add.
+/// Add components.
+LD_API i32 iv4_hadd( ivec4 v );
+/// Horizontal multiply.
+/// Multiply all components.
+LD_API i32 iv4_hmul( ivec4 v );
+/// Hadamard product.
+/// Component-wise multiplication.
+LD_API ivec4 iv4_hadamard( ivec4 lhs, ivec4 rhs );
+/// Dot/inner product.
+LD_API f32 iv4_dot( ivec4 lhs, ivec4 rhs );
+/// Compare vectors for equality.
+LD_API b32 iv4_cmp( ivec4 a, ivec4 b );
+/// Shift components to the left.
+/// Wraps around.
+LD_API ivec4 iv4_shift_left( ivec4 v );
+/// Shift components to the right.
+/// Wraps around.
+LD_API ivec4 iv4_shift_right( ivec4 v );
+/// Square magnitude.
+LD_API f32 iv4_sqrmag( ivec4 v );
+/// Magnitude.
+LD_API f32 iv4_mag( ivec4 v );
+
 /// Create quaternion from angle(radians) and axis.
 LD_API quat q_angle_axis( f32 angle, vec3 axis );
 /// Create quaternion from euler angles.

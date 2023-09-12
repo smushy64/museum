@@ -25,10 +25,10 @@ typedef struct ThreadWorkQueue {
 } ThreadWorkQueue;
 
 global ThreadWorkQueue* WORK_QUEUE = NULL;
-global void* THREAD_HANDLE_BUFFER  = NULL;
-global u32   THREAD_HANDLE_COUNT   = 0;
 
-LD_API void thread_work_queue_push( ThreadWorkProcFN* work_proc, void* params ) {
+LD_API void thread_work_queue_push(
+    ThreadWorkProcFN* work_proc, void* params
+) {
     ThreadWorkEntry entry = { work_proc, params };
     WORK_QUEUE->work_entries[WORK_QUEUE->push_entry] = entry;
 
@@ -49,7 +49,6 @@ LD_API void thread_work_queue_push( ThreadWorkProcFN* work_proc, void* params ) 
 
     read_write_fence();
     semaphore_signal( WORK_QUEUE->wake_semaphore );
-
 }
 internal b32 thread_work_queue_pop( ThreadWorkEntry* out_work_entry ) {
     if(
@@ -70,15 +69,14 @@ internal b32 thread_work_queue_pop( ThreadWorkEntry* out_work_entry ) {
     return true;
 }
 internal b32 thread_proc( void* params ) {
-    ThreadInfo* thread_info = params;
-
+    unused(params);
     loop {
         ThreadWorkEntry entry = {};
         semaphore_wait( WORK_QUEUE->wake_semaphore );
         read_write_fence();
 
         if( thread_work_queue_pop( &entry ) ) {
-            entry.proc( thread_info, entry.params );
+            entry.proc( entry.params );
             
             read_write_fence();
 
@@ -92,35 +90,9 @@ internal b32 thread_proc( void* params ) {
     return true;
 }
 
-usize thread_subsystem_query_size( u32 logical_processor_count ) {
-    return sizeof(ThreadWorkQueue) +
-        (PLATFORM_THREAD_HANDLE_SIZE * logical_processor_count);
-}
+usize THREAD_SUBSYSTEM_SIZE = sizeof(ThreadWorkQueue);
 b32 thread_subsystem_init( u32 logical_processor_count, void* buffer ) {
-    WORK_QUEUE           = buffer;
-    THREAD_HANDLE_BUFFER = (u8*)buffer + PLATFORM_THREAD_HANDLE_SIZE;
-
-    read_write_fence();
-
-    #define THREAD_CREATE_SUSPENDED (true)
-    for( u32 i = 0; i < logical_processor_count; ++i ) {
-        PlatformThread* thread_handle =
-            (u8*)THREAD_HANDLE_BUFFER +
-            (THREAD_HANDLE_COUNT * PLATFORM_THREAD_HANDLE_SIZE);
-        if( !platform_thread_create(
-            thread_proc, (void*)((usize)THREAD_HANDLE_COUNT),
-            STACK_SIZE, THREAD_CREATE_SUSPENDED,
-            thread_handle
-        ) ) {
-            break;
-        }
-        THREAD_HANDLE_COUNT++;
-    }
-
-    if( !THREAD_HANDLE_COUNT ) {
-        LOG_FATAL( "Failed to create any threads!" );
-        return false;
-    }
+    WORK_QUEUE = buffer;
 
     WORK_QUEUE->wake_semaphore = semaphore_create();
     if( !WORK_QUEUE->wake_semaphore ) {
@@ -130,26 +102,30 @@ b32 thread_subsystem_init( u32 logical_processor_count, void* buffer ) {
 
     read_write_fence();
 
-    for( u32 i = 0; i < THREAD_HANDLE_COUNT; ++i ) {
-        PlatformThread* thread =
-            (u8*)THREAD_HANDLE_BUFFER + (i * PLATFORM_THREAD_HANDLE_SIZE);
-        platform_thread_resume( thread );
+    u32 thread_handle_count = 0;
+    for( u32 i = 0; i < logical_processor_count; ++i ) {
+        if( !platform_thread_create(
+            thread_proc, NULL,
+            STACK_SIZE
+        ) ) {
+            break;
+        }
+        thread_handle_count++;
     }
 
+    if( !thread_handle_count ) {
+        LOG_FATAL( "Failed to create any threads!" );
+        return false;
+    }
+
+    read_write_fence();
+
     LOG_INFO( "Threading subsystem successfully initialized." );
-    LOG_NOTE( "Instantiated {u} threads.", THREAD_HANDLE_COUNT );
+    LOG_NOTE( "Instantiated {u} threads.", thread_handle_count );
     return true;
 }
 void thread_subsystem_shutdown(void) {
-    for( u32 i = 0; i < THREAD_HANDLE_COUNT; ++i ) {
-        PlatformThread* thread =
-            (u8*)THREAD_HANDLE_BUFFER + (i * PLATFORM_THREAD_HANDLE_SIZE);
-        platform_thread_kill( thread );
-    }
     semaphore_destroy( WORK_QUEUE->wake_semaphore );
-}
-LD_API usize thread_info_query_index( ThreadInfo* generic_thread_info ) {
-    return (usize)generic_thread_info;
 }
 
 LD_API u32 interlocked_increment_u32( volatile u32* addend ) {

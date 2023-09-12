@@ -6,6 +6,8 @@ TARGET := ../$(BUILD_PATH)/$(LIB_TESTBED)
 
 TESTBEDMAIN := entry.cpp
 
+dependencies := ../$(OBJ_PATH)/$(LIB_TESTBED_NAME).d
+
 CXXFLAGS := -Werror -Wall -Wextra -pedantic -Werror=vla
 CXXFLAGS += -fno-strict-enums -Wno-missing-braces
 CXXFLAGS += -Wno-c11-extensions -Wno-gnu-zero-variadic-macro-arguments
@@ -14,7 +16,7 @@ CXXFLAGS += -Wno-ignored-attributes -Wno-gnu-case-range
 CXXFLAGS += -Wno-fixed-enum-extension -Wno-static-in-inline
 CXXFLAGS += -Wno-c99-extensions -Wno-duplicate-decl-specifier
 CXXFLAGS += -Wno-gnu-empty-initializer
-CXXFLAGS += -MMD -MP -MF ../$(OBJ_PATH)/$(LIB_TESTBED_NAME).d
+CXXFLAGS += -MMD -MP -MF $(dependencies)
 
 ifeq ($(RELEASE), true)
 	CXXFLAGS += -O2 -ffast-math
@@ -67,8 +69,6 @@ endif
 INCLUDE := -I../liquid_engine/ -I.
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
-
-dependencies := $(call recurse,../$(OBJ_PATH),*.d)
 
 CPP := $(call recurse,,*.cpp)
 CPP := $(filter-out $(TESTBEDMAIN),$(CPP))

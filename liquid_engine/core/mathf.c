@@ -1082,6 +1082,88 @@ vec4 v4_smoother_step( vec4 a, vec4 b, f32 t ) {
     return result;
 }
 
+LD_API ivec4 iv4_neg( ivec4 v ) {
+    return (ivec4){ -v.x, -v.y, -v.z, -v.w };
+}
+LD_API ivec4 iv4_add( ivec4 lhs, ivec4 rhs ) {
+    ivec4 result;
+    result.x = lhs.x + rhs.x;
+    result.y = lhs.y + rhs.y;
+    result.z = lhs.z + rhs.z;
+    result.w = lhs.w + rhs.w;
+    return result;
+}
+LD_API ivec4 iv4_sub( ivec4 lhs, ivec4 rhs ) {
+    ivec4 result;
+    result.x = lhs.x - rhs.x;
+    result.y = lhs.y - rhs.y;
+    result.z = lhs.z - rhs.z;
+    result.w = lhs.w - rhs.w;
+    return result;
+}
+LD_API ivec4 iv4_mul( ivec4 lhs, i32 rhs ) {
+    ivec4 result;
+    result.x = lhs.x * rhs;
+    result.y = lhs.y * rhs;
+    result.z = lhs.z * rhs;
+    result.w = lhs.w * rhs;
+    return result;
+}
+LD_API ivec4 iv4_div( ivec4 lhs, i32 rhs ) {
+    ivec4 result;
+    result.x = lhs.x / rhs;
+    result.y = lhs.y / rhs;
+    result.z = lhs.z / rhs;
+    result.w = lhs.w / rhs;
+    return result;
+}
+LD_API i32 iv4_hadd( ivec4 v ) {
+    return v.x + v.y + v.z + v.w;
+}
+LD_API i32 iv4_hmul( ivec4 v ) {
+    return v.x * v.y * v.z * v.w;
+}
+LD_API ivec4 iv4_hadamard( ivec4 lhs, ivec4 rhs ) {
+    ivec4 result;
+    result.x = lhs.x * rhs.x;
+    result.y = lhs.y * rhs.y;
+    result.z = lhs.z * rhs.z;
+    result.w = lhs.w * rhs.w;
+    return result;   
+}
+LD_API f32 iv4_dot( ivec4 lhs, ivec4 rhs ) {
+    return iv4_hadd( iv4_hadamard( lhs, rhs ) );
+}
+LD_API b32 iv4_cmp( ivec4 a, ivec4 b ) {
+    return
+        a.x == b.x &&
+        a.y == b.y &&
+        a.z == b.z &&
+        a.w == b.w;
+}
+LD_API ivec4 iv4_shift_left( ivec4 v ) {
+    ivec4 result;
+    result.x = v.y;
+    result.y = v.z;
+    result.z = v.w;
+    result.w = v.x;
+    return result;
+}
+LD_API ivec4 iv4_shift_right( ivec4 v ) {
+    ivec4 result;
+    result.x = v.w;
+    result.y = v.x;
+    result.z = v.y;
+    result.w = v.z;
+    return result;
+}
+LD_API f32 iv4_sqrmag( ivec4 v ) {
+    return iv4_hadd( iv4_hadamard( v, v ) );
+}
+LD_API f32 iv4_mag( ivec4 v ) {
+    return sqrt32( iv4_sqrmag( v ) );
+}
+
 quat q_angle_axis( f32 angle, vec3 axis ) {
     f32 half_angle = angle / 2.0f;
     f32 sin, cos;

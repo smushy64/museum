@@ -3,7 +3,7 @@
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: April 27, 2023
 */
-#include "platform/platform_win32.h"
+#include "defines.h"
 
 #if defined(LD_PLATFORM_WINDOWS)
 #include "corec.inl"
@@ -21,6 +21,7 @@
 #include "renderer/opengl/loader.h"
 
 #include <intrin.h>
+#include "platform/platform_win32.h"
 
 // NOTE(alicia): GLOBALS
 
@@ -490,24 +491,24 @@ b32 platform_subsystem_init( void* buffer ) {
 
     read_write_fence();
 
-    Win32Thread xinput_polling_thread_handle = {};
-    xinput_polling_thread_handle.thread_handle = CreateThread(
-        NULL,
-        STACK_SIZE,
+    DWORD xinput_polling_thread_id = 0;
+    HANDLE xinput_polling_thread_handle = CreateThread(
+        NULL, STACK_SIZE,
         win32_xinput_polling_thread,
         PLATFORM->xinput_polling_thread_semaphore,
-        0,
-        &xinput_polling_thread_handle.thread_id
+        0, &xinput_polling_thread_id
     );
-    if( !xinput_polling_thread_handle.thread_handle ) {
+
+    if( !xinput_polling_thread_handle ) {
         win32_log_error( true );
         return false;
     }
-    PLATFORM->xinput_polling_thread = xinput_polling_thread_handle;
+    PLATFORM->xinput_polling_thread    = xinput_polling_thread_handle;
+    PLATFORM->xinput_polling_thread_id = xinput_polling_thread_id;
 
     WIN32_LOG_NOTE(
         "Created XInput polling thread. ID: {u}",
-        PLATFORM->xinput_polling_thread.thread_id
+        PLATFORM->xinput_polling_thread_id
     );
 
     PLATFORM->instance = GetModuleHandle( NULL );
@@ -535,7 +536,7 @@ b32 platform_subsystem_init( void* buffer ) {
     return true;
 }
 void platform_subsystem_shutdown(void) {
-    TerminateThread( PLATFORM->xinput_polling_thread.thread_handle, 0 );
+    TerminateThread( PLATFORM->xinput_polling_thread, 0 );
     platform_semaphore_destroy( PLATFORM->xinput_polling_thread_semaphore );
 }
 
@@ -2153,64 +2154,56 @@ void platform_page_free( void* memory ) {
 }
 
 internal DWORD WINAPI win32_thread_proc( void* params ) {
-    Win32Thread* win32_thread = params;
+    struct PlatformThread* thread  = params;
+    ThreadProcFN*      proc        = thread->proc;
+    void*              user_params = thread->params;
+    PlatformSemaphore* ready       = thread->ready;
 
-    b32 result = win32_thread->thread_proc(
-        win32_thread->thread_proc_user_params
-    );
+    read_write_fence();
+
+    platform_semaphore_increment( ready );
+
+    b32 result = proc( user_params );
 
     return result ? ERROR_SUCCESS : -1;
 }
 
-usize PLATFORM_THREAD_HANDLE_SIZE = sizeof(Win32Thread);
 b32 platform_thread_create(
     ThreadProcFN*   thread_proc,
     void*           user_params,
-    usize           thread_stack_size,
-    b32             create_suspended,
-    PlatformThread* out_thread
+    usize           thread_stack_size
 ) {
-    Win32Thread* win32_thread = out_thread;
 
-    win32_thread->thread_proc             = thread_proc;
-    win32_thread->thread_proc_user_params = user_params;
+    struct PlatformThread thread = {};
+    thread.proc   = thread_proc;
+    thread.params = user_params;
+    thread.ready  = platform_semaphore_create( NULL, 0 );
+    if( !thread.ready ) {
+        WIN32_LOG_ERROR( "Failed to create thread!" );
+        WIN32_LOG_ERROR( "Failed to create thread ready semaphore!" );
+        return false;
+    }
 
     read_write_fence();
 
-    win32_thread->thread_handle = CreateThread(
-        NULL,
-        thread_stack_size,
-        win32_thread_proc,
-        win32_thread,
-        create_suspended ? CREATE_SUSPENDED : 0,
-        &win32_thread->thread_id
+    DWORD thread_id = 0;
+    HANDLE thread_handle = CreateThread(
+        NULL, thread_stack_size,
+        win32_thread_proc, &thread,
+        0, &thread_id
     );
-
-    read_write_fence();
-
-    if( !win32_thread->thread_handle ) {
+    if( !thread_handle ) {
         win32_log_error( true );
         return false;
     }
 
-    WIN32_LOG_NOTE(
-        "New thread created. ID: {u}",
-        win32_thread->thread_id
-    );
+    read_write_fence();
+
+    platform_semaphore_wait( thread.ready, true, 0 );
+
+    WIN32_LOG_NOTE( "New thread created! ID: {u}", thread_id );
     return true;
-}
-void platform_thread_resume( PlatformThread* thread ) {
-    Win32Thread* win32_thread = thread;
-    ResumeThread( win32_thread->thread_handle );
-}
-void platform_thread_suspend( PlatformThread* thread ) {
-    Win32Thread* win32_thread = thread;
-    SuspendThread( win32_thread->thread_handle );
-}
-void platform_thread_kill( PlatformThread* thread ) {
-    Win32Thread* win32_thread = thread;
-    TerminateThread( win32_thread->thread_handle, 0 );
-    mem_zero( win32_thread, sizeof(Win32Thread) );
+
 }
 PlatformSemaphore* platform_semaphore_create(
     const char* opt_name, u32 initial_count

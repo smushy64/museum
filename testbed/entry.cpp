@@ -19,10 +19,10 @@ struct GameMemory {
     hsv       color;
 };
 
-extern_c usize application_query_memory_requirement() {
+c_linkage usize application_query_memory_requirement() {
     return sizeof(GameMemory);
 }
-extern_c b32 application_init( EngineContext* ctx, void* opaque ) {
+c_linkage b32 application_init( EngineContext* ctx, void* opaque ) {
 
 #if defined(LD_PLATFORM_WINDOWS)
     STRING( name, "testbed-win32" );
@@ -46,7 +46,9 @@ extern_c b32 application_init( EngineContext* ctx, void* opaque ) {
 
     return true;
 }
-extern_c b32 application_run( EngineContext* ctx maybe_unused, void* opaque ) {
+c_linkage b32 application_run(
+    EngineContext* ctx maybe_unused, void* opaque
+) {
     GameMemory* maybe_unused memory = (GameMemory*)opaque;
 
     Timer time = engine_time( ctx );

@@ -230,7 +230,9 @@ typedef void* pvoid;
 #define unused(x) (void)((x))
 
 /// Compile-time assertion
-#define static_assert _Static_assert
+#if !defined(__cplusplus)
+    #define static_assert _Static_assert
+#endif
 
 #if defined(LD_ASSERTIONS)
     /// Runtime assertion
@@ -349,10 +351,10 @@ typedef void* pvoid;
 #else
     #if defined(LD_PLATFORM_WINDOWS)
         /// Import/Export function
-        #define LD_API __declspec(dllimport) extern_c
+        #define LD_API __declspec(dllimport) c_linkage
     #else
         /// Import/Export function
-        #define LD_API extern_c
+        #define LD_API c_linkage
     #endif
 #endif
 

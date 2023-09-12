@@ -19,13 +19,6 @@
 #include <xinput.h>
 #include <dsound.h>
 
-typedef struct Win32Thread {
-    HANDLE        thread_handle;
-    ThreadProcFN* thread_proc;
-    void*         thread_proc_user_params;
-    DWORD         thread_id;
-} Win32Thread;
-
 typedef struct Win32DirectSound {
     LPDIRECTSOUND handle;
     LPDIRECTSOUNDBUFFER hardware_handle;
@@ -80,7 +73,8 @@ typedef struct Win32Platform {
     LARGE_INTEGER performance_frequency;
     LARGE_INTEGER performance_counter;
 
-    Win32Thread xinput_polling_thread;
+    HANDLE xinput_polling_thread;
+    DWORD  xinput_polling_thread_id;
     PlatformSemaphore* xinput_polling_thread_semaphore;
     u32 event_pump_count;
 } Win32Platform;

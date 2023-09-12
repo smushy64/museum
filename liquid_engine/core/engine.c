@@ -304,8 +304,6 @@ b32 engine_entry( int argc, char** argv ) {
     u32 thread_count = ctx.system_info.logical_processor_count;
     thread_count = (thread_count == 1 ? thread_count : thread_count - 1);
 
-    usize thread_subsystem_size   =
-        thread_subsystem_query_size( thread_count );
     usize renderer_subsystem_size =
         renderer_subsystem_query_size( arg_parse.backend );
 
@@ -317,7 +315,7 @@ b32 engine_entry( int argc, char** argv ) {
 
     // calculate required stack arena size
     usize required_stack_size =
-        thread_subsystem_size   +
+        THREAD_SUBSYSTEM_SIZE   +
         EVENT_SUBSYSTEM_SIZE    +
         INPUT_SUBSYSTEM_SIZE    +
         PLATFORM_SUBSYSTEM_SIZE +
@@ -444,7 +442,7 @@ b32 engine_entry( int argc, char** argv ) {
     }
 
     void* thread_subsystem_buffer =
-        stack_allocator_push( &ctx.stack, thread_subsystem_size );
+        stack_allocator_push( &ctx.stack, THREAD_SUBSYSTEM_SIZE );
     LOG_ASSERT(
         thread_subsystem_buffer,
         "Stack Arena of size {u} is not enough to initialize engine!",

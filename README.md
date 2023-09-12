@@ -11,9 +11,7 @@ Liquid Engine is compiled using clang, C99 standard.
 
 Testbed and game code are compiled with clang++, C++20 standard.
 
-No libraries are used with the exception of system libraries ( Win32, OpenGL etc. )*
-
-*: currently using [stb_truetype](https://github.com/nothings/stb/blob/master/stb_truetype.h) for font rendering
+No libraries are used with the exception of system libraries ( Win32, OpenGL etc. )
 
 ## Project Goals
 - Cross platform game engine (Windows, Linux, Mac, WebAssembly)

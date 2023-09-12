@@ -7,15 +7,10 @@
 */
 #include "defines.h"
 
-/// Opaque thread info.
-typedef void ThreadInfo;
-
 /// Thread work function.
-typedef void ThreadWorkProcFN( ThreadInfo* thread_info, void* params );
+typedef void ThreadWorkProcFN( void* params );
 /// Push a new work proc into the work queue.
 LD_API void thread_work_queue_push( ThreadWorkProcFN* work_proc, void* params );
-/// Get the current thread's index.
-LD_API usize thread_info_query_index( ThreadInfo* thread_info );
 
 /// Opaque Semaphore
 typedef void Semaphore;
@@ -86,8 +81,8 @@ LD_API void* interlocked_compare_exchange_pointer(
 
 #if defined(LD_API_INTERNAL)
 
-    /// Get thread subsystem size
-    usize thread_subsystem_query_size( u32 logical_processor_count );
+    /// Thread subsystem size.
+    extern usize THREAD_SUBSYSTEM_SIZE;
     /// Initialize thread subsystem
     b32 thread_subsystem_init( u32 logical_processor_count, void* buffer );
     /// Shutdown thread subsystem

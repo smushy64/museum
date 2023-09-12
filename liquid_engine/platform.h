@@ -230,13 +230,20 @@ usize platform_file_query_offset( PlatformFile* file );
 /// Set file offset. Returns true if successful.
 b32 platform_file_set_offset( PlatformFile* file, usize offset );
 
-/// Opaque handle to a thread.
-typedef void PlatformThread;
-/// Size of a thread handle.
-extern usize PLATFORM_THREAD_HANDLE_SIZE;
-
+/// Opaque handle to a semaphore object.
+typedef void PlatformSemaphore;
+/// Opaque handle to a mutex object.
+typedef void PlatformMutex;
 /// Thread Proc definition.
 typedef b32 ThreadProcFN( void* user_params );
+
+// IMPORTANT(alicia): do not use outside of
+// platform implementations!
+struct PlatformThread {
+    ThreadProcFN* proc;
+    void*         params;
+    PlatformSemaphore* ready;
+};
 
 /// Create a thread.
 /// Thread pointer is a buffer that must be big enough to hold thread handle.
@@ -244,23 +251,8 @@ typedef b32 ThreadProcFN( void* user_params );
 b32 platform_thread_create(
     ThreadProcFN*   thread_proc,
     void*           thread_proc_params,
-    usize           thread_stack_size,
-    b32             create_suspended,
-    PlatformThread* out_thread
+    usize           thread_stack_size
 );
-/// Resume a suspended thread.
-void platform_thread_resume( PlatformThread* thread );
-/// Suspend a thread.
-void platform_thread_suspend( PlatformThread* thread );
-/// Kill a thread.
-/// Thread handle is zeroed out and can be freed.
-void platform_thread_kill( PlatformThread* thread );
-
-/// Opaque handle to a semaphore object.
-typedef void PlatformSemaphore;
-
-/// Opaque handle to a mutex object.
-typedef void PlatformMutex;
 
 /// Create a semaphore.
 PlatformSemaphore* platform_semaphore_create(
