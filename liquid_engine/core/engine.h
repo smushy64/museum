@@ -15,6 +15,7 @@ struct Camera;
 
 /// Get timer from engine.
 LD_API Timer engine_time( EngineContext* ctx );
+LD_API void engine_set_camera( EngineContext* ctx, struct Camera* camera );
 
 /// Get memory requirement from application.
 /// Function should look like this:

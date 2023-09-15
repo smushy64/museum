@@ -7,6 +7,55 @@
 #include "core/mathf/types.h"
 #include "renderer/opengl/types.h"
 
+struct packedpad GLDirectionalLight {
+    vec4 direction;
+    vec4 color;
+    mat4 light_space;
+};
+
+#define GL_DIRECTIONAL_LIGHT_BUFFER_SIZE (sizeof( struct GLDirectionalLight ))
+
+struct packedpad GLPointLight {
+    vec4 position;
+    vec4 color;
+    mat4 light_space;
+    f32  is_active;
+    int  ___pad[3];
+};
+
+#define GL_POINT_LIGHT_BUFFER_SIZE (sizeof(struct GLPointLight))
+
+#define GL_POINT_LIGHT_COUNT (4)
+struct packedpad GLLightBuffer {
+    struct GLDirectionalLight directional;
+    struct GLPointLight       point[GL_POINT_LIGHT_COUNT];
+};
+
+#define GL_LIGHT_BUFFER_OFFSET_DIRECTIONAL\
+    offsetof(struct GLLightBuffer, directional)
+
+#define GL_LIGHT_BUFFER_OFFSET_POINT_ARRAY\
+    offsetof(struct GLLightBuffer, point)
+
+#define GL_LIGHT_BUFFER_OFFSET_POINT( index )\
+    (GL_LIGHT_BUFFER_OFFSET_POINT_ARRAY + (sizeof(struct GLPointLight) * index))
+
+#define GL_LIGHT_BUFFER_SIZE    (sizeof(struct GLLightBuffer))
+#define GL_LIGHT_BUFFER_BINDING (1)
+
+/// Create light buffer.
+void gl_light_buffer_create(
+    GLBufferID buffer_id, struct GLLightBuffer* light );
+/// Update entire light buffer.
+void gl_light_buffer_update(
+    GLBufferID buffer_id, struct GLLightBuffer* light );
+/// Update directional light.
+void gl_light_buffer_update_directional(
+    GLBufferID buffer_id, struct GLDirectionalLight* directional );
+/// Update point light.
+void gl_light_buffer_update_point(
+    GLBufferID buffer_id, usize index, struct GLPointLight* point );
+
 struct packedpad GLCameraBuffer {
     mat4 matrix_3d;
     mat4 matrix_ui;
@@ -71,5 +120,8 @@ void gl_framebuffer_resize(
     GLFramebuffer* framebuffer, i32 width, i32 height );
 /// Destroy framebuffers.
 void gl_framebuffer_destroy( usize count, GLFramebuffer* framebuffers );
+
+/// Create shadow framebuffer.
+GLFramebuffer gl_shadowbuffer_create( i32 width, i32 height );
 
 #endif // header guard

@@ -8,11 +8,12 @@
 #include "renderer/context.h"
 #include "renderer/opengl/types.h"
 #include "renderer/opengl/shader.h"
+#include "renderer/opengl/buffer.h"
 #include "core/mathf/types.h"
 #include "core/log.h"
 
 /// GLRC Handle
-typedef void OpenGLRenderContextHandle;
+typedef void GLRC;
 
 /// Device info from OpenGL driver
 typedef struct OpenGLDeviceInfo {
@@ -27,31 +28,50 @@ typedef struct OpenGLDeviceInfo {
 // define their transform at location 0
 #define GL_SHADER_PROGRAM_LOCATION_TRANSFORM (0) 
 
-#define GL_VERTEX_ARRAY_COUNT   (2)
-#define GL_SHADER_PROGRAM_COUNT (2)
-#define GL_BUFFER_COUNT         (4)
+#define GL_VERTEX_ARRAY_COUNT   (3)
+#define GL_SHADER_PROGRAM_COUNT (4)
+#define GL_BUFFER_COUNT         (7)
+#define GL_TEXTURE_COUNT        (3)
+#define GL_FRAMBUFFER_COUNT     (2)
 
 #define GL_SHADER_PROGRAM_INDEX_FRAMEBUFFER (0)
 #define GL_SHADER_PROGRAM_INDEX_COLOR       (1)
+#define GL_SHADER_PROGRAM_INDEX_PHONG_BRDF  (2)
+#define GL_SHADER_PROGRAM_INDEX_SHADOW      (3)
 
 #define GL_SHADER_PROGRAM_FRAMEBUFFER_TEXTURE_BINDING (0)
+
+#define GL_SHADER_PROGRAM_PHONG_BRDF_DIFFUSE_TEXTURE_BINDING   (0)
+#define GL_SHADER_PROGRAM_PHONG_BRDF_NORMAL_TEXTURE_BINDING    (1)
+#define GL_SHADER_PROGRAM_PHONG_BRDF_ROUGHNESS_TEXTURE_BINDING (2)
 
 #define GL_SHADER_PROGRAM_COLOR_LOCATION_COLOR     (1) 
 
 #define GL_VERTEX_ARRAY_INDEX_FRAMEBUFFER (0)
 #define GL_VERTEX_ARRAY_INDEX_QUAD_2D     (1)
+#define GL_VERTEX_ARRAY_INDEX_CUBE_3D     (2)
 
 #define GL_BUFFER_INDEX_UBO_CAMERA      (0)
-#define GL_BUFFER_INDEX_VBO_FRAMEBUFFER (1)
-#define GL_BUFFER_INDEX_VBO_QUAD_2D     (2)
-#define GL_BUFFER_INDEX_EBO_QUAD        (3)
+#define GL_BUFFER_INDEX_UBO_LIGHTS      (1)
+#define GL_BUFFER_INDEX_VBO_FRAMEBUFFER (2)
+#define GL_BUFFER_INDEX_VBO_QUAD_2D     (3)
+#define GL_BUFFER_INDEX_EBO_QUAD        (4)
+#define GL_BUFFER_INDEX_VBO_CUBE_3D     (5)
+#define GL_BUFFER_INDEX_EBO_CUBE_3D     (6)
+
+#define GL_TEXTURE_INDEX_NULL_DIFFUSE   (0)
+#define GL_TEXTURE_INDEX_NULL_NORMAL    (1)
+#define GL_TEXTURE_INDEX_NULL_ROUGHNESS (2)
+
+#define GL_FRAMEBUFFER_INDEX_MAIN_FRAMEBUFFER   (0)
+#define GL_FRAMEBUFFER_INDEX_SHADOW_FRAMEBUFFER (1)
 
 /// OpenGL Renderer Context
 typedef struct OpenGLRendererContext {
     InternalRendererContext ctx;
 
-    OpenGLDeviceInfo           device_info;   
-    OpenGLRenderContextHandle* render_context;
+    OpenGLDeviceInfo device_info;   
+    GLRC* glrc;
 
     GLBufferID buffers[GL_BUFFER_COUNT];
 
@@ -59,7 +79,11 @@ typedef struct OpenGLRendererContext {
 
     GLVertexArrayID vertex_arrays[GL_VERTEX_ARRAY_COUNT];
 
-    GLFramebuffer framebuffer_main;
+    GLTexture textures[GL_TEXTURE_COUNT];
+
+    GLFramebuffer framebuffers[GL_FRAMBUFFER_COUNT];
+
+    struct GLLightBuffer lights;
 } OpenGLRendererContext;
 
 #if defined(LD_LOGGING)

@@ -8,14 +8,17 @@
 
 /// Create a 2D texture.
 GLTexture gl_texture_create(
-    i32 width, i32 height, i32 mipmap_level,
-    GLType type,
+    i32              width,
+    i32              height,
+    i32              mipmap_level,
+    GLType           type,
     GLInternalFormat internal_format,
     GLFormat         format,
-    GLWrapMode  wrap_x, GLWrapMode wrap_y,
-    GLMagFilter mag_filter,
-    GLMinFilter min_filter,
-    void* buffer
+    GLWrapMode       wrap_x,
+    GLWrapMode       wrap_y,
+    GLMagFilter      mag_filter,
+    GLMinFilter      min_filter,
+    void*            buffer
 );
 /// Destroy 2D textures.
 void gl_texture_destroy( usize count, GLTexture* textures );

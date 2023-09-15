@@ -1,0 +1,41 @@
+/**
+ * Description:  Lights
+ * Author:       Alicia Amarilla (smushyaa@gmail.com)
+ * File Created: September 14, 2023
+*/
+
+// size: 96
+struct Directional {
+    // offset: 0 size: 16
+    vec4 DIRECTION;
+    // offset: 16 size: 16
+    vec4 COLOR;
+    // offset: 32 size: 64
+    mat4 MATRIX;
+};
+
+// size: 112
+struct Point {
+    // offset: 0  size: 16
+    vec4 POSITION;
+    // offset: 16 size: 16
+    vec4 COLOR;
+    // offset: 32 size: 64
+    mat4 MATRIX;
+    // offset: 96 size: 16
+    vec4 IS_ACTIVE;
+};
+
+#define POINT_LIGHT_COUNT 4
+// size: 544
+layout(std140, binding = 1) uniform Lights {
+    // offset: 0 size: 96
+    Directional DIRECTIONAL;
+    // offset: 96 size: 448
+    Point POINT[POINT_LIGHT_COUNT];
+};
+
+const float SPECULAR_POWER = 180.0;
+
+uniform layout(binding = 4) sampler2D u_shadow_map;
+

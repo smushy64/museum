@@ -30,9 +30,9 @@
 /// Euler's number.
 #define F32_EULER (2.718281828459f)
 /// To degrees constant.
-#define F32_TO_DEG (F32_PI / 180.0f)
+#define F32_TO_DEG (180.0f / F32_PI)
 /// To radians constant.
-#define F32_TO_RAD (180.0f / F32_PI)
+#define F32_TO_RAD (F32_PI / 180.0f)
 /// Epsilon constant
 #define F32_EPSILON (1.1920929E-7f)
 /// Approximate number of significant digits in base-10
@@ -80,9 +80,9 @@
 /// Euler's number.
 #define F64_EULER (2.718281828459045)
 /// To degrees constant.
-#define F64_TO_DEG (F64_PI / 180.0)
+#define F64_TO_DEG (180.0 / F64_PI)
 /// To radians constant.
-#define F64_TO_RAD (180.0 / F64_PI)
+#define F64_TO_RAD (F64_PI / 180.0)
 /// Epsilon constant
 #define F64_EPSILON (2.2204460492503131E-16)
 /// Approximate number of significant digits in base-10

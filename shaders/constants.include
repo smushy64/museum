@@ -1,0 +1,11 @@
+/**
+ * Description:  Constants to include in shaders
+ * Author:       Alicia Amarilla (smushyaa@gmail.com)
+ * File Created: September 13, 2023
+*/
+
+const float PI      = (3.141592741);
+const float TAU     = (PI * 2.0);
+const float HALF_PI = (PI / 2.0);
+const vec3  AMBIENT = vec3( 0.0, 0.0, 0.05 );
+

@@ -1457,26 +1457,26 @@ mat3 m3_transpose( const mat3* m ) {
 }
 f32 m3_determinant( const mat3* m ) {
     return
-     ( m->c[0] * ( ( m->c[4] * m->c[8] ) - ( m->c[7] * m->c[5] ) ) ) +
-    -( m->c[3] * ( ( m->c[1] * m->c[8] ) - ( m->c[7] * m->c[2] ) ) ) +
-     ( m->c[6] * ( ( m->c[1] * m->c[5] ) - ( m->c[4] * m->c[2] ) ) );
+    ( m->c[0] * ( ( m->c[4] * m->c[8] ) - ( m->c[7] * m->c[5] ) ) ) -
+    ( m->c[3] * ( ( m->c[1] * m->c[8] ) - ( m->c[7] * m->c[2] ) ) ) +
+    ( m->c[6] * ( ( m->c[1] * m->c[5] ) - ( m->c[4] * m->c[2] ) ) );
 }
 
 mat4 m4_view( vec3 position, vec3 target, vec3 up ) {
     vec3 z = v3_normalize( v3_sub( target, position ) );
-    vec3 x = v3_cross( z, up );
+    vec3 x = v3_normalize( v3_cross( z, up ) );
     vec3 y = v3_cross( x, z );
     z = v3_neg( z );
+
+    f32 dx = v3_dot( x, position );
+    f32 dy = v3_dot( y, position );
+    f32 dz = v3_dot( z, position );
 
     return (mat4){
         x.x, y.x, z.x, 0.0f,
         x.y, y.y, z.y, 0.0f,
         x.z, y.z, z.z, 0.0f,
-
-        -v3_dot( x, position ),
-        -v3_dot( y, position ),
-        -v3_dot( z, position ),
-        1.0f
+         dx,  dy,  dz, 1.0f
     };
 }
 mat4 m4_ortho(
@@ -1501,16 +1501,16 @@ mat4 m4_perspective(
     f32 fov_radians, f32 aspect_ratio,
     f32 near_clip, f32 far_clip
 ) {
-    mat4 result = {};
+    mat4 result = MAT4_ZERO;
     
     f32 half_fov_tan = tan32( fov_radians / 2.0f );
-    f32 f_sub_n      = far_clip - near_clip;
 
     result.c[ 0] = 1.0f / ( aspect_ratio * half_fov_tan );
     result.c[ 5] = 1.0f / half_fov_tan;
-    result.c[10] = -( ( far_clip + near_clip ) / f_sub_n );
+    result.c[10] = -( ( far_clip + near_clip ) / ( far_clip - near_clip ) );
     result.c[11] = -1.0f;
-    result.c[14] = -( ( 2.0f * far_clip * near_clip ) / f_sub_n );
+    result.c[14] =
+        -( ( 2.0f * far_clip * near_clip ) / ( far_clip - near_clip ) );
 
     return result;
 }
@@ -1892,7 +1892,7 @@ f32 m4_cofactor( const mat4* m, usize row, usize column ) {
     return minor * powi32( -1.0f, exp );
 }
 mat4 m4_cofactor_matrix( const mat4* m ) {
-    return (mat4){
+    mat4 result = (mat4){
         m4_cofactor( m, 0, 0 ),
             m4_cofactor( m, 0, 1 ),
             m4_cofactor( m, 0, 2 ),
@@ -1910,6 +1910,7 @@ mat4 m4_cofactor_matrix( const mat4* m ) {
             m4_cofactor( m, 3, 2 ),
             m4_cofactor( m, 3, 3 ),
     };
+    return m4_transpose( &result );
 }
 mat4 m4_adjoint( const mat4* m ) {
     mat4 cofactor = m4_cofactor_matrix( m );
@@ -1929,11 +1930,10 @@ f32 m4_determinant( const mat4* m ) {
 b32 m4_inverse( const mat4* m, mat4* out_inverse ) {
     f32 determinant = m4_determinant( m );
     if( determinant == 0.0f ) {
-        *out_inverse = MAT4_IDENTITY;
         return false;
     } else {
         mat4 adjoint = m4_adjoint( m );
-        *out_inverse  = m4_div( &adjoint, determinant );
+        *out_inverse = m4_div( &adjoint, determinant );
         return true;
     }
 }
@@ -2083,7 +2083,7 @@ LD_API void transform_set_rotation( Transform* t, quat rotation ) {
     t->matrix_dirty = true;
 }
 LD_API void transform_rotate( Transform* t, quat rotation ) {
-    transform_set_rotation( t, q_mul_q( t->rotation, rotation ) );
+    transform_set_rotation( t, q_mul_q( rotation, t->rotation ) );
 }
 LD_API vec3 transform_local_scale( Transform* t ) {
     return t->scale;
@@ -2114,13 +2114,13 @@ LD_API vec3 transform_local_up( Transform* t ) {
     return q_mul_v3( t->rotation, VEC3_UP );
 }
 
-LD_API vec3 transform_world_forward( Transform* t, quat world_rotation ) {
-    return q_mul_v3( world_rotation, transform_local_forward( t ) );
+LD_API vec3 transform_world_forward( Transform* t ) {
+    return q_mul_v3( transform_world_rotation( t ), VEC3_FORWARD );
 }
-LD_API vec3 transform_world_right( Transform* t, quat world_rotation ) {
-    return q_mul_v3( world_rotation, transform_local_right( t ) );
+LD_API vec3 transform_world_right( Transform* t ) {
+    return q_mul_v3( transform_world_rotation( t ), VEC3_RIGHT );
 }
-LD_API vec3 transform_world_up( Transform* t, quat world_rotation ) {
-    return q_mul_v3( world_rotation, transform_local_right( t ) );
+LD_API vec3 transform_world_up( Transform* t ) {
+    return q_mul_v3( transform_world_rotation( t ), VEC3_UP );
 }
 

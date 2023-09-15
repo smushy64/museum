@@ -353,16 +353,10 @@ LD_API void ss_mut_trim_trailing_whitespace( StringSlice* slice ) {
     }
 }
 LD_API void ss_mut_fill( StringSlice* slice, char character ) {
-    // TODO(alicia): maybe do this by 64-bit integers?
-    for( usize i = 0; i < slice->len; ++i ) {
-        slice->buffer[i] = character;
-    }
+    mem_set( slice->buffer, character, slice->len );
 }
 LD_API void ss_mut_fill_to_capacity( StringSlice* slice, char character ) {
-    for( usize i = 0; i < slice->capacity; ++i ) {
-        slice->buffer[i] = character;
-    }
-    slice->len = slice->capacity;
+    mem_set( slice->buffer, character, slice->capacity );
 }
 LD_API b32 ss_mut_push( StringSlice* slice, char character ) {
     if( slice->len == slice->capacity ) {

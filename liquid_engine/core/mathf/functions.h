@@ -1002,11 +1002,11 @@ LD_API vec3 transform_local_right( Transform* t );
 LD_API vec3 transform_local_up( Transform* t );
 
 /// Calculate transform's world space forward basis vector.
-LD_API vec3 transform_world_forward( Transform* t, quat world_rotation );
+LD_API vec3 transform_world_forward( Transform* t );
 /// Calculate transform's world space right basis vector.
-LD_API vec3 transform_world_right( Transform* t, quat world_rotation );
+LD_API vec3 transform_world_right( Transform* t );
 /// Calculate transform's world space up basis vector.
-LD_API vec3 transform_world_up( Transform* t, quat world_rotation );
+LD_API vec3 transform_world_up( Transform* t );
 
 // NOTE(alicia): C++ operator overloading
 

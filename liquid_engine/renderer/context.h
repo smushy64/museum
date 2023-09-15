@@ -22,11 +22,8 @@ typedef struct InternalRendererContext {
 
     mat4 projection_3d;
     mat4 projection_ui;
-    f32 fov_radians;
-    f32 near_clip;
-    f32 far_clip;
 
-    f32 aspect_ratio;
+    b32 projection3d_dirty;
 
     void* surface;
 } InternalRendererContext;

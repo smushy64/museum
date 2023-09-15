@@ -65,12 +65,13 @@ typedef GLenum GLDrawBuffer;
 #define FRAMEBUFFER_TEXTURE_ID_COUNT (2)
 /// Framebuffer.
 typedef struct GLFramebuffer {
+    GLFramebufferID id;
     union {
         struct { i32 width, height; };
         ivec2 dimensions;
     };
-    GLFramebufferID  id;
     union {
+        GLTextureID shadow_texture_id;
         struct {
             GLTextureID color_texture_id;
             GLTextureID depth_texture_id;

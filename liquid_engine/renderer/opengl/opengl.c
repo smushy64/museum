@@ -6,6 +6,7 @@
 #include "renderer/opengl/types.h"
 #include "renderer/opengl/functions.h"
 #include "renderer/opengl/buffer.h"
+#include "renderer/opengl/texture.h"
 #include "core/graphics.h"
 #include "core/graphics/primitives.h"
 #include "core/graphics/types.h"
@@ -13,6 +14,7 @@
 #include "core/mem.h"
 #include "core/timer.h"
 #include "platform.h"
+#include "core/input.h"
 
 usize GL_RENDERER_BACKEND_SIZE = sizeof(OpenGLRendererContext);
 
@@ -34,6 +36,7 @@ b32 gl_renderer_backend_end_frame(
 
 internal void gl_init_buffers( OpenGLRendererContext* ctx );
 internal void gl_init_shaders( OpenGLRendererContext* ctx );
+internal void gl_init_textures( OpenGLRendererContext* ctx );
 
 b32 gl_renderer_backend_init( RendererContext* renderer_ctx ) {
     OpenGLRendererContext* ctx = renderer_ctx;
@@ -68,11 +71,19 @@ b32 gl_renderer_backend_init( RendererContext* renderer_ctx ) {
 
     gl_init_buffers( ctx );
     gl_init_shaders( ctx );
+    gl_init_textures( ctx );
 
-    ctx->framebuffer_main = gl_framebuffer_create(
-        ctx->ctx.framebuffer_dimensions.width,
-        ctx->ctx.framebuffer_dimensions.height
-    );
+    GLFramebuffer* main_fbo =
+        ctx->framebuffers + GL_FRAMEBUFFER_INDEX_MAIN_FRAMEBUFFER;
+
+    *main_fbo = gl_framebuffer_create(
+            ctx->ctx.framebuffer_dimensions.width,
+            ctx->ctx.framebuffer_dimensions.height );
+
+    GLFramebuffer* shadow_fbo =
+        ctx->framebuffers + GL_FRAMEBUFFER_INDEX_SHADOW_FRAMEBUFFER;
+
+    *shadow_fbo = gl_shadowbuffer_create( 4096, 4096 );
 
     GL_LOG_NOTE( "OpenGL Backend successfully initialized." );
     return true;
@@ -82,6 +93,123 @@ void gl_renderer_backend_shutdown( RendererContext* renderer_ctx ) {
     OpenGLRendererContext* ctx = renderer_ctx;
     platform_gl_surface_shutdown( ctx->ctx.surface );
     GL_LOG_INFO( "OpenGL Backend shutdown." );
+}
+
+vec3 rotation = {};
+internal void gl_draw_scene(
+    OpenGLRendererContext* ctx, RenderData* render_data, b32 is_shadow
+) {
+    unused(render_data);
+
+    mat4 box   =
+        m4_transform_euler( v3(0.0f, 0.5f, 0.0f), rotation, VEC3_ONE );
+    rotation.x += render_data->delta_time;
+    rotation.y += render_data->delta_time;
+    mat4 floor =
+        m4_transform(
+            v3(0.0f, -1.0f, 0.0f), QUAT_IDENTITY, v3( 100.0f, 0.5f, 100.0f ) );
+
+    glBindVertexArray( ctx->vertex_arrays[GL_VERTEX_ARRAY_INDEX_CUBE_3D] );
+
+    GLFramebuffer* shadow_fbo =
+        ctx->framebuffers + GL_FRAMEBUFFER_INDEX_SHADOW_FRAMEBUFFER;
+
+    if( is_shadow ) {
+        glBindTextureUnit( 4, 0 );
+        GLShaderProgramID shadow =
+            ctx->programs[GL_SHADER_PROGRAM_INDEX_SHADOW];
+        glUseProgram( shadow );
+
+        glProgramUniformMatrix4fv(
+            shadow, 1,
+            1, GL_FALSE,
+            ctx->lights.directional.light_space.c
+        );
+
+        glProgramUniformMatrix4fv(
+            shadow,
+            GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
+            1, GL_FALSE,
+            box.c
+        );
+        glDrawElements(
+            GL_TRIANGLES,
+            CUBE_3D_INDEX_COUNT,
+            GL_UNSIGNED_BYTE,
+            NULL
+        );
+
+        glProgramUniformMatrix4fv(
+            shadow,
+            GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
+            1, GL_FALSE,
+            floor.c
+        );
+        glDrawElements(
+            GL_TRIANGLES,
+            CUBE_3D_INDEX_COUNT,
+            GL_UNSIGNED_BYTE,
+            NULL
+        );
+    } else {
+        GLShaderProgramID phong = ctx->programs[GL_SHADER_PROGRAM_INDEX_PHONG_BRDF];
+        glUseProgram( phong );
+        GLTexture* diffuse   = ctx->textures + GL_TEXTURE_INDEX_NULL_DIFFUSE;
+        GLTexture* normal    = ctx->textures + GL_TEXTURE_INDEX_NULL_NORMAL;
+        GLTexture* roughness = ctx->textures + GL_TEXTURE_INDEX_NULL_ROUGHNESS;
+
+        glBindTextureUnit( 4, shadow_fbo->shadow_texture_id );
+
+        glBindTextureUnit(
+            GL_SHADER_PROGRAM_PHONG_BRDF_DIFFUSE_TEXTURE_BINDING,
+            diffuse->id );
+        glBindTextureUnit(
+            GL_SHADER_PROGRAM_PHONG_BRDF_NORMAL_TEXTURE_BINDING,
+            normal->id );
+        glBindTextureUnit(
+            GL_SHADER_PROGRAM_PHONG_BRDF_ROUGHNESS_TEXTURE_BINDING,
+            roughness->id );
+
+        glProgramUniformMatrix4fv(
+            phong,
+            GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
+            1, GL_FALSE,
+            box.c
+        );
+        mat3 normal_mat = m4_normal_matrix_unchecked( &box );
+        glProgramUniformMatrix3fv(
+            phong,
+            1,
+            1, GL_FALSE,
+            normal_mat.c
+        );
+        glDrawElements(
+            GL_TRIANGLES,
+            CUBE_3D_INDEX_COUNT,
+            GL_UNSIGNED_BYTE,
+            NULL
+        );
+
+        normal_mat = m4_normal_matrix_unchecked( &floor );
+        glProgramUniformMatrix4fv(
+            phong,
+            GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
+            1, GL_FALSE,
+            floor.c
+        );
+        glProgramUniformMatrix3fv(
+            phong,
+            1,
+            1, GL_FALSE,
+            normal_mat.c
+        );
+        glDrawElements(
+            GL_TRIANGLES,
+            CUBE_3D_INDEX_COUNT,
+            GL_UNSIGNED_BYTE,
+            NULL
+        );
+    }
 }
 
 internal void gl_draw_framebuffer(
@@ -100,14 +228,24 @@ internal void gl_draw_framebuffer(
         ctx->programs[GL_SHADER_PROGRAM_INDEX_FRAMEBUFFER];
     GLVertexArrayID vertex_array =
         ctx->vertex_arrays[GL_VERTEX_ARRAY_INDEX_FRAMEBUFFER];
-    glDisable( GL_DEPTH_TEST );
     glBindVertexArray( vertex_array );
     glUseProgram( program );
 
+    GLFramebuffer* main_fbo =
+        ctx->framebuffers + GL_FRAMEBUFFER_INDEX_MAIN_FRAMEBUFFER;
     glBindTextureUnit(
         GL_SHADER_PROGRAM_FRAMEBUFFER_TEXTURE_BINDING,
-        ctx->framebuffer_main.color_texture_id );
+        main_fbo->color_texture_id );
+
     glDrawArrays( GL_TRIANGLES, 0, 6 );
+
+    // GLFramebuffer* shadow_fbo =
+    //     ctx->framebuffers + GL_FRAMEBUFFER_INDEX_SHADOW_FRAMEBUFFER;
+    // glBindTextureUnit(
+    //     GL_SHADER_PROGRAM_FRAMEBUFFER_TEXTURE_BINDING,
+    //     shadow_fbo->shadow_texture_id );
+    //
+    // glDrawArrays( GL_TRIANGLES, 0, 6 );
 }
 
 void gl_renderer_backend_on_resize( RendererContext* renderer_ctx ) {
@@ -126,7 +264,10 @@ b32 gl_renderer_backend_begin_frame(
     RendererContext* renderer_ctx, RenderData* render_data
 ) {
     OpenGLRendererContext* ctx = renderer_ctx;
-    GLFramebufferID   framebuffer  = 0;
+    GLFramebuffer* main_fbo =
+        ctx->framebuffers + GL_FRAMEBUFFER_INDEX_MAIN_FRAMEBUFFER;
+    GLFramebuffer* shadow_fbo =
+        ctx->framebuffers + GL_FRAMEBUFFER_INDEX_SHADOW_FRAMEBUFFER;
 
     struct Camera* camera = render_data->camera;
 #if defined(LD_ASSERTIONS)
@@ -137,82 +278,93 @@ b32 gl_renderer_backend_begin_frame(
         );
     }
 #endif
+    ivec2 resolution = ctx->ctx.framebuffer_dimensions;
 
-    if( camera && camera->transform->camera_dirty ) {
-
+    if(
+        camera &&
+        (camera->transform->camera_dirty || ctx->ctx.projection3d_dirty)
+    ) {
         vec3 camera_world_position =
             transform_world_position( camera->transform );
         quat camera_world_rotation =
             transform_world_rotation( camera->transform );
             
-        vec3 camera_world_forward_basis =
-            transform_world_forward( camera->transform, camera_world_rotation );
-        vec3 camera_world_up_basis =
-            transform_world_up( camera->transform, camera_world_rotation );
+        vec3 camera_world_forward =
+            q_mul_v3( camera_world_rotation, VEC3_FORWARD );
+        vec3 camera_world_up =
+            q_mul_v3( camera_world_rotation, VEC3_UP );
+        // camera_world_up = VEC3_UP;
 
-        vec3 camera_target = v3_add(
-            camera_world_position, camera_world_forward_basis );
+        mat4 projection = m4_perspective(
+            camera->fov_radians,
+            (f32)resolution.x / (f32)resolution.y,
+            camera->near_clip,
+            camera->far_clip );
 
-        mat4 lookat = m4_view(
+        mat4 view = m4_view(
             camera_world_position,
-            camera_target,
-            camera_world_up_basis
-        );
-        mat4 view_projection =
-            m4_mul_m4( &lookat, &ctx->ctx.projection_3d );
-        gl_camera_buffer_update_world_position(
-            ctx->buffers[GL_BUFFER_INDEX_UBO_CAMERA],
-            camera_world_position
-        );
-        gl_camera_buffer_update_near_far_planes(
-            ctx->buffers[GL_BUFFER_INDEX_UBO_CAMERA],
-            &camera->near_clip
-        );
+            v3_sub( camera_world_position, camera_world_forward ),
+            camera_world_up );
+
+        mat4 view_projection = m4_mul_m4( &projection, &view );
+
+        GLBufferID ubo = ctx->buffers[GL_BUFFER_INDEX_UBO_CAMERA];
         gl_camera_buffer_update_matrix_3d(
-            ctx->buffers[GL_BUFFER_INDEX_UBO_CAMERA],
-            &view_projection
-        );
+            ubo, &view_projection );
+        gl_camera_buffer_update_world_position(
+            ubo, camera_world_position );
+        gl_camera_buffer_update_near_far_planes(
+            ubo, camera->clipping_planes );
 
         camera->transform->camera_dirty = false;
+        ctx->ctx.projection3d_dirty     = false;
     }
 
-    ivec2 resolution = ctx->ctx.framebuffer_dimensions;
 
     // NOTE(alicia): recreate the framebuffer to match
     // render resolution.
     if( !iv2_cmp(
         resolution,
-        ctx->framebuffer_main.dimensions
+        main_fbo->dimensions
     ) ) {
         /// Rescale the framebuffer
         gl_framebuffer_resize(
-            &ctx->framebuffer_main,
+            main_fbo,
             resolution.width,
             resolution.height
         );
     }
+    rgba clear_color = RGBA_GRAY;
+    f32 clear_depth  = 1.0f;
 
-    framebuffer = ctx->framebuffer_main.id;
-    glBindFramebuffer( GL_FRAMEBUFFER, framebuffer );
     glBindTextureUnit( GL_SHADER_PROGRAM_FRAMEBUFFER_TEXTURE_BINDING, 0 );
+    glEnable( GL_DEPTH_TEST );
+    glEnable( GL_CULL_FACE );
+
+    glBindFramebuffer( GL_FRAMEBUFFER, shadow_fbo->id );
+    glViewport( 0, 0, shadow_fbo->width, shadow_fbo->height );
+    glClear( GL_DEPTH_BUFFER_BIT );
+    gl_draw_scene( ctx, render_data, true );
+
+    glBindFramebuffer( GL_FRAMEBUFFER, main_fbo->id );
+    glNamedFramebufferDrawBuffer( main_fbo->id, GL_COLOR_ATTACHMENT0 );
     glViewport(
         0, 0,
         resolution.width,
         resolution.height
     );
-    glEnable( GL_CULL_FACE );
-    rgba clear_color = RGBA_GRAY;
-    f32 clear_depth  = 1.0f;
     glClearNamedFramebufferfv(
-        framebuffer,
+        main_fbo->id,
         GL_COLOR, 0,
         clear_color.c
     );
     glClearNamedFramebufferfv(
-        framebuffer,
+        main_fbo->id,
         GL_DEPTH, 0,
         &clear_depth
     );
+
+    gl_draw_scene( ctx, render_data, false );
 
     // NOTE(alicia): UI Rendering
     glDisable( GL_DEPTH_TEST );
@@ -307,6 +459,29 @@ internal void gl_init_buffers( OpenGLRendererContext* ctx ) {
 
         gl_camera_buffer_create( ubo, &buffer );
     }
+    /* create lights buffer */ {
+        GLBufferID ubo = ctx->buffers[GL_BUFFER_INDEX_UBO_LIGHTS];
+        struct GLLightBuffer* buffer = &ctx->lights;
+
+        mem_zero( buffer, sizeof( struct GLLightBuffer ) );
+        buffer->directional.direction   = v4( 1.0f, -1.0f,  1.0f, 0.0f );
+        buffer->directional.color       = RGBA_WHITE;
+
+        mat4 light_directional_proj =
+            m4_ortho( -10.0f, 10.0f, -10.0f, 10.0f, -10.0f, 10.0f ); 
+        mat4 light_directional_view = m4_view(
+            v3_neg( v3_v4( buffer->directional.direction ) ),
+            VEC3_ZERO, VEC3_UP );
+
+        buffer->directional.light_space =
+            m4_mul_m4( &light_directional_proj, &light_directional_view );
+
+        buffer->point[0].position  = v4( 4.0f, 0.0f, 0.0f, 0.0f );
+        buffer->point[0].color     = v4_mul( v4( 0.1f, 0.1f, 1.0f, 1.0f ), 0.5f );
+        buffer->point[0].is_active = false;
+
+        gl_light_buffer_create( ubo, buffer );
+    }
 
     glCreateVertexArrays( GL_VERTEX_ARRAY_COUNT, ctx->vertex_arrays );
     /* create quad 2d mesh */ {
@@ -396,6 +571,77 @@ internal void gl_init_buffers( OpenGLRendererContext* ctx ) {
 
         glVertexArrayAttribBinding( vao, 0, 0 );
         glVertexArrayAttribBinding( vao, 1, 0 );
+    }
+    /* create cube 3d mesh */ {
+        GLuint vao = ctx->vertex_arrays[GL_VERTEX_ARRAY_INDEX_CUBE_3D];
+        GLuint vbo = ctx->buffers[GL_BUFFER_INDEX_VBO_CUBE_3D];
+        GLuint ebo = ctx->buffers[GL_BUFFER_INDEX_EBO_CUBE_3D];
+        
+        glNamedBufferStorage(
+            vbo, CUBE_3D_VERTEX_BUFFER_SIZE,
+            CUBE_3D,
+            GL_DYNAMIC_STORAGE_BIT
+        );
+        glNamedBufferStorage(
+            ebo, CUBE_3D_INDEX_BUFFER_SIZE,
+            CUBE_3D_INDICES,
+            GL_DYNAMIC_STORAGE_BIT
+        );
+
+        glVertexArrayVertexBuffer(
+            vao, 0,
+            vbo, 0,
+            sizeof(struct Vertex3D)
+        );
+        glVertexArrayElementBuffer( vao, ebo );
+
+        glEnableVertexArrayAttrib( vao, VERTEX_3D_LOCATION_POSITION );
+        glEnableVertexArrayAttrib( vao, VERTEX_3D_LOCATION_UV );
+        glEnableVertexArrayAttrib( vao, VERTEX_3D_LOCATION_NORMAL );
+        glEnableVertexArrayAttrib( vao, VERTEX_3D_LOCATION_COLOR );
+        glEnableVertexArrayAttrib( vao, VERTEX_3D_LOCATION_TANGENT );
+
+        GLuint offset = 0;
+        glVertexArrayAttribFormat(
+            vao, VERTEX_3D_LOCATION_POSITION,
+            3, GL_FLOAT,
+            GL_FALSE,
+            offset
+        );
+        offset += sizeof(vec3);
+        glVertexArrayAttribFormat(
+            vao, VERTEX_3D_LOCATION_UV,
+            2, GL_FLOAT,
+            GL_FALSE,
+            offset
+        );
+        offset += sizeof(vec2);
+        glVertexArrayAttribFormat(
+            vao, VERTEX_3D_LOCATION_NORMAL,
+            3, GL_FLOAT,
+            GL_FALSE,
+            offset
+        );
+        offset += sizeof(vec3);
+        glVertexArrayAttribFormat(
+            vao, VERTEX_3D_LOCATION_COLOR,
+            4, GL_FLOAT,
+            GL_FALSE,
+            offset
+        );
+        offset += sizeof(vec4);
+        glVertexArrayAttribFormat(
+            vao, VERTEX_3D_LOCATION_TANGENT,
+            3, GL_FLOAT,
+            GL_FALSE,
+            offset
+        );
+
+        glVertexArrayAttribBinding( vao, VERTEX_3D_LOCATION_POSITION, 0 );
+        glVertexArrayAttribBinding( vao, VERTEX_3D_LOCATION_UV, 0 );
+        glVertexArrayAttribBinding( vao, VERTEX_3D_LOCATION_NORMAL, 0 );
+        glVertexArrayAttribBinding( vao, VERTEX_3D_LOCATION_COLOR, 0 );
+        glVertexArrayAttribBinding( vao, VERTEX_3D_LOCATION_TANGENT, 0 );
     }
 
 }
@@ -523,6 +769,230 @@ internal void gl_init_shaders( OpenGLRendererContext* ctx ) {
         );
     }
 
+    /* create phong brdf shader */ {
+        #define PHONG_BRDF_SHADER_STAGE_COUNT (2)
+        GLShaderID phong_shaders[PHONG_BRDF_SHADER_STAGE_COUNT] = {};
+        GLShaderProgramID* program =
+            ctx->programs + GL_SHADER_PROGRAM_INDEX_PHONG_BRDF;
+
+        PlatformFile* phong_vert_file = platform_file_open(
+            "./resources/shaders/phong.vert.spv",
+            PLATFORM_FILE_OPEN_READ |
+            PLATFORM_FILE_OPEN_SHARE_READ
+        );
+        assert( phong_vert_file );
+        PlatformFile* phong_frag_file = platform_file_open(
+            "./resources/shaders/phong.frag.spv",
+            PLATFORM_FILE_OPEN_READ |
+            PLATFORM_FILE_OPEN_SHARE_READ
+        );
+        assert( phong_frag_file );
+
+        usize phong_vert_file_size =
+            platform_file_query_size( phong_vert_file );
+        assert(phong_vert_file_size);
+        usize phong_frag_file_size =
+            platform_file_query_size( phong_frag_file );
+        assert(phong_frag_file_size);
+       
+        usize shader_buffer_size =
+            phong_vert_file_size + phong_frag_file_size;
+        u8* shader_buffer = ldalloc( shader_buffer_size, MEMORY_TYPE_RENDERER );
+        assert( shader_buffer );
+
+        b32 result = platform_file_read(
+            phong_vert_file,
+            phong_vert_file_size,
+            phong_vert_file_size,
+            shader_buffer
+        );
+        assert( result );
+
+        result = platform_file_read(
+            phong_frag_file,
+            phong_frag_file_size,
+            phong_frag_file_size,
+            shader_buffer + phong_vert_file_size
+        );
+        assert( result );
+
+
+        result = gl_shader_compile_spirv(
+            phong_vert_file_size,
+            shader_buffer,
+            GL_VERTEX_SHADER,
+            "main",
+            0, 0, 0,
+            &phong_shaders[0]
+        );
+        assert( result );
+
+        result = gl_shader_compile_spirv(
+            phong_frag_file_size,
+            shader_buffer + phong_vert_file_size,
+            GL_FRAGMENT_SHADER,
+            "main",
+            0, 0, 0,
+            &phong_shaders[1]
+        );
+        assert( result );
+
+        result = gl_shader_program_link(
+            PHONG_BRDF_SHADER_STAGE_COUNT, phong_shaders,
+            program
+        );
+        assert( result );
+
+        gl_shader_delete( COLOR_SHADER_STAGE_COUNT, phong_shaders );
+        ldfree( shader_buffer, shader_buffer_size, MEMORY_TYPE_RENDERER );
+        platform_file_close( phong_vert_file );
+        platform_file_close( phong_frag_file );
+
+        GL_LOG_NOTE(
+            "Successfully compiled + "
+            "linked debug phong shader program: {u32}",
+            *program
+        );
+    }
+
+    /* create shadow shader */ {
+        #define SHADOW_SHADER_STAGE_COUNT (2)
+        GLShaderID shadow_shaders[SHADOW_SHADER_STAGE_COUNT] = {};
+        GLShaderProgramID* program =
+            ctx->programs + GL_SHADER_PROGRAM_INDEX_SHADOW;
+
+        PlatformFile* shadow_vert_file = platform_file_open(
+            "./resources/shaders/shadow.vert.spv",
+            PLATFORM_FILE_OPEN_READ |
+            PLATFORM_FILE_OPEN_SHARE_READ
+        );
+        assert( shadow_vert_file );
+        PlatformFile* shadow_frag_file = platform_file_open(
+            "./resources/shaders/shadow.frag.spv",
+            PLATFORM_FILE_OPEN_READ |
+            PLATFORM_FILE_OPEN_SHARE_READ
+        );
+        assert( shadow_frag_file );
+
+        usize shadow_vert_file_size =
+            platform_file_query_size( shadow_vert_file );
+        assert(shadow_vert_file_size);
+        usize shadow_frag_file_size =
+            platform_file_query_size( shadow_frag_file );
+        assert(shadow_frag_file_size);
+       
+        usize shader_buffer_size =
+            shadow_vert_file_size + shadow_frag_file_size;
+        u8* shader_buffer = ldalloc( shader_buffer_size, MEMORY_TYPE_RENDERER );
+        assert( shader_buffer );
+
+        b32 result = platform_file_read(
+            shadow_vert_file,
+            shadow_vert_file_size,
+            shadow_vert_file_size,
+            shader_buffer
+        );
+        assert( result );
+
+        result = platform_file_read(
+            shadow_frag_file,
+            shadow_frag_file_size,
+            shadow_frag_file_size,
+            shader_buffer + shadow_vert_file_size
+        );
+        assert( result );
+
+
+        result = gl_shader_compile_spirv(
+            shadow_vert_file_size,
+            shader_buffer,
+            GL_VERTEX_SHADER,
+            "main",
+            0, 0, 0,
+            &shadow_shaders[0]
+        );
+        assert( result );
+
+        result = gl_shader_compile_spirv(
+            shadow_frag_file_size,
+            shader_buffer + shadow_vert_file_size,
+            GL_FRAGMENT_SHADER,
+            "main",
+            0, 0, 0,
+            &shadow_shaders[1]
+        );
+        assert( result );
+
+        result = gl_shader_program_link(
+            SHADOW_SHADER_STAGE_COUNT, shadow_shaders,
+            program
+        );
+        assert( result );
+
+        gl_shader_delete( COLOR_SHADER_STAGE_COUNT, shadow_shaders );
+        ldfree( shader_buffer, shader_buffer_size, MEMORY_TYPE_RENDERER );
+        platform_file_close( shadow_vert_file );
+        platform_file_close( shadow_frag_file );
+
+        GL_LOG_NOTE(
+            "Successfully compiled + "
+            "linked debug shadow shader program: {u32}",
+            *program
+        );
+    }
+
+
+}
+
+internal void gl_init_textures( OpenGLRendererContext* ctx ) {
+    /* null diffuse texture */ {
+        GLTexture* texture = ctx->textures + GL_TEXTURE_INDEX_NULL_DIFFUSE;
+
+        *texture = gl_texture_create(
+            NULL_DIFFUSE_TEXTURE_WIDTH,
+            NULL_DIFFUSE_TEXTURE_HEIGHT, 0,
+            GL_UNSIGNED_BYTE,
+            GL_RGBA8,
+            GL_RGBA,
+            GL_REPEAT,
+            GL_REPEAT,
+            GL_NEAREST,
+            GL_NEAREST,
+            NULL_DIFFUSE_TEXTURE
+        );
+    }
+    /* null normal texture */ {
+        GLTexture* texture = ctx->textures + GL_TEXTURE_INDEX_NULL_NORMAL;
+
+        *texture = gl_texture_create(
+            NULL_NORMAL_TEXTURE_WIDTH,
+            NULL_NORMAL_TEXTURE_HEIGHT, 0,
+            GL_UNSIGNED_BYTE,
+            GL_RGB8,
+            GL_RGB,
+            GL_REPEAT,
+            GL_REPEAT,
+            GL_NEAREST,
+            GL_NEAREST,
+            NULL_NORMAL_TEXTURE
+        );
+    }
+    /* null roughness texture */ {
+        GLTexture* texture = ctx->textures + GL_TEXTURE_INDEX_NULL_ROUGHNESS;
+
+        *texture = gl_texture_create(
+            NULL_ROUGHNESS_TEXTURE_WIDTH,
+            NULL_ROUGHNESS_TEXTURE_HEIGHT, 0,
+            GL_UNSIGNED_BYTE,
+            GL_R8,
+            GL_RED,
+            GL_REPEAT,
+            GL_REPEAT,
+            GL_NEAREST,
+            GL_NEAREST,
+            NULL_ROUGHNESS_TEXTURE
+        );
+    }
 }
 
 const char* gl_debug_source_to_string( GLenum source ) {

@@ -106,7 +106,7 @@ union vec3 {
         union {
             struct { f32 x, y; };
             struct { f32 r, g; };
-            struct { f32 hue, value; };
+            struct { f32 hue, saturation; };
             struct { f32 width, height; };
             struct { f32 pitch, yaw; };
             vec2 xy;
@@ -115,7 +115,7 @@ union vec3 {
         union {
             f32 z;
             f32 b;
-            f32 saturation;
+            f32 value;
             f32 length;
             f32 roll;
         };
@@ -284,14 +284,12 @@ header_only ivec4 iv4_scalar( i32 scalar ) {
 /// Quaternion.
 union quat {
     struct {
-        union {
-            f32 w;
-            f32 a;
-        };
+        union { f32 w; f32 a; };
         union {
             struct { f32 x, y, z; };
             struct { f32 b, c, d; };
             vec3 xyz;
+            vec3 bcd;
         };
     };
     f32 q[QUAT_COMPONENT_COUNT];
@@ -483,6 +481,7 @@ header_only Transform transform_create(
     result.matrix       = MAT4_IDENTITY;
     result.matrix_dirty = true;
     result.camera_dirty = true;
+
     result.parent       = NULL;
 
     return result;

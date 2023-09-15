@@ -14,8 +14,13 @@ typedef u32 FontID;
 typedef struct Camera {
     struct Transform* transform;
     f32  fov_radians;
-    f32  near_clip;
-    f32  far_clip;
+    union {
+        struct {
+            f32  near_clip;
+            f32  far_clip;
+        };
+        f32 clipping_planes[2];
+    };
 } Camera;
 
 #define VERTEX_2D_LOCATION_POSITION (0)
@@ -37,23 +42,29 @@ struct Vertex2D vertex2d( vec2 position, vec2 uv ) {
 #define VERTEX_3D_LOCATION_POSITION (0)
 #define VERTEX_3D_LOCATION_UV       (1)
 #define VERTEX_3D_LOCATION_NORMAL   (2)
-#define VERTEX_3D_LOCATION_TANGENT  (3)
+#define VERTEX_3D_LOCATION_COLOR    (3)
+#define VERTEX_3D_LOCATION_TANGENT  (4)
 /// 3D Vertex for use in renderer.
 struct Vertex3D {
     vec3 position;
-    vec2 uv;      
-    vec3 normal;  
-    vec4 tangent; 
+    vec2 uv;
+    vec3 normal;
+    vec4 color;
+    vec3 tangent; 
 };
 /// Make vertex 3d.
 header_only force_inline maybe_unused
 struct Vertex3D vertex3d(
-    vec3 position, vec2 uv,
-    vec3 normal, vec4 tangent
+    vec3 position,
+    vec2 uv,
+    vec3 normal,
+    vec4 color,
+    vec3 tangent
 ) {
     struct Vertex3D result;
     result.position = position;
     result.uv       = uv;
+    result.color    = color;
     result.normal   = normal;
     result.tangent  = tangent;
     return result;

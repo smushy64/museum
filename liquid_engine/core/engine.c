@@ -784,4 +784,8 @@ LD_API void engine_surface_set_resolution(
 
 }
 
+LD_API void engine_set_camera( EngineContext* ctx, Camera* camera ) {
+    InternalEngineContext* engine = ctx;
+    engine->render_data.camera = camera;
+}
 

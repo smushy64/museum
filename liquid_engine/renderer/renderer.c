@@ -80,17 +80,7 @@ void renderer_subsystem_on_resize(
     ctx->surface_dimensions     = surface_dimensions;
     ctx->framebuffer_dimensions = framebuffer_dimensions;
 
-    f32 aspect_ratio =
-        (f32)framebuffer_dimensions.width /
-        (f32)framebuffer_dimensions.height;
-    ctx->aspect_ratio = aspect_ratio;
-
-    ctx->projection_3d = m4_perspective(
-        ctx->fov_radians,
-        ctx->aspect_ratio,
-        ctx->near_clip,
-        ctx->far_clip
-    );
+    ctx->projection3d_dirty = true;
 
     mat4 view_ui = m4_view_2d( VEC2_ZERO, VEC2_UP );
     mat4 proj_ui = m4_ortho(
@@ -106,29 +96,7 @@ void renderer_subsystem_on_resize(
 internal b32 renderer_begin_frame(
     RendererContext* opaque, struct RenderData* render_data
 ) {
-
     InternalRendererContext* ctx = opaque;
-
-    struct Camera* camera = render_data->camera;
-    if( camera ) {
-        if( !mem_cmp(
-            &ctx->fov_radians,
-            &camera->fov_radians,
-            sizeof(f32) * 3
-        ) ) {
-            mem_copy(
-                &ctx->fov_radians,
-                &camera->fov_radians,
-                sizeof(f32) * 3
-            );
-            ctx->projection_3d = m4_perspective(
-                ctx->fov_radians,
-                ctx->aspect_ratio,
-                ctx->near_clip,
-                ctx->far_clip
-            );
-        }
-    }
 
     return ctx->begin_frame( ctx, render_data );
 }

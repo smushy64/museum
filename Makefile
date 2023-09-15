@@ -174,6 +174,10 @@ test: build_testbed
 	@mkdir -p $(BUILD_PATH)/resources/shaders
 	@cp resources/shaders/ldcolor.vert.spv $(BUILD_PATH)/resources/shaders/ldcolor.vert.spv
 	@cp resources/shaders/ldcolor.frag.spv $(BUILD_PATH)/resources/shaders/ldcolor.frag.spv
+	@cp resources/shaders/phong.vert.spv $(BUILD_PATH)/resources/shaders/phong.vert.spv
+	@cp resources/shaders/phong.frag.spv $(BUILD_PATH)/resources/shaders/phong.frag.spv
+	@cp resources/shaders/shadow.vert.spv $(BUILD_PATH)/resources/shaders/shadow.vert.spv
+	@cp resources/shaders/shadow.frag.spv $(BUILD_PATH)/resources/shaders/shadow.frag.spv
 	@cd $(BUILD_PATH) && ./$(LD_EXE_NAME)$(if $(EXE_EXT),.$(EXE_EXT),) --libload=$(LIB_TESTBED) --gl
 
 build_testbed: all

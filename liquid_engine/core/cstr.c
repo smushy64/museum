@@ -6,13 +6,11 @@
 #include "platform.h"
 
 LD_API usize cstr_len( const char* cstr ) {
-    usize result = 0;
-    if( cstr ) {
-        while( *cstr++ ) {
-            result++;
-        }
+    const char* start = cstr;
+    while( *cstr ) {
+        cstr++;
     }
-    return result;
+    return cstr - start;
 }
 LD_API b32 cstr_cmp( const char* a, const char* b ) {
     if( !a || !b ) {
