@@ -28,16 +28,17 @@ typedef struct OpenGLDeviceInfo {
 // define their transform at location 0
 #define GL_SHADER_PROGRAM_LOCATION_TRANSFORM (0) 
 
-#define GL_VERTEX_ARRAY_COUNT   (3)
-#define GL_SHADER_PROGRAM_COUNT (4)
-#define GL_BUFFER_COUNT         (7)
-#define GL_TEXTURE_COUNT        (3)
-#define GL_FRAMBUFFER_COUNT     (2)
+#define GL_VERTEX_ARRAY_COUNT    (3)
+#define GL_SHADER_PROGRAM_COUNT  (5)
+#define GL_BUFFER_COUNT          (7)
+#define GL_TEXTURE_2D_COUNT      (3)
+#define GL_FRAMBUFFER_COUNT      (3)
 
-#define GL_SHADER_PROGRAM_INDEX_FRAMEBUFFER (0)
-#define GL_SHADER_PROGRAM_INDEX_COLOR       (1)
-#define GL_SHADER_PROGRAM_INDEX_PHONG_BRDF  (2)
-#define GL_SHADER_PROGRAM_INDEX_SHADOW      (3)
+#define GL_SHADER_PROGRAM_INDEX_FRAMEBUFFER        (0)
+#define GL_SHADER_PROGRAM_INDEX_COLOR              (1)
+#define GL_SHADER_PROGRAM_INDEX_PHONG_BRDF         (2)
+#define GL_SHADER_PROGRAM_INDEX_SHADOW_DIRECTIONAL (3)
+#define GL_SHADER_PROGRAM_INDEX_SHADOW_POINT       (4)
 
 #define GL_SHADER_PROGRAM_FRAMEBUFFER_TEXTURE_BINDING (0)
 
@@ -64,7 +65,8 @@ typedef struct OpenGLDeviceInfo {
 #define GL_TEXTURE_INDEX_NULL_ROUGHNESS (2)
 
 #define GL_FRAMEBUFFER_INDEX_MAIN_FRAMEBUFFER   (0)
-#define GL_FRAMEBUFFER_INDEX_SHADOW_FRAMEBUFFER (1)
+#define GL_FRAMEBUFFER_INDEX_SHADOW_DIRECTIONAL (1)
+#define GL_FRAMEBUFFER_INDEX_SHADOW_POINT_0     (2)
 
 /// OpenGL Renderer Context
 typedef struct OpenGLRendererContext {
@@ -79,7 +81,7 @@ typedef struct OpenGLRendererContext {
 
     GLVertexArrayID vertex_arrays[GL_VERTEX_ARRAY_COUNT];
 
-    GLTexture textures[GL_TEXTURE_COUNT];
+    GLTexture2D textures_2d[GL_TEXTURE_2D_COUNT];
 
     GLFramebuffer framebuffers[GL_FRAMBUFFER_COUNT];
 

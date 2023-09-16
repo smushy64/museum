@@ -43,6 +43,7 @@ DECLARE_GL_FUNCTION( void, glBindFramebuffer, GLenum, GLuint );
 DECLARE_GL_FUNCTION( void, glBindRenderbuffer, GLenum, GLuint );
 DECLARE_GL_FUNCTION( void, glGenerateTextureMipmap, GLuint );
 DECLARE_GL_FUNCTION( void, glNamedFramebufferTexture, GLuint, GLenum, GLuint, GLint );
+DECLARE_GL_FUNCTION( void, glNamedFramebufferTextureLayer, GLuint, GLenum, GLuint, GLint, GLint );
 DECLARE_GL_FUNCTION( void, glNamedRenderbufferStorage, GLuint, GLenum, GLsizei, GLsizei );
 DECLARE_GL_FUNCTION( void, glNamedFramebufferRenderbuffer, GLuint, GLenum, GLenum, GLuint );
 DECLARE_GL_FUNCTION( GLenum, glCheckNamedFramebufferStatus, GLuint, GLenum );
@@ -245,6 +246,9 @@ IMPLEMENT_GL_FUNCTION( void, glClearNamedFramebufferfi, GLuint framebuffer, GLen
     ___internal_glClearNamedFramebufferfi( framebuffer, buffer, drawbuffer, depth, stencil );
 }
 // Frame Buffers -------------------------------------------------------
+IMPLEMENT_GL_FUNCTION( void, glNamedFramebufferTextureLayer, GLuint framebuffer, GLenum attachment, GLuint texture, GLint level, GLint layer ) {
+    ___internal_glNamedFramebufferTextureLayer( framebuffer, attachment, texture, level, layer );
+}
 IMPLEMENT_GL_FUNCTION( void, glCreateFramebuffers, GLsizei n, GLuint* ids ) {
     ___internal_glCreateFramebuffers( n, ids );
 }

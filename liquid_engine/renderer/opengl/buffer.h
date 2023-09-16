@@ -18,10 +18,14 @@ struct packedpad GLDirectionalLight {
 struct packedpad GLPointLight {
     vec4 position;
     vec4 color;
-    mat4 light_space;
-    f32  is_active;
-    int  ___pad[3];
+    mat4 light_space[6];
+    f32 is_active;
+    f32 near_clip;
+    f32 far_clip;
+    f32 ___padding;
 };
+void gl_point_light_set(
+    struct GLPointLight* light, vec3 position, vec3 color, b32 is_active );
 
 #define GL_POINT_LIGHT_BUFFER_SIZE (sizeof(struct GLPointLight))
 
@@ -121,7 +125,13 @@ void gl_framebuffer_resize(
 /// Destroy framebuffers.
 void gl_framebuffer_destroy( usize count, GLFramebuffer* framebuffers );
 
+typedef enum : u32 {
+    GL_SHADOWBUFFER_DIRECTIONAL,
+    GL_SHADOWBUFFER_POINT
+} GLShadowBufferType;
+
 /// Create shadow framebuffer.
-GLFramebuffer gl_shadowbuffer_create( i32 width, i32 height );
+GLFramebuffer gl_shadowbuffer_create(
+    i32 width, i32 height, GLShadowBufferType type );
 
 #endif // header guard

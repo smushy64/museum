@@ -7,7 +7,7 @@
 #include "renderer/opengl/types.h"
 
 /// Create a 2D texture.
-GLTexture gl_texture_create(
+GLTexture2D gl_texture_2d_create(
     i32              width,
     i32              height,
     i32              mipmap_level,
@@ -21,6 +21,8 @@ GLTexture gl_texture_create(
     void*            buffer
 );
 /// Destroy 2D textures.
-void gl_texture_destroy( usize count, GLTexture* textures );
+void gl_texture_2d_destroy( usize count, GLTexture2D* textures );
+
+
 
 #endif // header guard

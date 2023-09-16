@@ -66,6 +66,7 @@ DEFINE_GL_FUNCTION(glCheckNamedFramebufferStatus);
 DEFINE_GL_FUNCTION(glBlitNamedFramebuffer);
 DEFINE_GL_FUNCTION(glNamedFramebufferDrawBuffer);
 DEFINE_GL_FUNCTION(glNamedFramebufferDrawBuffers);
+DEFINE_GL_FUNCTION(glNamedFramebufferTextureLayer);
 // Shaders -------------------------------------------------------------
 DEFINE_GL_FUNCTION(glCreateShader  );
 DEFINE_GL_FUNCTION(glCreateProgram );
@@ -226,6 +227,7 @@ b32 gl_load_functions( GetProcAddressFN get_proc_address ) {
     LOAD_PROC_REQUIRED( glBlitNamedFramebuffer );
     LOAD_PROC_REQUIRED( glNamedFramebufferDrawBuffer );
     LOAD_PROC_REQUIRED( glNamedFramebufferDrawBuffers );
+    LOAD_PROC_REQUIRED(glNamedFramebufferTextureLayer);
 
     LOAD_PROC_REQUIRED( glCreateShader );
     LOAD_PROC_REQUIRED( glCreateProgram );

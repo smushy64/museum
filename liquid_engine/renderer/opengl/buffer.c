@@ -6,6 +6,7 @@
 #include "renderer/opengl/texture.h"
 #include "renderer/opengl.h"
 #include "core/mem.h"
+#include "core/mathf.h"
 
 void gl_light_buffer_create(
     GLBufferID buffer_id, struct GLLightBuffer* light
@@ -35,7 +36,6 @@ void gl_light_buffer_update_point(
         buffer_id, GL_LIGHT_BUFFER_OFFSET_POINT( index ),
         GL_POINT_LIGHT_BUFFER_SIZE, point );
 }
-
 
 void gl_camera_buffer_create(
     GLBufferID buffer_id, struct GLCameraBuffer* camera
@@ -176,40 +176,84 @@ void gl_framebuffer_destroy( usize count, GLFramebuffer* framebuffers ) {
     mem_zero( framebuffers, sizeof(GLFramebuffer) * count );
 }
 
-GLFramebuffer gl_shadowbuffer_create( i32 width, i32 height ) {
-    GLFramebuffer result;
+GLFramebuffer gl_shadowbuffer_create(
+    i32 width, i32 height, GLShadowBufferType type
+) {
+    GLFramebuffer result = {};
     result.dimensions = iv2( width, height );
-
     glCreateFramebuffers( 1, &result.id );
 
-    glCreateTextures( GL_TEXTURE_2D, 1, &result.shadow_texture_id );
+    switch( type ) {
+        case GL_SHADOWBUFFER_DIRECTIONAL: {
+            glCreateTextures(
+                GL_TEXTURE_2D, 1, &result.shadow_texture_id );
 
-    glTextureStorage2D(
-        result.shadow_texture_id, 1,
-        GL_DEPTH_COMPONENT24,
-        width, height
-    );
+            glTextureStorage2D(
+                result.shadow_texture_id, 1,
+                GL_DEPTH_COMPONENT24,
+                width, height
+            );
 
-    glTextureParameteri(
-        result.shadow_texture_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER );
-    glTextureParameteri(
-        result.shadow_texture_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER );
-    glTextureParameteri(
-        result.shadow_texture_id, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-    glTextureParameteri(
-        result.shadow_texture_id, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+            glTextureParameteri(
+                result.shadow_texture_id,
+                GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER );
+            glTextureParameteri(
+                result.shadow_texture_id,
+                GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER );
+            glTextureParameteri(
+                result.shadow_texture_id,
+                GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+            glTextureParameteri(
+                result.shadow_texture_id,
+                GL_TEXTURE_MIN_FILTER, GL_NEAREST );
 
-    vec4 border_color = { 1.0f, 1.0f, 1.0f, 1.0f };
-    glTextureParameterfv(
-        result.shadow_texture_id, GL_TEXTURE_BORDER_COLOR, border_color.c );
+            vec4 border_color = { 1.0f, 1.0f, 1.0f, 1.0f };
+            glTextureParameterfv(
+                result.shadow_texture_id,
+                GL_TEXTURE_BORDER_COLOR, border_color.c );
+            glNamedFramebufferTexture(
+                result.id,
+                GL_DEPTH_ATTACHMENT,
+                result.shadow_texture_id, 0
+            );
 
-    glNamedFramebufferTexture(
-        result.id,
-        GL_DEPTH_ATTACHMENT,
-        result.shadow_texture_id, 0
-    );
+            glNamedFramebufferDrawBuffer( result.id, GL_NONE );
 
-    glNamedFramebufferDrawBuffer( result.id, GL_NONE );
+        } break;
+        case GL_SHADOWBUFFER_POINT: {
+            glCreateTextures(
+                GL_TEXTURE_CUBE_MAP_ARRAY, 1, &result.shadow_texture_id );
+
+            glTextureStorage3D(
+                result.shadow_texture_id, 1,
+                GL_DEPTH_COMPONENT32F,
+                width, height, 6
+            );
+
+            glTextureParameteri(
+                result.shadow_texture_id,
+                GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
+            glTextureParameteri(
+                result.shadow_texture_id,
+                GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
+            glTextureParameteri(
+                result.shadow_texture_id,
+                GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE );
+            glTextureParameteri(
+                result.shadow_texture_id,
+                GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+            glTextureParameteri(
+                result.shadow_texture_id,
+                GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+
+            glNamedFramebufferTexture(
+                result.id,
+                GL_DEPTH_ATTACHMENT,
+                result.shadow_texture_id, 0 );
+
+            glNamedFramebufferDrawBuffer( result.id, GL_NONE );
+        } break;
+    }
 
 #if defined(LD_ASSERTIONS)
     GLenum status = glCheckNamedFramebufferStatus( result.id, GL_FRAMEBUFFER );
@@ -220,5 +264,40 @@ GLFramebuffer gl_shadowbuffer_create( i32 width, i32 height ) {
 #endif
 
     return result;
+}
+void gl_point_light_set(
+    struct GLPointLight* light,
+    vec3 position, vec3 color,
+    b32 is_active
+) {
+    light->position  = v4_v3( position );
+    light->color     = rgba_rgb( color );
+    light->is_active = is_active ? 1.0f : 0.0f;
+
+    light->near_clip = 1.0f;
+    light->far_clip  = 25.0f;
+    mat4 proj = m4_perspective(
+        to_rad32( 90.0f ), (f32)1024 / (f32)1024,
+        light->near_clip, light->far_clip
+    );
+
+    mat4 views[6];
+    views[0] =
+        m4_view( position, v3_add( position, VEC3_RIGHT ), VEC3_DOWN );
+    views[1] =
+        m4_view( position, v3_add( position, VEC3_LEFT ), VEC3_DOWN );
+    views[2] =
+        m4_view( position, v3_add( position, VEC3_UP ), VEC3_FORWARD );
+    views[3] =
+        m4_view( position, v3_add( position, VEC3_DOWN ), VEC3_BACK );
+    views[4] =
+        m4_view( position, v3_add( position, VEC3_FORWARD ), VEC3_DOWN );
+    views[5] =
+        m4_view( position, v3_add( position, VEC3_BACK ), VEC3_DOWN );
+
+    for( u32 i = 0; i < 6; ++i ) {
+        light->light_space[i] = m4_mul_m4( &proj, views + i );
+    }
+
 }
 

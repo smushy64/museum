@@ -176,8 +176,11 @@ test: build_testbed
 	@cp resources/shaders/ldcolor.frag.spv $(BUILD_PATH)/resources/shaders/ldcolor.frag.spv
 	@cp resources/shaders/phong.vert.spv $(BUILD_PATH)/resources/shaders/phong.vert.spv
 	@cp resources/shaders/phong.frag.spv $(BUILD_PATH)/resources/shaders/phong.frag.spv
-	@cp resources/shaders/shadow.vert.spv $(BUILD_PATH)/resources/shaders/shadow.vert.spv
-	@cp resources/shaders/shadow.frag.spv $(BUILD_PATH)/resources/shaders/shadow.frag.spv
+	@cp resources/shaders/shadow_directional.vert.spv $(BUILD_PATH)/resources/shaders/shadow_directional.vert.spv
+	@cp resources/shaders/shadow_directional.frag.spv $(BUILD_PATH)/resources/shaders/shadow_directional.frag.spv
+	@cp resources/shaders/shadow_point.vert.spv $(BUILD_PATH)/resources/shaders/shadow_point.vert.spv
+	@cp resources/shaders/shadow_point.geom.spv $(BUILD_PATH)/resources/shaders/shadow_point.geom.spv
+	@cp resources/shaders/shadow_point.frag.spv $(BUILD_PATH)/resources/shaders/shadow_point.frag.spv
 	@cd $(BUILD_PATH) && ./$(LD_EXE_NAME)$(if $(EXE_EXT),.$(EXE_EXT),) --libload=$(LIB_TESTBED) --gl
 
 build_testbed: all
@@ -209,9 +212,8 @@ spit:
 	@echo "corec:      "$(COREC)
 	@echo
 	@echo "main:       "$(LDMAIN)
-
-	# @$(MAKE) --directory=testbed spit
-	# @$(MAKE) --directory=shaders spit
+	@$(MAKE) --directory=testbed spit
+	@$(MAKE) --directory=shaders spit
 
 clean: $(if $(SHADER_ONLY),clean_shaders, $(if $(RELEASE), clean_shaders clean_release, clean_debug clean_shaders))
 

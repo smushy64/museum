@@ -14,28 +14,35 @@ struct Directional {
     mat4 MATRIX;
 };
 
-// size: 112
+// size: 432
 struct Point {
     // offset: 0  size: 16
     vec4 POSITION;
     // offset: 16 size: 16
     vec4 COLOR;
-    // offset: 32 size: 64
-    mat4 MATRIX;
-    // offset: 96 size: 16
-    vec4 IS_ACTIVE;
+    // offset: 32 size: 384
+    mat4 MATRIX[6];
+    // offset: 416 size: 16
+    // x - is active
+    // y - near clip
+    // z - far clip
+    // w - padding
+    vec4 POINT_DATA;
 };
 
 #define POINT_LIGHT_COUNT 4
-// size: 544
+// size: 1824
 layout(std140, binding = 1) uniform Lights {
     // offset: 0 size: 96
     Directional DIRECTIONAL;
-    // offset: 96 size: 448
+    // offset: 96 size: 1728
     Point POINT[POINT_LIGHT_COUNT];
 };
 
 const float SPECULAR_POWER = 180.0;
 
-uniform layout(binding = 4) sampler2D u_shadow_map;
+#if defined(GLSL_FRAGMENT) && !defined(NO_SHADOW)
+    uniform layout(binding = 4) sampler2D   u_shadow_map;
+    uniform layout(binding = 5) samplerCubeArray u_shadow_map_point_0;
+#endif
 

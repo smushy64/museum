@@ -27,7 +27,9 @@ uniform layout(binding = 3) sampler2D u_metallic;
 uniform layout(location = 2) vec3 u_tint = vec3(1.0);
 
 vec3 directional_light(
-    vec3 diffuse, vec3 normal,
+    vec4 light_space_position,
+    vec3 diffuse,
+    vec3 normal,
     float roughness,
     vec3 camera_direction
 );
@@ -35,14 +37,18 @@ vec3 directional_light(
 float directional_shadow( vec4 light_space_position );
 
 vec3 point_light(
+    vec3 world_position,
     vec3 point_position,
     vec3 point_color,
     float is_active,
+    float far_clip,
     vec3 diffuse,
     vec3 normal,
     float roughness,
     vec3 camera_direction
 );
+
+float point_shadow( vec3 world_position, vec3 point_position, float far_clip );
 
 void main() {
     vec3 final_color = vec3(0.0);
@@ -67,16 +73,19 @@ void main() {
     float camera_distance = length( camera_direction );
     camera_direction      = normalize( camera_direction );
 
-    vec3 directional =
-        directional_light( diffuse, normal, roughness, camera_direction );
-    directional *= directional_shadow( v2f.light_space_position );
+    vec3 directional = directional_light(
+        v2f.light_space_position,
+        diffuse, normal, roughness,
+        camera_direction );
 
     vec3 point_accumulation = vec3(0.0);
     for( int i = 0; i < POINT_LIGHT_COUNT; ++i ) {
         vec3 point = point_light(
-            vec3(POINT[i].POSITION),
-            vec3(POINT[i].COLOR),
-            POINT[i].IS_ACTIVE.x,
+            v2f.world_position,
+            POINT[i].POSITION.xyz,
+            POINT[i].COLOR.xyz,
+            POINT[i].POINT_DATA.x,
+            POINT[i].POINT_DATA.z,
             diffuse,
             normal,
             roughness,
@@ -90,7 +99,9 @@ void main() {
 }
 
 vec3 directional_light(
-    vec3 diffuse, vec3 normal,
+    vec4 light_space_position,
+    vec3 diffuse,
+    vec3 normal,
     float roughness,
     vec3 camera_direction
 ) {
@@ -110,19 +121,22 @@ vec3 directional_light(
     vec3 specular = vec3(
         ( 1.0 - roughness ) * specular_power * specular_mask );
 
-    return ((diffuse * light_color) * light_contribution) + specular;
+    float shadow = directional_shadow( light_space_position );
+    return (((diffuse * light_color) * light_contribution) + specular) * shadow;
 }
 
 vec3 point_light(
+    vec3 world_position,
     vec3 point_position,
     vec3 point_color,
     float is_active,
+    float far_clip,
     vec3 diffuse,
     vec3 normal,
     float roughness,
     vec3 camera_direction
 ) {
-    vec3 light_direction = point_position - v2f.world_position;
+    vec3 light_direction = point_position - world_position;
     float light_distance = length( light_direction );
     light_direction      = normalize( light_direction );
     float d  = light_distance;
@@ -148,7 +162,10 @@ vec3 point_light(
     vec3 specular = vec3(specular_contribution) * attenuation;
     vec3 ambient  = attenuation * attenuation * point_color;
 
-    return is_active * ( ambient + specular + diffuse_contibution);
+    float shadow = point_shadow( world_position, point_position, far_clip );
+
+    return is_active *
+        ( ( ambient + specular + diffuse_contibution ) * shadow );
 }
 
 float directional_shadow( vec4 light_space_position ) {
@@ -178,5 +195,20 @@ float directional_shadow( vec4 light_space_position ) {
     }
     
     return (1.0 - (shadow_mask / 9.0));
+}
+
+float point_shadow(
+    vec3 world_position, vec3 point_position, float far_clip
+) {
+    vec3 to_light = point_position - world_position;
+    float closest_depth = texture( u_shadow_map_point_0, vec4( to_light, 0.0 ) ).r;
+    closest_depth *= far_clip;
+
+    float current_depth = length( to_light );
+
+    const float bias = 0.05;
+    float shadow_mask = ( current_depth - bias ) > closest_depth ? 1.0 : 0.0;
+
+    return 1.0 - shadow_mask;
 }
 

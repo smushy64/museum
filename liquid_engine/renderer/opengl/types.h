@@ -81,7 +81,7 @@ typedef struct GLFramebuffer {
 } GLFramebuffer;
 
 /// 2D Texture.
-typedef struct GLTexture {
+typedef struct GLTexture2D {
     GLTextureID      id;
     i32              width, height;
     i32              mipmap_level;
@@ -92,7 +92,7 @@ typedef struct GLTexture {
     GLWrapMode       wrap_y;
     GLMagFilter      mag_filter;
     GLMinFilter      min_filter;
-} GLTexture;
+} GLTexture2D;
 
 typedef void (*DEBUGPROC)(
     GLenum        source,

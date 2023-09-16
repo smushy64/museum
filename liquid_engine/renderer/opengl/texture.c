@@ -4,17 +4,20 @@
 #include "renderer/opengl/texture.h"
 #include "renderer/opengl/functions.h"
 
-GLTexture gl_texture_create(
-    i32 width, i32 height, i32 mipmap_level,
-    GLType type,
+GLTexture2D gl_texture_2d_create(
+    i32              width,
+    i32              height,
+    i32              mipmap_level,
+    GLType           type,
     GLInternalFormat internal_format,
-    GLFormat format,
-    GLWrapMode  wrap_x, GLWrapMode wrap_y,
-    GLMagFilter mag_filter,
-    GLMinFilter min_filter,
-    void* buffer
+    GLFormat         format,
+    GLWrapMode       wrap_x,
+    GLWrapMode       wrap_y,
+    GLMagFilter      mag_filter,
+    GLMinFilter      min_filter,
+    void*            buffer
 ) {
-    GLTexture result = {};
+    GLTexture2D result = {};
 
     glCreateTextures( GL_TEXTURE_2D, 1, &result.id );
 
@@ -52,7 +55,7 @@ GLTexture gl_texture_create(
     return result;
 }
 
-void gl_texture_destroy( usize count, GLTexture* textures ) {
+void gl_texture_2d_destroy( usize count, GLTexture2D* textures ) {
     for( usize i = 0; i < count; ++i ) {
         glDeleteTextures( 1, &textures[i].id );
     }
