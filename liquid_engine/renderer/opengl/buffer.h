@@ -8,26 +8,19 @@
 #include "renderer/opengl/types.h"
 
 struct packedpad GLDirectionalLight {
-    vec4 direction;
     vec4 color;
+    vec4 direction;
     mat4 light_space;
 };
-
-#define GL_DIRECTIONAL_LIGHT_BUFFER_SIZE (sizeof( struct GLDirectionalLight ))
-
 struct packedpad GLPointLight {
-    vec4 position;
     vec4 color;
+    vec4 position;
     mat4 light_space[6];
     f32 is_active;
     f32 near_clip;
     f32 far_clip;
-    f32 ___padding;
+    b32 clipping_planes_set;
 };
-void gl_point_light_set(
-    struct GLPointLight* light, vec3 position, vec3 color, b32 is_active );
-
-#define GL_POINT_LIGHT_BUFFER_SIZE (sizeof(struct GLPointLight))
 
 #define GL_POINT_LIGHT_COUNT (4)
 struct packedpad GLLightBuffer {
@@ -35,40 +28,52 @@ struct packedpad GLLightBuffer {
     struct GLPointLight       point[GL_POINT_LIGHT_COUNT];
 };
 
-#define GL_LIGHT_BUFFER_OFFSET_DIRECTIONAL\
-    offsetof(struct GLLightBuffer, directional)
-
-#define GL_LIGHT_BUFFER_OFFSET_POINT_ARRAY\
-    offsetof(struct GLLightBuffer, point)
-
-#define GL_LIGHT_BUFFER_OFFSET_POINT( index )\
-    (GL_LIGHT_BUFFER_OFFSET_POINT_ARRAY + (sizeof(struct GLPointLight) * index))
-
 #define GL_LIGHT_BUFFER_SIZE    (sizeof(struct GLLightBuffer))
 #define GL_LIGHT_BUFFER_BINDING (1)
 
-/// Create light buffer.
+/// Create a light buffer.
 void gl_light_buffer_create(
-    GLBufferID buffer_id, struct GLLightBuffer* light );
-/// Update entire light buffer.
-void gl_light_buffer_update(
-    GLBufferID buffer_id, struct GLLightBuffer* light );
-/// Update directional light.
-void gl_light_buffer_update_directional(
-    GLBufferID buffer_id, struct GLDirectionalLight* directional );
-/// Update point light.
-void gl_light_buffer_update_point(
-    GLBufferID buffer_id, usize index, struct GLPointLight* point );
+    GLBufferID buffer_id, struct GLLightBuffer* opt_buffer );
+/// Set directional light direction.
+void gl_light_buffer_directional_set_direction(
+    GLBufferID id, struct GLLightBuffer* buffer, vec3 direction );
+/// Set directional light color.
+void gl_light_buffer_directional_set_color(
+    GLBufferID id, struct GLLightBuffer* buffer, vec3 color );
+/// Set all fields of directional light.
+void gl_light_buffer_directional_set(
+    GLBufferID id, struct GLLightBuffer* buffer,
+    vec3 direction, vec3 color );
+/// Set point light position.
+void gl_light_buffer_point_set_position(
+    GLBufferID id, struct GLLightBuffer* buffer, usize index, vec3 position );
+/// Set point light color.
+void gl_light_buffer_point_set_color(
+    GLBufferID id, struct GLLightBuffer* buffer, usize index, vec3 color );
+/// Activate point light.
+void gl_light_buffer_point_set_active(
+    GLBufferID id, struct GLLightBuffer* buffer, usize index, b32 is_active );
+/// Set all fields of point light.
+void gl_light_buffer_point_set(
+    GLBufferID id, struct GLLightBuffer* buffer, usize index,
+    vec3 position, vec3 color, b32 is_active );
+/// Check if point light is active.
+b32 gl_light_buffer_point_is_active(
+    struct GLLightBuffer* buffer, usize index );
 
 struct packedpad GLCameraBuffer {
     mat4 matrix_3d;
     mat4 matrix_ui;
 
-    vec3 camera_world_position;
-    int  ___padding0;
+    vec4 camera_world_position;
 
-    f32 camera_near;
-    f32 camera_far;
+    union {
+        struct {
+            f32 camera_near;
+            f32 camera_far;
+        };
+        vec4 camera_data;
+    };
 };
 
 #define GL_CAMERA_BUFFER_OFFSET_MATRIX_3D\

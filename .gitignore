@@ -6,3 +6,4 @@ resources/shaders/*.spv
 **/corecpp.inl
 **/corec.inl
 *.ngfx-proj
+*.d

@@ -8,3 +8,11 @@
     out layout(location = 0) vec4 FRAG_COLOR;
 #endif
 
+vec3 linear_to_srgb( vec3 linear ) {
+    return pow( linear, vec3( 1.0 / 2.2 ) );
+}
+
+vec3 srgb_to_linear( vec3 srgb ) {
+    return pow( srgb, vec3( 2.2 ) );
+}
+

@@ -86,17 +86,17 @@ u8 CUBE_3D_INDICES[CUBE_3D_INDEX_COUNT] = {
     20, 22, 23,
 };
 
-// u32 NULL_DIFFUSE_TEXTURE[NULL_DIFFUSE_TEXTURE_PIXEL_COUNT] = {
-//     rgb_u32( 255, 255, 255 ), rgb_u32( 255, 255, 255 ), rgb_u32( 255, 255, 255 ),
-//     rgb_u32( 255, 255, 255 ), rgb_u32( 255, 255, 255 ), rgb_u32( 255, 255, 255 ),
-//     rgb_u32( 255, 255, 255 ), rgb_u32( 255, 255, 255 ), rgb_u32( 255, 255, 255 ),
-// };
 u32 NULL_DIFFUSE_TEXTURE[NULL_DIFFUSE_TEXTURE_PIXEL_COUNT] = {
-    rgb_u32( 255,   0, 255 ), rgb_u32(   0,   0,   0 ), rgb_u32( 255,   0, 255 ),
-    rgb_u32(   0,   0,   0 ), rgb_u32( 255,   0, 255 ), rgb_u32(   0,   0,   0 ),
-    rgb_u32( 255,   0, 255 ), rgb_u32(   0,   0,   0 ), rgb_u32( 255,   0, 255 ),
+    rgb_u32( 255, 255, 255 ), rgb_u32( 255, 255, 255 ), rgb_u32( 255, 255, 255 ),
+    rgb_u32( 255, 255, 255 ), rgb_u32( 255, 255, 255 ), rgb_u32( 255, 255, 255 ),
+    rgb_u32( 255, 255, 255 ), rgb_u32( 255, 255, 255 ), rgb_u32( 255, 255, 255 ),
 };
+// u32 NULL_DIFFUSE_TEXTURE[NULL_DIFFUSE_TEXTURE_PIXEL_COUNT] = {
+//     rgb_u32( 255,   0, 255 ), rgb_u32(   0,   0,   0 ), rgb_u32( 255,   0, 255 ),
+//     rgb_u32(   0,   0,   0 ), rgb_u32( 255,   0, 255 ), rgb_u32(   0,   0,   0 ),
+//     rgb_u32( 255,   0, 255 ), rgb_u32(   0,   0,   0 ), rgb_u32( 255,   0, 255 ),
+// };
 u8 NULL_NORMAL_TEXTURE[3] = { 127, 127, 255 };
-u8 NULL_ROUGHNESS_TEXTURE[NULL_ROUGHNESS_TEXTURE_PIXEL_COUNT] = { 200 };
-// u8 NULL_ROUGHNESS_TEXTURE[NULL_ROUGHNESS_TEXTURE_PIXEL_COUNT] = { 0 };
+// u8 NULL_ROUGHNESS_TEXTURE[NULL_ROUGHNESS_TEXTURE_PIXEL_COUNT] = { 200 };
+u8 NULL_ROUGHNESS_TEXTURE[NULL_ROUGHNESS_TEXTURE_PIXEL_COUNT] = { 0 };
 

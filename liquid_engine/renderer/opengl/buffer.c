@@ -9,32 +9,189 @@
 #include "core/mathf.h"
 
 void gl_light_buffer_create(
-    GLBufferID buffer_id, struct GLLightBuffer* light
+    GLBufferID id, struct GLLightBuffer* opt_buffer
 ) {
     glNamedBufferStorage(
-        buffer_id, GL_LIGHT_BUFFER_SIZE,
-        light, GL_DYNAMIC_STORAGE_BIT );
-    glBindBufferBase(
-        GL_UNIFORM_BUFFER, GL_LIGHT_BUFFER_BINDING, buffer_id );
+        id, GL_LIGHT_BUFFER_SIZE,
+        opt_buffer, GL_DYNAMIC_STORAGE_BIT );
+    glBindBufferBase( GL_UNIFORM_BUFFER, GL_LIGHT_BUFFER_BINDING, id );
 }
-void gl_light_buffer_update(
-    GLBufferID buffer_id, struct GLLightBuffer* light
+void gl_light_buffer_directional_set_direction(
+    GLBufferID id, struct GLLightBuffer* buffer, vec3 direction
 ) {
+    mat4 proj = m4_ortho( -10.0f, 10.0f, -10.0f, 10.0f, -10.0f, 10.0f );
+    mat4 view = m4_view( v3_neg( direction ), VEC3_ZERO, VEC3_UP );
+
+    buffer->directional.light_space = m4_mul_m4( &proj, &view );
+    buffer->directional.direction   = v4_v3( direction );
+
+    usize offset =
+        offsetof( struct GLLightBuffer, directional ) +
+        offsetof( struct GLDirectionalLight, direction ); 
+    usize size = sizeof(vec4) + sizeof(mat4);
     glNamedBufferSubData(
-        buffer_id, 0, GL_LIGHT_BUFFER_SIZE, light );
+        id, offset, size, &buffer->directional.direction );
 }
-void gl_light_buffer_update_directional(
-    GLBufferID buffer_id, struct GLDirectionalLight* directional
+void gl_light_buffer_directional_set_color(
+    GLBufferID id, struct GLLightBuffer* buffer, vec3 color
 ) {
+    buffer->directional.color = rgba_rgb( color );
+
+    usize offset =
+        offsetof( struct GLLightBuffer, directional ) +
+        offsetof( struct GLDirectionalLight, color );
+    usize size = sizeof(vec4);
     glNamedBufferSubData(
-        buffer_id, 0, GL_DIRECTIONAL_LIGHT_BUFFER_SIZE, directional );
+        id, offset, size, &buffer->directional.color );
 }
-void gl_light_buffer_update_point(
-    GLBufferID buffer_id, usize index, struct GLPointLight* point
+void gl_light_buffer_directional_set(
+    GLBufferID id, struct GLLightBuffer* buffer,
+    vec3 direction, vec3 color
 ) {
+    mat4 proj = m4_ortho( -10.0f, 10.0f, -10.0f, 10.0f, -10.0f, 10.0f );
+    mat4 view = m4_view( v3_neg( direction ), VEC3_ZERO, VEC3_UP );
+
+    buffer->directional.light_space = m4_mul_m4( &proj, &view );
+    buffer->directional.direction   = v4_v3( direction );
+    buffer->directional.color = rgba_rgb( color );
+
+    usize offset = offsetof( struct GLLightBuffer, directional );
+    usize size   = sizeof( struct GLDirectionalLight );
+
+    glNamedBufferSubData( id, offset, size, &buffer->directional );
+}
+void gl_light_buffer_point_set_position(
+    GLBufferID id, struct GLLightBuffer* buffer, usize index, vec3 position
+) {
+    assert( index < GL_POINT_LIGHT_COUNT );
+    struct GLPointLight* light = buffer->point + index;
+    light->position = v4_v3( position );
+
+    light->near_clip = 1.0f;
+    light->far_clip  = 25.0f;
+    mat4 proj = m4_perspective(
+        to_rad32( 90.0f ), 1.0f,
+        light->near_clip, light->far_clip
+    );
+
+    mat4 views[6];
+    views[0] =
+        m4_view( position, v3_add( position, VEC3_RIGHT ), VEC3_DOWN );
+    views[1] =
+        m4_view( position, v3_add( position, VEC3_LEFT ), VEC3_DOWN );
+    views[2] =
+        m4_view( position, v3_add( position, VEC3_UP ), VEC3_FORWARD );
+    views[3] =
+        m4_view( position, v3_add( position, VEC3_DOWN ), VEC3_BACK );
+    views[4] =
+        m4_view( position, v3_add( position, VEC3_FORWARD ), VEC3_DOWN );
+    views[5] =
+        m4_view( position, v3_add( position, VEC3_BACK ), VEC3_DOWN );
+
+    for( u32 i = 0; i < 6; ++i ) {
+        light->light_space[i] = m4_mul_m4( &proj, views + i );
+    }
+
+    usize point_offset =
+        offsetof( struct GLLightBuffer, point ) +
+        ( sizeof( struct GLPointLight ) * index );
+
+    usize offset =
+        point_offset +
+        offsetof( struct GLPointLight, position );
+    usize size = sizeof(vec4) + (sizeof(mat4) * 6);
     glNamedBufferSubData(
-        buffer_id, GL_LIGHT_BUFFER_OFFSET_POINT( index ),
-        GL_POINT_LIGHT_BUFFER_SIZE, point );
+        id, offset, size, &light->position );
+
+    if( !light->clipping_planes_set ) {
+        offset =
+            point_offset +
+            offsetof( struct GLPointLight, near_clip );
+        size = sizeof(f32) * 2;
+
+        glNamedBufferSubData(
+            id, offset, size, &light->near_clip );
+
+        light->clipping_planes_set = true;
+    }
+}
+void gl_light_buffer_point_set_color(
+    GLBufferID id, struct GLLightBuffer* buffer, usize index, vec3 color
+) {
+    assert( index < GL_POINT_LIGHT_COUNT );
+    struct GLPointLight* light = buffer->point + index;
+    light->color = rgba_rgb( color );
+
+    usize offset =
+        offsetof( struct GLLightBuffer, point ) +
+        ( sizeof( struct GLPointLight ) * index ) +
+        offsetof( struct GLPointLight, color );
+    usize size = sizeof(vec4);
+    glNamedBufferSubData(
+        id, offset, size, &light->color );
+}
+void gl_light_buffer_point_set_active(
+    GLBufferID id, struct GLLightBuffer* buffer, usize index, b32 is_active
+) {
+    assert( index < GL_POINT_LIGHT_COUNT );
+    struct GLPointLight* light = buffer->point + index;
+    light->is_active = is_active ? 1.0f : 0.0f;
+
+    usize offset =
+        offsetof( struct GLLightBuffer, point ) +
+        ( sizeof( struct GLPointLight ) * index ) +
+        offsetof( struct GLPointLight, is_active );
+    usize size = sizeof(f32);
+    glNamedBufferSubData(
+        id, offset, size, &light->is_active );
+}
+void gl_light_buffer_point_set(
+    GLBufferID id, struct GLLightBuffer* buffer, usize index,
+    vec3 position, vec3 color, b32 is_active
+) {
+    assert( index < GL_POINT_LIGHT_COUNT );
+    struct GLPointLight* light = buffer->point + index;
+    light->position = v4_v3( position );
+    light->color = rgba_rgb( color );
+    light->is_active = is_active ? 1.0f : 0.0f;
+
+    light->near_clip = 1.0f;
+    light->far_clip  = 25.0f;
+    mat4 proj = m4_perspective(
+        to_rad32( 90.0f ), 1.0f,
+        light->near_clip, light->far_clip
+    );
+
+    mat4 views[6];
+    views[0] =
+        m4_view( position, v3_add( position, VEC3_RIGHT ), VEC3_DOWN );
+    views[1] =
+        m4_view( position, v3_add( position, VEC3_LEFT ), VEC3_DOWN );
+    views[2] =
+        m4_view( position, v3_add( position, VEC3_UP ), VEC3_FORWARD );
+    views[3] =
+        m4_view( position, v3_add( position, VEC3_DOWN ), VEC3_BACK );
+    views[4] =
+        m4_view( position, v3_add( position, VEC3_FORWARD ), VEC3_DOWN );
+    views[5] =
+        m4_view( position, v3_add( position, VEC3_BACK ), VEC3_DOWN );
+
+    for( u32 i = 0; i < 6; ++i ) {
+        light->light_space[i] = m4_mul_m4( &proj, views + i );
+    }
+
+    usize offset =
+        offsetof( struct GLLightBuffer, point ) +
+        ( sizeof( struct GLPointLight ) * index );
+    usize size = sizeof( struct GLPointLight );
+    glNamedBufferSubData( id, offset, size, light );
+}
+b32 gl_light_buffer_point_is_active(
+    struct GLLightBuffer* buffer, usize index
+) {
+    assert( index < GL_POINT_LIGHT_COUNT );
+    struct GLPointLight* light = buffer->point + index;
+    return light->is_active > 0.1f;
 }
 
 void gl_camera_buffer_create(
@@ -120,13 +277,13 @@ GLFramebuffer gl_framebuffer_create( i32 width, i32 height ) {
         result.width, result.height
     );
     glTextureParameteri(
-        result.color_texture_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
+        result.color_texture_id, GL_TEXTURE_WRAP_S, GL_REPEAT );
     glTextureParameteri(
-        result.color_texture_id, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
+        result.color_texture_id, GL_TEXTURE_WRAP_T, GL_REPEAT );
     glTextureParameteri(
-        result.color_texture_id, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+        result.color_texture_id, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
     glTextureParameteri(
-        result.color_texture_id, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+        result.color_texture_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
 
     glTextureStorage2D(
         result.depth_texture_id, 1,
@@ -264,40 +421,5 @@ GLFramebuffer gl_shadowbuffer_create(
 #endif
 
     return result;
-}
-void gl_point_light_set(
-    struct GLPointLight* light,
-    vec3 position, vec3 color,
-    b32 is_active
-) {
-    light->position  = v4_v3( position );
-    light->color     = rgba_rgb( color );
-    light->is_active = is_active ? 1.0f : 0.0f;
-
-    light->near_clip = 1.0f;
-    light->far_clip  = 25.0f;
-    mat4 proj = m4_perspective(
-        to_rad32( 90.0f ), 1.0f,
-        light->near_clip, light->far_clip
-    );
-
-    mat4 views[6];
-    views[0] =
-        m4_view( position, v3_add( position, VEC3_RIGHT ), VEC3_DOWN );
-    views[1] =
-        m4_view( position, v3_add( position, VEC3_LEFT ), VEC3_DOWN );
-    views[2] =
-        m4_view( position, v3_add( position, VEC3_UP ), VEC3_FORWARD );
-    views[3] =
-        m4_view( position, v3_add( position, VEC3_DOWN ), VEC3_BACK );
-    views[4] =
-        m4_view( position, v3_add( position, VEC3_FORWARD ), VEC3_DOWN );
-    views[5] =
-        m4_view( position, v3_add( position, VEC3_BACK ), VEC3_DOWN );
-
-    for( u32 i = 0; i < 6; ++i ) {
-        light->light_space[i] = m4_mul_m4( &proj, views + i );
-    }
-
 }
 

@@ -7,19 +7,19 @@
 // size: 96
 struct Directional {
     // offset: 0 size: 16
-    vec4 DIRECTION;
-    // offset: 16 size: 16
     vec4 COLOR;
+    // offset: 16 size: 16
+    vec4 DIRECTION;
     // offset: 32 size: 64
     mat4 MATRIX;
 };
 
 // size: 432
 struct Point {
-    // offset: 0  size: 16
-    vec4 POSITION;
-    // offset: 16 size: 16
+    // offset: 0 size: 16
     vec4 COLOR;
+    // offset: 16  size: 16
+    vec4 POSITION;
     // offset: 32 size: 384
     mat4 MATRIX[6];
     // offset: 416 size: 16
@@ -40,8 +40,8 @@ layout(std140, binding = 1) uniform Lights {
 };
 
 #if defined(GLSL_FRAGMENT) && !defined(NO_SHADOW)
-    uniform layout(binding = 4) sampler2D   u_shadow_map;
-    uniform layout(binding = 5) samplerCubeArray u_shadow_map_point_0;
+    uniform layout(binding = 10) sampler2D   u_shadow_map;
+    uniform layout(binding = 11) samplerCubeArray u_shadow_map_point[4];
 #endif
 
 const int POINT_SHADOW_SAMPLE_OFFSET_DIRECTION_COUNT = 20;

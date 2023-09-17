@@ -86,11 +86,12 @@ b32 gl_renderer_backend_init( RendererContext* renderer_ctx ) {
     *shadow_directional_fbo = gl_shadowbuffer_create(
         1024, 1024, GL_SHADOWBUFFER_DIRECTIONAL );
 
-    GLFramebuffer* shadow_point_0_fbo =
-        ctx->framebuffers + GL_FRAMEBUFFER_INDEX_SHADOW_POINT_0;
-
-    *shadow_point_0_fbo =
-        gl_shadowbuffer_create( 1024, 1024, GL_SHADOWBUFFER_POINT );
+    for( u32 i = 0; i < 4; ++i ) {
+        GLFramebuffer* shadow_point_fbo =
+            ctx->framebuffers + GL_FRAMEBUFFER_INDEX_SHADOW_POINT_0 + i;
+        *shadow_point_fbo =
+            gl_shadowbuffer_create( 1024, 1024, GL_SHADOWBUFFER_POINT );
+    }
 
     GL_LOG_NOTE( "OpenGL Backend successfully initialized." );
     return true;
@@ -120,19 +121,28 @@ internal void gl_draw_scene(
     glBindVertexArray( ctx->vertex_arrays[GL_VERTEX_ARRAY_INDEX_CUBE_3D] );
     ivec2 resolution = ctx->ctx.framebuffer_dimensions;
 
-    rgba clear_color = RGBA_GRAY;
+    rgba clear_color = RGBA_BLACK;
     f32 clear_depth  = 1.0f;
 
     GLFramebuffer* main_fbo =
         ctx->framebuffers + GL_FRAMEBUFFER_INDEX_MAIN_FRAMEBUFFER;
     GLFramebuffer* shadow_directional_fbo =
         ctx->framebuffers + GL_FRAMEBUFFER_INDEX_SHADOW_DIRECTIONAL;
-    GLFramebuffer* shadow_point_0_fbo =
+    GLFramebuffer* shadow_point_fbo =
         ctx->framebuffers + GL_FRAMEBUFFER_INDEX_SHADOW_POINT_0;
 
     if( is_shadow ) {
-        glBindTextureUnit( 4, 0 );
-        glBindTextureUnit( 5, 0 );
+        glBindTextureUnit(
+            GL_SHADER_PROGRAM_LOCATION_DIRECTIONAL_SHADOW_MAP_BINDING, 0 );
+
+        glBindTextureUnit(
+            GL_SHADER_PROGRAM_LOCATION_POINT_SHADOW_MAP_0_BINDING, 0 );
+        glBindTextureUnit( 
+            GL_SHADER_PROGRAM_LOCATION_POINT_SHADOW_MAP_1_BINDING, 0 );
+        glBindTextureUnit( 
+            GL_SHADER_PROGRAM_LOCATION_POINT_SHADOW_MAP_2_BINDING, 0 );
+        glBindTextureUnit( 
+            GL_SHADER_PROGRAM_LOCATION_POINT_SHADOW_MAP_3_BINDING, 0 );
 
         glBindFramebuffer( GL_FRAMEBUFFER, shadow_directional_fbo->id );
         glViewport( 0, 0,
@@ -141,40 +151,6 @@ internal void gl_draw_scene(
 
         GLShaderProgramID shadow =
             ctx->programs[GL_SHADER_PROGRAM_INDEX_SHADOW_DIRECTIONAL];
-        glUseProgram( shadow );
-
-        glProgramUniformMatrix4fv(
-            shadow,
-            GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
-            1, GL_FALSE,
-            box.c
-        );
-        glDrawElements(
-            GL_TRIANGLES,
-            CUBE_3D_INDEX_COUNT,
-            GL_UNSIGNED_BYTE,
-            NULL
-        );
-
-        glProgramUniformMatrix4fv(
-            shadow,
-            GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
-            1, GL_FALSE,
-            floor.c
-        );
-        glDrawElements(
-            GL_TRIANGLES,
-            CUBE_3D_INDEX_COUNT,
-            GL_UNSIGNED_BYTE,
-            NULL
-        );
-
-        glBindFramebuffer( GL_FRAMEBUFFER, shadow_point_0_fbo->id );
-        glViewport( 0, 0,
-            shadow_point_0_fbo->width, shadow_point_0_fbo->height );
-        glClear( GL_DEPTH_BUFFER_BIT );
-
-        shadow = ctx->programs[GL_SHADER_PROGRAM_INDEX_SHADOW_POINT];
         glUseProgram( shadow );
 
         glProgramUniformMatrix4fv(
@@ -199,24 +175,59 @@ internal void gl_draw_scene(
             GL_UNSIGNED_BYTE,
             NULL );
 
+        shadow = ctx->programs[GL_SHADER_PROGRAM_INDEX_SHADOW_POINT];
+        glUseProgram( shadow );
+        for( u32 i = 0; i < 4; ++i ) {
+            if( ctx->lights.point[i].is_active < 0.1f ) {
+                continue;
+            }
+            GLFramebuffer* current = shadow_point_fbo + i;
+            glBindFramebuffer( GL_FRAMEBUFFER, current->id );
+            glViewport( 0, 0,
+                current->width, current->height );
+            glClear( GL_DEPTH_BUFFER_BIT );
+
+            glProgramUniform1i( shadow,
+                GL_SHADER_PROGRAM_SHADOW_POINT_LOCATION_POINT_INDEX, i );
+
+            glProgramUniformMatrix4fv(
+                shadow,
+                GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
+                1, GL_FALSE,
+                box.c );
+            glDrawElements(
+                GL_TRIANGLES,
+                CUBE_3D_INDEX_COUNT,
+                GL_UNSIGNED_BYTE,
+                NULL );
+
+            glProgramUniformMatrix4fv(
+                shadow,
+                GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
+                1, GL_FALSE,
+                floor.c );
+            glDrawElements(
+                GL_TRIANGLES,
+                CUBE_3D_INDEX_COUNT,
+                GL_UNSIGNED_BYTE,
+                NULL );
+        }
+
     } else {
         glBindFramebuffer( GL_FRAMEBUFFER, main_fbo->id );
         glNamedFramebufferDrawBuffer( main_fbo->id, GL_COLOR_ATTACHMENT0 );
         glViewport(
             0, 0,
             resolution.width,
-            resolution.height
-        );
+            resolution.height );
         glClearNamedFramebufferfv(
             main_fbo->id,
             GL_COLOR, 0,
-            clear_color.c
-        );
+            clear_color.c );
         glClearNamedFramebufferfv(
             main_fbo->id,
             GL_DEPTH, 0,
-            &clear_depth
-        );
+            &clear_depth );
 
         GLShaderProgramID phong =
             ctx->programs[GL_SHADER_PROGRAM_INDEX_PHONG_BRDF];
@@ -228,8 +239,22 @@ internal void gl_draw_scene(
         GLTexture2D* roughness =
             ctx->textures_2d + GL_TEXTURE_INDEX_NULL_ROUGHNESS;
 
-        glBindTextureUnit( 4, shadow_directional_fbo->shadow_texture_id );
-        glBindTextureUnit( 5, shadow_point_0_fbo->shadow_texture_id );
+        glBindTextureUnit(
+            GL_SHADER_PROGRAM_LOCATION_DIRECTIONAL_SHADOW_MAP_BINDING,
+            shadow_directional_fbo->shadow_texture_id );
+
+        glBindTextureUnit(
+            GL_SHADER_PROGRAM_LOCATION_POINT_SHADOW_MAP_0_BINDING,
+            (shadow_point_fbo + 0)->shadow_texture_id );
+        glBindTextureUnit(
+            GL_SHADER_PROGRAM_LOCATION_POINT_SHADOW_MAP_1_BINDING,
+            (shadow_point_fbo + 1)->shadow_texture_id );
+        glBindTextureUnit(
+            GL_SHADER_PROGRAM_LOCATION_POINT_SHADOW_MAP_2_BINDING,
+            (shadow_point_fbo + 2)->shadow_texture_id );
+        glBindTextureUnit(
+            GL_SHADER_PROGRAM_LOCATION_POINT_SHADOW_MAP_3_BINDING,
+            (shadow_point_fbo + 3)->shadow_texture_id );
 
         glBindTextureUnit(
             GL_SHADER_PROGRAM_PHONG_BRDF_DIFFUSE_TEXTURE_BINDING,
@@ -250,7 +275,7 @@ internal void gl_draw_scene(
         mat3 normal_mat = m4_normal_matrix_unchecked( &box );
         glProgramUniformMatrix3fv(
             phong,
-            1,
+            GL_SHADER_PROGRAM_LOCATION_NORMAL_TRANSFORM,
             1, GL_FALSE,
             normal_mat.c
         );
@@ -270,7 +295,7 @@ internal void gl_draw_scene(
         );
         glProgramUniformMatrix3fv(
             phong,
-            1,
+            GL_SHADER_PROGRAM_LOCATION_NORMAL_TRANSFORM,
             1, GL_FALSE,
             normal_mat.c
         );
@@ -297,7 +322,7 @@ internal void gl_draw_framebuffer(
     glDisable( GL_BLEND );
 
     GLShaderProgramID program =
-        ctx->programs[GL_SHADER_PROGRAM_INDEX_FRAMEBUFFER];
+        ctx->programs[GL_SHADER_PROGRAM_INDEX_POST_PROCESS];
     GLVertexArrayID vertex_array =
         ctx->vertex_arrays[GL_VERTEX_ARRAY_INDEX_FRAMEBUFFER];
     glBindVertexArray( vertex_array );
@@ -306,7 +331,7 @@ internal void gl_draw_framebuffer(
     GLFramebuffer* main_fbo =
         ctx->framebuffers + GL_FRAMEBUFFER_INDEX_MAIN_FRAMEBUFFER;
     glBindTextureUnit(
-        GL_SHADER_PROGRAM_FRAMEBUFFER_TEXTURE_BINDING,
+        GL_SHADER_PROGRAM_POST_PROCESS_RENDER_TEXTURE_BINDING,
         main_fbo->color_texture_id );
 
     glDrawArrays( GL_TRIANGLES, 0, 6 );
@@ -355,7 +380,6 @@ b32 gl_renderer_backend_begin_frame(
             q_mul_v3( camera_world_rotation, VEC3_FORWARD );
         vec3 camera_world_up =
             q_mul_v3( camera_world_rotation, VEC3_UP );
-        // camera_world_up = VEC3_UP;
 
         mat4 projection = m4_perspective(
             camera->fov_radians,
@@ -397,13 +421,18 @@ b32 gl_renderer_backend_begin_frame(
         );
     }
 
-    glBindTextureUnit( GL_SHADER_PROGRAM_FRAMEBUFFER_TEXTURE_BINDING, 0 );
+    glBindTextureUnit(
+        GL_SHADER_PROGRAM_POST_PROCESS_RENDER_TEXTURE_BINDING, 0 );
     glEnable( GL_DEPTH_TEST );
     glEnable( GL_CULL_FACE );
 
     gl_draw_scene( ctx, render_data, true );
-
     gl_draw_scene( ctx, render_data, false );
+
+    gl_light_buffer_point_set(
+        ctx->buffers[GL_BUFFER_INDEX_UBO_LIGHTS], &ctx->lights, 0,
+        v3( -2.0f, sin32( render_data->elapsed_time ) + 1.0f, 0.0f ),
+        RGB_WHITE, true );
 
     // NOTE(alicia): UI Rendering
     glDisable( GL_DEPTH_TEST );
@@ -503,22 +532,11 @@ internal void gl_init_buffers( OpenGLRendererContext* ctx ) {
         struct GLLightBuffer* buffer = &ctx->lights;
 
         mem_zero( buffer, sizeof( struct GLLightBuffer ) );
-        buffer->directional.direction = v4( -1.0f, -1.0f, -1.0f, 0.0f );
-        buffer->directional.color     = RGBA_GRAY;
-
-        mat4 light_directional_proj =
-            m4_ortho( -10.0f, 10.0f, -10.0f, 10.0f, -10.0f, 10.0f ); 
-        mat4 light_directional_view = m4_view(
-            v3_neg( v3_v4( buffer->directional.direction ) ),
-            VEC3_ZERO, VEC3_UP );
-
-        buffer->directional.light_space =
-            m4_mul_m4( &light_directional_proj, &light_directional_view );
-
-        gl_point_light_set(
-            buffer->point + 0, v3( -2.0f, 2.0f, 0.0f ), RGB_WHITE, true );
-
         gl_light_buffer_create( ubo, buffer );
+        gl_light_buffer_directional_set(
+            ubo, buffer,
+            v3( -1.0f, -1.0f, -1.0f ),
+            RGB_BLACK );
     }
 
     glCreateVertexArrays( GL_VERTEX_ARRAY_COUNT, ctx->vertex_arrays );
@@ -686,42 +704,89 @@ internal void gl_init_buffers( OpenGLRendererContext* ctx ) {
 
 internal void gl_init_shaders( OpenGLRendererContext* ctx ) {
 
-    /* framebuffer shader */ {
-        #define FRAMEBUFFER_SHADER_STAGE_COUNT (2)
-        GLShaderID framebuffer_shaders[FRAMEBUFFER_SHADER_STAGE_COUNT] = {};
-        GLShaderProgramID* program = ctx->programs + GL_SHADER_PROGRAM_INDEX_FRAMEBUFFER;
+    /* create post process shader */ {
+        #define POST_PROCESS_SHADER_STAGE_COUNT (2)
+        GLShaderID post_process_shaders[POST_PROCESS_SHADER_STAGE_COUNT] = {};
+        GLShaderProgramID* program =
+            ctx->programs + GL_SHADER_PROGRAM_INDEX_POST_PROCESS;
 
-        b32 result = gl_shader_compile_source(
-            GL_FRAMEBUFFER_SHADER_VERT_SOURCE_LENGTH,
-            GL_FRAMEBUFFER_SHADER_VERT_SOURCE,
-            GL_VERTEX_SHADER,
-            &framebuffer_shaders[0]
+        PlatformFile* post_process_vert_file = platform_file_open(
+            "./resources/shaders/post_process.vert.spv",
+            PLATFORM_FILE_OPEN_READ |
+            PLATFORM_FILE_OPEN_SHARE_READ
+        );
+        assert( post_process_vert_file );
+        PlatformFile* post_process_frag_file = platform_file_open(
+            "./resources/shaders/post_process.frag.spv",
+            PLATFORM_FILE_OPEN_READ |
+            PLATFORM_FILE_OPEN_SHARE_READ
+        );
+        assert( post_process_frag_file );
+
+        usize post_process_vert_file_size =
+            platform_file_query_size( post_process_vert_file );
+        usize post_process_frag_file_size =
+            platform_file_query_size( post_process_frag_file );
+        
+        usize shader_buffer_size =
+            post_process_vert_file_size + post_process_frag_file_size;
+        u8* shader_buffer = ldalloc( shader_buffer_size, MEMORY_TYPE_RENDERER );
+        assert( shader_buffer );
+
+        b32 result = platform_file_read(
+            post_process_vert_file,
+            post_process_vert_file_size,
+            post_process_vert_file_size,
+            shader_buffer
         );
         assert( result );
 
-        result = gl_shader_compile_source(
-            GL_FRAMEBUFFER_SHADER_FRAG_SOURCE_LENGTH,
-            GL_FRAMEBUFFER_SHADER_FRAG_SOURCE,
+        result = platform_file_read(
+            post_process_frag_file,
+            post_process_frag_file_size,
+            post_process_frag_file_size,
+            shader_buffer + post_process_vert_file_size
+        );
+        assert( result );
+
+
+        result = gl_shader_compile_spirv(
+            post_process_vert_file_size,
+            shader_buffer,
+            GL_VERTEX_SHADER,
+            "main",
+            0, 0, 0,
+            &post_process_shaders[0]
+        );
+        assert( result );
+
+        result = gl_shader_compile_spirv(
+            post_process_frag_file_size,
+            shader_buffer + post_process_vert_file_size,
             GL_FRAGMENT_SHADER,
-            &framebuffer_shaders[1]
+            "main",
+            0, 0, 0,
+            &post_process_shaders[1]
         );
         assert( result );
 
         result = gl_shader_program_link(
-            FRAMEBUFFER_SHADER_STAGE_COUNT, framebuffer_shaders,
+            POST_PROCESS_SHADER_STAGE_COUNT, post_process_shaders,
             program
         );
         assert( result );
 
         gl_shader_delete(
-            FRAMEBUFFER_SHADER_STAGE_COUNT, framebuffer_shaders );
+            POST_PROCESS_SHADER_STAGE_COUNT, post_process_shaders );
+        ldfree( shader_buffer, shader_buffer_size, MEMORY_TYPE_RENDERER );
+        platform_file_close( post_process_vert_file );
+        platform_file_close( post_process_frag_file );
 
         GL_LOG_NOTE(
             "Successfully compiled + "
-            "linked framebuffer shader program: {u32}",
+            "linked post process shader program: {u32}",
             *program
         );
-
     }
 
     /* create ui color shader */ {

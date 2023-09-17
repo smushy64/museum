@@ -1,5 +1,5 @@
 /**
- * Description:  Phong BRDF Vertex Shader
+ * Description:  Blinn-Phong BRDF Vertex Shader
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: September 12, 2023
 */
@@ -27,7 +27,6 @@ out layout(location = 0) struct Vert2Frag {
 } v2f;
 
 void main() {
-
     vec4 world_position = u_transform * vec4( v_position, 1.0 );
     v2f.local_position  = v_position;
     v2f.world_position  = world_position.xyz;

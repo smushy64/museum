@@ -218,25 +218,3 @@ void gl_shader_program_delete(
     }
 }
 
-const char* GL_FRAMEBUFFER_SHADER_VERT_SOURCE =
-    "#version 460 core\n"
-    "in layout(location = 0) vec2 v_vertex;\n"
-    "in layout(location = 1) vec2 v_uv;\n"
-    "out layout(location = 0) vec2 v2f_uv;\n"
-    "void main() {\n"
-    "   gl_Position = vec4( v_vertex, 0.0, 1.0 );\n"
-    "   v2f_uv = v_uv;\n"
-    "}\n";
-usize GL_FRAMEBUFFER_SHADER_VERT_SOURCE_LENGTH = 216;
-
-const char* GL_FRAMEBUFFER_SHADER_FRAG_SOURCE =
-    "#version 460 core\n"
-    "in layout(location = 0) vec2 v2f_uv;\n"
-    "uniform layout(binding = 0) sampler2D u_render_texture;\n"
-    "out layout(location = 0) vec4 FRAG_COLOR;\n"
-    "void main() {\n"
-    "   vec4 texture_color = texture( u_render_texture, v2f_uv );\n"
-    "   FRAG_COLOR = texture_color;\n"
-    "}\n";
-usize GL_FRAMEBUFFER_SHADER_FRAG_SOURCE_LENGTH = 262;
-

@@ -6,16 +6,6 @@
 #include "defines.h"
 #include "renderer/opengl/types.h"
 
-/// Embedded framebuffer shader vertex source.
-extern const char* GL_FRAMEBUFFER_SHADER_VERT_SOURCE;
-/// Embedded framebuffer shader vertex source length.
-extern usize GL_FRAMEBUFFER_SHADER_VERT_SOURCE_LENGTH;
-
-/// Embedded framebuffer shader fragment source.
-extern const char* GL_FRAMEBUFFER_SHADER_FRAG_SOURCE;
-/// Embedded framebuffer shader fragment source length.
-extern usize GL_FRAMEBUFFER_SHADER_FRAG_SOURCE_LENGTH;
-
 /// Compile shader from source.
 b32 gl_shader_compile_source(
     GLint         source_length,

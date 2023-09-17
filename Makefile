@@ -174,6 +174,8 @@ test: build_testbed
 	@mkdir -p $(BUILD_PATH)/resources/shaders
 	@cp resources/shaders/ldcolor.vert.spv $(BUILD_PATH)/resources/shaders/ldcolor.vert.spv
 	@cp resources/shaders/ldcolor.frag.spv $(BUILD_PATH)/resources/shaders/ldcolor.frag.spv
+	@cp resources/shaders/post_process.vert.spv $(BUILD_PATH)/resources/shaders/post_process.vert.spv
+	@cp resources/shaders/post_process.frag.spv $(BUILD_PATH)/resources/shaders/post_process.frag.spv
 	@cp resources/shaders/phong.vert.spv $(BUILD_PATH)/resources/shaders/phong.vert.spv
 	@cp resources/shaders/phong.frag.spv $(BUILD_PATH)/resources/shaders/phong.frag.spv
 	@cp resources/shaders/shadow_directional.vert.spv $(BUILD_PATH)/resources/shaders/shadow_directional.vert.spv

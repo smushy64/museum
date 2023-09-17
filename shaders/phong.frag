@@ -1,5 +1,5 @@
 /**
- * Description:  Phong BRDF Fragment Shader
+ * Description:  Blinn-Phong BRDF Fragment Shader
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: September 12, 2023
 */
@@ -41,22 +41,28 @@ LightResult directional_light(
 float directional_shadow( vec4 light_space_position );
 
 LightResult point_light(
-    vec3 world_position,
-    vec3 point_position,
-    vec3 point_color,
+    vec3  world_position,
+    vec3  point_position,
+    vec3  point_color,
     float is_active,
     float far_clip,
-    vec3 diffuse,
-    vec3 normal,
+    int   index,
+    vec3  diffuse,
+    vec3  normal,
     float roughness,
-    vec3 camera_direction
+    vec3  camera_direction
 );
-float point_shadow( vec3 world_position, vec3 point_position, float far_clip );
+float point_shadow(
+    vec3 world_position, vec3 point_position, float far_clip, int index );
 
 void main() {
     vec3 final_color = vec3(0.0);
 
-    vec3 diffuse = u_tint * texture( u_diffuse, v2f.uv ).rgb * v2f.color.rgb;
+    vec3 tint           = srgb_to_linear( u_tint );
+    vec3 vertex_color   = srgb_to_linear( v2f.color.rgb );
+    vec3 diffuse_sample = srgb_to_linear( texture( u_diffuse, v2f.uv ).rgb );
+
+    vec3 diffuse = tint * vertex_color * diffuse_sample;
     vec3 ambient = vec3(0.0);
 
     vec3 normal    = normalize( v2f.world_normal );
@@ -69,7 +75,7 @@ void main() {
     
     float roughness = texture( u_roughness, v2f.uv ).r;
 
-    vec3 camera_direction = CAMERA_WORLD_POSITION - v2f.world_position;
+    vec3 camera_direction = CAMERA_WORLD_POSITION.xyz - v2f.world_position;
     float camera_distance = length( camera_direction );
     camera_direction      = normalize( camera_direction );
 
@@ -80,13 +86,14 @@ void main() {
     ambient += directional.ambient * AMBIENT_DIRECTIONAL_CONTRIBUTION;
 
     vec3 point_accumulation = vec3(0.0);
-    for( int i = 0; i < POINT_LIGHT_COUNT; ++i ) {
+    for( int i = 0; i < 4; ++i ) {
         LightResult point = point_light(
             v2f.world_position,
             POINT[i].POSITION.xyz,
-            POINT[i].COLOR.xyz,
+            srgb_to_linear( POINT[i].COLOR.rgb ),
             POINT[i].POINT_DATA.x,
             POINT[i].POINT_DATA.z,
+            i,
             diffuse,
             normal,
             roughness,
@@ -96,6 +103,7 @@ void main() {
     }
 
     final_color = directional.light + point_accumulation + ambient;
+    final_color = linear_to_srgb( final_color );
     FRAG_COLOR  = vec4( final_color, 1.0 );
 }
 
@@ -109,7 +117,7 @@ LightResult directional_light(
     LightResult result;
 
     vec3 light_direction = normalize( vec3( -DIRECTIONAL.DIRECTION ) );
-    vec3 light_color     = vec3( DIRECTIONAL.COLOR );
+    vec3 light_color     = srgb_to_linear( vec3( DIRECTIONAL.COLOR ) );
     float light_strength = length( light_color );
 
     float diffuse_contribution = dot( light_direction, normal );
@@ -124,8 +132,7 @@ LightResult directional_light(
 
     float specular_contribution = pow(
         max( dot( normal, halfway_direction ), 0.0 ),
-        SPECULAR_POWER / 2.0
-    );
+        SPECULAR_POWER / 2.0 );
     vec3 specular = vec3( (1.0 - roughness) * specular_contribution );
     specular *= diffuse_contribution * light_strength;
 
@@ -138,15 +145,18 @@ LightResult directional_light(
 LightResult point_light(
     vec3  world_position,
     vec3  light_position,
-    vec3  light_color,
+    vec3  srgb_light_color,
     float is_active,
     float far_clip,
+    int   index,
     vec3  diffuse_sample,
     vec3  normal,
     float roughness,
     vec3  camera_direction
 ) {
     LightResult result;
+
+    vec3 light_color = srgb_to_linear( srgb_light_color );
 
     vec3 light_direction = light_position - world_position;
     float light_distance = length( light_direction );
@@ -165,8 +175,7 @@ LightResult point_light(
 
     float specular_contribution = pow(
         max( dot( normal, halfway_direction ), 0.0 ),
-        SPECULAR_POWER
-    );
+        SPECULAR_POWER );
 
     vec3 specular = vec3( (1.0 - roughness) * specular_contribution );
     specular *= diffuse_contribution * light_strength;
@@ -178,10 +187,10 @@ LightResult point_light(
     attenuation = clamp( attenuation, 0.0, 1.0 );
 
     float shadow_mask =
-        point_shadow( world_position, light_position, far_clip );
+        point_shadow( world_position, light_position, far_clip, index );
     shadow_mask *= attenuation;
 
-    result.ambient = is_active * ( base_diffuse * attenuation );
+    result.ambient = is_active * ( base_diffuse * attenuation * 1.4 );
     result.light   =
         is_active * ( ( 1.0 - shadow_mask ) * ( diffuse + specular ) );
 
@@ -217,19 +226,20 @@ float directional_shadow( vec4 light_space_position ) {
 }
 
 float point_shadow(
-    vec3 world_position, vec3 point_position, float far_clip
+    vec3 world_position, vec3 point_position, float far_clip, int index
 ) {
     vec3 to_light = world_position - point_position;
     float current_depth = length( to_light );
 
     float shadow_mask = 0.0;
     float bias        = 0.15;
-    float view_distance = length( CAMERA_WORLD_POSITION - world_position );
+    float view_distance = length( CAMERA_WORLD_POSITION.xyz - world_position );
     float disk_radius   = 0.05;
     for( int i = 0; i < POINT_SHADOW_SAMPLE_OFFSET_DIRECTION_COUNT; ++i ) {
         vec3 offset       = POINT_SHADOW_SAMPLE_OFFSET_DIRECTIONS[i];
         vec4 sample_point = vec4(to_light + offset * disk_radius, 0.0);
-        float closest_depth = texture( u_shadow_map_point_0, sample_point ).r;
+        float closest_depth =
+            texture( u_shadow_map_point[index], sample_point ).r;
         closest_depth *= far_clip;
 
         shadow_mask += current_depth - bias > closest_depth ? 1.0 : 0.0;

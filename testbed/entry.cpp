@@ -45,9 +45,9 @@ c_linkage b32 application_init( EngineContext* ctx, void* opaque ) {
             VEC3_ONE
         );
     memory->camera.transform   = &memory->camera_transform;
-    memory->camera.near_clip   = 0.00001f;
+    memory->camera.near_clip   = 0.01f;
     memory->camera.far_clip    = 1000.0f;
-    memory->camera.fov_radians = to_rad32( 60.0f );
+    memory->camera.fov_radians = to_rad32( 90.0f );
 
     memory->camera_rotation = {};
 
@@ -119,7 +119,6 @@ c_linkage b32 application_run(
         transform_translate( memory->camera.transform,
             v3( 0.0f, camera_delta_y, 0.0f ) );
     }
-
 
     return true;
 }
