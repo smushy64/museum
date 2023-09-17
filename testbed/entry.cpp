@@ -41,7 +41,7 @@ c_linkage b32 application_init( EngineContext* ctx, void* opaque ) {
     memory->camera_transform =
         transform_create(
             v3_mul( VEC3_FORWARD, 2.0f ),
-            q_angle_axis( to_rad32(180.0f), VEC3_UP ),
+            QUAT_IDENTITY,
             VEC3_ONE
         );
     memory->camera.transform   = &memory->camera_transform;
@@ -103,8 +103,8 @@ c_linkage b32 application_run(
     b32 key_space = input_is_key_down( KEY_SPACE );
     if( key_a || key_d || key_w || key_s || key_shift || key_space ) {
         vec3 camera_delta = {};
-        camera_delta.x = -((f32)key_d - (f32)key_a);
-        camera_delta.z = (f32)key_w - (f32)key_s;
+        camera_delta.x = ((f32)key_d - (f32)key_a);
+        camera_delta.z = -((f32)key_w - (f32)key_s);
 
         camera_delta =
             v3_mul( camera_delta, time.delta_seconds * move_speed );
@@ -114,7 +114,7 @@ c_linkage b32 application_run(
                 camera_delta );
         transform_translate( memory->camera.transform, camera_delta );
 
-        f32 camera_delta_y = ((f32)key_shift - (f32)key_space) *
+        f32 camera_delta_y = ((f32)key_space - (f32)key_shift) *
             time.delta_seconds * move_speed;
         transform_translate( memory->camera.transform,
             v3( 0.0f, camera_delta_y, 0.0f ) );

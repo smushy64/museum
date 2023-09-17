@@ -277,7 +277,7 @@ void gl_point_light_set(
     light->near_clip = 1.0f;
     light->far_clip  = 25.0f;
     mat4 proj = m4_perspective(
-        to_rad32( 90.0f ), (f32)1024 / (f32)1024,
+        to_rad32( 90.0f ), 1.0f,
         light->near_clip, light->far_clip
     );
 

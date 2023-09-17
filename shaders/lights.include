@@ -39,10 +39,17 @@ layout(std140, binding = 1) uniform Lights {
     Point POINT[POINT_LIGHT_COUNT];
 };
 
-const float SPECULAR_POWER = 180.0;
-
 #if defined(GLSL_FRAGMENT) && !defined(NO_SHADOW)
     uniform layout(binding = 4) sampler2D   u_shadow_map;
     uniform layout(binding = 5) samplerCubeArray u_shadow_map_point_0;
 #endif
+
+const int POINT_SHADOW_SAMPLE_OFFSET_DIRECTION_COUNT = 20;
+const vec3 POINT_SHADOW_SAMPLE_OFFSET_DIRECTIONS[] = vec3[](
+    vec3(  1.0,  1.0,  1.0 ), vec3(  1.0, -1.0,  1.0 ), vec3( -1.0, -1.0,  1.0 ), vec3( -1.0,  1.0,  1.0 ),
+    vec3(  1.0,  1.0, -1.0 ), vec3(  1.0, -1.0, -1.0 ), vec3( -1.0, -1.0, -1.0 ), vec3( -1.0,  1.0, -1.0 ),
+    vec3(  1.0,  1.0,  0.0 ), vec3(  1.0, -1.0,  0.0 ), vec3( -1.0, -1.0,  0.0 ), vec3( -1.0,  1.0,  0.0 ),
+    vec3(  1.0,  0.0,  1.0 ), vec3( -1.0,  0.0,  1.0 ), vec3(  1.0,  0.0, -1.0 ), vec3( -1.0,  0.0, -1.0 ),
+    vec3(  0.0,  1.0,  1.0 ), vec3(  0.0, -1.0,  1.0 ), vec3(  0.0, -1.0, -1.0 ), vec3(  0.0,  1.0, -1.0 )
+);
 

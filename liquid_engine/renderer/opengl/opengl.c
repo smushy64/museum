@@ -102,16 +102,17 @@ void gl_renderer_backend_shutdown( RendererContext* renderer_ctx ) {
     GL_LOG_INFO( "OpenGL Backend shutdown." );
 }
 
-vec3 rotation = {};
 internal void gl_draw_scene(
     OpenGLRendererContext* ctx, RenderData* render_data, b32 is_shadow
 ) {
     unused(render_data);
 
     mat4 box =
-        m4_transform_euler( v3(0.0f, 0.5f, 0.0f), rotation, VEC3_ONE );
-    rotation.x += render_data->delta_time;
-    rotation.y += render_data->delta_time;
+        m4_transform_euler(
+            v3( 0.0f, 0.5f, 0.0f ),
+            v3( to_rad32(45.0f), 0.0f, 0.0f ),
+            VEC3_ONE
+        );
     mat4 floor =
         m4_transform(
             v3(0.0f, -1.0f, 0.0f), QUAT_IDENTITY, v3( 100.0f, 0.5f, 100.0f ) );
@@ -197,6 +198,7 @@ internal void gl_draw_scene(
             CUBE_3D_INDEX_COUNT,
             GL_UNSIGNED_BYTE,
             NULL );
+
     } else {
         glBindFramebuffer( GL_FRAMEBUFFER, main_fbo->id );
         glNamedFramebufferDrawBuffer( main_fbo->id, GL_COLOR_ATTACHMENT0 );
@@ -279,6 +281,7 @@ internal void gl_draw_scene(
             NULL
         );
     }
+
 }
 
 internal void gl_draw_framebuffer(
@@ -500,8 +503,8 @@ internal void gl_init_buffers( OpenGLRendererContext* ctx ) {
         struct GLLightBuffer* buffer = &ctx->lights;
 
         mem_zero( buffer, sizeof( struct GLLightBuffer ) );
-        buffer->directional.direction   = v4( 1.0f, -1.0f,  1.0f, 0.0f );
-        buffer->directional.color       = RGBA_GRAY;
+        buffer->directional.direction = v4( -1.0f, -1.0f, -1.0f, 0.0f );
+        buffer->directional.color     = RGBA_GRAY;
 
         mat4 light_directional_proj =
             m4_ortho( -10.0f, 10.0f, -10.0f, 10.0f, -10.0f, 10.0f ); 
@@ -513,7 +516,7 @@ internal void gl_init_buffers( OpenGLRendererContext* ctx ) {
             m4_mul_m4( &light_directional_proj, &light_directional_view );
 
         gl_point_light_set(
-            buffer->point + 0, v3( 2.0f, 3.0f, 0.0f ), RGB_BLUE, true );
+            buffer->point + 0, v3( -2.0f, 2.0f, 0.0f ), RGB_WHITE, true );
 
         gl_light_buffer_create( ubo, buffer );
     }

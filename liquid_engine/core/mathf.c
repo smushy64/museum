@@ -1468,9 +1468,9 @@ mat4 m4_view( vec3 position, vec3 target, vec3 up ) {
     vec3 y = v3_cross( x, z );
     z = v3_neg( z );
 
-    f32 dx = v3_dot( x, position );
-    f32 dy = v3_dot( y, position );
-    f32 dz = v3_dot( z, position );
+    f32 dx = -v3_dot( x, position );
+    f32 dy = -v3_dot( y, position );
+    f32 dz = -v3_dot( z, position );
 
     return (mat4){
         x.x, y.x, z.x, 0.0f,
