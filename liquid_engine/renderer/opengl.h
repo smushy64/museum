@@ -35,7 +35,7 @@ typedef struct OpenGLDeviceInfo {
 
 #define GL_VERTEX_ARRAY_COUNT    (3)
 #define GL_SHADER_PROGRAM_COUNT  (5)
-#define GL_BUFFER_COUNT          (7)
+#define GL_BUFFER_COUNT          (8)
 #define GL_TEXTURE_2D_COUNT      (3)
 #define GL_FRAMBUFFER_COUNT      (6)
 
@@ -61,13 +61,16 @@ typedef struct OpenGLDeviceInfo {
 #define GL_VERTEX_ARRAY_INDEX_QUAD_2D     (1)
 #define GL_VERTEX_ARRAY_INDEX_CUBE_3D     (2)
 
-#define GL_BUFFER_INDEX_UBO_CAMERA      (0)
-#define GL_BUFFER_INDEX_UBO_LIGHTS      (1)
-#define GL_BUFFER_INDEX_VBO_FRAMEBUFFER (2)
-#define GL_BUFFER_INDEX_VBO_QUAD_2D     (3)
-#define GL_BUFFER_INDEX_EBO_QUAD        (4)
-#define GL_BUFFER_INDEX_VBO_CUBE_3D     (5)
-#define GL_BUFFER_INDEX_EBO_CUBE_3D     (6)
+enum : u32 {
+    GL_BUFFER_INDEX_UBO_CAMERA     ,
+    GL_BUFFER_INDEX_UBO_LIGHTS     ,
+    GL_BUFFER_INDEX_UBO_DATA       ,
+    GL_BUFFER_INDEX_VBO_FRAMEBUFFER,
+    GL_BUFFER_INDEX_VBO_QUAD_2D    ,
+    GL_BUFFER_INDEX_EBO_QUAD       ,
+    GL_BUFFER_INDEX_VBO_CUBE_3D    ,
+    GL_BUFFER_INDEX_EBO_CUBE_3D    ,
+};
 
 #define GL_TEXTURE_INDEX_NULL_DIFFUSE   (0)
 #define GL_TEXTURE_INDEX_NULL_NORMAL    (1)

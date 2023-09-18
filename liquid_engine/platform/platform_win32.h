@@ -147,6 +147,7 @@ DECLARE_WIN_FUNCTION( ATOM, RegisterClassExA, const WNDCLASSEXA* );
 DECLARE_WIN_FUNCTION( BOOL, AdjustWindowRectEx, LPRECT, DWORD, BOOL, DWORD );
 DECLARE_WIN_FUNCTION( int, GetSystemMetrics, int );
 DECLARE_WIN_FUNCTION( BOOL, SetWindowPos, HWND, HWND, int, int, int, int, UINT );
+DECLARE_WIN_FUNCTION( BOOL, wglSwapIntervalEXT, int );
 
 #define SetWindowPlacement            ___internal_SetWindowPlacement
 #define GetWindowPlacement            ___internal_GetWindowPlacement
@@ -196,6 +197,7 @@ DECLARE_WIN_FUNCTION( BOOL, SetWindowPos, HWND, HWND, int, int, int, int, UINT )
 #define SetPixelFormat                ___internal_SetPixelFormat
 #define SwapBuffers                   ___internal_SwapBuffers
 #define GetStockObject                ___internal_GetStockObject
+#define wglSwapIntervalEXT            ___internal_wglSwapIntervalEXT
 
 #define WGL_CONTEXT_MAJOR_VERSION_ARB             0x2091
 #define WGL_CONTEXT_MINOR_VERSION_ARB             0x2092
@@ -206,6 +208,7 @@ DECLARE_WIN_FUNCTION( BOOL, SetWindowPos, HWND, HWND, int, int, int, int, UINT )
 #define WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB    0x0002
 #define WGL_CONTEXT_CORE_PROFILE_BIT_ARB          0x00000001
 #define WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
+#define WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB          0x20A9
 #define ERROR_INVALID_VERSION_ARB                 0x2095
 #define ERROR_INVALID_PROFILE_ARB                 0x2096
 

@@ -10,16 +10,8 @@
 #define LOAD_PROC_REQUIRED( fn ) do {\
 void* proc = get_proc_address( macro_name_to_string(fn) );\
 if( !proc ) {\
-    GL_LOG_FATAL( "Failed to load required function \"" macro_name_to_string(fn) "\"!" );\
+    GL_LOG_FATAL( "Failed to load required function '" macro_name_to_string(fn) "'!" );\
     return false;\
-}\
-___internal_##fn = ( ___internal_##fn##FN* )proc;\
-} while(0)
-
-#define LOAD_PROC( fn ) do {\
-void* proc = get_proc_address( TO_STRING(fn) );\
-if( !proc ) {\
-    GL_LOG_WARN( "Failed to load function \"" TO_STRING(fn) "\"!" );\
 }\
 ___internal_##fn = ( ___internal_##fn##FN* )proc;\
 } while(0)
@@ -188,7 +180,8 @@ DEFINE_GL_FUNCTION(glDeleteVertexArrays);
 // Debug ---------------------------------------------------------------
 DEFINE_GL_FUNCTION(glDebugMessageCallback);
 
-b32 gl_load_functions( GetProcAddressFN get_proc_address ) {
+b32 gl_load_functions( GetProcAddressFN* get_proc_address ) {
+
     LOAD_PROC_REQUIRED( glCreateTextures );
     LOAD_PROC_REQUIRED( glBindTextureUnit );
     LOAD_PROC_REQUIRED( glDeleteTextures );

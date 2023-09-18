@@ -5,8 +5,8 @@
 // * File Created: August 18, 2023
 #include "defines.h"
 
-typedef void* (*GetProcAddressFN)( const char* function_name );
+typedef void* GetProcAddressFN( const char* function_name );
 
-b32 gl_load_functions( GetProcAddressFN get_proc_address );
+b32 gl_load_functions( GetProcAddressFN* get_proc_address );
 
 #endif // header guard

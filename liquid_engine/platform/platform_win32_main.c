@@ -1320,6 +1320,7 @@ void platform_gl_surface_swap_buffers( PlatformSurface* surface ) {
     Win32Surface* win32_surface = surface;
     SwapBuffers( win32_surface->device_context );
 }
+
 internal HGLRC win32_gl_create_context( HDC device_context ) {
 
     PIXELFORMATDESCRIPTOR desired_pixel_format = {};
@@ -1378,6 +1379,7 @@ internal HGLRC win32_gl_create_context( HDC device_context ) {
         WGL_CONTEXT_MAJOR_VERSION_ARB, GL_VERSION_MAJOR,
         WGL_CONTEXT_MINOR_VERSION_ARB, GL_VERSION_MINOR,
         WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,
+        // WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB,
         0
     };
 
@@ -1419,6 +1421,12 @@ void* win32_gl_load_proc( const char* function_name ) {
 
     return function;
 }
+
+void glSwapInterval( PlatformSurface* surface, int interval ) {
+    unused( surface );
+    wglSwapIntervalEXT( interval );
+}
+
 b32 platform_gl_surface_init( PlatformSurface* surface ) {
     assert( surface );
     Win32Surface* win32_surface = surface;
@@ -1451,6 +1459,7 @@ b32 platform_gl_surface_init( PlatformSurface* surface ) {
         LOAD_GDI32_FN(ChoosePixelFormat);
         LOAD_GDI32_FN(SetPixelFormat);
         LOAD_GDI32_FN(SwapBuffers);
+
     }
 
     HGLRC glrc =
@@ -1464,6 +1473,17 @@ b32 platform_gl_surface_init( PlatformSurface* surface ) {
             WIN32_LOG_FATAL( "Failed to load OpenGL functions!" );
             return false;
         }
+
+        #define LOAD_WGL_FN(wgl_name) do {\
+            wgl_name = (wgl_name##FN *)\
+                wglGetProcAddress( #wgl_name );\
+            if( !wgl_name ) {\
+                WIN32_LOG_ERROR( "Failed to load wgl function '" #wgl_name "'!" );\
+            }\
+        } while(0)
+
+        LOAD_WGL_FN( wglSwapIntervalEXT );
+
         GL_FUNCTIONS_LOADED = true;
     }
 

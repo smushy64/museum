@@ -58,6 +58,7 @@ typedef struct RenderData {
     struct Camera* camera;
     f32 elapsed_time;
     f32 delta_time;
+    u32 frame_count;
 
     usize max_object_count;
     usize object_count;

@@ -7,6 +7,24 @@
 #include "core/mathf/types.h"
 #include "renderer/opengl/types.h"
 
+struct packedpad GLData {
+    union {
+        struct {
+            f32 elapsed_time;
+            f32 delta_time;
+            u32 frame_count;
+        };
+        vec4 time;
+    };
+};
+
+#define GL_DATA_BUFFER_SIZE    (sizeof(struct GLData))
+#define GL_DATA_BUFFER_BINDING (2)
+
+void gl_data_buffer_create( GLBufferID id, struct GLData* opt_buffer );
+void gl_data_buffer_set_time(
+    GLBufferID id, f32 elapsed_time, f32 delta_time, u32 frame_count );
+
 struct packedpad GLDirectionalLight {
     vec4 color;
     vec4 direction;

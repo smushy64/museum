@@ -6,6 +6,8 @@
 #include "defines.h"
 #include "renderer/opengl/types.h"
 
+void glSwapInterval( void* surface, int interval );
+
 #define DECLARE_GL_FUNCTION( ret, fn, ... )\
     typedef ret ___internal_##fn##FN( __VA_ARGS__ );\
     extern ___internal_##fn##FN* ___internal_##fn
@@ -171,8 +173,11 @@ DECLARE_GL_FUNCTION( void, glDeleteVertexArrays, GLsizei, const GLuint* );
 // Debug ---------------------------------------------------------------
 DECLARE_GL_FUNCTION( void, glDebugMessageCallback, DEBUGPROC, void* );
 
+DECLARE_GL_FUNCTION( void, glSwapInterval, int, void* );
+
+
 #define IMPLEMENT_GL_FUNCTION( ret, name, ... )\
-    static force_inline maybe_unused ret\
+    global force_inline maybe_unused ret\
     name( __VA_ARGS__ )
 
 // Textures ------------------------------------------------------------

@@ -55,6 +55,10 @@ LightResult point_light(
 float point_shadow(
     vec3 world_position, vec3 point_position, float far_clip, int index );
 
+float linear_to_luma( vec3 linear ) {
+    return dot( linear, vec3( 0.299, 0.587, 0.114 ) );
+}
+
 void main() {
     vec3 final_color = vec3(0.0);
 
@@ -103,22 +107,21 @@ void main() {
     }
 
     final_color = directional.light + point_accumulation + ambient;
-    final_color = linear_to_srgb( final_color );
     FRAG_COLOR  = vec4( final_color, 1.0 );
 }
 
 LightResult directional_light(
-    vec4 light_space_position,
-    vec3 diffuse_sample,
-    vec3 normal,
+    vec4  light_space_position,
+    vec3  diffuse_sample,
+    vec3  normal,
     float roughness,
-    vec3 camera_direction
+    vec3  camera_direction
 ) {
     LightResult result;
 
     vec3 light_direction = normalize( vec3( -DIRECTIONAL.DIRECTION ) );
     vec3 light_color     = srgb_to_linear( vec3( DIRECTIONAL.COLOR ) );
-    float light_strength = length( light_color );
+    float light_strength = linear_to_luma( light_color );
 
     float diffuse_contribution = dot( light_direction, normal );
     diffuse_contribution = max( diffuse_contribution, 0.0 );
@@ -162,7 +165,7 @@ LightResult point_light(
     float light_distance = length( light_direction );
     light_direction      = normalize( light_direction );
 
-    float light_strength = length( light_color );
+    float light_strength = linear_to_luma( light_color );
 
     float diffuse_contribution = dot( light_direction, normal );
     diffuse_contribution = max( diffuse_contribution, 0.0 );

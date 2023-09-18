@@ -16,3 +16,21 @@ vec3 srgb_to_linear( vec3 srgb ) {
     return pow( srgb, vec3( 2.2 ) );
 }
 
+layout(std140, binding = 2) uniform Data {
+    // x - elapsed time
+    // y - delta time
+    // z - frame count
+    // w - ???
+    vec4 TIME;
+};
+
+float elapsed_time() {
+    return TIME.x;
+}
+float delta_time() {
+    return TIME.y;
+}
+uint frame_count() {
+    return floatBitsToUint( TIME.z );
+}
+

@@ -93,6 +93,8 @@ b32 gl_renderer_backend_init( RendererContext* renderer_ctx ) {
             gl_shadowbuffer_create( 1024, 1024, GL_SHADOWBUFFER_POINT );
     }
 
+    glSwapInterval( ctx->ctx.surface, 1 );
+
     GL_LOG_NOTE( "OpenGL Backend successfully initialized." );
     return true;
 }
@@ -103,6 +105,7 @@ void gl_renderer_backend_shutdown( RendererContext* renderer_ctx ) {
     GL_LOG_INFO( "OpenGL Backend shutdown." );
 }
 
+vec3 rotation = {};
 internal void gl_draw_scene(
     OpenGLRendererContext* ctx, RenderData* render_data, b32 is_shadow
 ) {
@@ -111,7 +114,7 @@ internal void gl_draw_scene(
     mat4 box =
         m4_transform_euler(
             v3( 0.0f, 0.5f, 0.0f ),
-            v3( to_rad32(45.0f), 0.0f, 0.0f ),
+            rotation,
             VEC3_ONE
         );
     mat4 floor =
@@ -303,8 +306,10 @@ internal void gl_draw_scene(
             GL_TRIANGLES,
             CUBE_3D_INDEX_COUNT,
             GL_UNSIGNED_BYTE,
-            NULL
-        );
+            NULL );
+
+        rotation.x += render_data->delta_time;
+        rotation.y += render_data->delta_time;
     }
 
 }
@@ -353,6 +358,13 @@ b32 gl_renderer_backend_begin_frame(
     RendererContext* renderer_ctx, RenderData* render_data
 ) {
     OpenGLRendererContext* ctx = renderer_ctx;
+
+    gl_data_buffer_set_time(
+        ctx->buffers[GL_BUFFER_INDEX_UBO_DATA],
+        render_data->elapsed_time,
+        render_data->delta_time,
+        render_data->frame_count );
+
     GLFramebuffer* main_fbo =
         ctx->framebuffers + GL_FRAMEBUFFER_INDEX_MAIN_FRAMEBUFFER;
 
@@ -536,7 +548,11 @@ internal void gl_init_buffers( OpenGLRendererContext* ctx ) {
         gl_light_buffer_directional_set(
             ubo, buffer,
             v3( -1.0f, -1.0f, -1.0f ),
-            RGB_BLACK );
+            RGB_GRAY );
+    }
+    /* create data buffer */ {
+        GLBufferID ubo = ctx->buffers[GL_BUFFER_INDEX_UBO_DATA];
+        gl_data_buffer_create( ubo, NULL );
     }
 
     glCreateVertexArrays( GL_VERTEX_ARRAY_COUNT, ctx->vertex_arrays );

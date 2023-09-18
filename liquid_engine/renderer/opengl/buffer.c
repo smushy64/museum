@@ -8,6 +8,22 @@
 #include "core/mem.h"
 #include "core/mathf.h"
 
+void gl_data_buffer_create( GLBufferID id, struct GLData* opt_buffer ) {
+    glNamedBufferStorage(
+        id, GL_DATA_BUFFER_SIZE, opt_buffer, GL_DYNAMIC_STORAGE_BIT );
+    glBindBufferBase( GL_UNIFORM_BUFFER, GL_DATA_BUFFER_BINDING, id );
+}
+void gl_data_buffer_set_time(
+    GLBufferID id, f32 elapsed_time, f32 delta_time, u32 frame_count
+) {
+    vec4 time = {};
+    time.x = elapsed_time;
+    time.y = delta_time;
+    time.z = reinterpret( f32, frame_count );
+    usize offset = offsetof( struct GLData, time );
+    glNamedBufferSubData( id, offset, sizeof(vec4), time.c );
+}
+
 void gl_light_buffer_create(
     GLBufferID id, struct GLLightBuffer* opt_buffer
 ) {
@@ -273,7 +289,7 @@ GLFramebuffer gl_framebuffer_create( i32 width, i32 height ) {
 
     glTextureStorage2D(
         result.color_texture_id, 1,
-        GL_RGBA8,
+        GL_RGB8,
         result.width, result.height
     );
     glTextureParameteri(

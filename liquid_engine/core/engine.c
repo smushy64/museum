@@ -597,6 +597,7 @@ b32 engine_entry( int argc, char** argv ) {
 
         ctx.render_data.delta_time   = ctx.time.delta_seconds;
         ctx.render_data.elapsed_time = ctx.time.elapsed_seconds;
+        ctx.render_data.frame_count  = ctx.time.frame_count;
 
         if( !application_run( &ctx, application_memory ) ) {
             return false;

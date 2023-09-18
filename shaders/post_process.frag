@@ -9,18 +9,21 @@ in layout(location = 0) vec2 v2f_uv;
 uniform layout(binding = 0) sampler2D u_render_texture;
 
 vec3 fxaa();
-
 void main() {
     vec3 base_color = fxaa();
-    FRAG_COLOR = vec4( base_color, 1.0 );
+
+    vec3 final_color = linear_to_srgb( base_color );
+    FRAG_COLOR = vec4( final_color, 1.0 );
 }
 
 float rgb_to_luma( vec3 rgb ) {
     return sqrt( dot( rgb, vec3( 0.299, 0.587, 0.114 ) ) );
 }
 
-#define EDGE_THRESHOLD_MIN 0.0312
-#define EDGE_THRESHOLD_MAX 0.125
+#define FXAA_EDGE_THRESHOLD_MIN 0.0312
+#define FXAA_EDGE_THRESHOLD_MAX 0.125
+#define FXAA_QUALITY( q ) ( (q) < 5 ? 1.0 : ( (q) > 5 ? ( (q) < 10 ? 2.0 : ( (q) < 11 ? 4.0 : 8.0 ) ) : 1.5) )
+#define FXAA_ITERATIONS (12)
 
 vec3 fxaa() {
     vec3 render_sample = texture( u_render_texture, v2f_uv ).rgb;
@@ -42,7 +45,7 @@ vec3 fxaa() {
     float luma_range = luma_max - luma_min;
 
     // if not on edge, don't AA
-    if( luma_range < max( EDGE_THRESHOLD_MIN, luma_max * EDGE_THRESHOLD_MAX ) ) {
+    if( luma_range < max( FXAA_EDGE_THRESHOLD_MIN, luma_max * FXAA_EDGE_THRESHOLD_MAX ) ) {
         return render_sample;
     }
 
@@ -120,10 +123,8 @@ vec3 fxaa() {
         uv2 += offset;
     }
 
-    #define QUALITY(q) ((q) < 5 ? 1.0 : ((q) > 5 ? ((q) < 10 ? 2.0 : ((q) < 11 ? 4.0 : 8.0)) : 1.5))
     if( !reached_both ) {
-        const int iterations = 12;
-        for( int i = 2; i < iterations; ++i ) {
+        for( int i = 2; i < FXAA_ITERATIONS; ++i ) {
             if( !reached1 ) {
                 luma_end1 = rgb_to_luma( texture( u_render_texture, uv1 ).rgb );
                 luma_end1 = luma_end1 - luma_local_average;
@@ -139,10 +140,10 @@ vec3 fxaa() {
             reached_both = reached1 && reached2;
 
             if( !reached1 ) {
-                uv1 -= offset * QUALITY(i);
+                uv1 -= offset * FXAA_QUALITY(i);
             }
             if( !reached2 ) {
-                uv2 += offset * QUALITY(i);
+                uv2 += offset * FXAA_QUALITY(i);
             }
 
             if( reached_both ) {
