@@ -18,6 +18,11 @@ struct GameMemory {
     Camera    camera;
     hsv       color;
     vec3      camera_rotation;
+
+    mat4 cube;
+    mat4 floor;
+
+    vec3 cube_rotation;
 };
 
 c_linkage usize application_query_memory_requirement() {
@@ -53,6 +58,9 @@ c_linkage b32 application_init( EngineContext* ctx, void* opaque ) {
 
     memory->color = v3_hsv( 0.0f, 1.0f, 1.0f );
 
+    memory->floor = m4_transform( VEC3_DOWN, QUAT_IDENTITY, v3( 100.0f, 1.0f, 100.0f ) );
+    memory->cube  = m4_transform( VEC3_ZERO, QUAT_IDENTITY, VEC3_ONE );
+
     engine_set_camera( ctx, &memory->camera );
 
     return true;
@@ -62,7 +70,7 @@ c_linkage b32 application_run(
 ) {
     GameMemory* maybe_unused memory = (GameMemory*)opaque;
 
-    Timer time = engine_time( ctx );
+    TimeStamp time = engine_time( ctx );
     unused(time);
 
     if( input_key_press( KEY_ESCAPE ) ) {
@@ -119,6 +127,22 @@ c_linkage b32 application_run(
         transform_translate( memory->camera.transform,
             v3( 0.0f, camera_delta_y, 0.0f ) );
     }
+
+    memory->cube =
+        m4_transform( VEC3_ZERO,
+            q_euler_v3( memory->cube_rotation ), VEC3_ONE );
+    graphics_draw(
+        &memory->cube,
+        0, 0, 0, 0, 0,
+        RGB_WHITE,
+        false, true, false, false );
+    graphics_draw(
+        &memory->floor,
+        0, 0, 0, 0, 0,
+        RGB_WHITE,
+        false, false, true, false );
+
+    memory->cube_rotation.y += time.delta_seconds;
 
     return true;
 }

@@ -95,6 +95,17 @@ b32 gl_renderer_backend_init( RendererContext* renderer_ctx ) {
 
     glSwapInterval( ctx->ctx.surface, 1 );
 
+    ctx->ctx.mesh_null              =
+        ctx->vertex_arrays[GL_VERTEX_ARRAY_INDEX_CUBE_3D];
+    ctx->ctx.texture_diffuse_null   =
+        ctx->textures_2d[GL_TEXTURE_INDEX_NULL_DIFFUSE].id;
+    ctx->ctx.texture_normal_null    =
+        ctx->textures_2d[GL_TEXTURE_INDEX_NULL_NORMAL].id;
+    ctx->ctx.texture_roughness_null =
+        ctx->textures_2d[GL_TEXTURE_INDEX_NULL_ROUGHNESS].id;
+    ctx->ctx.texture_metallic_null  =
+        ctx->textures_2d[GL_TEXTURE_INDEX_NULL_ROUGHNESS].id;
+
     GL_LOG_NOTE( "OpenGL Backend successfully initialized." );
     return true;
 }
@@ -103,215 +114,6 @@ void gl_renderer_backend_shutdown( RendererContext* renderer_ctx ) {
     OpenGLRendererContext* ctx = renderer_ctx;
     platform_gl_surface_shutdown( ctx->ctx.surface );
     GL_LOG_INFO( "OpenGL Backend shutdown." );
-}
-
-vec3 rotation = {};
-internal void gl_draw_scene(
-    OpenGLRendererContext* ctx, RenderData* render_data, b32 is_shadow
-) {
-    unused(render_data);
-
-    mat4 box =
-        m4_transform_euler(
-            v3( 0.0f, 0.5f, 0.0f ),
-            rotation,
-            VEC3_ONE
-        );
-    mat4 floor =
-        m4_transform(
-            v3(0.0f, -1.0f, 0.0f), QUAT_IDENTITY, v3( 100.0f, 0.5f, 100.0f ) );
-
-    glBindVertexArray( ctx->vertex_arrays[GL_VERTEX_ARRAY_INDEX_CUBE_3D] );
-    ivec2 resolution = ctx->ctx.framebuffer_dimensions;
-
-    rgba clear_color = RGBA_BLACK;
-    f32 clear_depth  = 1.0f;
-
-    GLFramebuffer* main_fbo =
-        ctx->framebuffers + GL_FRAMEBUFFER_INDEX_MAIN_FRAMEBUFFER;
-    GLFramebuffer* shadow_directional_fbo =
-        ctx->framebuffers + GL_FRAMEBUFFER_INDEX_SHADOW_DIRECTIONAL;
-    GLFramebuffer* shadow_point_fbo =
-        ctx->framebuffers + GL_FRAMEBUFFER_INDEX_SHADOW_POINT_0;
-
-    if( is_shadow ) {
-        glBindTextureUnit(
-            GL_SHADER_PROGRAM_LOCATION_DIRECTIONAL_SHADOW_MAP_BINDING, 0 );
-
-        glBindTextureUnit(
-            GL_SHADER_PROGRAM_LOCATION_POINT_SHADOW_MAP_0_BINDING, 0 );
-        glBindTextureUnit( 
-            GL_SHADER_PROGRAM_LOCATION_POINT_SHADOW_MAP_1_BINDING, 0 );
-        glBindTextureUnit( 
-            GL_SHADER_PROGRAM_LOCATION_POINT_SHADOW_MAP_2_BINDING, 0 );
-        glBindTextureUnit( 
-            GL_SHADER_PROGRAM_LOCATION_POINT_SHADOW_MAP_3_BINDING, 0 );
-
-        glBindFramebuffer( GL_FRAMEBUFFER, shadow_directional_fbo->id );
-        glViewport( 0, 0,
-            shadow_directional_fbo->width, shadow_directional_fbo->height );
-        glClear( GL_DEPTH_BUFFER_BIT );
-
-        GLShaderProgramID shadow =
-            ctx->programs[GL_SHADER_PROGRAM_INDEX_SHADOW_DIRECTIONAL];
-        glUseProgram( shadow );
-
-        glProgramUniformMatrix4fv(
-            shadow,
-            GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
-            1, GL_FALSE,
-            box.c );
-        glDrawElements(
-            GL_TRIANGLES,
-            CUBE_3D_INDEX_COUNT,
-            GL_UNSIGNED_BYTE,
-            NULL );
-
-        glProgramUniformMatrix4fv(
-            shadow,
-            GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
-            1, GL_FALSE,
-            floor.c );
-        glDrawElements(
-            GL_TRIANGLES,
-            CUBE_3D_INDEX_COUNT,
-            GL_UNSIGNED_BYTE,
-            NULL );
-
-        shadow = ctx->programs[GL_SHADER_PROGRAM_INDEX_SHADOW_POINT];
-        glUseProgram( shadow );
-        for( u32 i = 0; i < 4; ++i ) {
-            if( ctx->lights.point[i].is_active < 0.1f ) {
-                continue;
-            }
-            GLFramebuffer* current = shadow_point_fbo + i;
-            glBindFramebuffer( GL_FRAMEBUFFER, current->id );
-            glViewport( 0, 0,
-                current->width, current->height );
-            glClear( GL_DEPTH_BUFFER_BIT );
-
-            glProgramUniform1i( shadow,
-                GL_SHADER_PROGRAM_SHADOW_POINT_LOCATION_POINT_INDEX, i );
-
-            glProgramUniformMatrix4fv(
-                shadow,
-                GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
-                1, GL_FALSE,
-                box.c );
-            glDrawElements(
-                GL_TRIANGLES,
-                CUBE_3D_INDEX_COUNT,
-                GL_UNSIGNED_BYTE,
-                NULL );
-
-            glProgramUniformMatrix4fv(
-                shadow,
-                GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
-                1, GL_FALSE,
-                floor.c );
-            glDrawElements(
-                GL_TRIANGLES,
-                CUBE_3D_INDEX_COUNT,
-                GL_UNSIGNED_BYTE,
-                NULL );
-        }
-
-    } else {
-        glBindFramebuffer( GL_FRAMEBUFFER, main_fbo->id );
-        glNamedFramebufferDrawBuffer( main_fbo->id, GL_COLOR_ATTACHMENT0 );
-        glViewport(
-            0, 0,
-            resolution.width,
-            resolution.height );
-        glClearNamedFramebufferfv(
-            main_fbo->id,
-            GL_COLOR, 0,
-            clear_color.c );
-        glClearNamedFramebufferfv(
-            main_fbo->id,
-            GL_DEPTH, 0,
-            &clear_depth );
-
-        GLShaderProgramID phong =
-            ctx->programs[GL_SHADER_PROGRAM_INDEX_PHONG_BRDF];
-        glUseProgram( phong );
-        GLTexture2D* diffuse =
-            ctx->textures_2d + GL_TEXTURE_INDEX_NULL_DIFFUSE;
-        GLTexture2D* normal =
-            ctx->textures_2d + GL_TEXTURE_INDEX_NULL_NORMAL;
-        GLTexture2D* roughness =
-            ctx->textures_2d + GL_TEXTURE_INDEX_NULL_ROUGHNESS;
-
-        glBindTextureUnit(
-            GL_SHADER_PROGRAM_LOCATION_DIRECTIONAL_SHADOW_MAP_BINDING,
-            shadow_directional_fbo->shadow_texture_id );
-
-        glBindTextureUnit(
-            GL_SHADER_PROGRAM_LOCATION_POINT_SHADOW_MAP_0_BINDING,
-            (shadow_point_fbo + 0)->shadow_texture_id );
-        glBindTextureUnit(
-            GL_SHADER_PROGRAM_LOCATION_POINT_SHADOW_MAP_1_BINDING,
-            (shadow_point_fbo + 1)->shadow_texture_id );
-        glBindTextureUnit(
-            GL_SHADER_PROGRAM_LOCATION_POINT_SHADOW_MAP_2_BINDING,
-            (shadow_point_fbo + 2)->shadow_texture_id );
-        glBindTextureUnit(
-            GL_SHADER_PROGRAM_LOCATION_POINT_SHADOW_MAP_3_BINDING,
-            (shadow_point_fbo + 3)->shadow_texture_id );
-
-        glBindTextureUnit(
-            GL_SHADER_PROGRAM_PHONG_BRDF_DIFFUSE_TEXTURE_BINDING,
-            diffuse->id );
-        glBindTextureUnit(
-            GL_SHADER_PROGRAM_PHONG_BRDF_NORMAL_TEXTURE_BINDING,
-            normal->id );
-        glBindTextureUnit(
-            GL_SHADER_PROGRAM_PHONG_BRDF_ROUGHNESS_TEXTURE_BINDING,
-            roughness->id );
-
-        glProgramUniformMatrix4fv(
-            phong,
-            GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
-            1, GL_FALSE,
-            box.c
-        );
-        mat3 normal_mat = m4_normal_matrix_unchecked( &box );
-        glProgramUniformMatrix3fv(
-            phong,
-            GL_SHADER_PROGRAM_LOCATION_NORMAL_TRANSFORM,
-            1, GL_FALSE,
-            normal_mat.c
-        );
-        glDrawElements(
-            GL_TRIANGLES,
-            CUBE_3D_INDEX_COUNT,
-            GL_UNSIGNED_BYTE,
-            NULL
-        );
-
-        normal_mat = m4_normal_matrix_unchecked( &floor );
-        glProgramUniformMatrix4fv(
-            phong,
-            GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
-            1, GL_FALSE,
-            floor.c
-        );
-        glProgramUniformMatrix3fv(
-            phong,
-            GL_SHADER_PROGRAM_LOCATION_NORMAL_TRANSFORM,
-            1, GL_FALSE,
-            normal_mat.c
-        );
-        glDrawElements(
-            GL_TRIANGLES,
-            CUBE_3D_INDEX_COUNT,
-            GL_UNSIGNED_BYTE,
-            NULL );
-
-        rotation.x += render_data->delta_time;
-        rotation.y += render_data->delta_time;
-    }
-
 }
 
 internal void gl_draw_framebuffer(
@@ -365,8 +167,12 @@ b32 gl_renderer_backend_begin_frame(
         render_data->delta_time,
         render_data->frame_count );
 
-    GLFramebuffer* main_fbo =
+    GLFramebuffer* fbo_main =
         ctx->framebuffers + GL_FRAMEBUFFER_INDEX_MAIN_FRAMEBUFFER;
+    GLFramebuffer* fbo_shadow_directional =
+        ctx->framebuffers + GL_FRAMEBUFFER_INDEX_SHADOW_DIRECTIONAL;
+    GLFramebuffer* fbo_shadow_point =
+        ctx->framebuffers + GL_FRAMEBUFFER_INDEX_SHADOW_POINT_0;
 
     struct Camera* camera = render_data->camera;
 #if defined(LD_ASSERTIONS)
@@ -423,11 +229,11 @@ b32 gl_renderer_backend_begin_frame(
     // render resolution.
     if( !iv2_cmp(
         resolution,
-        main_fbo->dimensions
+        fbo_main->dimensions
     ) ) {
         /// Rescale the framebuffer
         gl_framebuffer_resize(
-            main_fbo,
+            fbo_main,
             resolution.width,
             resolution.height
         );
@@ -435,15 +241,171 @@ b32 gl_renderer_backend_begin_frame(
 
     glBindTextureUnit(
         GL_SHADER_PROGRAM_POST_PROCESS_RENDER_TEXTURE_BINDING, 0 );
+    glBindTextureUnit(
+        GL_SHADER_PROGRAM_BINDING_DIRECTIONAL_SHADOW_MAP, 0 );
+    glBindTextureUnit(
+        GL_SHADER_PROGRAM_BINDING_POINT_SHADOW_MAP_0, 0 );
+    glBindTextureUnit( 
+        GL_SHADER_PROGRAM_BINDING_POINT_SHADOW_MAP_1, 0 );
+    glBindTextureUnit( 
+        GL_SHADER_PROGRAM_BINDING_POINT_SHADOW_MAP_2, 0 );
+    glBindTextureUnit( 
+        GL_SHADER_PROGRAM_BINDING_POINT_SHADOW_MAP_3, 0 );
     glEnable( GL_DEPTH_TEST );
     glEnable( GL_CULL_FACE );
 
-    gl_draw_scene( ctx, render_data, true );
-    gl_draw_scene( ctx, render_data, false );
+    rgba clear_color = RGBA_BLACK;
+    f32  clear_depth = 1.0f;
+
+    GLShaderProgramID sh_phong =
+        ctx->programs[GL_SHADER_PROGRAM_INDEX_PHONG_BRDF];
+    GLShaderProgramID sh_shadow_directional =
+        ctx->programs[GL_SHADER_PROGRAM_INDEX_SHADOW_DIRECTIONAL];
+    GLShaderProgramID sh_shadow_point =
+        ctx->programs[GL_SHADER_PROGRAM_INDEX_SHADOW_POINT];
+
+    glClearNamedFramebufferfv(
+        fbo_main->id, GL_COLOR, 0, clear_color.c );
+    glClearNamedFramebufferfv(
+        fbo_main->id, GL_DEPTH, 0, &clear_depth );
+    glClearNamedFramebufferfv(
+        fbo_shadow_directional->id, GL_DEPTH, 0, &clear_depth );
+    glClearNamedFramebufferfv(
+        (fbo_shadow_point + 0)->id, GL_DEPTH, 0, &clear_depth );
+    glClearNamedFramebufferfv(
+        (fbo_shadow_point + 1)->id, GL_DEPTH, 0, &clear_depth );
+    glClearNamedFramebufferfv(
+        (fbo_shadow_point + 2)->id, GL_DEPTH, 0, &clear_depth );
+    glClearNamedFramebufferfv(
+        (fbo_shadow_point + 3)->id, GL_DEPTH, 0, &clear_depth );
+
+    // draw shadows
+    for( usize i = 0; i < render_data->draw_command_count; ++i ) {
+        DrawCommand* current = render_data->draw_commands + i;
+        if(
+            !bitfield_check( current->flags, DRAW_FLAG_SHADOW_CASTER ) ||
+            bitfield_check( current->flags, DRAW_FLAG_IS_WIREFRAME )
+        ) {
+            continue;
+        }
+        glBindFramebuffer( GL_FRAMEBUFFER, fbo_shadow_directional->id );
+        glViewport( 0, 0,
+            fbo_shadow_directional->width, fbo_shadow_directional->height );
+
+        glBindVertexArray( current->mesh );
+
+        glProgramUniformMatrix4fv(
+            sh_shadow_directional,
+            GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
+            1, GL_FALSE,
+            current->transform->c );
+        glProgramUniformMatrix4fv(
+            sh_shadow_point,
+            GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
+            1, GL_FALSE,
+            current->transform->c );
+
+        glUseProgram( sh_shadow_directional );
+
+        // TODO(alicia): index count!!
+        glDrawElements(
+            GL_TRIANGLES,
+            CUBE_3D_INDEX_COUNT,
+            GL_UNSIGNED_BYTE,
+            NULL );
+
+        glUseProgram( sh_shadow_point );
+        for( u32 i = 0; i < 4; ++i ) {
+            if( !gl_light_buffer_point_is_active( &ctx->lights, i ) ) {
+                continue;
+            }
+            GLFramebuffer* fbo_current = fbo_shadow_point + i;
+            glBindFramebuffer( GL_FRAMEBUFFER, fbo_current->id );
+            glViewport( 0, 0,
+                fbo_current->width, fbo_current->height );
+
+            glProgramUniform1i( sh_shadow_point,
+                GL_SHADER_PROGRAM_SHADOW_POINT_LOCATION_POINT_INDEX, i );
+
+            // TODO(alicia): index count!!
+            glDrawElements(
+                GL_TRIANGLES,
+                CUBE_3D_INDEX_COUNT,
+                GL_UNSIGNED_BYTE,
+                NULL );
+        }
+
+    }
+    glBindFramebuffer( GL_FRAMEBUFFER, fbo_main->id );
+    glViewport( 0, 0, fbo_main->width, fbo_main->height );
+    glUseProgram( sh_phong );
+    glBindTextureUnit(
+        GL_SHADER_PROGRAM_BINDING_DIRECTIONAL_SHADOW_MAP,
+        fbo_shadow_directional->shadow_texture_id );
+    glBindTextureUnit(
+        GL_SHADER_PROGRAM_BINDING_POINT_SHADOW_MAP_0,
+        (fbo_shadow_point + 0)->shadow_texture_id );
+    glBindTextureUnit(
+        GL_SHADER_PROGRAM_BINDING_POINT_SHADOW_MAP_1,
+        (fbo_shadow_point + 1)->shadow_texture_id );
+    glBindTextureUnit(
+        GL_SHADER_PROGRAM_BINDING_POINT_SHADOW_MAP_2,
+        (fbo_shadow_point + 2)->shadow_texture_id );
+    glBindTextureUnit(
+        GL_SHADER_PROGRAM_BINDING_POINT_SHADOW_MAP_3,
+        (fbo_shadow_point + 3)->shadow_texture_id );
+
+    // draw proper
+    for( usize i = 0; i < render_data->draw_command_count; ++i ) {
+        // TODO(alicia): transparency
+
+        DrawCommand* current = render_data->draw_commands + i;
+        glBindVertexArray( current->mesh );
+
+        glBindTextureUnit(
+            GL_SHADER_PROGRAM_PHONG_BRDF_BINDING_DIFFUSE_TEXTURE,
+            current->texture_diffuse );
+        glBindTextureUnit(
+            GL_SHADER_PROGRAM_PHONG_BRDF_BINDING_NORMAL_TEXTURE,
+            current->texture_normal );
+        glBindTextureUnit(
+            GL_SHADER_PROGRAM_PHONG_BRDF_BINDING_ROUGHNESS_TEXTURE,
+            current->texture_roughness );
+        glBindTextureUnit(
+            GL_SHADER_PROGRAM_PHONG_BRDF_BINDING_METALLIC_TEXTURE,
+            current->texture_metallic );
+ 
+        glProgramUniform3fv(
+            sh_phong, GL_SHADER_PROGRAM_PHONG_BRDF_LOCATION_TINT,
+            1, current->tint.c );
+        glProgramUniform1i(
+            sh_phong,
+            GL_SHADER_PROGRAM_PHONG_BRDF_LOCATION_SHADOW_RECEIVER,
+            bitfield_check( current->flags, DRAW_FLAG_SHADOW_RECEIVER ) );
+        glProgramUniformMatrix4fv(
+            sh_phong, GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
+            1, GL_FALSE, current->transform->c );
+        mat3 normal_mat = m4_normal_matrix_unchecked( current->transform );
+        glProgramUniformMatrix3fv(
+            sh_phong, GL_SHADER_PROGRAM_LOCATION_NORMAL_TRANSFORM,
+            1, GL_FALSE, normal_mat.c );
+        // TODO(alicia): index count!!
+
+        GLenum mode = GL_TRIANGLES;
+        if( bitfield_check( current->flags, DRAW_FLAG_IS_WIREFRAME ) ) {
+            mode = GL_LINES;
+        }
+        glDrawElements(
+            mode,
+            CUBE_3D_INDEX_COUNT,
+            GL_UNSIGNED_BYTE,
+            NULL
+        );
+    }
 
     gl_light_buffer_point_set(
         ctx->buffers[GL_BUFFER_INDEX_UBO_LIGHTS], &ctx->lights, 0,
-        v3( -2.0f, sin32( render_data->elapsed_time ) + 1.0f, 0.0f ),
+        v3( -2.0f, 1.0f, 0.0f ),
         RGB_WHITE, true );
 
     // NOTE(alicia): UI Rendering

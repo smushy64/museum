@@ -17,7 +17,6 @@ union ivec2;
 /// Opaque RendererContext handle
 typedef void RendererContext;
 
-typedef u32 RenderID;
 enum : RenderID {
     RENDER_SHADER_DEBUG_COLOR,
     RENDER_SHADER_TEXT,
@@ -51,7 +50,53 @@ typedef struct {
     Material material;
 } RenderObject;
 
-struct Timer;
+typedef u32 DrawFlags;
+#define DRAW_FLAG_TRANSPARENT     (1 << 0)
+#define DRAW_FLAG_SHADOW_CASTER   (1 << 1)
+#define DRAW_FLAG_SHADOW_RECEIVER (1 << 2)
+#define DRAW_FLAG_IS_WIREFRAME    (1 << 3)
+
+typedef struct DrawCommand {
+    mat4*     transform;
+    RenderID  mesh;
+    RenderID  texture_diffuse;
+    RenderID  texture_normal;
+    RenderID  texture_roughness;
+    RenderID  texture_metallic;
+    rgb       tint;
+    DrawFlags flags;
+} DrawCommand;
+
+typedef enum GenerateCommandType {
+    GENERATE_COMMAND_MESH,
+    GENERATE_COMMAND_TEXTURE,
+} GenerateCommandType;
+
+typedef struct GenerateCommand {
+    GenerateCommandType type;
+    RenderID id;
+    union {
+        struct GenerateMesh {
+            usize vertex_count;
+            struct Vertex3D* vertices;
+            usize index_count;
+            u32* indices;
+        } mesh;
+        struct GenerateTexture {
+            GraphicsTextureType     type;
+            GraphicsTextureFormat   format;
+            GraphicsTextureBaseType base_type;
+            GraphicsTextureWrap     wrap_x;
+            GraphicsTextureWrap     wrap_y;
+            GraphicsTextureWrap     wrap_z;
+            GraphicsTextureFilter   minification_filter;
+            GraphicsTextureFilter   magnification_filter;
+            u32 width, height, depth;
+            void* buffer;
+        } texture;
+    };
+} GenerateCommand;
+
 struct Camera;
 /// Render Data
 typedef struct RenderData {
@@ -63,6 +108,14 @@ typedef struct RenderData {
     usize max_object_count;
     usize object_count;
     RenderObject* objects;
+
+    DrawCommand* draw_commands;
+    usize        draw_command_count;
+    usize        draw_command_max_count;
+
+    GenerateCommand* generate_commands;
+    usize            generate_command_count;
+    usize            generate_command_max_count;
 } RenderData;
 
 /// Renderer backend shutdown function prototype.

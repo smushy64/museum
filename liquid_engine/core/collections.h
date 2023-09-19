@@ -6,6 +6,94 @@
  * File Created: May 01, 2023
 */
 #include "defines.h"
+#include "core/strings.h"
+
+/// Dynamic type map.
+typedef struct Map {
+    void* buffer;
+    usize key_size;
+    usize value_size;
+    usize count;
+    usize capacity;
+} Map;
+/// Create a map.
+header_only Map map_create(
+    usize key_size, usize value_size,
+    usize buffer_size, void* buffer
+) {
+    usize kv_size  = key_size + value_size;
+    assert( buffer_size % kv_size == 0 );
+    Map result;
+    result.buffer     = buffer;
+    result.key_size   = key_size;
+    result.value_size = value_size;
+    result.capacity   = buffer_size / kv_size;
+    result.count      = 0;
+    return result;
+}
+LD_API b32 map_set( Map* map, void* key, void* new_value );
+LD_API b32 map_get( Map* map, void* key, void* out_value );
+LD_API b32 map_key_exists( Map* map, void* key );
+LD_API b32 map_push( Map* map, void* key, void* value );
+LD_API b32 map_remove( Map* map, void* key, void* opt_out_value );
+
+typedef struct {
+    u32 key, value;
+} KV_u32_u32;
+
+typedef struct {
+    KV_u32_u32* pairs;
+    usize count;
+    usize capacity;
+} Map_u32_u32;
+
+header_only Map_u32_u32 map_u32_u32_create( usize buffer_size, void* buffer ) {
+    assert( buffer_size % sizeof(KV_u32_u32) == 0 );
+    usize capacity = buffer_size / sizeof(KV_u32_u32);
+    Map_u32_u32 result;
+
+    result.pairs    = buffer;
+    result.capacity = capacity;
+    result.count    = 0;
+
+    return result;
+}
+LD_API b32 map_u32_u32_set( Map_u32_u32* map, u32 key, u32 new_value );
+LD_API b32 map_u32_u32_get( Map_u32_u32* map, u32 key, u32* out_value );
+LD_API b32 map_u32_u32_key_exists( Map_u32_u32* map, u32 key );
+LD_API b32 map_u32_u32_push( Map_u32_u32* map, u32 key, u32 value );
+LD_API b32 map_u32_u32_remove( Map_u32_u32* map, u32 key, u32* opt_out_value );
+
+typedef struct {
+    StringSlice key;
+    u8 value[];
+} KV_StringSlice;
+
+typedef struct {
+    void* buffer;
+    usize value_size;
+    usize count;
+    usize capacity;
+} MapStringSlice;
+
+header_only MapStringSlice map_ss_create(
+    usize value_size, usize buffer_size, void* buffer
+) {
+    usize kv_size = sizeof(StringSlice) + value_size;
+    assert( buffer_size % kv_size == 0 );
+    MapStringSlice result;
+    result.buffer     = buffer;
+    result.value_size = value_size;
+    result.capacity   = buffer_size / kv_size;
+    result.count      = 0;
+    return result;
+}
+LD_API b32 map_ss_set( MapStringSlice* map, StringSlice key, void* new_value );
+LD_API b32 map_ss_get( MapStringSlice* map, StringSlice key, void* out_value );
+LD_API b32 map_ss_key_exists( MapStringSlice* map, StringSlice key );
+LD_API b32 map_ss_push( MapStringSlice* map, StringSlice key, void* value );
+LD_API b32 map_ss_remove(
+    MapStringSlice* map, StringSlice key, void* opt_out_value );
 
 struct Allocator;
 

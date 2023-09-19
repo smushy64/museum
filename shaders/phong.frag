@@ -19,12 +19,13 @@ in layout(location = 0) struct Vert2Frag {
     vec4 color;
 } v2f;
 
+uniform layout(location = 2) vec3 u_tint = vec3(1.0);
+uniform layout(location = 3) bool u_shadow_receiver = true;
+
 uniform layout(binding = 0) sampler2D u_diffuse;
 uniform layout(binding = 1) sampler2D u_normal;
 uniform layout(binding = 2) sampler2D u_roughness;
 uniform layout(binding = 3) sampler2D u_metallic;
-
-uniform layout(location = 2) vec3 u_tint = vec3(1.0);
 
 struct LightResult {
     vec3 light;
@@ -140,6 +141,7 @@ LightResult directional_light(
     specular *= diffuse_contribution * light_strength;
 
     float shadow_mask = directional_shadow( light_space_position ) * 0.8;
+    shadow_mask = u_shadow_receiver ? shadow_mask : 0.0;
 
     result.light = (diffuse + specular) * (1.0 - shadow_mask);
     return result;
@@ -187,15 +189,16 @@ LightResult point_light(
     float d2 = light_distance * light_distance;
 
     float attenuation = 1.0 / ( 1.0 + ( 0.3 * d ) + ( 0.1 * d2 ) );
-    attenuation = clamp( attenuation, 0.0, 1.0 );
+    attenuation = max( attenuation, 0.0 );
 
     float shadow_mask =
         point_shadow( world_position, light_position, far_clip, index );
-    shadow_mask *= attenuation;
+    shadow_mask = u_shadow_receiver ? shadow_mask : 0.0;
 
-    result.ambient = is_active * ( base_diffuse * attenuation * 1.4 );
+    result.ambient = is_active * ( base_diffuse * attenuation * light_strength );
     result.light   =
         is_active * ( ( 1.0 - shadow_mask ) * ( diffuse + specular ) );
+    result.light *= attenuation;
 
     return result;
 }

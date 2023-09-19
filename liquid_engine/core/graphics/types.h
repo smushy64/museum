@@ -6,6 +6,135 @@
 #include "defines.h"
 #include "core/mathf/types.h"
 
+typedef u32 RenderID;
+#define RENDER_ID_NULL (0)
+
+typedef enum GraphicsTextureType : u32 {
+    GRAPHICS_TEXTURE_TYPE_2D,
+    GRAPHICS_TEXTURE_TYPE_3D,
+
+    GRAPHICS_TEXTURE_TYPE_COUNT
+} GraphicsTextureType;
+header_only const char*
+graphics_texture_type_to_cstr( GraphicsTextureType type ) {
+    assert( type < GRAPHICS_TEXTURE_TYPE_COUNT );
+    const char* strings[GRAPHICS_TEXTURE_TYPE_COUNT] = {
+        "Texture 2D",
+        "Texture 3D"
+    };
+    return strings[type];
+}
+header_only usize
+graphics_texture_type_dimension_count( GraphicsTextureType type ) {
+    assert( type < GRAPHICS_TEXTURE_TYPE_COUNT );
+    usize dimensions[GRAPHICS_TEXTURE_TYPE_COUNT] = {
+        2, 3
+    };
+    return dimensions[type];
+}
+
+typedef enum GraphicsTextureFormat : u32 {
+    GRAPHICS_TEXTURE_FORMAT_GRAYSCALE,
+    GRAPHICS_TEXTURE_FORMAT_RGB,
+    GRAPHICS_TEXTURE_FORMAT_RGBA,
+    GRAPHICS_TEXTURE_FORMAT_SRGB,
+    GRAPHICS_TEXTURE_FORMAT_SRGBA,
+
+    GRAPHICS_TEXTURE_FORMAT_COUNT
+} GraphicsTextureFormat;
+header_only const char*
+graphics_texture_format_to_cstr( GraphicsTextureFormat format ) {
+    assert( format < GRAPHICS_TEXTURE_FORMAT_COUNT );
+    const char* strings[GRAPHICS_TEXTURE_FORMAT_COUNT] = {
+        "Format Grayscale",
+        "Format RGB",
+        "Format RGBA",
+        "Format sRGB",
+        "Format sRGBA"
+    };
+    return strings[format];
+}
+header_only usize
+graphics_texture_format_channel_count( GraphicsTextureFormat format ) {
+    assert( format < GRAPHICS_TEXTURE_FORMAT_COUNT );
+    usize channels[GRAPHICS_TEXTURE_FORMAT_COUNT] = {
+        1, 3, 4, 3, 4
+    };
+    return channels[format];
+}
+
+typedef enum GraphicsTextureBaseType : u32 {
+    GRAPHICS_TEXTURE_BASE_TYPE_UINT8,
+    GRAPHICS_TEXTURE_BASE_TYPE_UINT16,
+    GRAPHICS_TEXTURE_BASE_TYPE_UINT32,
+    GRAPHICS_TEXTURE_BASE_TYPE_FLOAT32,
+
+    GRAPHICS_TEXTURE_BASE_TYPE_COUNT
+} GraphicsTextureBaseType;
+header_only const char*
+graphics_texture_base_type_to_cstr( GraphicsTextureBaseType type ) {
+    assert( type < GRAPHICS_TEXTURE_BASE_TYPE_COUNT );
+    const char* strings[GRAPHICS_TEXTURE_BASE_TYPE_COUNT] = {
+        "Base Type u8",
+        "Base Type u16",
+        "Base Type u32",
+        "Base Type f32"
+    };
+    return strings[type];
+}
+header_only usize
+graphics_texture_base_type_size( GraphicsTextureBaseType type ) {
+    assert( type < GRAPHICS_TEXTURE_BASE_TYPE_COUNT );
+    usize sizes[GRAPHICS_TEXTURE_BASE_TYPE_COUNT] = {
+        1, 2, 4, 4
+    };
+    return sizes[type];
+}
+
+typedef enum GraphicsTextureWrap : u32 {
+    GRAPHICS_TEXTURE_WRAP_CLAMP,
+    GRAPHICS_TEXTURE_WRAP_REPEAT,
+
+    GRAPHICS_TEXTURE_WRAP_COUNT
+} GraphicsTextureWrap;
+header_only const char*
+graphics_texture_wrap_to_cstr( GraphicsTextureWrap wrap ) {
+    assert( wrap < GRAPHICS_TEXTURE_WRAP_COUNT );
+    const char* strings[GRAPHICS_TEXTURE_WRAP_COUNT] = {
+        "Wrap Clamp",
+        "Wrap Repeat"
+    };
+    return strings[wrap];
+}
+
+typedef enum GraphicsTextureFilter : u32 {
+    GRAPHICS_TEXTURE_FILTER_NEAREST,
+    GRAPHICS_TEXTURE_FILTER_BILINEAR,
+
+    GRAPHICS_TEXTURE_FILTER_COUNT
+} GraphicsTextureFilter;
+header_only const char*
+graphics_texture_filter_to_cstr( GraphicsTextureFilter filter ) {
+    assert( filter < GRAPHICS_TEXTURE_FILTER_COUNT );
+    const char* strings[GRAPHICS_TEXTURE_FILTER_COUNT] = {
+        "Filter Nearest-Neighbor",
+        "Filter Bilinear"
+    };
+    return strings[filter];
+}
+
+header_only usize graphics_calculate_texture_buffer_size(
+    GraphicsTextureType     type,
+    GraphicsTextureFormat   format,
+    GraphicsTextureBaseType base_type,
+    u32 width, u32 height
+) {
+    usize dimension_count = graphics_texture_type_dimension_count( type );
+    usize channel_count   = graphics_texture_format_channel_count( format );
+    usize base_type_size  = graphics_texture_base_type_size( base_type );
+    return dimension_count * channel_count * base_type_size * width * height;
+}
+
 /// Opaque id for font.
 typedef u32 FontID;
 #define FONT_ID_DEFAULT (0)

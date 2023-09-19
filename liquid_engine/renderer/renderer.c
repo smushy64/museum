@@ -44,6 +44,12 @@ b32 renderer_subsystem_init(
     ctx->backend = backend;
     ivec2 dimensions = platform_surface_query_dimensions( ctx->surface );
 
+    ctx->mesh_map    = map_u32_u32_create(
+        MESH_COUNT_MAX * 2, ctx->map_buffer );
+    ctx->texture_map = map_u32_u32_create(
+        TEXTURE_COUNT_MAX * 2,
+        ctx->map_buffer + (MESH_COUNT_MAX * 2) );
+
     ctx->surface_dimensions     = dimensions;
     ctx->framebuffer_dimensions = dimensions;
 
@@ -97,6 +103,46 @@ internal b32 renderer_begin_frame(
     RendererContext* opaque, struct RenderData* render_data
 ) {
     InternalRendererContext* ctx = opaque;
+
+    // translate outside render ids to real ids
+    for( usize i = 0; i < render_data->draw_command_count; ++i ) {
+        DrawCommand* current = render_data->draw_commands + i;
+        RenderID value = 0;
+        if( !map_u32_u32_get( &ctx->mesh_map, current->mesh, &value ) ) {
+            value = ctx->mesh_null;
+        }
+        current->mesh = value;
+
+        if( !map_u32_u32_get(
+            &ctx->texture_map, current->texture_diffuse, &value
+        ) ) {
+            value = ctx->texture_diffuse_null;
+        }
+        current->texture_diffuse = value;
+
+        if( !map_u32_u32_get(
+            &ctx->texture_map, current->texture_normal, &value
+        ) ) {
+            value = ctx->texture_normal_null;
+        }
+        current->texture_normal = value;
+
+        if( !map_u32_u32_get(
+            &ctx->texture_map, current->texture_roughness, &value
+        ) ) {
+            value = ctx->texture_roughness_null;
+        }
+        current->texture_roughness = value;
+
+        if( !map_u32_u32_get(
+            &ctx->texture_map, current->texture_metallic, &value
+        ) ) {
+            value = ctx->texture_metallic_null;
+        }
+        current->texture_metallic = value;
+    }
+
+    // TODO(alicia): z sorting?
 
     return ctx->begin_frame( ctx, render_data );
 }

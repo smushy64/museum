@@ -8,10 +8,10 @@
 #include "defines.h"
 
 /// Time
-typedef struct Timer {
+typedef struct TimeStamp {
     f32 delta_seconds;
     f32 elapsed_seconds;
     u64 frame_count;
-} Timer;
+} TimeStamp;
 
 #endif // header guard

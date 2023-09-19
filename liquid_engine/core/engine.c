@@ -25,9 +25,13 @@
 typedef struct InternalEngineContext {
     SystemInfo     system_info; // 88
     StackAllocator stack;       // 32
-    Timer          time;        // 16
+    TimeStamp          time;        // 16
     PlatformSurface* main_surface;
     RendererContext* main_surface_renderer_context;
+
+    ApplicationQueryMemoryRequirementFN* application_query_memory_requirement;
+    ApplicationInitFN* application_init;
+    ApplicationRunFN*  application_run;
 
     RenderData render_data;
 
@@ -276,28 +280,30 @@ b32 engine_entry( int argc, char** argv ) {
     if( !library_load( arg_parse.library_path.buffer, &application_lib ) ) {
         return false;
     }
-    ApplicationQueryMemoryRequirementFN* application_query_memory_requirement =
+
+    ctx.application_query_memory_requirement =
     (ApplicationQueryMemoryRequirementFN*)library_load_function(
         &application_lib, "application_query_memory_requirement"
     );
-    if( !application_query_memory_requirement ) {
+    if( !ctx.application_query_memory_requirement ) {
         return false;
     }
 
-    ApplicationInitFN* application_init =
+    ctx.application_init =
         (ApplicationInitFN*)library_load_function(
             &application_lib, "application_init" );
-    if( !application_init ) {
+    if( !ctx.application_init ) {
         return false;
     }
-    ApplicationRunFN* application_run =
+    ctx.application_run =
         (ApplicationRunFN*)library_load_function(
             &application_lib, "application_run" );
-    if( !application_run ) {
+    if( !ctx.application_run ) {
         return false;
     }
 
-    usize application_memory_size = application_query_memory_requirement();
+    usize application_memory_size =
+        ctx.application_query_memory_requirement();
 
     platform_query_system_info( &ctx.system_info );
 
@@ -310,20 +316,31 @@ b32 engine_entry( int argc, char** argv ) {
     usize ui_max_elements = 1000;
     usize ui_subsystem_size = ui_calculate_required_size( ui_max_elements );
 
-    usize max_render_objects = 1000;
+    usize max_render_objects = 500;
     usize render_object_buffer_size = max_render_objects * sizeof(RenderObject);
+
+    usize max_draw_commands = 500;
+    usize draw_command_buffer_size = max_draw_commands * sizeof(DrawCommand);
+    ctx.render_data.draw_command_max_count = max_draw_commands;
+
+    usize max_generate_commands = 200;
+    usize generate_command_buffer_size =
+        max_generate_commands * sizeof(GenerateCommand);
+    ctx.render_data.generate_command_max_count = max_generate_commands;
 
     // calculate required stack arena size
     usize required_stack_size =
-        THREAD_SUBSYSTEM_SIZE   +
-        EVENT_SUBSYSTEM_SIZE    +
-        INPUT_SUBSYSTEM_SIZE    +
-        PLATFORM_SUBSYSTEM_SIZE +
+        THREAD_SUBSYSTEM_SIZE        +
+        EVENT_SUBSYSTEM_SIZE         +
+        INPUT_SUBSYSTEM_SIZE         +
+        PLATFORM_SUBSYSTEM_SIZE      +
         PLATFORM_SURFACE_BUFFER_SIZE +
-        renderer_subsystem_size +
-        application_memory_size +
-        ui_subsystem_size +
-        render_object_buffer_size;
+        renderer_subsystem_size      +
+        application_memory_size      +
+        ui_subsystem_size            +
+        render_object_buffer_size    +
+        draw_command_buffer_size     +
+        generate_command_buffer_size;
 
     usize stack_allocator_pages  = calculate_page_count( required_stack_size );
     void* stack_allocator_buffer =
@@ -418,6 +435,11 @@ b32 engine_entry( int argc, char** argv ) {
     ctx.render_data.objects =
         stack_allocator_push( &ctx.stack, render_object_buffer_size );
 
+    ctx.render_data.draw_commands =
+        stack_allocator_push( &ctx.stack, draw_command_buffer_size );
+    ctx.render_data.generate_commands =
+        stack_allocator_push( &ctx.stack, generate_command_buffer_size );
+
     if( !renderer_subsystem_init(
         ctx.main_surface,
         arg_parse.backend,
@@ -430,6 +452,7 @@ b32 engine_entry( int argc, char** argv ) {
         );
         return false;
     }
+    graphics_subsystem_init( &ctx.render_data );
 
     void* ui_buffer = stack_allocator_push( &ctx.stack, ui_subsystem_size );
     if( !ui_subsystem_init( ui_max_elements, ui_buffer ) ) {
@@ -563,7 +586,7 @@ b32 engine_entry( int argc, char** argv ) {
     STRING( default_name, DEFAULT_APPLICATION_NAME );
     engine_application_set_name( &ctx, &default_name );
     ctx.is_running = true;
-    if( !application_init( &ctx, application_memory ) ) {
+    if( !ctx.application_init( &ctx, application_memory ) ) {
         return false;
     }
 
@@ -597,9 +620,9 @@ b32 engine_entry( int argc, char** argv ) {
 
         ctx.render_data.delta_time   = ctx.time.delta_seconds;
         ctx.render_data.elapsed_time = ctx.time.elapsed_seconds;
-        ctx.render_data.frame_count  = ctx.time.frame_count;
+        ctx.render_data.frame_count  = ctx.time.frame_count % (u64)U32_MAX;
 
-        if( !application_run( &ctx, application_memory ) ) {
+        if( !ctx.application_run( &ctx, application_memory ) ) {
             return false;
         }
 
@@ -617,6 +640,9 @@ b32 engine_entry( int argc, char** argv ) {
             );
             return false;
         }
+
+        ctx.render_data.draw_command_count     = 0;
+        ctx.render_data.generate_command_count = 0;
 
         event_fire_end_of_frame();
 
@@ -716,7 +742,7 @@ LD_API void engine_surface_center( EngineContext* opaque ) {
     InternalEngineContext* ctx = opaque;
     platform_surface_center( ctx->main_surface );
 }
-LD_API Timer engine_time( EngineContext* opaque ) {
+LD_API TimeStamp engine_time( EngineContext* opaque ) {
     InternalEngineContext* ctx = opaque;
     return ctx->time;
 }

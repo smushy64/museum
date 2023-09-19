@@ -289,7 +289,7 @@ GLFramebuffer gl_framebuffer_create( i32 width, i32 height ) {
 
     glTextureStorage2D(
         result.color_texture_id, 1,
-        GL_RGB8,
+        GL_RGBA16,
         result.width, result.height
     );
     glTextureParameteri(

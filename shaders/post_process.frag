@@ -8,9 +8,9 @@ in layout(location = 0) vec2 v2f_uv;
 
 uniform layout(binding = 0) sampler2D u_render_texture;
 
-vec3 fxaa();
+vec3 fxaa( vec2 uv );
 void main() {
-    vec3 base_color = fxaa();
+    vec3 base_color = fxaa( clamp( v2f_uv, vec2(0.001), vec2(0.999) ) );
 
     vec3 final_color = linear_to_srgb( base_color );
     FRAG_COLOR = vec4( final_color, 1.0 );
@@ -25,14 +25,14 @@ float rgb_to_luma( vec3 rgb ) {
 #define FXAA_QUALITY( q ) ( (q) < 5 ? 1.0 : ( (q) > 5 ? ( (q) < 10 ? 2.0 : ( (q) < 11 ? 4.0 : 8.0 ) ) : 1.5) )
 #define FXAA_ITERATIONS (12)
 
-vec3 fxaa() {
-    vec3 render_sample = texture( u_render_texture, v2f_uv ).rgb;
+vec3 fxaa( vec2 uv ) {
+    vec3 render_sample = texture( u_render_texture, uv ).rgb;
 
     float luma_center = rgb_to_luma( render_sample );
-    vec3 sample_down  = textureOffset( u_render_texture, v2f_uv, ivec2( 0,-1) ).rgb;
-    vec3 sample_up    = textureOffset( u_render_texture, v2f_uv, ivec2( 0, 1) ).rgb;
-    vec3 sample_left  = textureOffset( u_render_texture, v2f_uv, ivec2(-1, 0) ).rgb;
-    vec3 sample_right = textureOffset( u_render_texture, v2f_uv, ivec2( 1, 0) ).rgb;
+    vec3 sample_down  = textureOffset( u_render_texture, uv, ivec2( 0,-1) ).rgb;
+    vec3 sample_up    = textureOffset( u_render_texture, uv, ivec2( 0, 1) ).rgb;
+    vec3 sample_left  = textureOffset( u_render_texture, uv, ivec2(-1, 0) ).rgb;
+    vec3 sample_right = textureOffset( u_render_texture, uv, ivec2( 1, 0) ).rgb;
 
     float luma_down  = rgb_to_luma( sample_down );
     float luma_up    = rgb_to_luma( sample_up );
@@ -50,13 +50,13 @@ vec3 fxaa() {
     }
 
     float luma_down_left =
-        rgb_to_luma( textureOffset( u_render_texture, v2f_uv, ivec2(-1,-1) ).rgb );
+        rgb_to_luma( textureOffset( u_render_texture, uv, ivec2(-1,-1) ).rgb );
     float luma_down_right =
-        rgb_to_luma( textureOffset( u_render_texture, v2f_uv, ivec2( 1,-1) ).rgb );
+        rgb_to_luma( textureOffset( u_render_texture, uv, ivec2( 1,-1) ).rgb );
     float luma_up_left =
-        rgb_to_luma( textureOffset( u_render_texture, v2f_uv, ivec2(-1, 1) ).rgb );
+        rgb_to_luma( textureOffset( u_render_texture, uv, ivec2(-1, 1) ).rgb );
     float luma_up_right =
-        rgb_to_luma( textureOffset( u_render_texture, v2f_uv, ivec2( 1, 1) ).rgb );
+        rgb_to_luma( textureOffset( u_render_texture, uv, ivec2( 1, 1) ).rgb );
 
     float luma_down_up    = luma_down + luma_up;
     float luma_left_right = luma_left + luma_right;
@@ -95,7 +95,7 @@ vec3 fxaa() {
         luma_local_average = 0.5 * ( luma2 + luma_center );
     }
 
-    vec2 current_uv = v2f_uv;
+    vec2 current_uv = uv;
     if( is_horizontal ) {
         current_uv.y += step_length * 0.5;
     } else {
@@ -152,8 +152,8 @@ vec3 fxaa() {
         }
     }
 
-    float distance1 = is_horizontal ? ( v2f_uv.x - uv1.x ) : ( v2f_uv.y - uv1.y );
-    float distance2 = is_horizontal ? ( uv2.x - v2f_uv.x ) : ( uv2.y - v2f_uv.y );
+    float distance1 = is_horizontal ? ( uv.x - uv1.x ) : ( uv.y - uv1.y );
+    float distance2 = is_horizontal ? ( uv2.x - uv.x ) : ( uv2.y - uv.y );
 
     bool is_direction1   = distance1 < distance2;
     float distance_final = min( distance1, distance2 );
@@ -179,7 +179,7 @@ vec3 fxaa() {
 
     final_offset = max( final_offset, sub_pixel_offset_final );
 
-    vec2 final_uv = v2f_uv;
+    vec2 final_uv = uv;
     if( is_horizontal ) {
         final_uv.y += final_offset * step_length;
     } else {
