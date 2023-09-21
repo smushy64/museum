@@ -24,8 +24,8 @@ typedef struct OpenGLDeviceInfo {
 
     i32 extension_count;
 } OpenGLDeviceInfo;
-#define GL_SHADER_PROGRAM_LOCATION_TRANSFORM                      (0)
-#define GL_SHADER_PROGRAM_LOCATION_NORMAL_TRANSFORM               (1)
+#define GL_SHADER_PROGRAM_LOCATION_TRANSFORM        (0)
+#define GL_SHADER_PROGRAM_LOCATION_NORMAL_TRANSFORM (1)
 
 #define GL_SHADER_PROGRAM_BINDING_DIRECTIONAL_SHADOW_MAP (10)
 #define GL_SHADER_PROGRAM_BINDING_POINT_SHADOW_MAP_0     (11)
@@ -33,11 +33,9 @@ typedef struct OpenGLDeviceInfo {
 #define GL_SHADER_PROGRAM_BINDING_POINT_SHADOW_MAP_2     (13)
 #define GL_SHADER_PROGRAM_BINDING_POINT_SHADOW_MAP_3     (14)
 
-#define GL_VERTEX_ARRAY_COUNT    (3)
 #define GL_SHADER_PROGRAM_COUNT  (5)
-#define GL_BUFFER_COUNT          (8)
-#define GL_TEXTURE_2D_COUNT      (3)
-#define GL_FRAMBUFFER_COUNT      (6)
+#define GL_DEFAULT_BUFFER_COUNT  (8)
+#define GL_FRAMEBUFFER_COUNT     (6)
 
 #define GL_SHADER_PROGRAM_INDEX_POST_PROCESS       (0)
 #define GL_SHADER_PROGRAM_INDEX_COLOR              (1)
@@ -84,6 +82,8 @@ enum : u32 {
 #define GL_FRAMEBUFFER_INDEX_SHADOW_POINT_2     (4)
 #define GL_FRAMEBUFFER_INDEX_SHADOW_POINT_3     (5)
 
+#define GL_MINIMUM_RESOURCE_COUNT (32)
+
 /// OpenGL Renderer Context
 typedef struct OpenGLRendererContext {
     InternalRendererContext ctx;
@@ -91,15 +91,18 @@ typedef struct OpenGLRendererContext {
     OpenGLDeviceInfo device_info;   
     GLRC* glrc;
 
-    GLBufferID buffers[GL_BUFFER_COUNT];
 
     GLShaderProgramID programs[GL_SHADER_PROGRAM_COUNT];
 
-    GLVertexArrayID vertex_arrays[GL_VERTEX_ARRAY_COUNT];
+    usize buffer_count;
+    usize vertex_array_count;
+    usize texture_2d_count;
 
-    GLTexture2D textures_2d[GL_TEXTURE_2D_COUNT];
+    GLBufferID*    buffers;
+    GLVertexArray* vertex_arrays;
+    GLTexture2D*   textures_2d;
 
-    GLFramebuffer framebuffers[GL_FRAMBUFFER_COUNT];
+    GLFramebuffer framebuffers[GL_FRAMEBUFFER_COUNT];
 
     struct GLLightBuffer lights;
 } OpenGLRendererContext;

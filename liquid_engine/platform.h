@@ -23,8 +23,6 @@ enum RendererBackend : u32;
 extern usize PLATFORM_SUBSYSTEM_SIZE;
 /// Initialize platform state. Returns true if successful.
 b32 platform_subsystem_init( void* buffer );
-/// Shutdown platform subsystem.
-void platform_subsystem_shutdown(void);
 
 /// Opaque surface handle.
 typedef void PlatformSurface;

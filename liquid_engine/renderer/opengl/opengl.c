@@ -15,6 +15,8 @@
 #include "core/timer.h"
 #include "platform.h"
 #include "core/input.h"
+#include "core/collections.h"
+#include "core/mem.h"
 
 usize GL_RENDERER_BACKEND_SIZE = sizeof(OpenGLRendererContext);
 
@@ -38,8 +40,38 @@ internal void gl_init_buffers( OpenGLRendererContext* ctx );
 internal void gl_init_shaders( OpenGLRendererContext* ctx );
 internal void gl_init_textures( OpenGLRendererContext* ctx );
 
+internal GLenum gl_texture_type( GraphicsTextureType type );
+internal GLenum gl_texture_format( GraphicsTextureFormat format );
+internal GLenum gl_texture_internal_format(
+    GraphicsTextureBaseType base_type, GraphicsTextureFormat format );
+internal GLenum gl_texture_base_type( GraphicsTextureBaseType type );
+internal GLenum gl_texture_wrap( GraphicsTextureWrap wrap );
+internal GLenum gl_texture_minification_filter(
+    GraphicsTextureFilter filter );
+internal GLenum gl_texture_magnification_filter(
+    GraphicsTextureFilter filter );
+
 b32 gl_renderer_backend_init( RendererContext* renderer_ctx ) {
     OpenGLRendererContext* ctx = renderer_ctx;
+
+    ctx->buffer_count       = GL_MINIMUM_RESOURCE_COUNT;
+    ctx->vertex_array_count = GL_MINIMUM_RESOURCE_COUNT;
+    ctx->texture_2d_count   = GL_MINIMUM_RESOURCE_COUNT;
+
+    ctx->buffers = ldalloc(
+        ctx->buffer_count * sizeof(GLBufferID), MEMORY_TYPE_RENDERER );
+    ctx->vertex_arrays = ldalloc(
+        ctx->vertex_array_count * sizeof(GLVertexArray), MEMORY_TYPE_RENDERER );
+    ctx->textures_2d = ldalloc(
+        ctx->texture_2d_count * sizeof(GLTexture2D), MEMORY_TYPE_RENDERER );
+
+    if(
+        !ctx->buffers       ||
+        !ctx->vertex_arrays ||
+        !ctx->textures_2d
+    ) {
+        return false;
+    }
 
     if( !platform_gl_surface_init( ctx->ctx.surface ) ) {
         return false;
@@ -69,6 +101,7 @@ b32 gl_renderer_backend_init( RendererContext* renderer_ctx ) {
     ctx->ctx.begin_frame = gl_renderer_backend_begin_frame;
     ctx->ctx.end_frame   = gl_renderer_backend_end_frame;
 
+
     gl_init_buffers( ctx );
     gl_init_shaders( ctx );
     gl_init_textures( ctx );
@@ -95,17 +128,6 @@ b32 gl_renderer_backend_init( RendererContext* renderer_ctx ) {
 
     glSwapInterval( ctx->ctx.surface, 1 );
 
-    ctx->ctx.mesh_null              =
-        ctx->vertex_arrays[GL_VERTEX_ARRAY_INDEX_CUBE_3D];
-    ctx->ctx.texture_diffuse_null   =
-        ctx->textures_2d[GL_TEXTURE_INDEX_NULL_DIFFUSE].id;
-    ctx->ctx.texture_normal_null    =
-        ctx->textures_2d[GL_TEXTURE_INDEX_NULL_NORMAL].id;
-    ctx->ctx.texture_roughness_null =
-        ctx->textures_2d[GL_TEXTURE_INDEX_NULL_ROUGHNESS].id;
-    ctx->ctx.texture_metallic_null  =
-        ctx->textures_2d[GL_TEXTURE_INDEX_NULL_ROUGHNESS].id;
-
     GL_LOG_NOTE( "OpenGL Backend successfully initialized." );
     return true;
 }
@@ -130,9 +152,9 @@ internal void gl_draw_framebuffer(
 
     GLShaderProgramID program =
         ctx->programs[GL_SHADER_PROGRAM_INDEX_POST_PROCESS];
-    GLVertexArrayID vertex_array =
-        ctx->vertex_arrays[GL_VERTEX_ARRAY_INDEX_FRAMEBUFFER];
-    glBindVertexArray( vertex_array );
+    GLVertexArray* array =
+        ctx->vertex_arrays + GL_VERTEX_ARRAY_INDEX_FRAMEBUFFER;
+    glBindVertexArray( array->id );
     glUseProgram( program );
 
     GLFramebuffer* main_fbo =
@@ -141,7 +163,7 @@ internal void gl_draw_framebuffer(
         GL_SHADER_PROGRAM_POST_PROCESS_RENDER_TEXTURE_BINDING,
         main_fbo->color_texture_id );
 
-    glDrawArrays( GL_TRIANGLES, 0, 6 );
+    glDrawArrays( array->default_mode, 0, 6 );
 }
 
 void gl_renderer_backend_on_resize( RendererContext* renderer_ctx ) {
@@ -156,10 +178,222 @@ void gl_renderer_backend_on_resize( RendererContext* renderer_ctx ) {
     platform_gl_surface_swap_buffers( ctx->ctx.surface );
 }
 
+internal void gl_generate(
+    OpenGLRendererContext* ctx, RenderCommand* command
+) {
+    switch( command->type ) {
+        case RENDER_COMMAND_TYPE_GENERATE_MESH: {
+            struct GenerateMeshCommand* mesh = &command->generate_mesh;
+            assert( mesh->vertex_count && mesh->index_count );
+            assert( !map_u32_u32_key_exists( &ctx->ctx.mesh_map, mesh->id ) );
+
+            map_u32_u32_push(
+                &ctx->ctx.mesh_map,
+                mesh->id, ctx->vertex_array_count );
+            GLVertexArray* array =
+                ctx->vertex_arrays + (ctx->vertex_array_count++);
+            glCreateVertexArrays( 1, &array->id );
+            glCreateBuffers( 2, ctx->buffers + ctx->buffer_count );
+            GLVertexArrayID vao = array->id;
+            GLBufferID vbo = ctx->buffers[ctx->buffer_count];
+            GLBufferID ebo = ctx->buffers[ctx->buffer_count + 1];
+            ctx->buffer_count += 2;
+
+            array->index_type   = GL_UNSIGNED_INT;
+            array->default_mode = GL_TRIANGLES;
+            array->index_count  = mesh->index_count;
+
+            glNamedBufferStorage(
+                vbo, mesh->vertex_count * sizeof(struct Vertex3D),
+                mesh->vertices, GL_DYNAMIC_STORAGE_BIT );
+            glNamedBufferStorage(
+                ebo, mesh->index_count * sizeof(u32),
+                mesh->indices, GL_DYNAMIC_STORAGE_BIT );
+
+            glVertexArrayVertexBuffer(
+                vao, 0,
+                vbo, 0,
+                sizeof(struct Vertex3D)
+            );
+            glVertexArrayElementBuffer( vao, ebo );
+
+            glEnableVertexArrayAttrib( vao, VERTEX_3D_LOCATION_POSITION );
+            glEnableVertexArrayAttrib( vao, VERTEX_3D_LOCATION_UV );
+            glEnableVertexArrayAttrib( vao, VERTEX_3D_LOCATION_NORMAL );
+            glEnableVertexArrayAttrib( vao, VERTEX_3D_LOCATION_COLOR );
+            glEnableVertexArrayAttrib( vao, VERTEX_3D_LOCATION_TANGENT );
+
+            GLuint offset = 0;
+            glVertexArrayAttribFormat(
+                vao, VERTEX_3D_LOCATION_POSITION,
+                3, GL_FLOAT,
+                GL_FALSE,
+                offset
+            );
+            offset += sizeof(vec3);
+            glVertexArrayAttribFormat(
+                vao, VERTEX_3D_LOCATION_UV,
+                2, GL_FLOAT,
+                GL_FALSE,
+                offset
+            );
+            offset += sizeof(vec2);
+            glVertexArrayAttribFormat(
+                vao, VERTEX_3D_LOCATION_NORMAL,
+                3, GL_FLOAT,
+                GL_FALSE,
+                offset
+            );
+            offset += sizeof(vec3);
+            glVertexArrayAttribFormat(
+                vao, VERTEX_3D_LOCATION_COLOR,
+                4, GL_FLOAT,
+                GL_FALSE,
+                offset
+            );
+            offset += sizeof(vec4);
+            glVertexArrayAttribFormat(
+                vao, VERTEX_3D_LOCATION_TANGENT,
+                3, GL_FLOAT,
+                GL_FALSE,
+                offset
+            );
+
+            glVertexArrayAttribBinding( vao, VERTEX_3D_LOCATION_POSITION, 0 );
+            glVertexArrayAttribBinding( vao, VERTEX_3D_LOCATION_UV, 0 );
+            glVertexArrayAttribBinding( vao, VERTEX_3D_LOCATION_NORMAL, 0 );
+            glVertexArrayAttribBinding( vao, VERTEX_3D_LOCATION_COLOR, 0 );
+            glVertexArrayAttribBinding( vao, VERTEX_3D_LOCATION_TANGENT, 0 );
+
+            GL_LOG_NOTE( "Mesh [{u}] created. Vertex count: {usize}, Index count: {usize}", mesh->id, mesh->vertex_count, mesh->index_count );
+        } break;
+        case RENDER_COMMAND_TYPE_GENERATE_TEXTURE: {
+            struct GenerateTextureCommand* texture = &command->generate_texture;
+            // TODO(alicia): 3D textures
+            assert( texture->type == GRAPHICS_TEXTURE_TYPE_2D );
+            GLTexture2D* tx2d = ctx->textures_2d + ctx->texture_2d_count;
+            Map_u32_u32* map  = &ctx->ctx.texture_map;
+            assert( !map_u32_u32_key_exists( map, texture->id ) );
+
+            *tx2d = gl_texture_2d_create(
+                texture->width, texture->height, 0,
+                gl_texture_base_type( texture->base_type ),
+                gl_texture_internal_format( texture->base_type, texture->format ),
+                gl_texture_format( texture->format ),
+                gl_texture_wrap( texture->wrap_x ),
+                gl_texture_wrap( texture->wrap_y ),
+                gl_texture_magnification_filter( texture->magnification_filter ),
+                gl_texture_minification_filter( texture->minification_filter ),
+                texture->buffer );
+
+            map_u32_u32_push( map, texture->id, tx2d->id );
+
+            GL_LOG_NOTE( "Texture [{u}] created.", texture->id );
+        } break;
+        default: panic();
+    }
+}
+
+internal void gl_retire(
+    OpenGLRendererContext* ctx, RenderCommand* command
+) {
+    unused(ctx);
+    unused(command);
+}
+
 b32 gl_renderer_backend_begin_frame(
     RendererContext* renderer_ctx, RenderData* render_data
 ) {
     OpenGLRendererContext* ctx = renderer_ctx;
+
+    // execute generate commands
+    usize command_count_max = render_data->command_count;
+    if( render_data->non_draw_command_present ) {
+        for(
+            usize i = render_data->non_draw_command_start;
+            i < command_count_max;
+            ++i
+        ) {
+            RenderCommand* current = render_data->command_buffer + i;
+            switch( current->type ) {
+                case RENDER_COMMAND_TYPE_GENERATE_MESH:
+                case RENDER_COMMAND_TYPE_GENERATE_TEXTURE: {
+                    gl_generate( ctx, current );
+                } break;
+                case RENDER_COMMAND_TYPE_RETIRE_MESHES:
+                case RENDER_COMMAND_TYPE_RETIRE_TEXTURES: {
+                    gl_retire( ctx, current );
+                } break;
+                case RENDER_COMMAND_TYPE_SET_DIRECTIONAL_LIGHT: {
+                    gl_light_buffer_directional_set(
+                        ctx->buffers[GL_BUFFER_INDEX_UBO_LIGHTS],
+                        &ctx->lights,
+                        current->directional_light.direction,
+                        current->directional_light.color );
+                } break;
+                case RENDER_COMMAND_TYPE_SET_POINT_LIGHT: {
+                    // TODO(alicia): better way to do this!
+                    if( current->point_light.is_active ) {
+                        gl_light_buffer_point_set(
+                            ctx->buffers[GL_BUFFER_INDEX_UBO_LIGHTS],
+                            &ctx->lights,
+                            current->point_light.index,
+                            current->point_light.position,
+                            current->point_light.color,
+                            current->point_light.is_active );
+                    } else {
+                        gl_light_buffer_point_set_active(
+                            ctx->buffers[GL_BUFFER_INDEX_UBO_LIGHTS],
+                            &ctx->lights,
+                            current->point_light.index,
+                            current->point_light.is_active );
+                    }
+                } break;
+                default: UNIMPLEMENTED();
+            }
+            render_data->command_count--;
+        }
+    }
+
+    // remap render ids
+    Map_u32_u32* mesh_map    = &ctx->ctx.mesh_map;
+    Map_u32_u32* texture_map = &ctx->ctx.texture_map;
+    for( usize i = 0; i < render_data->command_count; ++i ) {
+        RenderCommand* current = render_data->command_buffer + i;
+        RenderID id = 0;
+        if( !map_u32_u32_get( mesh_map, current->draw.mesh, &id ) ) {
+            id = GL_VERTEX_ARRAY_INDEX_CUBE_3D;
+        }
+        current->draw.mesh = id;
+
+        if( !map_u32_u32_get(
+            texture_map, current->draw.texture_diffuse, &id
+        ) ) {
+            id = ctx->textures_2d[GL_TEXTURE_INDEX_NULL_DIFFUSE].id;
+        }
+        current->draw.texture_diffuse = id;
+
+        if( !map_u32_u32_get(
+            texture_map, current->draw.texture_normal, &id
+        ) ) {
+            id = ctx->textures_2d[GL_TEXTURE_INDEX_NULL_NORMAL].id;
+        }
+        current->draw.texture_normal = id;
+
+        if( !map_u32_u32_get(
+            texture_map, current->draw.texture_roughness, &id
+        ) ) {
+            id = ctx->textures_2d[GL_TEXTURE_INDEX_NULL_ROUGHNESS].id;
+        }
+        current->draw.texture_roughness = id;
+
+        if( !map_u32_u32_get(
+            texture_map, current->draw.texture_metallic, &id
+        ) ) {
+            id = ctx->textures_2d[GL_TEXTURE_INDEX_NULL_ROUGHNESS].id;
+        }
+        current->draw.texture_metallic = id;
+    }
 
     gl_data_buffer_set_time(
         ctx->buffers[GL_BUFFER_INDEX_UBO_DATA],
@@ -280,11 +514,11 @@ b32 gl_renderer_backend_begin_frame(
         (fbo_shadow_point + 3)->id, GL_DEPTH, 0, &clear_depth );
 
     // draw shadows
-    for( usize i = 0; i < render_data->draw_command_count; ++i ) {
-        DrawCommand* current = render_data->draw_commands + i;
+    for( usize i = 0; i < render_data->command_count; ++i ) {
+        RenderCommand* current = render_data->command_buffer + i;
         if(
-            !bitfield_check( current->flags, DRAW_FLAG_SHADOW_CASTER ) ||
-            bitfield_check( current->flags, DRAW_FLAG_IS_WIREFRAME )
+            !bitfield_check( current->draw.flags, DRAW_FLAG_SHADOW_CASTER ) ||
+            bitfield_check( current->draw.flags, DRAW_FLAG_IS_WIREFRAME )
         ) {
             continue;
         }
@@ -292,26 +526,26 @@ b32 gl_renderer_backend_begin_frame(
         glViewport( 0, 0,
             fbo_shadow_directional->width, fbo_shadow_directional->height );
 
-        glBindVertexArray( current->mesh );
+        GLVertexArray* array = ctx->vertex_arrays + current->draw.mesh;
+        glBindVertexArray( array->id );
 
         glProgramUniformMatrix4fv(
             sh_shadow_directional,
             GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
             1, GL_FALSE,
-            current->transform->c );
+            current->draw.transform.c );
         glProgramUniformMatrix4fv(
             sh_shadow_point,
             GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
             1, GL_FALSE,
-            current->transform->c );
+            current->draw.transform.c );
 
         glUseProgram( sh_shadow_directional );
 
-        // TODO(alicia): index count!!
         glDrawElements(
-            GL_TRIANGLES,
-            CUBE_3D_INDEX_COUNT,
-            GL_UNSIGNED_BYTE,
+            array->default_mode,
+            array->index_count,
+            array->index_type,
             NULL );
 
         glUseProgram( sh_shadow_point );
@@ -327,11 +561,10 @@ b32 gl_renderer_backend_begin_frame(
             glProgramUniform1i( sh_shadow_point,
                 GL_SHADER_PROGRAM_SHADOW_POINT_LOCATION_POINT_INDEX, i );
 
-            // TODO(alicia): index count!!
             glDrawElements(
-                GL_TRIANGLES,
-                CUBE_3D_INDEX_COUNT,
-                GL_UNSIGNED_BYTE,
+                array->default_mode,
+                array->index_count,
+                array->index_type,
                 NULL );
         }
 
@@ -356,101 +589,97 @@ b32 gl_renderer_backend_begin_frame(
         (fbo_shadow_point + 3)->shadow_texture_id );
 
     // draw proper
-    for( usize i = 0; i < render_data->draw_command_count; ++i ) {
+    for( usize i = 0; i < render_data->command_count; ++i ) {
         // TODO(alicia): transparency
 
-        DrawCommand* current = render_data->draw_commands + i;
-        glBindVertexArray( current->mesh );
+        RenderCommand* current = render_data->command_buffer + i;
+        GLVertexArray* array   = ctx->vertex_arrays + current->draw.mesh;
+        glBindVertexArray( array->id );
 
         glBindTextureUnit(
             GL_SHADER_PROGRAM_PHONG_BRDF_BINDING_DIFFUSE_TEXTURE,
-            current->texture_diffuse );
+            current->draw.texture_diffuse );
         glBindTextureUnit(
             GL_SHADER_PROGRAM_PHONG_BRDF_BINDING_NORMAL_TEXTURE,
-            current->texture_normal );
+            current->draw.texture_normal );
         glBindTextureUnit(
             GL_SHADER_PROGRAM_PHONG_BRDF_BINDING_ROUGHNESS_TEXTURE,
-            current->texture_roughness );
+            current->draw.texture_roughness );
         glBindTextureUnit(
             GL_SHADER_PROGRAM_PHONG_BRDF_BINDING_METALLIC_TEXTURE,
-            current->texture_metallic );
+            current->draw.texture_metallic );
  
         glProgramUniform3fv(
             sh_phong, GL_SHADER_PROGRAM_PHONG_BRDF_LOCATION_TINT,
-            1, current->tint.c );
+            1, current->draw.tint.c );
         glProgramUniform1i(
             sh_phong,
             GL_SHADER_PROGRAM_PHONG_BRDF_LOCATION_SHADOW_RECEIVER,
-            bitfield_check( current->flags, DRAW_FLAG_SHADOW_RECEIVER ) );
+            bitfield_check( current->draw.flags, DRAW_FLAG_SHADOW_RECEIVER ) );
         glProgramUniformMatrix4fv(
             sh_phong, GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
-            1, GL_FALSE, current->transform->c );
-        mat3 normal_mat = m4_normal_matrix_unchecked( current->transform );
+            1, GL_FALSE, current->draw.transform.c );
+        mat3 normal_mat = m4_normal_matrix_unchecked( &current->draw.transform );
         glProgramUniformMatrix3fv(
             sh_phong, GL_SHADER_PROGRAM_LOCATION_NORMAL_TRANSFORM,
             1, GL_FALSE, normal_mat.c );
         // TODO(alicia): index count!!
 
-        GLenum mode = GL_TRIANGLES;
-        if( bitfield_check( current->flags, DRAW_FLAG_IS_WIREFRAME ) ) {
+        GLenum mode = array->default_mode;
+        if( bitfield_check( current->draw.flags, DRAW_FLAG_IS_WIREFRAME ) ) {
             mode = GL_LINES;
         }
         glDrawElements(
             mode,
-            CUBE_3D_INDEX_COUNT,
-            GL_UNSIGNED_BYTE,
+            array->index_count,
+            array->index_type,
             NULL
         );
     }
-
-    gl_light_buffer_point_set(
-        ctx->buffers[GL_BUFFER_INDEX_UBO_LIGHTS], &ctx->lights, 0,
-        v3( -2.0f, 1.0f, 0.0f ),
-        RGB_WHITE, true );
 
     // NOTE(alicia): UI Rendering
-    glDisable( GL_DEPTH_TEST );
-    glEnable( GL_BLEND );
-    glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-
-    for( usize i = 0; i < render_data->object_count; ++i ) {
-        RenderObject* object = render_data->objects + i;
-        GLShaderProgramID program_id = 0;
-
-        switch( object->material.shader ) {
-            case RENDER_SHADER_DEBUG_COLOR: {
-                program_id = ctx->programs[GL_SHADER_PROGRAM_INDEX_COLOR];
-                glUseProgram( program_id );
-                glProgramUniform4fv(
-                    program_id,
-                    GL_SHADER_PROGRAM_COLOR_LOCATION_COLOR,
-                    1, object->material.debug_color.color.c
-                );
-            } break;
-            default: continue;
-        }
-
-        switch( object->mesh ) {
-            case RENDER_MESH_QUAD_2D_LOWER_LEFT: {
-                glBindVertexArray(
-                    ctx->vertex_arrays[GL_VERTEX_ARRAY_INDEX_QUAD_2D] );
-            } break;
-            default: continue;
-        }
-
-        glProgramUniformMatrix4fv(
-            program_id,
-            GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
-            1, GL_FALSE,
-            object->material.transform.c
-        );
-        glDrawElements(
-            GL_TRIANGLES,
-            QUAD_2D_INDEX_COUNT,
-            GL_UNSIGNED_BYTE,
-            NULL
-        );
-    }
+    // glDisable( GL_DEPTH_TEST );
+    // glEnable( GL_BLEND );
+    // glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+    //
+    // for( usize i = 0; i < render_data->object_count; ++i ) {
+    //     RenderObject* object = render_data->objects + i;
+    //     GLShaderProgramID program_id = 0;
+    //
+    //     switch( object->material.shader ) {
+    //         case RENDER_SHADER_DEBUG_COLOR: {
+    //             program_id = ctx->programs[GL_SHADER_PROGRAM_INDEX_COLOR];
+    //             glUseProgram( program_id );
+    //             glProgramUniform4fv(
+    //                 program_id,
+    //                 GL_SHADER_PROGRAM_COLOR_LOCATION_COLOR,
+    //                 1, object->material.debug_color.color.c
+    //             );
+    //         } break;
+    //         default: continue;
+    //     }
+    //
+    //     switch( object->mesh ) {
+    //         case RENDER_MESH_QUAD_2D_LOWER_LEFT: {
+    //             glBindVertexArray(
+    //                 ctx->vertex_arrays[GL_VERTEX_ARRAY_INDEX_QUAD_2D] );
+    //         } break;
+    //         default: continue;
+    //     }
+    //
+    //     glProgramUniformMatrix4fv(
+    //         program_id,
+    //         GL_SHADER_PROGRAM_LOCATION_TRANSFORM,
+    //         1, GL_FALSE,
+    //         object->material.transform.c
+    //     );
+    //     glDrawElements(
+    //         GL_TRIANGLES,
+    //         QUAD_2D_INDEX_COUNT,
+    //         GL_UNSIGNED_BYTE,
+    //         NULL
+    //     );
+    // }
 
     return true;
 }
@@ -468,7 +697,7 @@ b32 gl_renderer_backend_end_frame(
 }
 
 internal void gl_init_buffers( OpenGLRendererContext* ctx ) {
-    glCreateBuffers( GL_BUFFER_COUNT, ctx->buffers );
+    glCreateBuffers( GL_DEFAULT_BUFFER_COUNT, ctx->buffers );
     /* create matrices buffer */ {
         GLBufferID ubo = ctx->buffers[GL_BUFFER_INDEX_UBO_CAMERA];
 
@@ -517,11 +746,17 @@ internal void gl_init_buffers( OpenGLRendererContext* ctx ) {
         gl_data_buffer_create( ubo, NULL );
     }
 
-    glCreateVertexArrays( GL_VERTEX_ARRAY_COUNT, ctx->vertex_arrays );
     /* create quad 2d mesh */ {
-        GLuint vao = ctx->vertex_arrays[GL_VERTEX_ARRAY_INDEX_QUAD_2D];
+        GLVertexArray* current =
+            ctx->vertex_arrays + GL_VERTEX_ARRAY_INDEX_QUAD_2D;
+        glCreateVertexArrays( 1, &current->id );
+        GLuint vao = current->id;
         GLuint vbo = ctx->buffers[GL_BUFFER_INDEX_VBO_QUAD_2D];
         GLuint ebo = ctx->buffers[GL_BUFFER_INDEX_EBO_QUAD];
+
+        current->index_type   = GL_UNSIGNED_BYTE;
+        current->index_count  = QUAD_2D_INDEX_COUNT;
+        current->default_mode = GL_TRIANGLES;
         
         glNamedBufferStorage(
             vbo, QUAD_2D_VERTEX_BUFFER_SIZE,
@@ -561,8 +796,15 @@ internal void gl_init_buffers( OpenGLRendererContext* ctx ) {
         glVertexArrayAttribBinding( vao, 1, 0 );
     }
     /* create framebuffer quad */ {
-        GLuint vao = ctx->vertex_arrays[GL_VERTEX_ARRAY_INDEX_FRAMEBUFFER];
+        GLVertexArray* current =
+            ctx->vertex_arrays + GL_VERTEX_ARRAY_INDEX_FRAMEBUFFER;
+        glCreateVertexArrays( 1, &current->id );
+        GLuint vao = current->id;
         GLuint vbo = ctx->buffers[GL_BUFFER_INDEX_VBO_FRAMEBUFFER];
+
+        current->default_mode = GL_TRIANGLES;
+        current->index_type   = GL_UNSIGNED_BYTE;
+        current->index_count  = QUAD_2D_INDEX_COUNT;
      
         f32 FRAMEBUFFER_VERTICES[] = {
             -1.0f, -1.0f, /* uvs */ 0.0f, 0.0f,
@@ -594,23 +836,28 @@ internal void gl_init_buffers( OpenGLRendererContext* ctx ) {
             vao, 0,
             2, GL_FLOAT,
             GL_FALSE,
-            0
-        );
+            0 );
         glVertexArrayAttribFormat(
             vao, 1,
             2, GL_FLOAT,
             GL_FALSE,
-            sizeof(f32) * 2
-        );
+            sizeof(f32) * 2 );
 
         glVertexArrayAttribBinding( vao, 0, 0 );
         glVertexArrayAttribBinding( vao, 1, 0 );
     }
     /* create cube 3d mesh */ {
-        GLuint vao = ctx->vertex_arrays[GL_VERTEX_ARRAY_INDEX_CUBE_3D];
+        GLVertexArray* current =
+            ctx->vertex_arrays +GL_VERTEX_ARRAY_INDEX_CUBE_3D;
+        glCreateVertexArrays( 1, &current->id );
+        GLuint vao = current->id;
         GLuint vbo = ctx->buffers[GL_BUFFER_INDEX_VBO_CUBE_3D];
         GLuint ebo = ctx->buffers[GL_BUFFER_INDEX_EBO_CUBE_3D];
         
+        current->index_type   = GL_UNSIGNED_BYTE;
+        current->index_count  = CUBE_3D_INDEX_COUNT;
+        current->default_mode = GL_TRIANGLES;
+
         glNamedBufferStorage(
             vbo, CUBE_3D_VERTEX_BUFFER_SIZE,
             CUBE_3D,
@@ -1250,7 +1497,110 @@ void gl_debug_callback(
             GL_LOG_NOTE( "{u32} {cc} {cc} | {cc}", GL_DEBUG_MESSAGE_FORMAT );
         } break;
     }
-
 #endif
 }
+
+maybe_unused
+internal GLenum gl_texture_type( GraphicsTextureType type ) {
+    assert( type < GRAPHICS_TEXTURE_TYPE_COUNT );
+    GLenum types[GRAPHICS_TEXTURE_TYPE_COUNT] = {
+        GL_TEXTURE_2D,
+        GL_TEXTURE_3D
+    };
+    return types[type];
+}
+internal GLenum gl_texture_format( GraphicsTextureFormat format ) {
+    assert( format < GRAPHICS_TEXTURE_FORMAT_COUNT );
+    GLenum formats[GRAPHICS_TEXTURE_FORMAT_COUNT] = {
+        GL_RED,
+        GL_RGB,
+        GL_RGBA,
+        GL_SRGB,
+    };
+    return formats[format];
+}
+internal GLenum gl_texture_internal_format(
+    GraphicsTextureBaseType base_type, GraphicsTextureFormat format
+) {
+    switch( format ) {
+        case GRAPHICS_TEXTURE_FORMAT_GRAYSCALE: switch( base_type ) {
+            case GRAPHICS_TEXTURE_BASE_TYPE_UINT8:
+                return GL_R8;
+            case GRAPHICS_TEXTURE_BASE_TYPE_UINT16:
+                return GL_R16;
+            case GRAPHICS_TEXTURE_BASE_TYPE_UINT32:
+                return GL_R32UI;
+            case GRAPHICS_TEXTURE_BASE_TYPE_FLOAT32:
+                return GL_R32F;
+            default: panic();
+        } break;
+        case GRAPHICS_TEXTURE_FORMAT_RGB: switch( base_type ) {
+            case GRAPHICS_TEXTURE_BASE_TYPE_UINT8:
+                return GL_RGB8;
+            case GRAPHICS_TEXTURE_BASE_TYPE_UINT16:
+                return GL_RGB16;
+            case GRAPHICS_TEXTURE_BASE_TYPE_UINT32:
+                return GL_RGB32UI;
+            case GRAPHICS_TEXTURE_BASE_TYPE_FLOAT32:
+                return GL_RGB32F;
+            default: panic();
+        } break;
+        case GRAPHICS_TEXTURE_FORMAT_RGBA: switch( base_type ) {
+            case GRAPHICS_TEXTURE_BASE_TYPE_UINT8:
+                return GL_RGBA8;
+            case GRAPHICS_TEXTURE_BASE_TYPE_UINT16:
+                return GL_RGBA16;
+            case GRAPHICS_TEXTURE_BASE_TYPE_UINT32:
+                return GL_RGBA32UI;
+            case GRAPHICS_TEXTURE_BASE_TYPE_FLOAT32:
+                return GL_RGBA32F;
+            default: panic();
+        } break;
+        case GRAPHICS_TEXTURE_FORMAT_SRGB: switch( base_type ) {
+            case GRAPHICS_TEXTURE_BASE_TYPE_UINT8:
+                return GL_SRGB8;
+            default: panic();
+        } break;
+        default: panic();
+    }
+}
+internal GLenum gl_texture_base_type( GraphicsTextureBaseType type ) {
+    assert( type < GRAPHICS_TEXTURE_BASE_TYPE_COUNT );
+    GLenum types[GRAPHICS_TEXTURE_BASE_TYPE_COUNT] = {
+        GL_UNSIGNED_BYTE,
+        GL_UNSIGNED_SHORT,
+        GL_UNSIGNED_INT,
+        GL_FLOAT
+    };
+    return types[type];
+}
+internal GLenum gl_texture_wrap( GraphicsTextureWrap wrap ) {
+    assert( wrap < GRAPHICS_TEXTURE_WRAP_COUNT );
+    GLenum wraps[GRAPHICS_TEXTURE_WRAP_COUNT] = {
+        GL_CLAMP_TO_EDGE,
+        GL_REPEAT
+    };
+    return wraps[wrap];
+}
+internal GLenum gl_texture_minification_filter(
+    GraphicsTextureFilter filter
+) {
+    assert( filter < GRAPHICS_TEXTURE_FILTER_COUNT );
+    GLenum filters[GRAPHICS_TEXTURE_FILTER_COUNT] = {
+        GL_NEAREST_MIPMAP_NEAREST,
+        GL_LINEAR_MIPMAP_LINEAR
+    };
+    return filter[filters];
+}
+internal GLenum gl_texture_magnification_filter(
+    GraphicsTextureFilter filter
+) {
+    assert( filter < GRAPHICS_TEXTURE_FILTER_COUNT );
+    GLenum filters[GRAPHICS_TEXTURE_FILTER_COUNT] = {
+        GL_NEAREST,
+        GL_LINEAR
+    };
+    return filters[filter];
+}
+
 

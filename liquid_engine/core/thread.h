@@ -85,8 +85,6 @@ LD_API void* interlocked_compare_exchange_pointer(
     extern usize THREAD_SUBSYSTEM_SIZE;
     /// Initialize thread subsystem
     b32 thread_subsystem_init( u32 logical_processor_count, void* buffer );
-    /// Shutdown thread subsystem
-    void thread_subsystem_shutdown(void);
 
 #endif
 

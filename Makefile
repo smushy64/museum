@@ -183,7 +183,9 @@ test: build_testbed
 	@cp resources/shaders/shadow_point.vert.spv $(BUILD_PATH)/resources/shaders/shadow_point.vert.spv
 	@cp resources/shaders/shadow_point.geom.spv $(BUILD_PATH)/resources/shaders/shadow_point.geom.spv
 	@cp resources/shaders/shadow_point.frag.spv $(BUILD_PATH)/resources/shaders/shadow_point.frag.spv
-	@cd $(BUILD_PATH) && ./$(LD_EXE_NAME)$(if $(EXE_EXT),.$(EXE_EXT),) --libload=$(LIB_TESTBED) --gl
+ifeq ($(TARGET_PLATFORM), win32)
+	@remedybg start-debugging
+endif
 
 build_testbed: all
 	@$(MAKE) --directory=testbed --no-print-directory

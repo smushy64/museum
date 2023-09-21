@@ -535,10 +535,6 @@ b32 platform_subsystem_init( void* buffer ) {
     WIN32_LOG_INFO( "Platform subsystem successfully initialized." );
     return true;
 }
-void platform_subsystem_shutdown(void) {
-    TerminateThread( PLATFORM->xinput_polling_thread, 0 );
-    platform_semaphore_destroy( PLATFORM->xinput_polling_thread_semaphore );
-}
 
 usize PLATFORM_SURFACE_BUFFER_SIZE = sizeof(Win32Surface);
 b32 PLATFORM_SUPPORTS_MULTIPLE_SURFACES = true;
@@ -660,7 +656,6 @@ void platform_surface_destroy( PlatformSurface* surface ) {
     assert( surface );
     Win32Surface* win32_surface = surface;
     DestroyWindow( win32_surface->handle );
-    mem_zero( win32_surface, sizeof(Win32Surface) );
 }
 void platform_surface_set_dimensions(
     PlatformSurface* surface, ivec2 dimensions

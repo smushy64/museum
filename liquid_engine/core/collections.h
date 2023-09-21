@@ -8,6 +8,23 @@
 #include "defines.h"
 #include "core/strings.h"
 
+// TODO(alicia): sorting!
+
+/// Less than function used for sorting.
+typedef b32 SortLTFN( void* lhs, void* rhs, void* params );
+/// Swap elements function used for sorting.
+typedef void SortSwapFN( void* lhs, void* rhs );
+/// Quicksort sorting algorithm implementation.
+LD_API void sorting_quicksort(
+    isize from_inclusive,
+    isize to_inclusive,
+    usize element_size,
+    void* buffer,
+    SortLTFN* lt,
+    void* opt_lt_params,
+    SortSwapFN* swap
+);
+
 /// Dynamic type map.
 typedef struct Map {
     void* buffer;
@@ -52,7 +69,7 @@ header_only Map_u32_u32 map_u32_u32_create( usize buffer_size, void* buffer ) {
     usize capacity = buffer_size / sizeof(KV_u32_u32);
     Map_u32_u32 result;
 
-    result.pairs    = buffer;
+    result.pairs    = (KV_u32_u32*)buffer;
     result.capacity = capacity;
     result.count    = 0;
 

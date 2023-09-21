@@ -94,6 +94,13 @@ typedef struct GLTexture2D {
     GLMinFilter      min_filter;
 } GLTexture2D;
 
+typedef struct {
+    GLVertexArrayID id;
+    u32             index_count;
+    GLenum          index_type;
+    GLenum          default_mode;
+} GLVertexArray;
+
 typedef void (*DEBUGPROC)(
     GLenum        source,
     GLenum        type,

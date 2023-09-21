@@ -9,6 +9,70 @@
 #include "core/log.h"
 #include "core/strings.h"
 
+internal isize sorting_quicksort_partition(
+    isize low, isize high, usize element_size, void* buffer,
+    SortLTFN* lt, void* opt_lt_params, SortSwapFN* swap_
+) {
+    u8* buf = buffer;
+    void* pivot = buf + (high * element_size);
+
+    isize i = (isize)low - 1;
+
+    for( isize j = (isize)low; j <= (isize)high - 1; ++j ) {
+        void* at_j = buf + (j * element_size);
+
+        if( lt( at_j, pivot, opt_lt_params ) ) {
+            ++i;
+            void* at_i = buf + (i * element_size);
+            swap_( at_i, at_j );
+        }
+    }
+
+    swap_( buf + ((i + 1) * element_size), buf + (high * element_size) );
+    return i + 1;
+}
+
+LD_API void sorting_quicksort(
+    isize       low,
+    isize       high,
+    usize       element_size,
+    void*       buffer,
+    SortLTFN*   lt,
+    void*       opt_lt_params,
+    SortSwapFN* swap_
+) {
+#if 0
+    if( low < high ) {
+        isize partition_index = sorting_quicksort_partition(
+            low, high, element_size,
+            buffer, lt, opt_lt_params, swap_ );
+        sorting_quicksort(
+            low, partition_index - 1, element_size,
+            buffer, lt, opt_lt_params, swap_ );
+        sorting_quicksort(
+            partition_index + 1, high, element_size,
+            buffer, lt, opt_lt_params, swap_ );
+    }
+#else
+    while( low < high ) {
+        isize partition_index = sorting_quicksort_partition(
+            low, high, element_size,
+            buffer, lt, opt_lt_params, swap_ );
+        if( partition_index - low < high - partition_index ) {
+            sorting_quicksort(
+                low, partition_index - 1, element_size,
+                buffer, lt, opt_lt_params, swap_ );
+            low = partition_index + 1;
+        } else {
+            sorting_quicksort(
+                partition_index + 1, high, element_size,
+                buffer, lt, opt_lt_params, swap_ );
+            high = partition_index - 1;
+        }
+    }
+#endif
+}
+
 LD_API b32 map_set( Map* map, void* key, void* new_value ) {
     usize stride = map->key_size + map->value_size;
     u8* buffer   = map->buffer;

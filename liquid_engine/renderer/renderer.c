@@ -99,50 +99,70 @@ void renderer_subsystem_on_resize(
 
     ctx->on_resize( ctx );
 }
+
+internal no_inline
+b32 renderer_sort_command_lt( void* lhs, void* rhs, void* params ) {
+    RenderCommand* a = lhs;
+    RenderCommand* b = rhs;
+    vec3* camera_position = params;
+
+    if(
+        a->type == RENDER_COMMAND_TYPE_DRAW &&
+        b->type == RENDER_COMMAND_TYPE_DRAW
+    ) {
+        vec3 a_pos = m4_transform_position( &a->draw.transform );
+        vec3 b_pos = m4_transform_position( &b->draw.transform );
+
+        f32 a_dist = v3_sqrmag( v3_sub( a_pos, *camera_position ) );
+        f32 b_dist = v3_sqrmag( v3_sub( b_pos, *camera_position ) );
+
+        return a_dist < b_dist;
+    } else {
+        return
+            a->type == RENDER_COMMAND_TYPE_DRAW &&
+            b->type != RENDER_COMMAND_TYPE_DRAW;
+    }
+
+}
+internal no_inline
+void renderer_sort_command_swap( void* lhs, void* rhs ) {
+    RenderCommand* a = lhs;
+    RenderCommand* b = rhs;
+    RenderCommand temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
 internal b32 renderer_begin_frame(
     RendererContext* opaque, struct RenderData* render_data
 ) {
     InternalRendererContext* ctx = opaque;
 
-    // translate outside render ids to real ids
-    for( usize i = 0; i < render_data->draw_command_count; ++i ) {
-        DrawCommand* current = render_data->draw_commands + i;
-        RenderID value = 0;
-        if( !map_u32_u32_get( &ctx->mesh_map, current->mesh, &value ) ) {
-            value = ctx->mesh_null;
-        }
-        current->mesh = value;
-
-        if( !map_u32_u32_get(
-            &ctx->texture_map, current->texture_diffuse, &value
-        ) ) {
-            value = ctx->texture_diffuse_null;
-        }
-        current->texture_diffuse = value;
-
-        if( !map_u32_u32_get(
-            &ctx->texture_map, current->texture_normal, &value
-        ) ) {
-            value = ctx->texture_normal_null;
-        }
-        current->texture_normal = value;
-
-        if( !map_u32_u32_get(
-            &ctx->texture_map, current->texture_roughness, &value
-        ) ) {
-            value = ctx->texture_roughness_null;
-        }
-        current->texture_roughness = value;
-
-        if( !map_u32_u32_get(
-            &ctx->texture_map, current->texture_metallic, &value
-        ) ) {
-            value = ctx->texture_metallic_null;
-        }
-        current->texture_metallic = value;
+    vec3 camera_position = VEC3_ZERO;
+    if( render_data->camera ) {
+        assert( render_data->camera->transform );
+        camera_position = transform_world_position(
+            render_data->camera->transform );
     }
+    sorting_quicksort(
+        0, render_data->command_count - 1,
+        sizeof(RenderCommand), render_data->command_buffer,
+        renderer_sort_command_lt, &camera_position,
+        renderer_sort_command_swap );
+    usize i = render_data->command_count;
+    do {
+        --i;
+        if(
+            render_data->command_buffer[i].type ==
+            RENDER_COMMAND_TYPE_DRAW
+        ) {
+            render_data->non_draw_command_start =
+                min( i + 1, render_data->command_count - 1);
+            break;
+        }
+    } while( i );
 
-    // TODO(alicia): z sorting?
+    // TODO(alicia): frustum culling
 
     return ctx->begin_frame( ctx, render_data );
 }
@@ -150,6 +170,8 @@ internal b32 renderer_end_frame(
     RendererContext* opaque, struct RenderData* render_data
 ) {
     InternalRendererContext* ctx = opaque;
+
+    render_data->non_draw_command_present = false;
     return ctx->end_frame( ctx, render_data );
 }
 b32 renderer_subsystem_on_draw(

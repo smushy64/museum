@@ -12,6 +12,7 @@
 #include <core/graphics/types.h>
 #include <core/graphics/ui.h>
 #include <core/input.h>
+#include <core/collections.h>
 
 struct GameMemory {
     Transform camera_transform;
@@ -19,10 +20,30 @@ struct GameMemory {
     hsv       color;
     vec3      camera_rotation;
 
-    mat4 cube;
+    Transform cube0;
+    Transform cube1;
+    Transform triangle_transform;
+
     mat4 floor;
 
     vec3 cube_rotation;
+
+    RenderID triangle;
+    RenderID triangle_diffuse;
+};
+
+struct Vertex3D triangle_vertices[] = {
+    { { -0.5f, -0.5f, 0.0f }, { 0.0f, 0.0f }, { VEC3_FORWARD }, { RGBA_WHITE }, { VEC3_RIGHT } },
+    { {  0.5f, -0.5f, 0.0f }, { 1.0f, 0.0f }, { VEC3_FORWARD }, { RGBA_WHITE }, { VEC3_RIGHT } },
+    { {  0.0f,  0.5f, 0.0f }, { 0.0f, 1.0f }, { VEC3_FORWARD }, { RGBA_WHITE }, { VEC3_RIGHT } },
+};
+
+u32 triangle_indices[] = {
+    0, 1, 2
+};
+
+u8 triangle_diffuse[] = {
+    255, 255, 255
 };
 
 c_linkage usize application_query_memory_requirement() {
@@ -59,16 +80,38 @@ c_linkage b32 application_init( EngineContext* ctx, void* opaque ) {
     memory->color = v3_hsv( 0.0f, 1.0f, 1.0f );
 
     memory->floor = m4_transform( VEC3_DOWN, QUAT_IDENTITY, v3( 100.0f, 1.0f, 100.0f ) );
-    memory->cube  = m4_transform( VEC3_ZERO, QUAT_IDENTITY, VEC3_ONE );
+    memory->cube0 = transform_create( v3( 0.0f, 1.2f, 0.0f ), QUAT_IDENTITY, VEC3_ONE );
+    memory->cube1 = transform_create( v3( 0.0f, 0.75f, 0.0f ), QUAT_IDENTITY, v3_mul( VEC3_ONE, 0.5f ) );
+    memory->cube1.parent = &memory->cube0;
 
     engine_set_camera( ctx, &memory->camera );
+
+    memory->triangle = graphics_generate_mesh(
+        static_array_count(triangle_vertices), triangle_vertices,
+        static_array_count(triangle_indices), triangle_indices );
+    memory->triangle_diffuse = graphics_generate_texture_2d(
+        GRAPHICS_TEXTURE_FORMAT_RGB,
+        GRAPHICS_TEXTURE_BASE_TYPE_UINT8,
+        GRAPHICS_TEXTURE_WRAP_CLAMP,
+        GRAPHICS_TEXTURE_WRAP_CLAMP,
+        GRAPHICS_TEXTURE_FILTER_NEAREST,
+        GRAPHICS_TEXTURE_FILTER_NEAREST,
+        1, 1, static_array_size( triangle_diffuse ),
+        triangle_diffuse
+    );
+
+    memory->triangle_transform =
+        transform_create( VEC3_ZERO, QUAT_IDENTITY, VEC3_ONE );
+
+    graphics_set_directional_light( v3(-1.0f, -1.0f, -1.0f), RGB_GRAY );
+    graphics_set_point_light( 0, VEC3_LEFT * 2.0f + VEC3_UP, RGB_BLUE, true );
 
     return true;
 }
 c_linkage b32 application_run(
-    EngineContext* ctx maybe_unused, void* opaque
+    maybe_unused EngineContext* ctx, void* opaque
 ) {
-    GameMemory* maybe_unused memory = (GameMemory*)opaque;
+    maybe_unused GameMemory* memory = (GameMemory*)opaque;
 
     TimeStamp time = engine_time( ctx );
     unused(time);
@@ -128,21 +171,32 @@ c_linkage b32 application_run(
             v3( 0.0f, camera_delta_y, 0.0f ) );
     }
 
-    memory->cube =
-        m4_transform( VEC3_ZERO,
-            q_euler_v3( memory->cube_rotation ), VEC3_ONE );
     graphics_draw(
-        &memory->cube,
+        transform_world_matrix( &memory->cube0 ),
         0, 0, 0, 0, 0,
         RGB_WHITE,
         false, true, false, false );
     graphics_draw(
-        &memory->floor,
+        transform_world_matrix( &memory->cube1 ),
+        0, 0, 0, 0, 0,
+        RGB_WHITE,
+        false, true, false, false );
+    graphics_draw(
+        memory->floor,
         0, 0, 0, 0, 0,
         RGB_WHITE,
         false, false, true, false );
 
-    memory->cube_rotation.y += time.delta_seconds;
+    graphics_draw(
+        transform_world_matrix( &memory->triangle_transform ),
+        memory->triangle,
+        memory->triangle_diffuse, 0, 0, 0,
+        RGB_WHITE,
+        false,
+        false, false, false );
+
+    transform_rotate( &memory->cube0, q_angle_axis( time.delta_seconds, v3_normalize(VEC3_RIGHT + VEC3_UP) ) );
+    transform_rotate( &memory->cube1, q_angle_axis( time.delta_seconds, VEC3_UP ) );
 
     return true;
 }

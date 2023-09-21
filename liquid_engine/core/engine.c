@@ -313,20 +313,9 @@ b32 engine_entry( int argc, char** argv ) {
     usize renderer_subsystem_size =
         renderer_subsystem_query_size( arg_parse.backend );
 
-    usize ui_max_elements = 1000;
-    usize ui_subsystem_size = ui_calculate_required_size( ui_max_elements );
-
-    usize max_render_objects = 500;
-    usize render_object_buffer_size = max_render_objects * sizeof(RenderObject);
-
-    usize max_draw_commands = 500;
-    usize draw_command_buffer_size = max_draw_commands * sizeof(DrawCommand);
-    ctx.render_data.draw_command_max_count = max_draw_commands;
-
-    usize max_generate_commands = 200;
-    usize generate_command_buffer_size =
-        max_generate_commands * sizeof(GenerateCommand);
-    ctx.render_data.generate_command_max_count = max_generate_commands;
+    usize render_command_buffer_size =
+        RENDER_DATA_RENDER_COMMAND_MAX * sizeof(RenderCommand);
+    ctx.render_data.command_capacity = RENDER_DATA_RENDER_COMMAND_MAX;
 
     // calculate required stack arena size
     usize required_stack_size =
@@ -337,10 +326,7 @@ b32 engine_entry( int argc, char** argv ) {
         PLATFORM_SURFACE_BUFFER_SIZE +
         renderer_subsystem_size      +
         application_memory_size      +
-        ui_subsystem_size            +
-        render_object_buffer_size    +
-        draw_command_buffer_size     +
-        generate_command_buffer_size;
+        render_command_buffer_size;
 
     usize stack_allocator_pages  = calculate_page_count( required_stack_size );
     void* stack_allocator_buffer =
@@ -430,15 +416,8 @@ b32 engine_entry( int argc, char** argv ) {
     ctx.main_surface_renderer_context =
         stack_allocator_push( &ctx.stack, renderer_subsystem_size );
 
-    ctx.render_data.max_object_count = max_render_objects;
-    ctx.render_data.object_count = 0;
-    ctx.render_data.objects =
-        stack_allocator_push( &ctx.stack, render_object_buffer_size );
-
-    ctx.render_data.draw_commands =
-        stack_allocator_push( &ctx.stack, draw_command_buffer_size );
-    ctx.render_data.generate_commands =
-        stack_allocator_push( &ctx.stack, generate_command_buffer_size );
+    ctx.render_data.command_buffer =
+        stack_allocator_push( &ctx.stack, render_command_buffer_size );
 
     if( !renderer_subsystem_init(
         ctx.main_surface,
@@ -454,15 +433,6 @@ b32 engine_entry( int argc, char** argv ) {
     }
     graphics_subsystem_init( &ctx.render_data );
 
-    void* ui_buffer = stack_allocator_push( &ctx.stack, ui_subsystem_size );
-    if( !ui_subsystem_init( ui_max_elements, ui_buffer ) ) {
-        MESSAGE_BOX_FATAL(
-            "Subsystem Failure",
-            "Failed to initialize ui subsystem!\n"
-            LD_CONTACT_MESSAGE
-        );
-        return false;
-    }
 
     void* thread_subsystem_buffer =
         stack_allocator_push( &ctx.stack, THREAD_SUBSYSTEM_SIZE );
@@ -626,9 +596,6 @@ b32 engine_entry( int argc, char** argv ) {
             return false;
         }
 
-        ivec2 surface_dimensions = engine_surface_query_resolution( &ctx );
-        ui_subsystem_update_render_data( surface_dimensions, &ctx.render_data );
-
         if( !renderer_subsystem_on_draw(
             ctx.main_surface_renderer_context,
             &ctx.render_data
@@ -641,8 +608,7 @@ b32 engine_entry( int argc, char** argv ) {
             return false;
         }
 
-        ctx.render_data.draw_command_count     = 0;
-        ctx.render_data.generate_command_count = 0;
+        ctx.render_data.command_count = 0;
 
         event_fire_end_of_frame();
 
@@ -661,7 +627,6 @@ b32 engine_entry( int argc, char** argv ) {
             seconds_elapsed - ctx.time.elapsed_seconds;
         ctx.time.elapsed_seconds = seconds_elapsed;
 
-        ctx.render_data.object_count = 0;
     }
 
     event_unsubscribe( event_exit_id );
@@ -669,8 +634,6 @@ b32 engine_entry( int argc, char** argv ) {
 
     renderer_subsystem_shutdown( ctx.main_surface_renderer_context );
     platform_surface_destroy( surface );
-    platform_subsystem_shutdown();
-    thread_subsystem_shutdown();
     log_subsystem_shutdown();
 
     return true;

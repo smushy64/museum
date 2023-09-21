@@ -35,12 +35,6 @@ typedef struct InternalRendererContext {
     void* surface;
 
     u32 map_buffer[(MESH_COUNT_MAX * 2) + (TEXTURE_COUNT_MAX * 2)];
-
-    RenderID mesh_null;
-    RenderID texture_diffuse_null;
-    RenderID texture_normal_null;
-    RenderID texture_roughness_null;
-    RenderID texture_metallic_null;
 } InternalRendererContext;
 
 #endif // header guard

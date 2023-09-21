@@ -960,6 +960,8 @@ LD_API b32 m4_normal_matrix( const mat4* m, mat3* out_normal_matrix );
 /// Construct normal matrix.
 /// If unsuccessful, cells will be NaN!
 LD_API mat3 m4_normal_matrix_unchecked( const mat4* m );
+/// Extract position from transform matrix.
+LD_API vec3 m4_transform_position( const mat4* m );
 
 /// Get transform's local space matrix.
 LD_API mat4 transform_local_matrix( Transform* t );

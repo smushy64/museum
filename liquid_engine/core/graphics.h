@@ -7,8 +7,9 @@
 #include "core/mathf/types.h"
 #include "core/graphics/types.h"
 
+/// Draw a mesh using phong brdf.
 LD_API void graphics_draw(
-    mat4*    transform,
+    mat4     transform,
     RenderID mesh,
     RenderID texture_diffuse,
     RenderID texture_normal,
@@ -22,18 +23,17 @@ LD_API void graphics_draw(
 );
 
 /// Send a generate mesh command to the renderer.
-/// It takes one frame to generate a mesh.
-/// ID is a unique identifier given to the renderer by the user.
-RenderID graphics_generate_mesh(
+/// Provided buffers must live until the end of the current frame.
+LD_API RenderID graphics_generate_mesh(
     usize vertex_count, struct Vertex3D* vertices,
     usize index_count, u32* indices );
 /// Retire meshes.
-void graphics_retire_meshes( usize count, RenderID* meshes );
+/// Provided buffers must live until the end of the current frame.
+LD_API b32 graphics_retire_meshes( usize count, RenderID* meshes );
 
 /// Send a generate texture command to the renderer.
-/// It takes one frame to generate a texture.
-/// ID is a unique identifier given to the renderer by the user.
-RenderID graphics_generate_texture(
+/// Provided buffers must live until the end of the current frame.
+LD_API RenderID graphics_generate_texture(
     GraphicsTextureType     type,
     GraphicsTextureFormat   format,
     GraphicsTextureBaseType base_type,
@@ -47,11 +47,11 @@ RenderID graphics_generate_texture(
     void* buffer
 );
 /// Retire textures.
-void graphics_retire_textures( usize count, RenderID* textures );
+/// Provided buffers must live until the end of the current frame.
+LD_API b32 graphics_retire_textures( usize count, RenderID* textures );
 
 /// Send a generate texture command to the renderer.
-/// It takes one frame to generate a texture.
-/// Texture id will be written to out_result when the texture is ready.
+/// Provided buffers must live until the end of the current frame.
 header_only
 RenderID graphics_generate_texture_2d(
     GraphicsTextureFormat format,
@@ -74,12 +74,22 @@ RenderID graphics_generate_texture_2d(
     );
 }
 
+/// Send a command to the renderer to change directional light parameters.
+LD_API void graphics_set_directional_light(
+    vec3 direction, vec3 color );
+
+/// Send a command to the renderer to change point light parameters.
+LD_API void graphics_set_point_light(
+    u32 index, vec3 position, vec3 color, b32 is_active );
+
 /// Supported renderer backends
 typedef enum RendererBackend : u32 {
     RENDERER_BACKEND_OPENGL,
     RENDERER_BACKEND_VULKAN,
     RENDERER_BACKEND_DX11,
     RENDERER_BACKEND_DX12,
+    RENDERER_BACKEND_METAL,
+    RENDERER_BACKEND_WEBGL,
 
     RENDERER_BACKEND_COUNT
 } RendererBackend;
@@ -94,7 +104,9 @@ const char* renderer_backend_to_string( RendererBackend backend ) {
             macro_value_to_string( VULKAN_VERSION_MAJOR ) "."
             macro_value_to_string( VULKAN_VERSION_MINOR ),
         "DirectX 11",
-        "DirectX 12"
+        "DirectX 12",
+        "Metal",
+        "WebGL"
     };
     assert( backend < RENDERER_BACKEND_COUNT );
     return strings[backend];
@@ -107,6 +119,16 @@ b32 renderer_backend_is_supported( RendererBackend backend ) {
         backend == RENDERER_BACKEND_DX11 ||
         backend == RENDERER_BACKEND_DX12
     ) {
+        return false;
+    }
+#endif
+#if !(defined(LD_PLATFORM_MACOS) || defined(LD_PLATFORM_IOS))
+    if( backend == RENDERER_BACKEND_METAL ) {
+        return false;
+    }
+#endif
+#if !defined(LD_PLATFORM_WASM)
+    if( backend == RENDERER_BACKEND_WEBGL ) {
         return false;
     }
 #endif

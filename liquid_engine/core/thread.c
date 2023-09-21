@@ -124,9 +124,6 @@ b32 thread_subsystem_init( u32 logical_processor_count, void* buffer ) {
     LOG_NOTE( "Instantiated {u} threads.", thread_handle_count );
     return true;
 }
-void thread_subsystem_shutdown(void) {
-    semaphore_destroy( WORK_QUEUE->wake_semaphore );
-}
 
 LD_API u32 interlocked_increment_u32( volatile u32* addend ) {
     return platform_interlocked_increment_u32( addend );

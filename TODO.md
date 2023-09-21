@@ -30,6 +30,7 @@
     ### Bugs
 - [x] format: integer binary format should only print necessary bits
 - [x] format: integer 0 not getting formatted
+- [x] mathf: transform_world_matrix has local and parent switched
 - [ ] make sure that atan actually produces good results.
     outside the -1 -> 1 range, it diverges heavily.
     it may not actually be that big of a problem but still.

@@ -13,8 +13,6 @@
 
 usize MEMORY_PAGE_SIZE = PLATFORM_MEMORY_PAGE_SIZE;
 
-#define stack_alloc(size) __builtin_alloca(size)
-
 typedef struct {
     u64 usage[MEMORY_TYPE_COUNT];
     u64 page_usage[MEMORY_TYPE_COUNT];
@@ -314,7 +312,8 @@ LD_API void mem_copy( void* dst, const void* src, usize size ) {
 }
 LD_API void mem_copy_overlapped( void* dst, const void* src, usize size ) {
     #define INTERMEDIATE_BUFFER_SIZE (256ULL)
-    void* intermediate_buffer = stack_alloc( INTERMEDIATE_BUFFER_SIZE );
+    u8 buf[INTERMEDIATE_BUFFER_SIZE];
+    void* intermediate_buffer = buf;
 
     if( size <= INTERMEDIATE_BUFFER_SIZE ) {
         mem_copy( intermediate_buffer, src, size );

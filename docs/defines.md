@@ -209,7 +209,7 @@ Includes:
 | LD_ARCH_64_BIT         | Current architecture is 64-bit          |
 | LD_ARCH_LITTLE_ENDIAN  | Current architecture is little endian   |
 | LD_ARCH_BIG_ENDIAN     | Current architecture is big endian      |
-| LD_ARCH_X86            | Current architecture is Intel x86 based |
+| LD_ARCH_X86            | Current architecture is x86 based       |
 | LD_ARCH_ARM[^1]        | Current architecture is ARM based       |
 | LD_ARCH_WASM [^1] [^2] | Current architecture is WASM based      |
 

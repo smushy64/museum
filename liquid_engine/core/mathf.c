@@ -1959,6 +1959,9 @@ mat3 m4_normal_matrix_unchecked( const mat4* m ) {
     mat4 inv_transpose = m4_transpose( &inv );
     return m3_m4( &inv_transpose );
 }
+LD_API vec3 m4_transform_position( const mat4* m ) {
+    return v3( m->m30, m->m31, m->m32 );
+}
 
 euler_angles euler_q( quat q ) {
     return (euler_angles){
@@ -2043,7 +2046,7 @@ LD_API mat4 transform_world_matrix( Transform* t ) {
     mat4 local_ = transform_local_matrix( t );
     if( t->parent ) {
         mat4 parent = transform_world_matrix( t->parent );
-        return m4_mul_m4( &local_, &parent );
+        return m4_mul_m4( &parent, &local_ );
     }
     return local_;
 }

@@ -38,7 +38,6 @@ typedef enum GraphicsTextureFormat : u32 {
     GRAPHICS_TEXTURE_FORMAT_RGB,
     GRAPHICS_TEXTURE_FORMAT_RGBA,
     GRAPHICS_TEXTURE_FORMAT_SRGB,
-    GRAPHICS_TEXTURE_FORMAT_SRGBA,
 
     GRAPHICS_TEXTURE_FORMAT_COUNT
 } GraphicsTextureFormat;
@@ -50,7 +49,6 @@ graphics_texture_format_to_cstr( GraphicsTextureFormat format ) {
         "Format RGB",
         "Format RGBA",
         "Format sRGB",
-        "Format sRGBA"
     };
     return strings[format];
 }
@@ -58,7 +56,7 @@ header_only usize
 graphics_texture_format_channel_count( GraphicsTextureFormat format ) {
     assert( format < GRAPHICS_TEXTURE_FORMAT_COUNT );
     usize channels[GRAPHICS_TEXTURE_FORMAT_COUNT] = {
-        1, 3, 4, 3, 4
+        1, 3, 4, 3
     };
     return channels[format];
 }
@@ -127,12 +125,26 @@ header_only usize graphics_calculate_texture_buffer_size(
     GraphicsTextureType     type,
     GraphicsTextureFormat   format,
     GraphicsTextureBaseType base_type,
-    u32 width, u32 height
+    u32 width, u32 height, u32 depth
 ) {
+    usize dimensions = 0;
     usize dimension_count = graphics_texture_type_dimension_count( type );
-    usize channel_count   = graphics_texture_format_channel_count( format );
-    usize base_type_size  = graphics_texture_base_type_size( base_type );
-    return dimension_count * channel_count * base_type_size * width * height;
+    switch( dimension_count ) {
+        case 1:
+            dimensions = width;
+            break;
+        case 2:
+            dimensions = width * height;
+            break;
+        case 3:
+            dimensions = width * height * depth;
+            break;
+        default: panic();
+    }
+
+    usize channel_count  = graphics_texture_format_channel_count( format );
+    usize base_type_size = graphics_texture_base_type_size( base_type );
+    return dimensions * channel_count * base_type_size;
 }
 
 /// Opaque id for font.
