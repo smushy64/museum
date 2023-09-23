@@ -1,6 +1,6 @@
-# * Description:  Project build system
+# * Description:  Liquid Engine Makefile
 # * Author:       Alicia Amarilla (smushyaa@gmail.com)
-# * File Created: September 04, 2023
+# * File Created: September 21, 2023
 
 MAKEFLAGS += -j -s
 
@@ -48,13 +48,13 @@ ifeq ($(TARGET_PLATFORM), win32)
 	export EXE_EXT := exe
 	export SO_EXT  := dll
 
-	LDMAIN := liquid_engine/platform/platform_win32_main.c
+	LDMAIN := liquid_platform/platform_win32.c
 else
 	export EXE_EXT :=
 	export SO_EXT  := so
 
 	ifeq ($(TARGET_PLATFORM), linux)
-		LDMAIN := liquid_engine/platform/platform_linux_main.c
+		LDMAIN := liquid_platform/platform_linux.c
 		LD_MEMORY_PAGE_SIZE := $(shell getconf PAGESIZE)
 	endif
 endif
@@ -100,20 +100,23 @@ export VK_MINOR := 2
 export GL_MAJOR := 4
 export GL_MINOR := 5
 
-export LD_EXE_NAME := $(LD_NAME)-$(LD_VERSION_PATH)-$(TARGET_PLATFORM)-$(TARGET_ARCH)$(if $(RELEASE),,-debug)
+export LD_EXE_NAME := liquid-engine$(if $(RELEASE),,-debug)
 export TARGET      := $(BUILD_PATH)/$(LD_EXE_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)
+export LIB_CORE_NAME := liquid-core$(if $(RELEASE),,-debug)
+export LIB_CORE      := $(LIB_CORE_NAME).$(SO_EXT)
 
 CPPFLAGS := -DLD_SIMD_WIDTH=4
 CPPFLAGS += -DLIQUID_ENGINE_VERSION=\""$(LD_NAME) $(LD_VERSION)"\"
 CPPFLAGS += -DLIQUID_ENGINE_VERSION_MAJOR=$(LD_MAJOR)
 CPPFLAGS += -DLIQUID_ENGINE_VERSION_MINOR=$(LD_MINOR)
-CPPFLAGS += -DLIQUID_ENGINE_EXECUTABLE=\"$(TARGET)\"
+CPPFLAGS += -DLIQUID_ENGINE_EXECUTABLE=\"$(LD_EXE_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)\"
 CPPFLAGS += -DGL_VERSION_MAJOR=$(GL_MAJOR)
 CPPFLAGS += -DGL_VERSION_MINOR=$(GL_MINOR)
 CPPFLAGS += -DVULKAN_VERSION_MAJOR=$(VK_MAJOR)
 CPPFLAGS += -DVULKAN_VERSION_MINOR=$(VK_MINOR)
 CPPFLAGS += -DLD_EXPORT
 CPPFLAGS += -DPLATFORM_MEMORY_PAGE_SIZE=$(LD_MEMORY_PAGE_SIZE)
+CPPFLAGS += -DLIQUID_ENGINE_CORE_LIBRARY_PATH=\"$(LIB_CORE)\"
 
 ifeq ($(RELEASE), true)
 else
@@ -139,53 +142,32 @@ ifeq ($(TARGET_PLATFORM), win32)
 		LDFLAGS += -Wl,//debug
 	endif
 
-	LDFLAGS += -Wl,--out-implib=$(BUILD_PATH)/$(LD_EXE_NAME).lib
 endif
 
-ifeq ($(TARGET_PLATFORM), linux)
-	LDFLAGS += -fPIC -pie -Wl,-E
-	LDFLAGS += $(shell pkg-config --libs sdl2)
-	LDFLAGS += -lpthread
-endif
-
-INCLUDE := -Iliquid_engine -Ivendor
-
-ifeq ($(TARGET_PLATFORM), linux)
-	INCLUDE += $(shell pkg-config --cflags-only-I sdl2)
-endif
+INCLUDE := -Iliquid_engine -Iliquid_platform
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
 dependencies := $(call recurse,$(OBJ_PATH),*.d)
 
-C := $(call recurse,liquid_engine/core/,*.c) $(call recurse,liquid_engine/renderer/,*.c)
-H := $(call recurse,liquid_engine,*.h)
-
-COREC := $(C)
-COREC := $(subst liquid_engine/,,$(COREC))
-COREC := $(addsuffix \",$(COREC))
-COREC := $(addprefix "#include \"",$(COREC))
-
-COREC_PATH := liquid_engine/platform/corec.inl
-
 all: shaders $(if $(SHADER_ONLY),,$(TARGET))
 
-test: build_testbed
-	@mkdir -p $(BUILD_PATH)/resources/shaders
-	@cp resources/shaders/ldcolor.vert.spv $(BUILD_PATH)/resources/shaders/ldcolor.vert.spv
-	@cp resources/shaders/ldcolor.frag.spv $(BUILD_PATH)/resources/shaders/ldcolor.frag.spv
-	@cp resources/shaders/post_process.vert.spv $(BUILD_PATH)/resources/shaders/post_process.vert.spv
-	@cp resources/shaders/post_process.frag.spv $(BUILD_PATH)/resources/shaders/post_process.frag.spv
-	@cp resources/shaders/phong.vert.spv $(BUILD_PATH)/resources/shaders/phong.vert.spv
-	@cp resources/shaders/phong.frag.spv $(BUILD_PATH)/resources/shaders/phong.frag.spv
-	@cp resources/shaders/shadow_directional.vert.spv $(BUILD_PATH)/resources/shaders/shadow_directional.vert.spv
-	@cp resources/shaders/shadow_directional.frag.spv $(BUILD_PATH)/resources/shaders/shadow_directional.frag.spv
-	@cp resources/shaders/shadow_point.vert.spv $(BUILD_PATH)/resources/shaders/shadow_point.vert.spv
-	@cp resources/shaders/shadow_point.geom.spv $(BUILD_PATH)/resources/shaders/shadow_point.geom.spv
-	@cp resources/shaders/shadow_point.frag.spv $(BUILD_PATH)/resources/shaders/shadow_point.frag.spv
-ifeq ($(TARGET_PLATFORM), win32)
-	@remedybg start-debugging
-endif
+# test: build_testbed
+# 	@mkdir -p $(BUILD_PATH)/resources/shaders
+# 	@cp resources/shaders/ldcolor.vert.spv $(BUILD_PATH)/resources/shaders/ldcolor.vert.spv
+# 	@cp resources/shaders/ldcolor.frag.spv $(BUILD_PATH)/resources/shaders/ldcolor.frag.spv
+# 	@cp resources/shaders/post_process.vert.spv $(BUILD_PATH)/resources/shaders/post_process.vert.spv
+# 	@cp resources/shaders/post_process.frag.spv $(BUILD_PATH)/resources/shaders/post_process.frag.spv
+# 	@cp resources/shaders/phong.vert.spv $(BUILD_PATH)/resources/shaders/phong.vert.spv
+# 	@cp resources/shaders/phong.frag.spv $(BUILD_PATH)/resources/shaders/phong.frag.spv
+# 	@cp resources/shaders/shadow_directional.vert.spv $(BUILD_PATH)/resources/shaders/shadow_directional.vert.spv
+# 	@cp resources/shaders/shadow_directional.frag.spv $(BUILD_PATH)/resources/shaders/shadow_directional.frag.spv
+# 	@cp resources/shaders/shadow_point.vert.spv $(BUILD_PATH)/resources/shaders/shadow_point.vert.spv
+# 	@cp resources/shaders/shadow_point.geom.spv $(BUILD_PATH)/resources/shaders/shadow_point.geom.spv
+# 	@cp resources/shaders/shadow_point.frag.spv $(BUILD_PATH)/resources/shaders/shadow_point.frag.spv
+# ifeq ($(TARGET_PLATFORM), win32)
+# 	@remedybg start-debugging
+# endif
 
 build_testbed: all
 	@$(MAKE) --directory=testbed --no-print-directory
@@ -204,7 +186,6 @@ spit:
 	@echo "target:     "$(TARGET)
 	@echo "compiler:   "$(CC)
 	@echo "standard:   "$(CSTD)
-	@echo "c:          "$(C)
 	@echo "cflags:     "$(CFLAGS)
 	@echo
 	@echo "cppflags:   "$(CPPFLAGS)
@@ -213,11 +194,9 @@ spit:
 	@echo
 	@echo "ldflags:    "$(LDFLAGS)
 	@echo
-	@echo "corec:      "$(COREC)
-	@echo
 	@echo "main:       "$(LDMAIN)
-	@$(MAKE) --directory=testbed spit
-	@$(MAKE) --directory=shaders spit
+	# @$(MAKE) --directory=testbed spit
+	# @$(MAKE) --directory=shaders spit
 
 clean: $(if $(SHADER_ONLY),clean_shaders, $(if $(RELEASE), clean_shaders clean_release, clean_debug clean_shaders))
 
@@ -254,14 +233,6 @@ help:
 	@echo "  SHADER_ONLY=true      build/clean only shaders"
 	@echo "                            valid values: true"
 	@echo "                            default: "
-
-$(COREC_PATH): $(C)
-	@echo "// * Description:     Includes all source files" > $(COREC_PATH)
-	@echo "// * Author:          Alicia Amarilla (smushyaa@gmail.com)" >> $(COREC_PATH)
-	@echo "// * File Generated:  "$(shell date) >> $(COREC_PATH)
-	@echo "// IMPORTANT(alicia): This file should only ever be included ONCE." >> $(COREC_PATH)
-	@echo "" >> $(COREC_PATH)
-	for i in $(COREC); do echo $$i >> $(COREC_PATH); done
 
 IS_WINDOWS     :=
 WIN32RESOURCES := 
