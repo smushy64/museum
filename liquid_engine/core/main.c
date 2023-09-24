@@ -554,9 +554,6 @@ LD_API int core_init(
     }
     graphics_subsystem_init( &render_data );
 
-    // TODO(alicia): check for necessary instructions!
-    // perhaps this should be in platform layer though hmm
-
     void* application_memory =
         stack_allocator_push( &stack, application_memory_requirement );
     if( !application_initialize( application_memory ) ) {
