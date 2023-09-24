@@ -7,16 +7,17 @@
 #include "renderer/opengl/functions.h"
 #include "renderer/opengl/buffer.h"
 #include "renderer/opengl/texture.h"
+#include "renderer/opengl/loader.h"
 #include "core/graphics.h"
 #include "core/graphics/primitives.h"
 #include "core/graphics/types.h"
 #include "core/mathf.h"
 #include "core/mem.h"
 #include "core/timer.h"
-#include "platform.h"
 #include "core/input.h"
 #include "core/collections.h"
 #include "core/mem.h"
+#include "core/internal.h"
 
 usize GL_RENDERER_BACKEND_SIZE = sizeof(OpenGLRendererContext);
 
@@ -29,7 +30,6 @@ void gl_debug_callback(
     const GLchar* message, const void* userParam
 );
 
-void gl_renderer_backend_shutdown( RendererContext* renderer_ctx );
 void gl_renderer_backend_on_resize( RendererContext* renderer_ctx );
 b32 gl_renderer_backend_begin_frame(
     RendererContext* renderer_ctx, RenderData* render_data );
@@ -73,7 +73,11 @@ b32 gl_renderer_backend_init( RendererContext* renderer_ctx ) {
         return false;
     }
 
-    if( !platform_gl_surface_init( ctx->ctx.surface ) ) {
+    if( !platform->surface.gl_init( ctx->ctx.surface ) ) {
+        return false;
+    }
+    if( !gl_load_functions( platform->gl_load_proc ) ) {
+        // TODO(alicia): logging
         return false;
     }
 
@@ -96,7 +100,6 @@ b32 gl_renderer_backend_init( RendererContext* renderer_ctx ) {
     GL_LOG_NOTE( "Device Extension Count: {i}", ctx->device_info.extension_count );
 
     ctx->ctx.backend     = RENDERER_BACKEND_OPENGL;
-    ctx->ctx.shutdown    = gl_renderer_backend_shutdown;
     ctx->ctx.on_resize   = gl_renderer_backend_on_resize;
     ctx->ctx.begin_frame = gl_renderer_backend_begin_frame;
     ctx->ctx.end_frame   = gl_renderer_backend_end_frame;
@@ -130,12 +133,6 @@ b32 gl_renderer_backend_init( RendererContext* renderer_ctx ) {
 
     GL_LOG_NOTE( "OpenGL Backend successfully initialized." );
     return true;
-}
-
-void gl_renderer_backend_shutdown( RendererContext* renderer_ctx ) {
-    OpenGLRendererContext* ctx = renderer_ctx;
-    platform_gl_surface_shutdown( ctx->ctx.surface );
-    GL_LOG_INFO( "OpenGL Backend shutdown." );
 }
 
 internal void gl_draw_framebuffer(
@@ -175,7 +172,7 @@ void gl_renderer_backend_on_resize( RendererContext* renderer_ctx ) {
 
     /// Redraw the framebuffer in new dimensions
     gl_draw_framebuffer( ctx, ctx->ctx.surface_dimensions );
-    platform_gl_surface_swap_buffers( ctx->ctx.surface );
+    glSwapBuffers( ctx->ctx.surface );
 }
 
 internal void gl_generate(
@@ -690,7 +687,7 @@ b32 gl_renderer_backend_end_frame(
 
     ivec2 surface_dimensions = ctx->ctx.surface_dimensions;
     gl_draw_framebuffer( ctx, surface_dimensions );
-    platform_gl_surface_swap_buffers( ctx->ctx.surface );
+    glSwapBuffers( ctx->ctx.surface );
 
     unused(render_data);
     return true;
@@ -935,38 +932,33 @@ internal void gl_init_shaders( OpenGLRendererContext* ctx ) {
         GLShaderProgramID* program =
             ctx->programs + GL_SHADER_PROGRAM_INDEX_POST_PROCESS;
 
-        PlatformFile* post_process_vert_file = platform_file_open(
+        PlatformFile* post_process_vert_file = platform->io.file_open(
             "./resources/shaders/post_process.vert.spv",
-            PLATFORM_FILE_OPEN_READ |
-            PLATFORM_FILE_OPEN_SHARE_READ
-        );
+            PLATFORM_FILE_READ | PLATFORM_FILE_SHARE_READ );
         assert( post_process_vert_file );
-        PlatformFile* post_process_frag_file = platform_file_open(
+        PlatformFile* post_process_frag_file = platform->io.file_open(
             "./resources/shaders/post_process.frag.spv",
-            PLATFORM_FILE_OPEN_READ |
-            PLATFORM_FILE_OPEN_SHARE_READ
-        );
+            PLATFORM_FILE_READ | PLATFORM_FILE_SHARE_READ );
         assert( post_process_frag_file );
 
         usize post_process_vert_file_size =
-            platform_file_query_size( post_process_vert_file );
+            platform->io.file_query_size( post_process_vert_file );
         usize post_process_frag_file_size =
-            platform_file_query_size( post_process_frag_file );
+            platform->io.file_query_size( post_process_frag_file );
         
         usize shader_buffer_size =
             post_process_vert_file_size + post_process_frag_file_size;
         u8* shader_buffer = ldalloc( shader_buffer_size, MEMORY_TYPE_RENDERER );
         assert( shader_buffer );
 
-        b32 result = platform_file_read(
+        b32 result = platform->io.file_read(
             post_process_vert_file,
             post_process_vert_file_size,
             post_process_vert_file_size,
-            shader_buffer
-        );
+            shader_buffer );
         assert( result );
 
-        result = platform_file_read(
+        result = platform->io.file_read(
             post_process_frag_file,
             post_process_frag_file_size,
             post_process_frag_file_size,
@@ -1004,8 +996,8 @@ internal void gl_init_shaders( OpenGLRendererContext* ctx ) {
         gl_shader_delete(
             POST_PROCESS_SHADER_STAGE_COUNT, post_process_shaders );
         ldfree( shader_buffer, shader_buffer_size, MEMORY_TYPE_RENDERER );
-        platform_file_close( post_process_vert_file );
-        platform_file_close( post_process_frag_file );
+        platform->io.file_close( post_process_vert_file );
+        platform->io.file_close( post_process_frag_file );
 
         GL_LOG_NOTE(
             "Successfully compiled + "
@@ -1019,30 +1011,26 @@ internal void gl_init_shaders( OpenGLRendererContext* ctx ) {
         GLShaderID color_shaders[COLOR_SHADER_STAGE_COUNT] = {};
         GLShaderProgramID* program = ctx->programs + GL_SHADER_PROGRAM_INDEX_COLOR;
 
-        PlatformFile* color_vert_file = platform_file_open(
+        PlatformFile* color_vert_file = platform->io.file_open(
             "./resources/shaders/ldcolor.vert.spv",
-            PLATFORM_FILE_OPEN_READ |
-            PLATFORM_FILE_OPEN_SHARE_READ
-        );
+            PLATFORM_FILE_READ | PLATFORM_FILE_SHARE_READ );
         assert( color_vert_file );
-        PlatformFile* color_frag_file = platform_file_open(
+        PlatformFile* color_frag_file = platform->io.file_open(
             "./resources/shaders/ldcolor.frag.spv",
-            PLATFORM_FILE_OPEN_READ |
-            PLATFORM_FILE_OPEN_SHARE_READ
-        );
+            PLATFORM_FILE_READ | PLATFORM_FILE_SHARE_READ );
         assert( color_frag_file );
 
         usize color_vert_file_size =
-            platform_file_query_size( color_vert_file );
+            platform->io.file_query_size( color_vert_file );
         usize color_frag_file_size =
-            platform_file_query_size( color_frag_file );
+            platform->io.file_query_size( color_frag_file );
         
         usize shader_buffer_size =
             color_vert_file_size + color_frag_file_size;
         u8* shader_buffer = ldalloc( shader_buffer_size, MEMORY_TYPE_RENDERER );
         assert( shader_buffer );
 
-        b32 result = platform_file_read(
+        b32 result = platform->io.file_read(
             color_vert_file,
             color_vert_file_size,
             color_vert_file_size,
@@ -1050,7 +1038,7 @@ internal void gl_init_shaders( OpenGLRendererContext* ctx ) {
         );
         assert( result );
 
-        result = platform_file_read(
+        result = platform->io.file_read(
             color_frag_file,
             color_frag_file_size,
             color_frag_file_size,
@@ -1087,8 +1075,8 @@ internal void gl_init_shaders( OpenGLRendererContext* ctx ) {
 
         gl_shader_delete( COLOR_SHADER_STAGE_COUNT, color_shaders );
         ldfree( shader_buffer, shader_buffer_size, MEMORY_TYPE_RENDERER );
-        platform_file_close( color_vert_file );
-        platform_file_close( color_frag_file );
+        platform->io.file_close( color_vert_file );
+        platform->io.file_close( color_frag_file );
 
         GL_LOG_NOTE(
             "Successfully compiled + "
@@ -1103,24 +1091,20 @@ internal void gl_init_shaders( OpenGLRendererContext* ctx ) {
         GLShaderProgramID* program =
             ctx->programs + GL_SHADER_PROGRAM_INDEX_PHONG_BRDF;
 
-        PlatformFile* phong_vert_file = platform_file_open(
+        PlatformFile* phong_vert_file = platform->io.file_open(
             "./resources/shaders/phong.vert.spv",
-            PLATFORM_FILE_OPEN_READ |
-            PLATFORM_FILE_OPEN_SHARE_READ
-        );
+            PLATFORM_FILE_READ | PLATFORM_FILE_SHARE_READ );
         assert( phong_vert_file );
-        PlatformFile* phong_frag_file = platform_file_open(
+        PlatformFile* phong_frag_file = platform->io.file_open(
             "./resources/shaders/phong.frag.spv",
-            PLATFORM_FILE_OPEN_READ |
-            PLATFORM_FILE_OPEN_SHARE_READ
-        );
+            PLATFORM_FILE_READ | PLATFORM_FILE_SHARE_READ );
         assert( phong_frag_file );
 
         usize phong_vert_file_size =
-            platform_file_query_size( phong_vert_file );
+            platform->io.file_query_size( phong_vert_file );
         assert(phong_vert_file_size);
         usize phong_frag_file_size =
-            platform_file_query_size( phong_frag_file );
+            platform->io.file_query_size( phong_frag_file );
         assert(phong_frag_file_size);
        
         usize shader_buffer_size =
@@ -1128,7 +1112,7 @@ internal void gl_init_shaders( OpenGLRendererContext* ctx ) {
         u8* shader_buffer = ldalloc( shader_buffer_size, MEMORY_TYPE_RENDERER );
         assert( shader_buffer );
 
-        b32 result = platform_file_read(
+        b32 result = platform->io.file_read(
             phong_vert_file,
             phong_vert_file_size,
             phong_vert_file_size,
@@ -1136,7 +1120,7 @@ internal void gl_init_shaders( OpenGLRendererContext* ctx ) {
         );
         assert( result );
 
-        result = platform_file_read(
+        result = platform->io.file_read(
             phong_frag_file,
             phong_frag_file_size,
             phong_frag_file_size,
@@ -1173,8 +1157,8 @@ internal void gl_init_shaders( OpenGLRendererContext* ctx ) {
 
         gl_shader_delete( PHONG_BRDF_SHADER_STAGE_COUNT, phong_shaders );
         ldfree( shader_buffer, shader_buffer_size, MEMORY_TYPE_RENDERER );
-        platform_file_close( phong_vert_file );
-        platform_file_close( phong_frag_file );
+        platform->io.file_close( phong_vert_file );
+        platform->io.file_close( phong_frag_file );
 
         GL_LOG_NOTE(
             "Successfully compiled + "
@@ -1189,24 +1173,20 @@ internal void gl_init_shaders( OpenGLRendererContext* ctx ) {
         GLShaderProgramID* program =
             ctx->programs + GL_SHADER_PROGRAM_INDEX_SHADOW_DIRECTIONAL;
 
-        PlatformFile* shadow_vert_file = platform_file_open(
+        PlatformFile* shadow_vert_file = platform->io.file_open(
             "./resources/shaders/shadow_directional.vert.spv",
-            PLATFORM_FILE_OPEN_READ |
-            PLATFORM_FILE_OPEN_SHARE_READ
-        );
+            PLATFORM_FILE_READ | PLATFORM_FILE_SHARE_READ );
         assert( shadow_vert_file );
-        PlatformFile* shadow_frag_file = platform_file_open(
+        PlatformFile* shadow_frag_file = platform->io.file_open(
             "./resources/shaders/shadow_directional.frag.spv",
-            PLATFORM_FILE_OPEN_READ |
-            PLATFORM_FILE_OPEN_SHARE_READ
-        );
+            PLATFORM_FILE_READ | PLATFORM_FILE_SHARE_READ );
         assert( shadow_frag_file );
 
         usize shadow_vert_file_size =
-            platform_file_query_size( shadow_vert_file );
+            platform->io.file_query_size( shadow_vert_file );
         assert(shadow_vert_file_size);
         usize shadow_frag_file_size =
-            platform_file_query_size( shadow_frag_file );
+            platform->io.file_query_size( shadow_frag_file );
         assert(shadow_frag_file_size);
        
         usize shader_buffer_size =
@@ -1215,7 +1195,7 @@ internal void gl_init_shaders( OpenGLRendererContext* ctx ) {
             ldalloc( shader_buffer_size, MEMORY_TYPE_RENDERER );
         assert( shader_buffer );
 
-        b32 result = platform_file_read(
+        b32 result = platform->io.file_read(
             shadow_vert_file,
             shadow_vert_file_size,
             shadow_vert_file_size,
@@ -1223,7 +1203,7 @@ internal void gl_init_shaders( OpenGLRendererContext* ctx ) {
         );
         assert( result );
 
-        result = platform_file_read(
+        result = platform->io.file_read(
             shadow_frag_file,
             shadow_frag_file_size,
             shadow_frag_file_size,
@@ -1261,8 +1241,8 @@ internal void gl_init_shaders( OpenGLRendererContext* ctx ) {
         gl_shader_delete(
             SHADOW_DIRECTIONAL_SHADER_STAGE_COUNT, shadow_shaders );
         ldfree( shader_buffer, shader_buffer_size, MEMORY_TYPE_RENDERER );
-        platform_file_close( shadow_vert_file );
-        platform_file_close( shadow_frag_file );
+        platform->io.file_close( shadow_vert_file );
+        platform->io.file_close( shadow_frag_file );
 
         GL_LOG_NOTE(
             "Successfully compiled + "
@@ -1277,33 +1257,27 @@ internal void gl_init_shaders( OpenGLRendererContext* ctx ) {
         GLShaderProgramID* program =
             ctx->programs + GL_SHADER_PROGRAM_INDEX_SHADOW_POINT;
 
-        PlatformFile* shadow_vert_file = platform_file_open(
+        PlatformFile* shadow_vert_file = platform->io.file_open(
             "./resources/shaders/shadow_point.vert.spv",
-            PLATFORM_FILE_OPEN_READ |
-            PLATFORM_FILE_OPEN_SHARE_READ
-        );
+            PLATFORM_FILE_READ | PLATFORM_FILE_SHARE_READ );
         assert( shadow_vert_file );
-        PlatformFile* shadow_geom_file = platform_file_open(
+        PlatformFile* shadow_geom_file = platform->io.file_open(
             "./resources/shaders/shadow_point.geom.spv",
-            PLATFORM_FILE_OPEN_READ |
-            PLATFORM_FILE_OPEN_SHARE_READ
-        );
+            PLATFORM_FILE_READ | PLATFORM_FILE_SHARE_READ );
         assert( shadow_geom_file );
-        PlatformFile* shadow_frag_file = platform_file_open(
+        PlatformFile* shadow_frag_file = platform->io.file_open(
             "./resources/shaders/shadow_point.frag.spv",
-            PLATFORM_FILE_OPEN_READ |
-            PLATFORM_FILE_OPEN_SHARE_READ
-        );
+            PLATFORM_FILE_READ | PLATFORM_FILE_SHARE_READ );
         assert( shadow_frag_file );
 
         usize shadow_vert_file_size =
-            platform_file_query_size( shadow_vert_file );
+            platform->io.file_query_size( shadow_vert_file );
         assert(shadow_vert_file_size);
         usize shadow_geom_file_size =
-            platform_file_query_size( shadow_geom_file );
+            platform->io.file_query_size( shadow_geom_file );
         assert(shadow_geom_file_size);
         usize shadow_frag_file_size =
-            platform_file_query_size( shadow_frag_file );
+            platform->io.file_query_size( shadow_frag_file );
         assert(shadow_frag_file_size);
        
         usize shader_buffer_size =
@@ -1314,7 +1288,7 @@ internal void gl_init_shaders( OpenGLRendererContext* ctx ) {
             ldalloc( shader_buffer_size, MEMORY_TYPE_RENDERER );
         assert( shader_buffer );
 
-        b32 result = platform_file_read(
+        b32 result = platform->io.file_read(
             shadow_vert_file,
             shadow_vert_file_size,
             shadow_vert_file_size,
@@ -1322,7 +1296,7 @@ internal void gl_init_shaders( OpenGLRendererContext* ctx ) {
         );
         assert( result );
 
-        result = platform_file_read(
+        result = platform->io.file_read(
             shadow_geom_file,
             shadow_geom_file_size,
             shadow_geom_file_size,
@@ -1330,7 +1304,7 @@ internal void gl_init_shaders( OpenGLRendererContext* ctx ) {
         );
         assert( result );
 
-        result = platform_file_read(
+        result = platform->io.file_read(
             shadow_frag_file,
             shadow_frag_file_size,
             shadow_frag_file_size,
@@ -1376,9 +1350,9 @@ internal void gl_init_shaders( OpenGLRendererContext* ctx ) {
 
         gl_shader_delete( SHADOW_POINT_SHADER_STAGE_COUNT, shadow_shaders );
         ldfree( shader_buffer, shader_buffer_size, MEMORY_TYPE_RENDERER );
-        platform_file_close( shadow_vert_file );
-        platform_file_close( shadow_geom_file );
-        platform_file_close( shadow_frag_file );
+        platform->io.file_close( shadow_vert_file );
+        platform->io.file_close( shadow_geom_file );
+        platform->io.file_close( shadow_frag_file );
 
         GL_LOG_NOTE(
             "Successfully compiled + "

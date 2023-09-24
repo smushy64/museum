@@ -6,7 +6,7 @@
 #include "core/input.h"
 #include "core/log.h"
 #include "core/mem.h"
-#include "platform.h"
+#include "internal.h"
 
 #define KEY_STATE_COUNT 255
 typedef struct GamepadState {
@@ -81,20 +81,15 @@ typedef struct InputState {
     GamepadState gamepads[GAMEPAD_MAX_INDEX];
 } InputState;
 
-internal void input_state_init( InputState* state ) {
-    for( u32 i = 0; i < GAMEPAD_MAX_INDEX; ++i ) {
-        state->gamepads[i] = gamepad_state_default();
-    }
-}
-
 global InputState* INPUT_STATE = NULL;
 
 usize INPUT_SUBSYSTEM_SIZE = sizeof(InputState);
-b32 input_subsystem_init( void* buffer ) {
+void input_subsystem_init( void* buffer ) {
     INPUT_STATE = (InputState*)buffer;
-    input_state_init( INPUT_STATE );
+    for( u32 i = 0; i < GAMEPAD_MAX_INDEX; ++i ) {
+        INPUT_STATE->gamepads[i] = gamepad_state_default();
+    }
     LOG_INFO("Input subsystem successfully initialized.");
-    return true;
 }
 void input_set_key( KeyboardCode keycode, b32 is_down ) {
     INPUT_STATE->keys[keycode] = is_down;
@@ -293,8 +288,10 @@ LD_API f32 input_gamepad_motor_state( u32 index, u32 motor ) {
     );
     return INPUT_STATE->gamepads[index].motors[motor];
 }
-LD_API void input_gamepad_set_motor_state( u32 index, u32 motor, f32 value ) {
-    platform_set_gamepad_motor_state( index, motor, value );
+LD_API void input_gamepad_set_motor_state( u32 index, f32 left, f32 right ) {
+    INPUT_STATE->gamepads[index].motors[0] = left;
+    INPUT_STATE->gamepads[index].motors[1] = right;
+    platform->io.set_gamepad_rumble( index, left, right );
 }
 LD_API f32 input_gamepad_stick_left_deadzone( u32 index ) {
     return INPUT_STATE->gamepads[index].stick_left_deadzone;

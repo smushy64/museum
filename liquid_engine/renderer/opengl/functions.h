@@ -6,6 +6,7 @@
 #include "defines.h"
 #include "renderer/opengl/types.h"
 
+void glSwapBuffers( void* surface );
 void glSwapInterval( void* surface, int interval );
 
 #define DECLARE_GL_FUNCTION( ret, fn, ... )\

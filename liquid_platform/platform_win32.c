@@ -118,6 +118,9 @@ WIN32_DECLARE_FUNCTION( BOOL, DestroyIcon, HICON hIcon );
 WIN32_DECLARE_FUNCTION( HDC, GetDC, HWND hWnd );
 #define GetDC( hWnd ) ___internal_GetDC( hWnd )
 
+WIN32_DECLARE_FUNCTION( int, ReleaseDC, HWND hWnd, HDC hDC );
+#define ReleaseDC( hWnd, hDC ) ___internal_ReleaseDC( hWnd, hDC )
+
 WIN32_DECLARE_FUNCTION( BOOL, ShowWindow, HWND hWnd, int nCmdShow );
 #define ShowWindow( hWnd, nCmdShow ) ___internal_ShowWindow( hWnd, nCmdShow )
 
@@ -347,6 +350,8 @@ void win32_page_free( usize size, void* memory );
 
 PlatformInfo* win32_query_info(void);
 void* win32_gl_load_proc( const char* function_name );
+void win32_fatal_message_box( const char* title, const char* message );
+void win32_last_error( usize* out_error_len, const char** out_error );
 
 #define WIN32_SUCCESS              (0)
 #define WIN32_ERROR_OPEN_CORE      (1)
@@ -357,22 +362,10 @@ void* win32_gl_load_proc( const char* function_name );
 #define WIN32_ERROR_OPEN_DSOUND    (6)
 #define WIN32_ERROR_OPEN_OPENGL    (7)
 #define WIN32_ERROR_LOAD_FUNCTION  (8)
+#define WIN32_MISSING_INSTRUCTIONS (9)
 
-#define WIN32_LOAD_REQUIRED( module, fn ) do {\
-    if( !WIN32_LOAD_FUNCTION( module, fn ) ) {\
-        win32_log_error();\
-        MessageBoxA(\
-            NULL,\
-            "Fatal Error: Failed to load function " #fn " from module " #module "!",\
-            "Fatal Error " macro_value_to_string( WIN32_ERROR_LOAD_FUNCTION ),\
-            0);\
-        EXIT( WIN32_ERROR_LOAD_FUNCTION );\
-    }\
-} while(0)
-
-DWORD win32_log_error(void);
+DWORD win32_report_last_error(void);
 LPSTR* WINAPI CommandLineToArgvA(LPSTR lpCmdline, int* numargs);
-#define EXIT(code) ExitProcess(code)
 _Noreturn void __stdcall mainCRTStartup(void) {
     int argc    = 0;
     char** argv = CommandLineToArgvA( GetCommandLineA(), &argc );
@@ -386,42 +379,72 @@ _Noreturn void __stdcall mainCRTStartup(void) {
     SetConsoleMode(
         GetStdHandle( STD_OUTPUT_HANDLE ), dwMode );
 
+    #define EXIT(code) ExitProcess(code)
+    #define WIN32_REPORT_FATAL_ERROR( error_code, message ) do {\
+        if( win32_report_last_error() != ERROR_SUCCESS ) {\
+            usize       last_error_len = 0;\
+            const char* last_error     = NULL;\
+            win32_last_error( &last_error_len, &last_error );\
+            win32_console_write(\
+                win32_stderr_handle(), sizeof( message ), message );\
+            win32_console_write(\
+                win32_stderr_handle(), last_error_len, last_error );\
+            win32_output_debug_string( message );\
+            win32_output_debug_string( last_error );\
+        }\
+        if( ___internal_MessageBoxA ) {\
+            win32_fatal_message_box(\
+                "Fatal Error" macro_value_to_string( error_code ),\
+                message );\
+        }\
+    } while(0)
+
+    #define WIN32_LOAD_REQUIRED( module, fn ) do {\
+        if( !WIN32_LOAD_FUNCTION( module, fn ) ) {\
+            WIN32_REPORT_FATAL_ERROR(\
+                WIN32_ERROR_LOAD_FUNCTION,\
+                "Fatal Error: Failed to load function " #fn " from module " #module "!"\
+            );\
+            EXIT( WIN32_ERROR_LOAD_FUNCTION );\
+        }\
+    } while(0)
+
     HMODULE user32 = LoadLibraryA( "USER32.DLL" );
     if( !user32 ) {
+        WIN32_REPORT_FATAL_ERROR(
+            WIN32_ERROR_OPEN_USER32, "Failed to open library USER32.DLL!" );
         EXIT( WIN32_ERROR_OPEN_USER32 );
     }
-    WIN32_LOAD_REQUIRED( user32, MessageBoxA );
+    if( !WIN32_LOAD_FUNCTION( user32, MessageBoxA ) ) {
+        WIN32_REPORT_FATAL_ERROR(
+            WIN32_ERROR_LOAD_FUNCTION, "Failed to load MessageBoxA!" );
+        EXIT( WIN32_ERROR_LOAD_FUNCTION );
+    }
 
     HMODULE core = LoadLibraryA( LIQUID_ENGINE_CORE_LIBRARY_PATH );
     if( !core ) {
-        MessageBoxA(
-            NULL,
-            "Fatal Error: Failed to load Core library! "
-            "Core Library Path: " LIQUID_ENGINE_CORE_LIBRARY_PATH,
-            "Fatal Error " macro_value_to_string( WIN32_ERROR_OPEN_CORE ),
-            0);
+        WIN32_REPORT_FATAL_ERROR(
+            WIN32_ERROR_OPEN_CORE,
+            "Fatal Error: Failed to open Engine Core library! "
+            "Core Library Path: " LIQUID_ENGINE_CORE_LIBRARY_PATH );
         EXIT( WIN32_ERROR_OPEN_CORE );
     }
 
     CoreInitFN* core_init =
         (CoreInitFN*)GetProcAddress( core, "core_init" );
     if( !core_init ) {
-        MessageBoxA(
-            NULL,
-            "Fatal Error: Failed to load Core library init! "
-            "Core Library init: core_init",
-            "Fatal Error " macro_value_to_string( WIN32_ERROR_LOAD_CORE_INIT ),
-            0);
+        WIN32_REPORT_FATAL_ERROR(
+            WIN32_ERROR_LOAD_CORE_INIT,
+            "Fatal Error: "
+            "Failed to load Engine Core library initalize function!");
         EXIT( WIN32_ERROR_LOAD_CORE_INIT );
     }
 
     HMODULE gdi32 = LoadLibraryA( "GDI32.DLL" );
     if( !gdi32 ) {
-        MessageBoxA(
-            NULL,
-            "Fatal Error: Failed to load GDI32!",
-            "Fatal Error " macro_value_to_string( WIN32_ERROR_OPEN_GDI32 ),
-            0);
+        WIN32_REPORT_FATAL_ERROR(
+            WIN32_ERROR_OPEN_GDI32,
+            "Fatal Error: Failed to open library GDI32.DLL!" );
         EXIT( WIN32_ERROR_OPEN_GDI32 );
     }
     HMODULE xinput = LoadLibraryA( "XINPUT1_4.DLL" );
@@ -430,11 +453,9 @@ _Noreturn void __stdcall mainCRTStartup(void) {
         if( !xinput ) {
             xinput = LoadLibraryA( "XINPUT1_3.DLL" );
             if( !xinput ) {
-                MessageBoxA(
-                    NULL,
-                    "Fatal Error: Failed to load XINPUT!",
-                    "Fatal Error " macro_value_to_string( WIN32_ERROR_OPEN_XINPUT ),
-                    0);
+                WIN32_REPORT_FATAL_ERROR(
+                    WIN32_ERROR_OPEN_XINPUT,
+                    "Fatal Error: Failed to open library XINPUT!" );
                 EXIT( WIN32_ERROR_OPEN_XINPUT );
             }
         }
@@ -456,6 +477,7 @@ _Noreturn void __stdcall mainCRTStartup(void) {
     WIN32_LOAD_REQUIRED( user32, TranslateMessage );
     WIN32_LOAD_REQUIRED( user32, DestroyIcon );
     WIN32_LOAD_REQUIRED( user32, GetDC );
+    WIN32_LOAD_REQUIRED( user32, ReleaseDC );
     WIN32_LOAD_REQUIRED( user32, ShowWindow );
     WIN32_LOAD_REQUIRED( user32, DispatchMessageA );
     WIN32_LOAD_REQUIRED( user32, SetWindowTextA );
@@ -540,7 +562,7 @@ _Noreturn void __stdcall mainCRTStartup(void) {
     global_win32_info.logical_processor_count =
         win32_info.dwNumberOfProcessors;
 
-#if defined(LD_ARCH_X86)
+#if defined( LD_ARCH_X86 )
     memset(
         global_win32_info.cpu_name,
         ' ',
@@ -567,6 +589,66 @@ _Noreturn void __stdcall mainCRTStartup(void) {
         sizeof(cpu_info)
     );
 #endif
+
+#if LD_SIMD_WIDTH >= 4
+
+#if defined(LD_ARCH_X86)
+    b32 sse_available = bitfield_check(
+        global_win32_info.features, PLATFORM_PROCESSOR_FEATURE_SSE );
+    b32 sse2_available = bitfield_check(
+        global_win32_info.features, PLATFORM_PROCESSOR_FEATURE_SSE2 );
+    b32 sse3_available = bitfield_check(
+        global_win32_info.features, PLATFORM_PROCESSOR_FEATURE_SSE3 );
+    b32 ssse3_available = bitfield_check(
+        global_win32_info.features, PLATFORM_PROCESSOR_FEATURE_SSSE3 );
+    b32 sse4_1_available = bitfield_check(
+        global_win32_info.features, PLATFORM_PROCESSOR_FEATURE_SSE4_1 );
+    b32 sse4_2_available = bitfield_check(
+        global_win32_info.features, PLATFORM_PROCESSOR_FEATURE_SSE4_2 );
+
+    if( !(
+        sse_available    &&
+        sse2_available   &&
+        sse3_available   &&
+        ssse3_available  &&
+        sse4_1_available &&
+        sse4_2_available
+    ) ) {
+        WIN32_REPORT_FATAL_ERROR(
+            WIN32_MISSING_INSTRUCTIONS,
+            "Fatal Error: "
+            "This version of Liquid Engine was compiled "
+            "with SSE instructions but the current system is "
+            "missing those instructions!");
+        EXIT( WIN32_MISSING_INSTRUCTIONS );
+    }
+
+#endif // x86
+
+#endif // simd width >= 4
+
+#if LD_SIMD_WIDTH >= 8
+
+#if defined(LD_ARCH_X86)
+
+    b32 avx_available = bitfield_check(
+        global_win32_info.features, PLATFORM_PROCESSOR_FEATURE_AVX );
+    b32 avx2_available = bitfield_check(
+        global_win32_info.features, PLATFORM_PROCESSOR_FEATURE_AVX2 );
+
+    if( !( avx_available && avx2_available ) ) {
+        WIN32_REPORT_FATAL_ERROR(
+            WIN32_MISSING_INSTRUCTIONS,
+            "Fatal Error: "
+            "This version of Liquid Engine was compiled "
+            "width AVX instructions but the current system is "
+            "missing those instructions!" );
+        EXIT( WIN32_MISSING_INSTRUCTIONS );
+    }
+
+#endif // x86
+
+#endif // simd width >= 8
 
     PlatformAPI api = {};
     
@@ -627,8 +709,10 @@ _Noreturn void __stdcall mainCRTStartup(void) {
     api.memory.page_alloc   = win32_page_alloc;
     api.memory.page_free    = win32_page_free;
 
-    api.query_info   = win32_query_info;
-    api.gl_load_proc = win32_gl_load_proc;
+    api.query_info        = win32_query_info;
+    api.gl_load_proc      = win32_gl_load_proc;
+    api.fatal_message_box = win32_fatal_message_box;
+    api.last_error        = win32_last_error;
 
     QueryPerformanceCounter( &global_performance_counter );
     QueryPerformanceFrequency( &global_performance_frequency );
@@ -676,10 +760,7 @@ internal MONITORINFO win32_monitor_info( HWND opt_window_handle ) {
     }
     MONITORINFO monitor_info = {};
     monitor_info.cbSize = sizeof(monitor_info);
-    if( !GetMonitorInfoA( monitor, &monitor_info ) ) {
-        win32_log_error();
-        panic();
-    }
+    assert( GetMonitorInfoA( monitor, &monitor_info ) );
     return monitor_info;
 }
 
@@ -704,7 +785,7 @@ PlatformSurface* win32_surface_create(
     window_class.hbrBackground = (HBRUSH)GetStockBrush( BLACK_BRUSH );
 
     if( !RegisterClassExA( &window_class ) ) {
-        win32_log_error();
+        win32_report_last_error();
         return NULL;
     }
 
@@ -726,7 +807,7 @@ PlatformSurface* win32_surface_create(
         dwStyle, false,
         dwExStyle
     ) ) {
-        win32_log_error();
+        win32_report_last_error();
         return NULL;
     }
 
@@ -746,7 +827,7 @@ PlatformSurface* win32_surface_create(
         lpParam
     );
     if( !handle ) {
-        win32_log_error();
+        win32_report_last_error();
         return false;
     }
     HDC hdc = GetDC( handle );
@@ -776,12 +857,13 @@ void win32_surface_destroy( PlatformSurface* surface ) {
 
     switch( win32_surface->backend ) {
         case PLATFORM_SURFACE_GRAPHICS_BACKEND_OPENGL: {
-            wglMakeCurrent( win32_surface->hDc, NULL );
-            wglDeleteContext( win32_surface->glrc );
+            assert( wglMakeCurrent( NULL, NULL ) );
+            assert( wglDeleteContext( win32_surface->glrc ) );
         } break;
         default: panic();
     }
 
+    ReleaseDC( win32_surface->hWnd, win32_surface->hDc );
     DestroyWindow( win32_surface->hWnd );
 
     win32_heap_free( sizeof(struct Win32Surface), win32_surface );
@@ -825,9 +907,6 @@ void win32_surface_set_dimensions(
         return;
     }
 
-    // i32 old_width  = win32_surface->width;
-    // i32 old_height = win32_surface->height;
-
     RECT window_rect = {};
 
     window_rect.right  = width;
@@ -856,15 +935,6 @@ void win32_surface_set_dimensions(
         window_rect.bottom - window_rect.top,
         SWP_NOMOVE | SWP_NOREPOSITION
     );
-
-    // NOTE(alicia): i dont believe this is necessary
-    // if( win32_surface->callbacks.on_resolution_change ) {
-    //     win32_surface->callbacks.on_resolution_change(
-    //         win32_surface,
-    //         old_width, old_height,
-    //         width, height,
-    //         win32_surface->callbacks.on_resolution_change_params );
-    // }
 }
 void win32_surface_query_dimensions(
     PlatformSurface* surface, i32* out_width, i32* out_height
@@ -960,19 +1030,6 @@ void win32_surface_set_mode(
                 width, height,
                 SWP_NOOWNERZORDER | SWP_FRAMECHANGED | SWP_SHOWWINDOW
             );
-
-            // i32 old_width  = win32_surface->width;
-            // i32 old_height = win32_surface->height;
-            // if( win32_surface->callbacks.on_resolution_change ) {
-            //     win32_surface->callbacks.on_resolution_change(
-            //         win32_surface,
-            //         old_width, old_height,
-            //         width, height,
-            //         win32_surface->callbacks.on_resolution_change_params
-            //     );
-            // }
-            // win32_surface->width  = width;
-            // win32_surface->height = height;
         } break;
         default: panic();
     }
@@ -1069,7 +1126,6 @@ void win32_surface_pump_events(void) {
         TranslateMessage( &message );
         DispatchMessageA( &message );
     }
-    // TODO(alicia): xinput processing!
 }
 
 #define WGL_CONTEXT_MAJOR_VERSION_ARB             0x2091
@@ -1093,7 +1149,7 @@ b32 win32_surface_gl_init( PlatformSurface* surface ) {
     if( !opengl32 ) {
         opengl32 = LoadLibraryA( "OPENGL32.DLL" );
         if( !opengl32 ) {
-            win32_log_error();
+            win32_report_last_error();
             return false;
         }
     }
@@ -1105,7 +1161,7 @@ b32 win32_surface_gl_init( PlatformSurface* surface ) {
         ___internal_##fn =\
             (___internal_##fn##FN*)wglGetProcAddress( #fn );\
         if( !___internal_##fn ) {\
-            win32_log_error();\
+            win32_report_last_error();\
             return false;\
         }\
     } while(0)
@@ -1114,14 +1170,14 @@ b32 win32_surface_gl_init( PlatformSurface* surface ) {
         ___internal_##fn =\
             (___internal_##fn##FN*)GetProcAddress(module, #fn);\
         if( !___internal_##fn ) {\
-            win32_log_error();\
+            win32_report_last_error();\
             return false;\
         }\
     } while(0)
 
     opengl32 = LoadLibraryA( "OPENGL32.DLL" );
     if( !opengl32 ) {
-        win32_log_error();
+        win32_report_last_error();
         return false;
     }
 
@@ -1161,13 +1217,13 @@ b32 win32_surface_gl_init( PlatformSurface* surface ) {
         pixelFormatIndex,
         &suggested_pixel_format
     ) == FALSE ) {
-        win32_log_error();
+        win32_report_last_error();
         return false;
     }
 
     HGLRC temp = wglCreateContext( win32_surface->hDc );
     if(!temp) {
-        win32_log_error();
+        win32_report_last_error();
         return false;
     }
 
@@ -1189,7 +1245,7 @@ b32 win32_surface_gl_init( PlatformSurface* surface ) {
 
     wglDeleteContext( temp );
     if( !win32_surface->glrc ) {
-        win32_log_error();
+        win32_report_last_error();
         return false;
     }
     wglMakeCurrent( win32_surface->hDc, win32_surface->glrc );
@@ -1250,6 +1306,14 @@ LRESULT win32_winproc(
         MOUSE_BUTTON_EXTRA_2
     };
 
+    #define WM_CLOSE_RETURN_VALUE            (0)
+    #define WM_ACTIVATEAPP_RETURN_VALUE      (0)
+    #define WM_WINDOWPOSCHANGED_RETURN_VALUE (0)
+    #define WM_MOUSEMOVE_RETURN_VALUE        (0)
+    #define WM_MOUSEBUTTON_RETURN_VALUE      (0)
+    #define WM_MOUSEWHEEL_RETURN_VALUE       (0)
+    #define WM_KEY_RETURN_VALUE              (0)
+
     switch( Msg ) {
         case WM_CLOSE: {
             if( win32_surface->callbacks.on_close ) {
@@ -1258,18 +1322,17 @@ LRESULT win32_winproc(
                     win32_surface->callbacks.on_close_params
                 );
             }
-        } return false;
+        } return WM_CLOSE_RETURN_VALUE;
 
-        case WM_ACTIVATE: {
-            b32 is_active = wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE;
-            
+        case WM_ACTIVATEAPP: {
+            b32 is_active = wParam == TRUE;
+
             if( win32_surface->callbacks.on_activate ) {
                 win32_surface->callbacks.on_activate(
                     win32_surface, is_active,
-                    win32_surface->callbacks.on_activate_params
-                );
+                    win32_surface->callbacks.on_activate_params );
             }
-        } return DefWindowProcA( hWnd, Msg, wParam, lParam );
+        } return WM_ACTIVATEAPP_RETURN_VALUE;
 
         case WM_WINDOWPOSCHANGED: {
             local RECT last_rect = {};
@@ -1279,7 +1342,7 @@ LRESULT win32_winproc(
                     rect.right == last_rect.right &&
                     rect.bottom == last_rect.bottom
                 ) {
-                    return false;
+                    return WM_WINDOWPOSCHANGED_RETURN_VALUE;
                 }
 
                 i32 width  = rect.right < 1 ? 1 : rect.right;
@@ -1302,7 +1365,7 @@ LRESULT win32_winproc(
 
                 last_rect = rect;
             }
-        } return false;
+        } return WM_WINDOWPOSCHANGED_RETURN_VALUE;
 
         case WM_MOUSEMOVE: {
             RECT client_rect = {};
@@ -1318,7 +1381,7 @@ LRESULT win32_winproc(
                     win32_surface->callbacks.on_mouse_move_params
                 );
             }
-        } return true;
+        } return WM_MOUSEMOVE_RETURN_VALUE;
 
         case WM_LBUTTONDOWN:
         case WM_LBUTTONUP:
@@ -1338,7 +1401,7 @@ LRESULT win32_winproc(
             } else if( Msg == WM_MBUTTONDOWN || Msg == WM_MBUTTONUP ) {
                 code = MOUSE_BUTTON_MIDDLE;
             } else {
-                break;
+                return WM_MOUSEBUTTON_RETURN_VALUE;
             }
 
             if( win32_surface->callbacks.on_mouse_button ) {
@@ -1348,7 +1411,7 @@ LRESULT win32_winproc(
                     win32_surface->callbacks.on_mouse_button_params
                 );
             }
-        } return true;
+        } return WM_MOUSEBUTTON_RETURN_VALUE;
 
         case WM_XBUTTONDOWN:
         case WM_XBUTTONUP: {
@@ -1364,7 +1427,7 @@ LRESULT win32_winproc(
                     win32_surface->callbacks.on_mouse_button_params
                 );
             }
-        } return true;
+        } return WM_MOUSEBUTTON_RETURN_VALUE;
 
         case WM_MOUSEHWHEEL:
         case WM_MOUSEWHEEL: {
@@ -1391,7 +1454,7 @@ LRESULT win32_winproc(
                 }
             }
 
-        } return true;
+        } return WM_MOUSEBUTTON_RETURN_VALUE;
 
         case WM_SYSKEYUP:
         case WM_SYSKEYDOWN:
@@ -1430,11 +1493,10 @@ LRESULT win32_winproc(
                     keycode, win32_surface->callbacks.on_key_params
                 );
             }
-        } return true;
+        } return WM_KEY_RETURN_VALUE;
 
+        default: return DefWindowProcA( hWnd, Msg, wParam, lParam );
     }
-
-    return DefWindowProcA( hWnd, Msg, wParam, lParam );
 }
 
 // NOTE(alicia): Time API
@@ -1573,7 +1635,7 @@ PlatformFile* win32_file_open(
         dwFlagsAndAttributes,
         hTemplateFile );
     if( handle == INVALID_HANDLE_VALUE ) {
-        win32_log_error();
+        win32_report_last_error();
         return false;
     }
 
@@ -1769,13 +1831,13 @@ void win32_output_debug_string( const char* cstr ) {
 PlatformLibrary* win32_platform_library_open( const char* library_path ) {
     HMODULE module = LoadLibraryA( library_path );
     if( !module ) {
-        win32_log_error();
+        win32_report_last_error();
     }
     return (PlatformLibrary*)module;
 }
 void win32_library_close( PlatformLibrary* library ) {
     if( !FreeLibrary( (HMODULE)library ) ) {
-        win32_log_error();
+        win32_report_last_error();
     }
 }
 void* win32_library_load_function(
@@ -1783,7 +1845,7 @@ void* win32_library_load_function(
 ) {
     void* function = (void*)GetProcAddress( (HMODULE)library, function_name );
     if( !function ) {
-        win32_log_error();
+        win32_report_last_error();
         return NULL;
     }
     return function;
@@ -1825,7 +1887,7 @@ b32 win32_thread_create(
         NULL, 0, I32_MAX, NULL, 0, SEMAPHORE_ALL_ACCESS );
 
     if( !data.sem ) {
-        win32_log_error();
+        win32_report_last_error();
         return false;
     }
 
@@ -1838,7 +1900,7 @@ b32 win32_thread_create(
         0, &id );
     if( !thread_handle ) {
         CloseHandle( data.sem );
-        win32_log_error();
+        win32_report_last_error();
         return false;
     }
 
@@ -1859,7 +1921,7 @@ PlatformSemaphore* win32_semaphore_create(
     HANDLE result = CreateSemaphoreEx(
         NULL, initial_count, I32_MAX, name, 0, SEMAPHORE_ALL_ACCESS );
     if( !result ) {
-        win32_log_error();
+        win32_report_last_error();
         return NULL;
     }
     return (PlatformSemaphore*)result;
@@ -1921,19 +1983,17 @@ PlatformInfo* win32_query_info(void) {
     return &global_win32_info;
 }
 
-#if defined(LD_LOGGING)
-    #define WIN32_ERROR_MESSAGE_BUFFER_SIZE (512)
-    global
-    char WIN32_ERROR_MESSAGE_BUFFER[WIN32_ERROR_MESSAGE_BUFFER_SIZE] = {};
-    global DWORD WIN32_ERROR_MESSAGE_LENGTH = 0;
-#endif
-DWORD win32_log_error(void) {
+#define WIN32_ERROR_MESSAGE_BUFFER_SIZE (512)
+global char  WIN32_ERROR_MESSAGE_BUFFER[WIN32_ERROR_MESSAGE_BUFFER_SIZE] = {};
+global usize WIN32_ERROR_MESSAGE_LENGTH = 0;
+DWORD win32_report_last_error(void) {
     DWORD error_code = GetLastError();
     if( error_code == ERROR_SUCCESS ) {
+        WIN32_ERROR_MESSAGE_BUFFER[0] = ' ';
+        WIN32_ERROR_MESSAGE_BUFFER[1] = 0;
+        WIN32_ERROR_MESSAGE_LENGTH    = 1;
         return ERROR_SUCCESS;
     }
-
-#if defined(LD_LOGGING)
 
     DWORD dwFlags = 
         FORMAT_MESSAGE_FROM_SYSTEM     |
@@ -1949,20 +2009,16 @@ DWORD win32_log_error(void) {
         WIN32_ERROR_MESSAGE_BUFFER_SIZE,
         NULL );
 
-    if( message_length ) {
-        WriteConsole(
-            GetStdHandle( STD_ERROR_HANDLE ),
-            WIN32_ERROR_MESSAGE_BUFFER,
-            WIN32_ERROR_MESSAGE_BUFFER_SIZE,
-            NULL, NULL );
-        OutputDebugStringA( WIN32_ERROR_MESSAGE_BUFFER );
-    }
-
     WIN32_ERROR_MESSAGE_LENGTH = message_length;
 
-#endif
-
     return error_code;
+}
+void win32_fatal_message_box( const char* title, const char* message ) {
+    MessageBoxA( NULL, message, title, MB_ICONERROR );
+}
+void win32_last_error( usize* out_error_len, const char** out_error ) {
+    *out_error     = WIN32_ERROR_MESSAGE_BUFFER;
+    *out_error_len = WIN32_ERROR_MESSAGE_LENGTH;
 }
 
 // NOTE(alicia): C Standard Library Alternatives

@@ -5,7 +5,8 @@
 #include "core/thread.h"
 #include "core/mem.h"
 #include "core/log.h"
-#include "platform.h"
+#include "core/strings.h"
+#include "core/internal.h"
 
 typedef struct ThreadWorkEntry {
     ThreadWorkProcFN* proc;
@@ -104,10 +105,16 @@ b32 thread_subsystem_init( u32 logical_processor_count, void* buffer ) {
 
     u32 thread_handle_count = 0;
     for( u32 i = 0; i < logical_processor_count; ++i ) {
-        if( !platform_thread_create(
+        if( !platform->thread.create(
             thread_proc, NULL,
             STACK_SIZE
         ) ) {
+#if defined(LD_LOGGING)
+            StringSlice last_error;
+            platform->last_error(
+                &last_error.len, (const char**)&last_error.buffer );
+            LOG_ERROR( "{s}", last_error );
+#endif
             break;
         }
         thread_handle_count++;
@@ -126,29 +133,27 @@ b32 thread_subsystem_init( u32 logical_processor_count, void* buffer ) {
 }
 
 LD_API u32 interlocked_increment_u32( volatile u32* addend ) {
-    return platform_interlocked_increment_u32( addend );
+    return __sync_fetch_and_add( addend, 1 );
 }
 LD_API u32 interlocked_decrement_u32( volatile u32* addend ) {
-    return platform_interlocked_decrement_u32( addend );
+    return __sync_fetch_and_sub( addend, 1 );
 }
 LD_API u32 interlocked_exchange_u32( volatile u32* target, u32 value ) {
-    return platform_interlocked_exchange_u32( target, value );
+    return __sync_swap( target, value );
 }
 LD_API u32 interlocked_compare_exchange_u32(
     volatile u32* dst,
     u32 exchange, u32 comperand
 ) {
-    return platform_interlocked_compare_exchange_u32(
-        dst, exchange, comperand
-    );
+    return __sync_val_compare_and_swap(
+        dst, exchange, comperand );
 }
 LD_API void* interlocked_compare_exchange_pointer(
     void* volatile* dst,
     void* exchange, void* comperand
 ) {
-    return platform_interlocked_compare_exchange_pointer(
-        dst, exchange, comperand
-    );
+    return __sync_val_compare_and_swap(
+        dst, exchange, comperand );
 }
 
 char SEM_NAME_BUFFER[255] = {};
@@ -162,31 +167,43 @@ LD_API Semaphore* semaphore_create(void) {
     ss_mut_fmt( &name, "sem{u64}", (u64)SEM_NAME_INDEX );
     SEM_NAME_INDEX++;
 
-    return platform_semaphore_create( SEM_NAME_BUFFER, 0 );
+    Semaphore* result =
+        platform->thread.semaphore_create( SEM_NAME_BUFFER, 0 );
+
+#if defined(LD_LOGGING)
+    if( !result ) {
+        StringSlice last_error;
+        platform->last_error(
+            &last_error.len, (const char**)&last_error.buffer );
+        LOG_ERROR( "{s}", last_error );
+    }
+#endif
+
+    return result;
 }
 LD_API void semaphore_signal( Semaphore* semaphore ) {
-    platform_semaphore_increment( semaphore );
+    platform->thread.semaphore_signal( semaphore );
 }
 LD_API void semaphore_wait( Semaphore* semaphore ) {
-    platform_semaphore_wait( semaphore, true, 0 );
+    platform->thread.semaphore_wait( semaphore );
 }
 LD_API void semaphore_wait_for( Semaphore* semaphore, u32 ms ) {
-    platform_semaphore_wait( semaphore, false, ms );
+    platform->thread.semaphore_wait_timed( semaphore, ms );
 }
 LD_API void semaphore_destroy( Semaphore* semaphore ) {
-    platform_semaphore_destroy( semaphore );
+    platform->thread.semaphore_destroy( semaphore );
 }
 
 LD_API Mutex* mutex_create(void) {
-    return platform_mutex_create();
+    return platform->thread.mutex_create();
 }
 LD_API void mutex_lock( Mutex* mutex ) {
-    platform_mutex_lock( mutex );
+    platform->thread.mutex_lock( mutex );
 }
 LD_API void mutex_unlock( Mutex* mutex ) {
-    platform_mutex_unlock( mutex );
+    platform->thread.mutex_unlock( mutex );
 }
 LD_API void mutex_destroy( Mutex* mutex ) {
-    platform_mutex_destroy( mutex );
+    platform->thread.mutex_destroy( mutex );
 }
 

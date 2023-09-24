@@ -3,7 +3,7 @@
 // * File Created: September 05, 2023
 #include "core/cstr.h"
 #include "core/mem.h"
-#include "platform.h"
+#include "internal.h"
 
 LD_API usize cstr_len( const char* cstr ) {
     const char* start = cstr;
@@ -35,10 +35,10 @@ LD_API void cstr_copy( char* dst, const char* src, usize len ) {
 }
 LD_API void cstr_output_stdout( const char* cstr ) {
     usize len = cstr_len( cstr );
-    platform_write_console( platform_stdout_handle(), len, cstr );
+    platform->io.console_write( platform->io.stdout_handle(), len, cstr );
 }
 LD_API void cstr_output_stderr( const char* cstr ) {
     usize len = cstr_len( cstr );
-    platform_write_console( platform_stderr_handle(), len, cstr );
+    platform->io.console_write( platform->io.stderr_handle(), len, cstr );
 }
 

@@ -146,8 +146,6 @@ typedef struct RenderData {
     usize          command_capacity;
 } RenderData;
 
-/// Renderer backend shutdown function prototype.
-typedef void (*RendererBackendShutdownFN)( RendererContext* ctx );
 /// Renderer backend surface resize function prototype.
 typedef void (*RendererBackendOnResizeFN)( RendererContext* ctx );
 /// Renderer backend begin frame function prototype.
@@ -165,8 +163,6 @@ b32 renderer_subsystem_init(
     enum RendererBackend backend,
     void* context_buffer
 );
-/// Shutdown renderer subsystem.
-void renderer_subsystem_shutdown( RendererContext* ctx );
 /// On resize.
 void renderer_subsystem_on_resize(
     RendererContext* ctx,

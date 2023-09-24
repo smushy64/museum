@@ -34,4 +34,4 @@ clang
 -DLD_PROFILING
 -D_XOPEN_SOURCE=600
 -I.
--I../vendor
+-I../liquid_platform

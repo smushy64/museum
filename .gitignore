@@ -3,8 +3,7 @@ build
 .vscode
 resources/shaders/*.spv
 *.rdbg
-**/corecpp.inl
-**/corec.inl
 *.ngfx-proj
 *.d
 old
+*.inl

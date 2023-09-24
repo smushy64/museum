@@ -6,6 +6,10 @@
 
 RenderData* RENDER_DATA = NULL;
 
+LD_API void graphics_set_camera( struct Camera* camera ) {
+    RENDER_DATA->camera = camera;
+}
+
 LD_API void graphics_set_directional_light(
     vec3 direction, vec3 color
 ) {

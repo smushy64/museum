@@ -4,7 +4,7 @@
 #include "core/library.h"
 #include "core/log.h"
 #include "core/cstr.h"
-#include "platform.h"
+#include "internal.h"
 
 #if defined(LD_LOGGING)
     #include "core/mem.h"
@@ -69,7 +69,7 @@ LD_API b32 _library_load(
     const char*    library_path,
     DynamicLibrary* out_library
 ) {
-    PlatformLibrary* handle = platform_library_load( library_path );
+    PlatformLibrary* handle = platform->library.open( library_path );
     if( !handle ) {
         return false;
     }
@@ -104,7 +104,7 @@ LD_API b32 _library_load_trace(
     return load_result;
 }
 LD_API void _library_free( DynamicLibrary* library ) {
-    platform_library_free( library->handle );
+    platform->library.close( library->handle );
     mem_zero( library, sizeof(DynamicLibrary) );
 }
 LD_API void _library_free_trace( 
@@ -113,7 +113,7 @@ LD_API void _library_free_trace(
     const char* file,
     i32 line
 ) {
-    platform_library_free( library->handle );
+    platform->library.close( library->handle );
 #if defined(LD_LOGGING)
     LOG_NOTE_LIBRARY_FREE( library->path_storage );
 #endif
@@ -128,10 +128,7 @@ LD_API void* _library_load_function(
     DynamicLibrary* library,
     const char* function_name
 ) {
-    return platform_library_load_function(
-        library->handle,
-        function_name
-    );
+    return platform->library.load_function( library->handle, function_name );
 }
 LD_API void* _library_load_function_trace(
     DynamicLibrary* library,

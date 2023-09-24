@@ -1,4 +1,4 @@
-# * Description:  Liquid Engine Makefile
+# * Description:  Liquid Engine Platform Layer Makefile
 # * Author:       Alicia Amarilla (smushyaa@gmail.com)
 # * File Created: September 21, 2023
 
@@ -11,11 +11,10 @@ export CXXSTD := -std=c++20
 
 export RELEASE ?=
 
-export LD_MAJOR        := 0
-export LD_MINOR        := 2
-export LD_VERSION      := $(LD_MAJOR).$(LD_MINOR)
-export LD_NAME         := liquid-engine
-export LD_VERSION_PATH := $(subst .,-,$(LD_VERSION))
+export LD_MAJOR   := 0
+export LD_MINOR   := 2
+export LD_VERSION := $(LD_MAJOR).$(LD_MINOR)
+export LD_NAME    := liquid-engine
 
 export LD_MEMORY_PAGE_SIZE := 4096
 
@@ -49,21 +48,11 @@ ifeq ($(TARGET_PLATFORM), win32)
 	export SO_EXT  := dll
 
 	LDMAIN := liquid_platform/platform_win32.c
-else
-	export EXE_EXT :=
-	export SO_EXT  := so
-
-	ifeq ($(TARGET_PLATFORM), linux)
-		LDMAIN := liquid_platform/platform_linux.c
-		LD_MEMORY_PAGE_SIZE := $(shell getconf PAGESIZE)
-	endif
 endif
 
 export BUILD_PATH := build/$(if $(RELEASE),release,debug)
 export OBJ_PATH   := $(BUILD_PATH)/obj
 
-# NOTE(alicia): idk about these C_FLAGs
-# -Wno-incompatible-library-redeclaration
 CFLAGS := -Werror -Wall -Wextra -pedantic -Werror=vla
 CFLAGS += -fno-strict-enums -Wno-missing-braces
 CFLAGS += -Wno-c11-extensions -Wno-gnu-zero-variadic-macro-arguments
@@ -72,7 +61,6 @@ CFLAGS += -Wno-ignored-attributes -Wno-gnu-case-range
 CFLAGS += -Wno-fixed-enum-extension -Wno-static-in-inline
 CFLAGS += -Wno-c99-extensions -Wno-duplicate-decl-specifier
 CFLAGS += -Wno-gnu-empty-initializer
-CFLAGS += -MMD -MP -MF ./$(OBJ_PATH)/$(LD_NAME).d
 
 ifeq ($(RELEASE), true)
 	CFLAGS += -O2 -ffast-math
@@ -101,9 +89,12 @@ export GL_MAJOR := 4
 export GL_MINOR := 5
 
 export LD_EXE_NAME := liquid-engine$(if $(RELEASE),,-debug)
-export TARGET      := $(BUILD_PATH)/$(LD_EXE_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)
+export LD_EXE      := $(LD_EXE_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)
+export TARGET      := $(BUILD_PATH)/$(LD_EXE)
 export LIB_CORE_NAME := liquid-core$(if $(RELEASE),,-debug)
 export LIB_CORE      := $(LIB_CORE_NAME).$(SO_EXT)
+export LIB_TESTBED_NAME := testbed$(if $(RELEASE),,-debug)
+export LIB_TESTBED      := $(LIB_TESTBED_NAME).$(SO_EXT)
 
 CPPFLAGS := -DLD_SIMD_WIDTH=4
 CPPFLAGS += -DLIQUID_ENGINE_VERSION=\""$(LD_NAME) $(LD_VERSION)"\"
@@ -117,24 +108,18 @@ CPPFLAGS += -DVULKAN_VERSION_MINOR=$(VK_MINOR)
 CPPFLAGS += -DLD_EXPORT
 CPPFLAGS += -DPLATFORM_MEMORY_PAGE_SIZE=$(LD_MEMORY_PAGE_SIZE)
 CPPFLAGS += -DLIQUID_ENGINE_CORE_LIBRARY_PATH=\"$(LIB_CORE)\"
+CPPFLAGS += -DLD_PLATFORM_INTERNAL
 
 ifeq ($(RELEASE), true)
 else
-	CPPFLAGS += -DDEBUG -DLD_LOGGING -DLD_ASSERTIONS -DLD_PROFILING
+	CPPFLAGS += -DLD_LOGGING -DLD_ASSERTIONS -DLD_PROFILING
 endif
-
-ifeq ($(TARGET_PLATFORM), linux)
-	CPPFLAGS += -D_XOPEN_SOURCE=600
-
-endif
-
-export LIB_TESTBED_NAME := testbed-$(LD_VERSION_PATH)-$(TARGET_PLATFORM)-$(TARGET_ARCH)$(if $(RELEASE),,-debug)
-export LIB_TESTBED      := $(LIB_TESTBED_NAME).$(SO_EXT)
 
 LDFLAGS := 
 
 ifeq ($(TARGET_PLATFORM), win32)
-	LDFLAGS += -fuse-ld=lld -nostdlib -lkernel32 -mstack-probe-size=999999999 -Wl,//stack:0x100000
+	LDFLAGS += -fuse-ld=lld -nostdlib -lkernel32
+	LDFLAGS += -mstack-probe-size=999999999 -Wl,//stack:0x100000
 
 	ifeq ($(RELEASE), true)
 		LDFLAGS += -Wl,//release
@@ -148,29 +133,15 @@ INCLUDE := -Iliquid_engine -Iliquid_platform
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
-dependencies := $(call recurse,$(OBJ_PATH),*.d)
+all: shaders $(if $(SHADER_ONLY),,$(TARGET) build_core)
+	@mkdir -p $(BUILD_PATH)/resources/shaders
+	@cp resources/shaders/*.spv $(BUILD_PATH)/resources/shaders
 
-all: shaders $(if $(SHADER_ONLY),,$(TARGET))
-
-# test: build_testbed
-# 	@mkdir -p $(BUILD_PATH)/resources/shaders
-# 	@cp resources/shaders/ldcolor.vert.spv $(BUILD_PATH)/resources/shaders/ldcolor.vert.spv
-# 	@cp resources/shaders/ldcolor.frag.spv $(BUILD_PATH)/resources/shaders/ldcolor.frag.spv
-# 	@cp resources/shaders/post_process.vert.spv $(BUILD_PATH)/resources/shaders/post_process.vert.spv
-# 	@cp resources/shaders/post_process.frag.spv $(BUILD_PATH)/resources/shaders/post_process.frag.spv
-# 	@cp resources/shaders/phong.vert.spv $(BUILD_PATH)/resources/shaders/phong.vert.spv
-# 	@cp resources/shaders/phong.frag.spv $(BUILD_PATH)/resources/shaders/phong.frag.spv
-# 	@cp resources/shaders/shadow_directional.vert.spv $(BUILD_PATH)/resources/shaders/shadow_directional.vert.spv
-# 	@cp resources/shaders/shadow_directional.frag.spv $(BUILD_PATH)/resources/shaders/shadow_directional.frag.spv
-# 	@cp resources/shaders/shadow_point.vert.spv $(BUILD_PATH)/resources/shaders/shadow_point.vert.spv
-# 	@cp resources/shaders/shadow_point.geom.spv $(BUILD_PATH)/resources/shaders/shadow_point.geom.spv
-# 	@cp resources/shaders/shadow_point.frag.spv $(BUILD_PATH)/resources/shaders/shadow_point.frag.spv
-# ifeq ($(TARGET_PLATFORM), win32)
-# 	@remedybg start-debugging
-# endif
-
-build_testbed: all
+test: all
 	@$(MAKE) --directory=testbed --no-print-directory
+
+build_core: 
+	@$(MAKE) --directory=liquid_engine --no-print-directory
 
 shaders:
 	@$(MAKE) --directory=shaders --no-print-directory
@@ -195,6 +166,7 @@ spit:
 	@echo "ldflags:    "$(LDFLAGS)
 	@echo
 	@echo "main:       "$(LDMAIN)
+	@$(MAKE) --directory=liquid_engine spit
 	# @$(MAKE) --directory=testbed spit
 	# @$(MAKE) --directory=shaders spit
 
@@ -206,12 +178,10 @@ clean_shaders:
 
 clean_debug:
 	@echo "Make: cleaning debug directory . . ."
-	rm -f $(COREC_PATH)
 	rm -r -f build/debug/*
 
 clean_release:
 	@echo "Make: cleaning release directory . . ."
-	rm -f $(COREC_PATH)
 	rm -r -f build/release/*
 
 help:
@@ -247,12 +217,10 @@ $(WIN32RESOURCES):win32/resources.rc
 	@mkdir -p $(OBJ_PATH)
 	@windres win32/resources.rc -o $(WIN32RESOURCES)
 
-$(TARGET): $(COREC_PATH) $(if $(IS_WINDOWS),$(WIN32RESOURCES),)
-	@echo "Make: compiling "$(LD_EXE_NAME).$(EXE_EXT)" . . ."
+$(TARGET): $(if $(IS_WINDOWS),$(WIN32RESOURCES),) $(LDMAIN) ./liquid_engine/defines.h ./liquid_engine/constants.h ./liquid_platform/platform.h
+	@echo "Make: compiling "$(TARGET)" . . ."
 	@mkdir -p $(OBJ_PATH)
 	@$(CC) $(CSTD) $(LDMAIN) $(WIN32RESOURCES) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
 
-.PHONY: all test shaders run clean clean_shaders clean_debug clean_release help build_testbed
-
--include $(dependencies)
+.PHONY: all test shaders run clean clean_shaders clean_debug clean_release help build_core
 

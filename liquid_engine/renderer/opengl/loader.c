@@ -6,6 +6,7 @@
 #include "renderer/opengl/types.h"
 #include "renderer/opengl/functions.h"
 #include "renderer/opengl/loader.h"
+#include "core/internal.h"
 
 #define LOAD_PROC_REQUIRED( fn ) do {\
 void* proc = get_proc_address( macro_name_to_string(fn) );\
@@ -338,4 +339,12 @@ b32 gl_load_functions( GetProcAddressFN* get_proc_address ) {
     LOAD_PROC_REQUIRED( glDebugMessageCallback );
     return true;
 }
+
+void glSwapBuffers( void* surface ) {
+    platform->surface.gl_swap_buffers( surface );
+}
+void glSwapInterval( void* surface, int interval ) {
+    platform->surface.gl_swap_interval( surface, interval );
+}
+
 

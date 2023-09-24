@@ -357,7 +357,7 @@ header_only const char* gamepad_code_to_string( GamepadCode gamepad_code ) {
     /// Input subsystem size.
     extern usize INPUT_SUBSYSTEM_SIZE;
     /// Initialize input subsystem.
-    b32  input_subsystem_init( void* buffer );
+    void input_subsystem_init( void* buffer );
 
     /// Set a key's state.
     void input_set_key( KeyboardCode keycode, b32 is_down );
@@ -467,7 +467,7 @@ LD_API f32 input_gamepad_trigger_right( u32 index );
 /// Last frame's gamepad trigger left state.
 LD_API f32 input_gamepad_last_trigger_right( u32 index );
 /// Set gamepad's motor state.
-LD_API void input_gamepad_set_motor_state( u32 index, u32 motor, f32 value );
+LD_API void input_gamepad_set_motor_state( u32 index, f32 left, f32 right );
 /// Get gamepad's motor state.
 LD_API f32 input_gamepad_motor_state( u32 index, u32 motor );
 /// Get gamepad stick left deadzone.

@@ -8,9 +8,9 @@
 #include "core/strings.h"
 #include "core/mem.h"
 #include "core/thread.h"
+#include "internal.h"
 
 #if defined(LD_PLATFORM_WINDOWS)
-    #include "platform.h"
     global b32 OUTPUT_DEBUG_STRING_ENABLED = false;
     void log_subsystem_win32_enable_output_debug_string(void) {
 #if defined(LD_LOGGING)
@@ -67,9 +67,8 @@ void log_subsystem_shutdown(void) {
         );
 #if defined(LD_PLATFORM_WINDOWS)
         if( OUTPUT_DEBUG_STRING_ENABLED ) {
-            platform_win32_output_debug_string(
-                "[INFO] Logging subsystem shutdown."
-            );
+            platform->io.output_debug_string(
+                "[INFO] Logging subsystem shutdown." );
         }
 #endif
     }
@@ -132,7 +131,7 @@ hot internal void log_formatted(
 
 #if defined(LD_PLATFORM_WINDOWS)
         if( OUTPUT_DEBUG_STRING_ENABLED ) {
-            platform_win32_output_debug_string( buffer.buffer );
+            platform->io.output_debug_string( buffer.buffer );
         }
 #endif
     } else {

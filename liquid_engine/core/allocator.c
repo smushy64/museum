@@ -450,11 +450,11 @@ LD_API void* internal_stack_allocator_push_trace(
             false, true,
             LOG_COLOR_GREEN
             "[STACK PUSH | {cc}() | {cc}:{i}] "
-            "Current: {u64} Size: {u64} Pointer: {u64,x}"
+            "Current: {u64} Size: {u64} Pointer: {usize,x}"
             LOG_COLOR_RESET,
             function, file, line,
             (u64)allocator->current,
-            (u64)size, (u64)allocator->buffer
+            (u64)size, (usize)allocator->buffer
         );
     } else {
         log_formatted_locked(

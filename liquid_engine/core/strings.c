@@ -10,23 +10,23 @@
 
 #include "core/mathf.h"
 
-#include "platform.h"
+#include "internal.h"
 
 LD_API void char_output_stdout( char character ) {
-    platform_write_console( platform_stdout_handle(), 1, &character );
+    platform->io.console_write( platform->io.stdout_handle(), 1, &character );
 }
 LD_API void char_output_stderr( char character ) {
-    platform_write_console( platform_stderr_handle(), 1, &character );
+    platform->io.console_write( platform->io.stderr_handle(), 1, &character );
 }
 hot LD_API void ss_output_stdout( StringSlice* slice ) {
-    platform_write_console(
-        platform_stdout_handle(),
+    platform->io.console_write(
+        platform->io.stdout_handle(),
         slice->len, slice->buffer
     );
 }
 hot LD_API void ss_output_stderr( StringSlice* slice ) {
-    platform_write_console(
-        platform_stderr_handle(),
+    platform->io.console_write(
+        platform->io.stderr_handle(),
         slice->len, slice->buffer
     );
 }

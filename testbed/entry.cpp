@@ -2,23 +2,15 @@
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: August 09, 2023
 #include <defines.h>
-#include <core/engine.h>
-#include <core/log.h>
+#include <core/strings.h>
 #include <core/mathf.h>
-#include <core/mem.h>
-#include <core/allocator.h>
-#include <core/thread.h>
 #include <core/graphics.h>
-#include <core/graphics/types.h>
-#include <core/graphics/ui.h>
+#include <core/timer.h>
 #include <core/input.h>
-#include <core/collections.h>
 
 struct GameMemory {
     Transform camera_transform;
     Camera    camera;
-    hsv       color;
-    vec3      camera_rotation;
 
     Transform cube0;
     Transform cube1;
@@ -27,6 +19,7 @@ struct GameMemory {
     mat4 floor;
 
     vec3 cube_rotation;
+    vec3 camera_rotation;
 
     RenderID triangle;
     RenderID triangle_diffuse;
@@ -38,32 +31,15 @@ struct Vertex3D triangle_vertices[] = {
     { {  0.0f,  0.5f, 0.0f }, { 0.0f, 1.0f }, { VEC3_FORWARD }, { RGBA_WHITE }, { VEC3_RIGHT } },
 };
 
-u32 triangle_indices[] = {
-    0, 1, 2
-};
-
-u8 triangle_diffuse[] = {
-    255, 255, 255
-};
+u32 triangle_indices[] = { 0, 1, 2 };
+u8  triangle_diffuse[] = { 255, 255, 255 };
 
 c_linkage usize application_query_memory_requirement() {
     return sizeof(GameMemory);
 }
-c_linkage b32 application_init( EngineContext* ctx, void* opaque ) {
 
-#if defined(LD_PLATFORM_WINDOWS)
-    STRING( name, "testbed-win32" );
-#elif defined(LD_PLATFORM_LINUX)
-    STRING( name, "testbed-linux" );
-#else
-    STRING( name, "testbed-unknown" );
-#endif
-
-    engine_application_set_name( ctx, &name );
-    engine_surface_center( ctx );
-
-    GameMemory* memory = (GameMemory*)opaque;
-
+c_linkage b32 application_initialize( void* in_memory ) {
+    GameMemory* memory = (GameMemory*)in_memory;
     memory->camera_transform =
         transform_create(
             v3_mul( VEC3_FORWARD, 2.0f ),
@@ -77,14 +53,15 @@ c_linkage b32 application_init( EngineContext* ctx, void* opaque ) {
 
     memory->camera_rotation = {};
 
-    memory->color = v3_hsv( 0.0f, 1.0f, 1.0f );
-
-    memory->floor = m4_transform( VEC3_DOWN, QUAT_IDENTITY, v3( 100.0f, 1.0f, 100.0f ) );
-    memory->cube0 = transform_create( v3( 0.0f, 1.2f, 0.0f ), QUAT_IDENTITY, VEC3_ONE );
-    memory->cube1 = transform_create( v3( 0.0f, 0.75f, 0.0f ), QUAT_IDENTITY, v3_mul( VEC3_ONE, 0.5f ) );
+    memory->floor = m4_transform(
+        VEC3_DOWN, QUAT_IDENTITY, v3( 100.0f, 1.0f, 100.0f ) );
+    memory->cube0 = transform_create(
+        v3( 0.0f, 1.2f, 0.0f ), QUAT_IDENTITY, VEC3_ONE );
+    memory->cube1 = transform_create(
+        v3( 0.0f, 0.75f, 0.0f ), QUAT_IDENTITY, v3_mul( VEC3_ONE, 0.5f ) );
     memory->cube1.parent = &memory->cube0;
 
-    engine_set_camera( ctx, &memory->camera );
+    graphics_set_camera( &memory->camera );
 
     memory->triangle = graphics_generate_mesh(
         static_array_count(triangle_vertices), triangle_vertices,
@@ -97,31 +74,25 @@ c_linkage b32 application_init( EngineContext* ctx, void* opaque ) {
         GRAPHICS_TEXTURE_FILTER_NEAREST,
         GRAPHICS_TEXTURE_FILTER_NEAREST,
         1, 1, static_array_size( triangle_diffuse ),
-        triangle_diffuse
-    );
+        triangle_diffuse );
 
     memory->triangle_transform =
         transform_create( VEC3_ZERO, QUAT_IDENTITY, VEC3_ONE );
 
-    graphics_set_directional_light( v3(-1.0f, -1.0f, -1.0f), RGB_GRAY );
-    graphics_set_point_light( 0, VEC3_LEFT * 2.0f + VEC3_UP, RGB_BLUE, true );
+    graphics_set_directional_light(
+        v3(-1.0f, -1.0f, -1.0f), RGB_GRAY );
+    graphics_set_point_light(
+        0, VEC3_LEFT * 2.0f + VEC3_UP, RGB_BLUE, true );
 
     return true;
 }
-c_linkage b32 application_run(
-    maybe_unused EngineContext* ctx, void* opaque
-) {
-    maybe_unused GameMemory* memory = (GameMemory*)opaque;
 
-    TimeStamp time = engine_time( ctx );
+c_linkage b32 application_run( TimeStamp time, void* in_memory ) {
+    GameMemory* memory = (GameMemory*)in_memory;
     unused(time);
 
     if( input_key_press( KEY_ESCAPE ) ) {
-        engine_exit();
-    }
-
-    if( input_key_press( KEY_SPACE ) ) {
-        engine_surface_center( ctx );
+        // engine_exit();
     }
 
     f32 move_speed   = 1.25f;

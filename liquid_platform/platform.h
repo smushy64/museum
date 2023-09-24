@@ -5,7 +5,7 @@
 // * File Created: September 21, 2023
 #include "defines.h"
 
-#if !defined(LIQUID_ENGINE_CORE_LIBRARY_PATH)
+#if defined(LD_PLATFORM_INTERNAL) && !defined(LIQUID_ENGINE_CORE_LIBRARY_PATH)
     #error "LIQUID_ENGINE_CORE_LIBRARY_PATH must be defined!"
 #endif
 
@@ -326,6 +326,9 @@ typedef struct {
 
 typedef PlatformInfo* PlatformQueryInfoFN(void);
 typedef void* PlatformGLLoadProcFN(const char* function_name);
+typedef void PlatformFatalMessageBoxFN(
+    const char* title, const char* message );
+typedef void PlatformLastErrorFN( usize* out_error_len, const char** out_error );
 
 typedef struct PlatformAPI {
     PlatformSurfaceAPI   surface;
@@ -335,8 +338,10 @@ typedef struct PlatformAPI {
     PlatformThreadAPI    thread;
     PlatformMemoryAPI    memory;
 
-    PlatformQueryInfoFN*  query_info;
-    PlatformGLLoadProcFN* gl_load_proc;
+    PlatformQueryInfoFN*       query_info;
+    PlatformGLLoadProcFN*      gl_load_proc;
+    PlatformFatalMessageBoxFN* fatal_message_box;
+    PlatformLastErrorFN*       last_error;
 } PlatformAPI;
 
 #endif // header guard

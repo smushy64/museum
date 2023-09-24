@@ -16,7 +16,6 @@ enum RendererBackend : u32;
 typedef struct InternalRendererContext {
     enum RendererBackend        backend;
 
-    RendererBackendShutdownFN   shutdown;
     RendererBackendOnResizeFN   on_resize;
     RendererBackendBeginFrameFN begin_frame;
     RendererBackendEndFrameFN   end_frame;

@@ -3,13 +3,12 @@
 // * File Created: August 18, 2023
 #include "renderer.h"
 #include "renderer/context.h"
-#include "platform.h"
-#include "core/engine.h"
 #include "core/graphics.h"
 #include "core/graphics/types.h"
 #include "core/log.h"
 #include "core/mathf.h"
 #include "core/mem.h"
+#include "core/internal.h"
 
 // TODO(alicia): should these be labeled extern?
 // it's all the same translation unit after all . . .
@@ -42,10 +41,13 @@ b32 renderer_subsystem_init(
     InternalRendererContext* ctx = context_buffer;
     ctx->surface = surface;
     ctx->backend = backend;
-    ivec2 dimensions = platform_surface_query_dimensions( ctx->surface );
+    ivec2 dimensions = {};
+    platform->surface.query_dimensions(
+        ctx->surface, &dimensions.width, &dimensions.height );
 
     ctx->mesh_map    = map_u32_u32_create(
         MESH_COUNT_MAX * 2, ctx->map_buffer );
+
     ctx->texture_map = map_u32_u32_create(
         TEXTURE_COUNT_MAX * 2,
         ctx->map_buffer + (MESH_COUNT_MAX * 2) );
@@ -71,10 +73,6 @@ b32 renderer_subsystem_init(
     renderer_subsystem_on_resize( context_buffer, dimensions, dimensions );
 
     return true;
-}
-void renderer_subsystem_shutdown( RendererContext* opaque ) {
-    InternalRendererContext* ctx = opaque;
-    ctx->shutdown( ctx );
 }
 void renderer_subsystem_on_resize(
     RendererContext* opaque,

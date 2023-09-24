@@ -7,6 +7,8 @@
 #include "core/mathf/types.h"
 #include "core/graphics/types.h"
 
+LD_API void graphics_set_camera( struct Camera* camera );
+
 /// Draw a mesh using phong brdf.
 LD_API void graphics_draw(
     mat4     transform,

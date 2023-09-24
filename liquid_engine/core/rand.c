@@ -2,6 +2,7 @@
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: September 07, 2023
 #include "core/rand.h"
+#include "constants.h"
 
 struct InternalRandStateLCG {
     i32 seed, current;

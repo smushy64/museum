@@ -5,7 +5,7 @@
 */
 #include "core/mem.h"
 #include "core/log.h"
-#include "platform.h"
+#include "internal.h"
 
 #if !defined(PLATFORM_MEMORY_PAGE_SIZE)
     #define PLATFORM_MEMORY_PAGE_SIZE (kilobytes(4))
@@ -26,7 +26,7 @@ LD_API void* internal_ldalloc( usize size, MemoryType type ) {
         LOG_WARN( "Allocating unknown memory!" );
     }
 #endif
-    void* result = platform_heap_alloc( size );
+    void* result = platform->memory.heap_alloc( size );
     if( result ) {
         USAGE.usage[type] += size;
     }
@@ -59,7 +59,8 @@ LD_API void* internal_ldrealloc(
         LOG_WARN( "Allocating unknown memory!" );
     }
 #endif
-    void* result = platform_heap_realloc( memory, old_size, new_size );
+    void* result = platform->memory.heap_realloc(
+        memory, old_size, new_size );
     if( result ) {
         usize additional_size = new_size - old_size;
         USAGE.usage[type] += additional_size;
@@ -67,7 +68,7 @@ LD_API void* internal_ldrealloc(
     return result;
 }
 LD_API void internal_ldfree( void* memory, usize size, MemoryType type ) {
-    platform_heap_free( memory );
+    platform->memory.heap_free( size, memory );
     USAGE.usage[type] -= size;
 }
 LD_API void internal_ldfree_aligned(
@@ -221,7 +222,7 @@ LD_API void internal_ldfree_aligned_trace(
 
 LD_API void* internal_ldpage_alloc( usize pages, MemoryType type ) {
     usize byte_size = pages * MEMORY_PAGE_SIZE;
-    void* result = platform_page_alloc( byte_size );
+    void* result = platform->memory.page_alloc( byte_size );
     if( result ) {
         USAGE.page_usage[type] += byte_size;
     }
@@ -230,7 +231,8 @@ LD_API void* internal_ldpage_alloc( usize pages, MemoryType type ) {
 LD_API void internal_ldpage_free( void* memory, usize pages, MemoryType type ) {
     usize byte_size = pages * MEMORY_PAGE_SIZE;
     USAGE.page_usage[type] -= byte_size;
-    platform_page_free( memory );
+
+    platform->memory.page_free( byte_size, memory );
 }
 LD_API void* internal_ldpage_alloc_trace(
     usize pages, MemoryType type,

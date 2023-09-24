@@ -6,8 +6,8 @@
  * File Created: May 08, 2023
 */
 #include "defines.h"
-#include "core/mathf/functions.h"
 #include "core/mathf/types.h"
+#include "core/mathf/functions.h"
 
 #endif // header guard
 
