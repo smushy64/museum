@@ -1,9 +1,11 @@
-#if !defined(LD_RENDERER_OPENGL_TYPES_HPP)
-#define LD_RENDERER_OPENGL_TYPES_HPP
+#if !defined(LD_CORE_GRAPHICS_INTERNAL_OPENGL_TYPES_H)
+#define LD_CORE_GRAPHICS_INTERNAL_OPENGL_TYPES_H
 // * Description:  OpenGL Types
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
-// * File Created: August 18, 2023
+// * File Created: September 24, 2023
 #include "defines.h"
+
+#if defined(LD_API_INTERNAL)
 #include "core/mathf/types.h"
 
 typedef i8  GLbyte;
@@ -53,53 +55,16 @@ typedef GLenum GLShaderStage;
 /// Clear flags
 typedef GLenum GLClearFlags;
 
-typedef GLenum GLType;
+typedef GLenum GLTextureType;
 typedef GLenum GLFormat;
 typedef GLenum GLInternalFormat;
 typedef GLenum GLMagFilter;
 typedef GLenum GLMinFilter;
 typedef GLenum GLWrapMode;
 
-typedef GLenum GLDrawBuffer;
-
-#define FRAMEBUFFER_TEXTURE_ID_COUNT (2)
-/// Framebuffer.
-typedef struct GLFramebuffer {
-    GLFramebufferID id;
-    union {
-        struct { i32 width, height; };
-        ivec2 dimensions;
-    };
-    union {
-        GLTextureID shadow_texture_id;
-        struct {
-            GLTextureID color_texture_id;
-            GLTextureID depth_texture_id;
-        };
-        GLTextureID texture_ids[FRAMEBUFFER_TEXTURE_ID_COUNT];
-    };
-} GLFramebuffer;
-
-/// 2D Texture.
-typedef struct GLTexture2D {
-    GLTextureID      id;
-    i32              width, height;
-    i32              mipmap_level;
-    GLType           type;
-    GLInternalFormat internal_format;
-    GLFormat         format;
-    GLWrapMode       wrap_x;
-    GLWrapMode       wrap_y;
-    GLMagFilter      mag_filter;
-    GLMinFilter      min_filter;
-} GLTexture2D;
-
-typedef struct {
-    GLVertexArrayID id;
-    u32             index_count;
-    GLenum          index_type;
-    GLenum          default_mode;
-} GLVertexArray;
+typedef GLenum GLIndexType;
+typedef GLenum GLDrawMode;
+typedef GLenum GLUsageHint;
 
 typedef void (*DEBUGPROC)(
     GLenum        source,
@@ -1492,22 +1457,7 @@ typedef void (*DEBUGPROC)(
 #define GL_TRANSFORM_FEEDBACK_OVERFLOW 0x82EC
 #define GL_TRANSFORM_FEEDBACK_STREAM_OVERFLOW 0x82ED
 
-header_only const char* gl_draw_buffer_to_string( GLDrawBuffer buffer ) {
-    switch( buffer ) {
-        case GL_NONE:        return "None";
-        case GL_FRONT_LEFT:  return "Front Left";
-        case GL_FRONT_RIGHT: return "Front Right";
-        case GL_BACK_LEFT:   return "Back Left";
-        case GL_BACK_RIGHT:  return "Back Right";
-        case GL_FRONT:       return "Front";
-        case GL_BACK:        return "Back";
-        case GL_LEFT:        return "Left";
-        case GL_RIGHT:       return "Right";
-        case GL_FRONT_AND_BACK: return "Front and Back";
-        case GL_COLOR_ATTACHMENT0 ... GL_COLOR_ATTACHMENT30:
-            return "Color Attachment 0-30";
-        default: return "Unknown Buffer";
-    }
-}
+#endif // API internal
 
 #endif // header guard
+

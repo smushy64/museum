@@ -1,12 +1,11 @@
-// * Description:  OpenGL Function Loader Implementation
+// * Description:  OpenGL Function Loader
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
-// * File Created: August 18, 2023
+// * File Created: September 24, 2023
 #include "defines.h"
-#include "renderer/opengl.h"
-#include "renderer/opengl/types.h"
-#include "renderer/opengl/functions.h"
-#include "renderer/opengl/loader.h"
+#include "core/log.h"
 #include "core/internal.h"
+#include "core/graphics/internal/opengl/functions.h"
+#include "core/graphics/internal/opengl.h"
 
 #define LOAD_PROC_REQUIRED( fn ) do {\
 void* proc = get_proc_address( macro_name_to_string(fn) );\
@@ -181,7 +180,10 @@ DEFINE_GL_FUNCTION(glDeleteVertexArrays);
 // Debug ---------------------------------------------------------------
 DEFINE_GL_FUNCTION(glDebugMessageCallback);
 
-b32 gl_load_functions( GetProcAddressFN* get_proc_address ) {
+typedef void* GetProcAddressFN( const char* name );
+
+b32 gl_load_functions( PlatformGLLoadProcFN* in_get_proc_address ) {
+    GetProcAddressFN* get_proc_address = in_get_proc_address;
 
     LOAD_PROC_REQUIRED( glCreateTextures );
     LOAD_PROC_REQUIRED( glBindTextureUnit );

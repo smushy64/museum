@@ -35,7 +35,7 @@ ifeq ($(TARGET_PLATFORM), win32)
 	endif
 endif
 
-CPPFLAGS := -DLD_SIMD_WIDTH=4
+CPPFLAGS := -DLD_SIMD_WIDTH=4 -DSTACK_SIZE=$(LD_STACK_SIZE)
 
 ifeq ($(RELEASE), true)
 else
@@ -47,7 +47,7 @@ LDFLAGS := -shared
 ifeq ($(TARGET_PLATFORM), win32)
 	LDFLAGS += -fuse-ld=lld -nostdlib
 	LDFLAGS += -L$(LOCAL_BUILD_PATH) -l$(LIB_CORE_NAME)
-	LDFLAGS += -mstack-probe-size=999999999 -Wl,//stack:0x100000
+	LDFLAGS += -mstack-probe-size=999999999 -Wl,//stack:$(LD_STACK_SIZE)
 
 	ifeq ($(RELEASE), true)
 		LDFLAGS += -Wl,//release
@@ -88,9 +88,10 @@ spit:
 	@echo
 	@echo "ldflags:    "$(LDFLAGS)
 	@echo
-	@echo "main:       "$(COREMAIN)
+	@echo "main:       "$(TESTBEDMAIN)
 
 $(GENERATED_DEPENDENCIES_PATH): $(CPP)
+	@echo "Make: generating dependencies for testbed . . ."
 	@echo "// * Description:  Generated file containing all Liquid Engine testbed dependencies" > $(GENERATED_DEPENDENCIES_PATH)
 	@echo "// * Author:       Alicia Amarilla (smushyaa@gmail.com)" >> $(GENERATED_DEPENDENCIES_PATH)
 	@echo "// * Generated on: "$(shell date) >> $(GENERATED_DEPENDENCIES_PATH)

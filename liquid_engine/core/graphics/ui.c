@@ -5,5 +5,4 @@
 #include "core/mathf.h"
 #include "core/log.h"
 #include "core/mem.h"
-#include "renderer.h"
 

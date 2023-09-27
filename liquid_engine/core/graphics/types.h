@@ -190,7 +190,7 @@ struct Vertex3D {
     vec3 position;
     vec2 uv;
     vec3 normal;
-    vec4 color;
+    vec3 color;
     vec3 tangent; 
 };
 /// Make vertex 3d.
@@ -199,7 +199,7 @@ struct Vertex3D vertex3d(
     vec3 position,
     vec2 uv,
     vec3 normal,
-    vec4 color,
+    vec3 color,
     vec3 tangent
 ) {
     struct Vertex3D result;
@@ -233,6 +233,60 @@ Mesh mesh(
     result.indices      = indices;
     result.index_count  = index_count;
     return result;
+}
+
+/// Supported renderer backends
+typedef enum RendererBackend : u32 {
+    RENDERER_BACKEND_OPENGL,
+    RENDERER_BACKEND_VULKAN,
+    RENDERER_BACKEND_DX11,
+    RENDERER_BACKEND_DX12,
+    RENDERER_BACKEND_METAL,
+    RENDERER_BACKEND_WEBGL,
+
+    RENDERER_BACKEND_COUNT
+} RendererBackend;
+/// Convert renderer backend to const char*
+header_only
+const char* renderer_backend_to_string( RendererBackend backend ) {
+    const char* strings[RENDERER_BACKEND_COUNT] = {
+        "OpenGL "
+            macro_value_to_string( GL_VERSION_MAJOR ) "."
+            macro_value_to_string( GL_VERSION_MINOR ),
+        "Vulkan "
+            macro_value_to_string( VULKAN_VERSION_MAJOR ) "."
+            macro_value_to_string( VULKAN_VERSION_MINOR ),
+        "DirectX 11",
+        "DirectX 12",
+        "Metal",
+        "WebGL"
+    };
+    assert( backend < RENDERER_BACKEND_COUNT );
+    return strings[backend];
+}
+/// Check if renderer backend is supported on the current platform.
+header_only
+b32 renderer_backend_is_supported( RendererBackend backend ) {
+#if !defined(LD_PLATFORM_WINDOWS)
+    if(
+        backend == RENDERER_BACKEND_DX11 ||
+        backend == RENDERER_BACKEND_DX12
+    ) {
+        return false;
+    }
+#endif
+#if !(defined(LD_PLATFORM_MACOS) || defined(LD_PLATFORM_IOS))
+    if( backend == RENDERER_BACKEND_METAL ) {
+        return false;
+    }
+#endif
+#if !defined(LD_PLATFORM_WASM)
+    if( backend == RENDERER_BACKEND_WEBGL ) {
+        return false;
+    }
+#endif
+    unused(backend);
+    return true;
 }
 
 #endif // header guard

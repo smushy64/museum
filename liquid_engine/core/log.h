@@ -42,7 +42,7 @@ LD_API void log_formatted_unlocked(
 #define LOG_COLOR_CYAN    "\033[1;36m"
 #define LOG_COLOR_WHITE   "\033[1;37m"
 #define LOG_COLOR_BLUE    "\033[1;34m"
-#define LOG_COLOR_RESET   "\033[1;0m"
+#define LOG_COLOR_RESET   "\033[1;00m"
 #define LOG_COLOR_DEFAULT "\033[1;39m"
 
 /// No logs will be printed
@@ -132,7 +132,8 @@ LD_API void log_formatted_unlocked(
             LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE,\
             false, true,\
             LOG_COLOR_RESET\
-            "[NOTE] " format,\
+            "[NOTE] " format\
+            LOG_COLOR_RESET,\
             ##__VA_ARGS__\
         )
     #define LOG_INFO( format, ... ) \
@@ -177,7 +178,8 @@ LD_API void log_formatted_unlocked(
             LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,\
             false, true,\
             LOG_COLOR_RESET\
-            "[NOTE | {cc}() | {cc}:{i}] " format,\
+            "[NOTE | {cc}() | {cc}:{i}] " format\
+            LOG_COLOR_RESET,\
             __FUNCTION__,\
             __FILE__,\
             __LINE__,\

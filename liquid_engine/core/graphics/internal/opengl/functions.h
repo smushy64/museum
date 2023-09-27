@@ -1,10 +1,12 @@
-#if !defined(LD_RENDERER_OPENGL_FUNCTIONS_HPP)
-#define LD_RENDERER_OPENGL_FUNCTIONS_HPP
+#if !defined(LD_CORE_GRAPHICS_INTERNAL_OPENGL_FUNCTIONS_H)
+#define LD_CORE_GRAPHICS_INTERNAL_OPENGL_FUNCTIONS_H
 // * Description:  OpenGL Functions
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
-// * File Created: August 18, 2023
+// * File Created: September 24, 2023
 #include "defines.h"
-#include "renderer/opengl/types.h"
+
+#if defined(LD_API_INTERNAL)
+#include "core/graphics/internal/opengl/types.h"
 
 void glSwapBuffers( void* surface );
 void glSwapInterval( void* surface, int interval );
@@ -173,9 +175,6 @@ DECLARE_GL_FUNCTION( void, glDeleteVertexArrays, GLsizei, const GLuint* );
 // Program Pipelines ---------------------------------------------------
 // Debug ---------------------------------------------------------------
 DECLARE_GL_FUNCTION( void, glDebugMessageCallback, DEBUGPROC, void* );
-
-DECLARE_GL_FUNCTION( void, glSwapInterval, int, void* );
-
 
 #define IMPLEMENT_GL_FUNCTION( ret, name, ... )\
     global force_inline maybe_unused ret\
@@ -637,5 +636,7 @@ IMPLEMENT_GL_FUNCTION( void, glDebugMessageCallback,
 ) {
     ___internal_glDebugMessageCallback( callback, userParam );
 }
+
+#endif // API internal
 
 #endif // header guard

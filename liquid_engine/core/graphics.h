@@ -7,6 +7,7 @@
 #include "core/mathf/types.h"
 #include "core/graphics/types.h"
 
+/// Set the current camera.
 LD_API void graphics_set_camera( struct Camera* camera );
 
 /// Draw a mesh using phong brdf.
@@ -31,7 +32,7 @@ LD_API RenderID graphics_generate_mesh(
     usize index_count, u32* indices );
 /// Retire meshes.
 /// Provided buffers must live until the end of the current frame.
-LD_API b32 graphics_retire_meshes( usize count, RenderID* meshes );
+LD_API void graphics_retire_meshes( usize count, RenderID* meshes );
 
 /// Send a generate texture command to the renderer.
 /// Provided buffers must live until the end of the current frame.
@@ -50,7 +51,7 @@ LD_API RenderID graphics_generate_texture(
 );
 /// Retire textures.
 /// Provided buffers must live until the end of the current frame.
-LD_API b32 graphics_retire_textures( usize count, RenderID* textures );
+LD_API void graphics_retire_textures( usize count, RenderID* textures );
 
 /// Send a generate texture command to the renderer.
 /// Provided buffers must live until the end of the current frame.
@@ -78,69 +79,10 @@ RenderID graphics_generate_texture_2d(
 
 /// Send a command to the renderer to change directional light parameters.
 LD_API void graphics_set_directional_light(
-    vec3 direction, vec3 color );
+    vec3 direction, vec3 color, b32 is_active );
 
 /// Send a command to the renderer to change point light parameters.
 LD_API void graphics_set_point_light(
     u32 index, vec3 position, vec3 color, b32 is_active );
-
-/// Supported renderer backends
-typedef enum RendererBackend : u32 {
-    RENDERER_BACKEND_OPENGL,
-    RENDERER_BACKEND_VULKAN,
-    RENDERER_BACKEND_DX11,
-    RENDERER_BACKEND_DX12,
-    RENDERER_BACKEND_METAL,
-    RENDERER_BACKEND_WEBGL,
-
-    RENDERER_BACKEND_COUNT
-} RendererBackend;
-/// Convert renderer backend to const char*
-header_only
-const char* renderer_backend_to_string( RendererBackend backend ) {
-    const char* strings[RENDERER_BACKEND_COUNT] = {
-        "OpenGL "
-            macro_value_to_string( GL_VERSION_MAJOR ) "."
-            macro_value_to_string( GL_VERSION_MINOR ),
-        "Vulkan "
-            macro_value_to_string( VULKAN_VERSION_MAJOR ) "."
-            macro_value_to_string( VULKAN_VERSION_MINOR ),
-        "DirectX 11",
-        "DirectX 12",
-        "Metal",
-        "WebGL"
-    };
-    assert( backend < RENDERER_BACKEND_COUNT );
-    return strings[backend];
-}
-/// Check if renderer backend is supported on the current platform.
-header_only
-b32 renderer_backend_is_supported( RendererBackend backend ) {
-#if !defined(LD_PLATFORM_WINDOWS)
-    if(
-        backend == RENDERER_BACKEND_DX11 ||
-        backend == RENDERER_BACKEND_DX12
-    ) {
-        return false;
-    }
-#endif
-#if !(defined(LD_PLATFORM_MACOS) || defined(LD_PLATFORM_IOS))
-    if( backend == RENDERER_BACKEND_METAL ) {
-        return false;
-    }
-#endif
-#if !defined(LD_PLATFORM_WASM)
-    if( backend == RENDERER_BACKEND_WEBGL ) {
-        return false;
-    }
-#endif
-    unused(backend);
-    return true;
-}
-
-#if defined(LD_API_INTERNAL)
-    struct RenderData;
-    void graphics_subsystem_init( struct RenderData* render_data );
-#endif
 
 #endif // header guard

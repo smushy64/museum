@@ -68,4 +68,11 @@ extern u8 NULL_NORMAL_TEXTURE[3];
 /// Texture for when the desired roughness texture is not available.
 extern u8 NULL_ROUGHNESS_TEXTURE[NULL_ROUGHNESS_TEXTURE_PIXEL_COUNT];
 
+#define NULL_METALLIC_TEXTURE_WIDTH       (1)
+#define NULL_METALLIC_TEXTURE_HEIGHT      (1)
+#define NULL_METALLIC_TEXTURE_PIXEL_COUNT (1)
+extern u8 NULL_METALLIC_TEXTURE[NULL_METALLIC_TEXTURE_PIXEL_COUNT];
+
+#define FRAMEBUFFER_QUAD_VERTEX_COUNT (6)
+
 #endif // header guard

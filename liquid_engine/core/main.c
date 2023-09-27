@@ -10,10 +10,11 @@
 #include "core/mem.h"
 #include "core/thread.h"
 #include "core/input.h"
-#include "core/events.h"
 #include "core/mathf.h"
 #include "core/timer.h"
-#include "renderer.h"
+#include "core/graphics/internal.h"
+
+global b32 global_application_is_running = true;
 
 #define LOGGING_SUBSYSTEM_SIZE (kilobytes(1))
 
@@ -52,24 +53,18 @@ internal no_inline void on_resolution_change(
 ) {
     unused( surface );
     unused( old_width + old_height );
+    unused( user_params );
 
-    // TODO(alicia): resolution scaling
-    RendererContext** renderer_context = user_params;
-    if( *renderer_context ) {
-        ivec2 surface_dimensions     = { new_width, new_height };
-        ivec2 framebuffer_dimensions = surface_dimensions;
-        renderer_subsystem_on_resize(
-            *renderer_context,
-            surface_dimensions,
-            framebuffer_dimensions );
-    }
+    ivec2 surface_dimensions = { new_width, new_height };
+    // TODO(alicia): framebuffer resolution scaling
+    ivec2 framebuffer_dimensions = surface_dimensions;
+    renderer_subsystem_on_resize( surface_dimensions, framebuffer_dimensions );
 }
 internal no_inline void on_close(
     PlatformSurface* surface, void* user_params
 ) {
-    unused(surface);
-    b32* application_close = user_params;
-    *application_close     = true;
+    unused(surface && user_params);
+    global_application_is_running = false;
     LOG_NOTE( "Application is shutting down." );
 }
 internal no_inline void on_activate(
@@ -125,18 +120,26 @@ LD_API int core_init(
     assert( in_platform );
     platform = in_platform;
 
+    // TODO(alicia): load from user settings.ini
     i32 width  = DEFAULT_RESOLUTION_WIDTH;
     i32 height = DEFAULT_RESOLUTION_HEIGHT;
     RendererBackend backend = RENDERER_BACKEND_OPENGL;
     STRING( game_library_path, GAME_LIBRARY_PATH_DEFAULT );
 
     /* parse arguments */ {
+#if defined(LD_DEVELOPER_MODE)
         STRING( libload, "--libload=" );
+#endif
+        STRING( set_width, "--width=" );
+        STRING( set_height, "--height=" );
         STRING( help, "--help" );
         STRING( h, "-h" );
 #if defined(LD_PLATFORM_WINDOWS)
+
+#if defined(LD_DEVELOPER_MODE)
         STRING( output_debug_string, "--output-debug-string" );
         b32 enable_output_debug_string = false;
+#endif
         STRING( dx11,   "--directx11" );
         STRING( dx12,   "--directx12" );
 #endif
@@ -154,6 +157,7 @@ LD_API int core_init(
         for( int i = 1; i < argc; ++i ) {
             StringSlice current = ss_from_cstr( 0, argv[i] );
 
+#if defined(LD_DEVELOPER_MODE)
             if( ss_find( &current, &libload, NULL ) ) {
                 if( current.len - libload.len < 1 ) {
                     StringSlice path = ss_clone( &current );
@@ -172,6 +176,61 @@ LD_API int core_init(
                 game_library_path.len    = current.len - libload.len;
                 continue;
             }
+#endif
+
+            if( ss_find( &current, &set_width, NULL ) ) {
+                if( current.len - set_width.len < 1 ) {
+                    println_err(
+                        LOG_COLOR_RED
+                        "invalid width!"
+                        LOG_COLOR_RESET
+                    );
+                    parse_error = true;
+                    break;
+                }
+                current.buffer += set_width.len;
+                current.len    -= set_width.len;
+                u64 parse_result = 0;
+                if( !ss_parse_uint( &current, &parse_result ) ) {
+                    println_err(
+                        LOG_COLOR_RED
+                        "invalid width {s}!"
+                        LOG_COLOR_RESET,
+                        current
+                    );
+                    parse_error = true;
+                    break;
+                }
+                width = max( parse_result, 1 );
+                continue;
+            }
+
+            if( ss_find( &current, &set_height, NULL ) ) {
+                if( current.len - set_height.len < 1 ) {
+                    println_err(
+                        LOG_COLOR_RED
+                        "invalid height!"
+                        LOG_COLOR_RESET
+                    );
+                    parse_error = true;
+                    break;
+                }
+                current.buffer += set_height.len;
+                current.len    -= set_height.len;
+                u64 parse_result = 0;
+                if( !ss_parse_uint( &current, &parse_result ) ) {
+                    println_err(
+                        LOG_COLOR_RED
+                        "invalid height {s}!"
+                        LOG_COLOR_RESET,
+                        current
+                    );
+                    parse_error = true;
+                    break;
+                }
+                height = max( parse_result, 1 );
+                continue;
+            }
 
             if( ss_cmp( &current, &opengl ) ) {
                 backend = RENDERER_BACKEND_OPENGL;
@@ -184,10 +243,13 @@ LD_API int core_init(
             }
 
 #if defined(LD_PLATFORM_WINDOWS)
+
+#if defined(LD_DEVELOPER_MODE)
             if( ss_cmp( &current, &output_debug_string ) ) {
                 enable_output_debug_string = true;
                 continue;
             }
+#endif
 
             if( ss_cmp( &current, &dx11 ) ) {
                 backend = RENDERER_BACKEND_DX11;
@@ -229,7 +291,7 @@ LD_API int core_init(
             return CORE_ERROR_PARSE;
         }
 
-#if defined(LD_PLATFORM_WINDOWS)
+#if defined(LD_PLATFORM_WINDOWS) && defined(LD_DEVELOPER_MODE)
         if( enable_output_debug_string ) {
             log_subsystem_win32_enable_output_debug_string();
         }
@@ -394,15 +456,14 @@ LD_API int core_init(
         stack_size += application_memory_requirement;
 
         stack_size += THREAD_SUBSYSTEM_SIZE;
-        stack_size += EVENT_SUBSYSTEM_SIZE;
         stack_size += INPUT_SUBSYSTEM_SIZE;
 
         renderer_subsystem_size = renderer_subsystem_query_size( backend );
         stack_size += renderer_subsystem_size;
 
-        renderer_command_buffer_capacity = RENDER_DATA_RENDER_COMMAND_MAX;
-        renderer_command_buffer_size     =
-            renderer_command_buffer_capacity * sizeof(RenderCommand);
+        renderer_command_buffer_capacity = 1024;
+        renderer_command_buffer_size = list_calculate_memory_requirement(
+            renderer_command_buffer_capacity, sizeof(struct RenderCommand) );
 
         stack_size += renderer_command_buffer_size;
 
@@ -453,15 +514,6 @@ LD_API int core_init(
     }
 #endif
 
-    /* initialize event subsystem */ {
-        void* event_subsystem_buffer =
-            stack_allocator_push( &stack, EVENT_SUBSYSTEM_SIZE );
-        if( !event_subsystem_init( event_subsystem_buffer ) ) {
-            // TODO(alicia): error code + logging!
-            return -1;
-        }
-    }
-
     /* initialize input subsystem */ {
         void* input_subsytem_buffer =
             stack_allocator_push( &stack, INPUT_SUBSYSTEM_SIZE );
@@ -491,9 +543,7 @@ LD_API int core_init(
 
     PlatformSurface* surface = NULL;
 
-    b32 application_close = false;
     b32 surface_is_active = true;
-    RendererContext* renderer_context = NULL;
     /* initialize surface */ {
         #define SURFACE_CREATE_HIDDEN true
         #define SURFACE_RESIZEABLE    true
@@ -521,38 +571,38 @@ LD_API int core_init(
         callbacks.on_activate                 = on_activate;
         callbacks.on_activate_params          = &surface_is_active;
         callbacks.on_close                    = on_close;
-        callbacks.on_close_params             = &application_close;
         callbacks.on_key                      = on_key;
         callbacks.on_mouse_button             = on_mouse_button;
         callbacks.on_mouse_move               = on_mouse_move;
         callbacks.on_mouse_wheel              = on_mouse_wheel;
         callbacks.on_resolution_change        = on_resolution_change;
-        callbacks.on_resolution_change_params = &renderer_context;
 
         platform->surface.set_callbacks( surface, &callbacks );
-
         platform->surface.set_visible( surface, true );
     }
 
     RenderData render_data = {};
     /* initialize renderer */ {
-        renderer_context =
+        void* renderer_subsystem_buffer =
             stack_allocator_push( &stack, renderer_subsystem_size );
         void* renderer_command_buffer =
             stack_allocator_push( &stack, renderer_command_buffer_size );
 
-        render_data.command_buffer   = renderer_command_buffer;
-        render_data.command_capacity = renderer_command_buffer_capacity;
+        render_data.list_commands = list_create(
+            renderer_command_buffer_capacity,
+            sizeof(struct RenderCommand),
+            renderer_command_buffer );
 
         if( !renderer_subsystem_init(
             surface, backend,
-            renderer_context
+            iv2(DEFAULT_RESOLUTION_WIDTH, DEFAULT_RESOLUTION_HEIGHT),
+            &render_data,
+            renderer_subsystem_buffer
         ) ) {
             // TODO(alicia): error code + logging!
             return -1;
         }
     }
-    graphics_subsystem_init( &render_data );
 
     void* application_memory =
         stack_allocator_push( &stack, application_memory_requirement );
@@ -563,7 +613,7 @@ LD_API int core_init(
 
     TimeStamp time = {};
 
-    while( !application_close ) {
+    while( global_application_is_running ) {
         input_swap();
         platform->surface.pump_events();
 
@@ -600,21 +650,14 @@ LD_API int core_init(
             return -1;
         }
 
-        render_data.delta_time   = time.delta_seconds;
-        render_data.elapsed_time = time.elapsed_seconds;
-        render_data.frame_count  = time.frame_count;
+        render_data.time = time;
 
-        // if( !renderer_subsystem_on_draw(
-        //     renderer_context,
-        //     &render_data
-        // ) ) {
-        //     // TODO(alicia): error code + logging!
-        //     return -1;
-        // }
+        if( !renderer_subsystem_draw() ) {
+            // TODO(alicia): error code + logging!
+            return -1;
+        }
 
-        render_data.command_count = 0;
-
-        event_fire_end_of_frame();
+        list_clear( render_data.list_commands );
 
         time.frame_count++;
         f64 elapsed_seconds  = platform->time.elapsed_seconds();
@@ -624,6 +667,7 @@ LD_API int core_init(
 
     platform->surface.clear_callbacks( surface );
 
+    renderer_subsystem_shutdown();
     platform->surface.destroy( surface );
     log_subsystem_shutdown();
 
@@ -631,12 +675,26 @@ LD_API int core_init(
 }
 
 internal void print_help(void) {
+
+#if defined(LD_DEVELOPER_MODE)
+        const char* version = " Debug";
+#else
+        const char* version = "";
+#endif
+
     println(
-        "OVERVIEW: Liquid Engine Core {i}.{i}\n",
-        LIQUID_ENGINE_VERSION_MAJOR, LIQUID_ENGINE_VERSION_MINOR );
+        "OVERVIEW: Liquid Engine Core {i}.{i}{cc}\n",
+        LIQUID_ENGINE_VERSION_MAJOR,
+        LIQUID_ENGINE_VERSION_MINOR, version
+    );
     println( "USAGE: {cc} [options]\n", LIQUID_ENGINE_EXECUTABLE );
     println( "OPTIONS:" );
-    println( "--libload=[string]     use a different game dll from default (debug only, default: '" GAME_LIBRARY_PATH_DEFAULT "')"  );
+#if defined(LD_DEVELOPER_MODE)
+    println( "--libload=[string]     use a different game dll from default (developer mode only, default='" GAME_LIBRARY_PATH_DEFAULT "')"  );
+    println( "--output-debug-string  enable output debug string (developer mode only, win32 only, default=false)" );
+#endif
+    println( "--width=[integer]      overwrite screen width (default=settings.ini)" );
+    println( "--height=[integer]     overwrite screen height (default=settings.ini)" );
     println( "--opengl               use OpenGL renderer backend (default)" );
     println( "--vulkan               use Vulkan renderer backend" );
 #if defined(LD_PLATFORM_MACOS) || defined(LD_PLATFORM_IOS)
@@ -648,7 +706,6 @@ internal void print_help(void) {
 #if defined(LD_PLATFORM_WINDOWS)
     println( "--directx11            use DirectX11 renderer backend (win32 only)" );
     println( "--directx12            use DirectX12 renderer backend (win32 only)" );
-    println( "--output-debug-string  enable output debug string (win32 only)" );
 #endif
     println( "--help,-h              print this message" );
 }

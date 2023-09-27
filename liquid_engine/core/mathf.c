@@ -542,6 +542,9 @@ vec2 v2_hadamard( vec2 lhs, vec2 rhs ) {
     result.y = lhs.y * rhs.y;
     return result;
 }
+f32 v2_aspect_ratio( vec2 v ) {
+    return v.x / v.y;
+}
 f32 v2_dot( vec2 lhs, vec2 rhs ) {
     return v2_hadd( v2_hadamard( lhs, rhs ) );
 }
@@ -648,6 +651,9 @@ ivec2 iv2_hadamard( ivec2 lhs, ivec2 rhs ) {
     result.x = lhs.x * rhs.x;
     result.y = lhs.y * rhs.y;
     return result;
+}
+f32 iv2_aspect_ratio( ivec2 v ) {
+    return (f32)v.x / (f32)v.y;
 }
 f32 iv2_dot( ivec2 lhs, ivec2 rhs ) {
     return (f32)iv2_hadd( iv2_hadamard( lhs, rhs ) );

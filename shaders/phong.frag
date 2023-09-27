@@ -3,10 +3,10 @@
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: September 12, 2023
 */
-#include "defines.include"
-#include "camera.include"
-#include "lights.include"
-#include "constants.include"
+#include "defines.glsl"
+#include "camera.glsl"
+#include "lights.glsl"
+#include "constants.glsl"
 
 in layout(location = 0) struct Vert2Frag {
     vec3 local_position;
@@ -16,11 +16,11 @@ in layout(location = 0) struct Vert2Frag {
     vec3 world_normal;
     vec3 world_tangent;
     vec3 world_bitangent;
-    vec4 color;
+    vec3 color;
 } v2f;
 
-uniform layout(location = 2) vec3 u_tint = vec3(1.0);
-uniform layout(location = 3) bool u_shadow_receiver = true;
+uniform layout(location = 0) vec3 u_tint = vec3(1.0);
+uniform layout(location = 1) bool u_shadow_receiver = true;
 
 uniform layout(binding = 0) sampler2D u_diffuse;
 uniform layout(binding = 1) sampler2D u_normal;
@@ -37,6 +37,7 @@ LightResult directional_light(
     vec3 diffuse,
     vec3 normal,
     float roughness,
+    float is_active,
     vec3 camera_direction
 );
 float directional_shadow( vec4 light_space_position );
@@ -64,7 +65,7 @@ void main() {
     vec3 final_color = vec3(0.0);
 
     vec3 tint           = srgb_to_linear( u_tint );
-    vec3 vertex_color   = srgb_to_linear( v2f.color.rgb );
+    vec3 vertex_color   = srgb_to_linear( v2f.color );
     vec3 diffuse_sample = srgb_to_linear( texture( u_diffuse, v2f.uv ).rgb );
 
     vec3 diffuse = tint * vertex_color * diffuse_sample;
@@ -80,13 +81,14 @@ void main() {
     
     float roughness = texture( u_roughness, v2f.uv ).r;
 
-    vec3 camera_direction = CAMERA_WORLD_POSITION.xyz - v2f.world_position;
+    vec3 camera_direction = camera_world_position() - v2f.world_position;
     float camera_distance = length( camera_direction );
     camera_direction      = normalize( camera_direction );
 
     LightResult directional = directional_light(
         v2f.light_space_position,
         diffuse, normal, roughness,
+        DIRECTIONAL.COLOR.w,
         camera_direction );
     ambient += directional.ambient * AMBIENT_DIRECTIONAL_CONTRIBUTION;
 
@@ -116,12 +118,13 @@ LightResult directional_light(
     vec3  diffuse_sample,
     vec3  normal,
     float roughness,
+    float is_active,
     vec3  camera_direction
 ) {
     LightResult result;
 
     vec3 light_direction = normalize( vec3( -DIRECTIONAL.DIRECTION ) );
-    vec3 light_color     = srgb_to_linear( vec3( DIRECTIONAL.COLOR ) );
+    vec3 light_color     = srgb_to_linear( DIRECTIONAL.COLOR.rgb );
     float light_strength = linear_to_luma( light_color );
 
     float diffuse_contribution = dot( light_direction, normal );
@@ -144,6 +147,9 @@ LightResult directional_light(
     shadow_mask = u_shadow_receiver ? shadow_mask : 0.0;
 
     result.light = (diffuse + specular) * (1.0 - shadow_mask);
+
+    result.light   *= is_active;
+    result.ambient *= is_active;
     return result;
 }
 
@@ -239,7 +245,7 @@ float point_shadow(
 
     float shadow_mask = 0.0;
     float bias        = 0.15;
-    float view_distance = length( CAMERA_WORLD_POSITION.xyz - world_position );
+    float view_distance = length( camera_world_position() - world_position );
     float disk_radius   = 0.05;
     for( int i = 0; i < POINT_SHADOW_SAMPLE_OFFSET_DIRECTION_COUNT; ++i ) {
         vec3 offset       = POINT_SHADOW_SAMPLE_OFFSET_DIRECTIONS[i];

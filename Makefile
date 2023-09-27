@@ -16,17 +16,14 @@ export LD_MINOR   := 2
 export LD_VERSION := $(LD_MAJOR).$(LD_MINOR)
 export LD_NAME    := liquid-engine
 
-export LD_MEMORY_PAGE_SIZE := 4096
+# 4 KB
+export LD_MEMORY_PAGE_SIZE := 0x1000
+# 1 MB
+export LD_STACK_SIZE := 0x100000
 
-# x86_64, arm64, wasm64
+# valid options = x86_64, arm64, wasm64
 ifndef $(TARGET_ARCH)
-	ifeq ($(OS), Windows_NT)
-		# NOTE(alicia): can't find a good uname alternative
-		# that is builtin on Windows :(
-		export TARGET_ARCH := x86_64
-	else
-		export TARGET_ARCH := $(shell uname -m)
-	endif
+	export TARGET_ARCH := $(shell uname -m)
 endif
 
 # win32, linux, wasm
@@ -88,11 +85,11 @@ export VK_MINOR := 2
 export GL_MAJOR := 4
 export GL_MINOR := 5
 
-export LD_EXE_NAME := liquid-engine$(if $(RELEASE),,-debug)
-export LD_EXE      := $(LD_EXE_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)
-export TARGET      := $(BUILD_PATH)/$(LD_EXE)
-export LIB_CORE_NAME := liquid-core$(if $(RELEASE),,-debug)
-export LIB_CORE      := $(LIB_CORE_NAME).$(SO_EXT)
+export LD_EXE_NAME      := liquid-engine$(if $(RELEASE),,-debug)
+export LD_EXE           := $(LD_EXE_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)
+export TARGET           := $(BUILD_PATH)/$(LD_EXE)
+export LIB_CORE_NAME    := liquid-core$(if $(RELEASE),,-debug)
+export LIB_CORE         := $(LIB_CORE_NAME).$(SO_EXT)
 export LIB_TESTBED_NAME := testbed$(if $(RELEASE),,-debug)
 export LIB_TESTBED      := $(LIB_TESTBED_NAME).$(SO_EXT)
 
@@ -109,24 +106,25 @@ CPPFLAGS += -DLD_EXPORT
 CPPFLAGS += -DPLATFORM_MEMORY_PAGE_SIZE=$(LD_MEMORY_PAGE_SIZE)
 CPPFLAGS += -DLIQUID_ENGINE_CORE_LIBRARY_PATH=\"$(LIB_CORE)\"
 CPPFLAGS += -DLD_PLATFORM_INTERNAL
+CPPFLAGS += -DSTACK_SIZE=$(LD_STACK_SIZE)
 
 ifeq ($(RELEASE), true)
 else
-	CPPFLAGS += -DLD_LOGGING -DLD_ASSERTIONS -DLD_PROFILING
+	CPPFLAGS += -DLD_LOGGING -DLD_ASSERTIONS -DLD_PROFILING -DLD_CONSOLE_APP
+	CPPFLAGS += -DLD_DEVELOPER_MODE
 endif
 
 LDFLAGS := 
 
 ifeq ($(TARGET_PLATFORM), win32)
 	LDFLAGS += -fuse-ld=lld -nostdlib -lkernel32
-	LDFLAGS += -mstack-probe-size=999999999 -Wl,//stack:0x100000
+	LDFLAGS += -mstack-probe-size=999999999 -Wl,//stack:$(LD_STACK_SIZE)
 
 	ifeq ($(RELEASE), true)
 		LDFLAGS += -Wl,//release
 	else
 		LDFLAGS += -Wl,//debug
 	endif
-
 endif
 
 INCLUDE := -Iliquid_engine -Iliquid_platform
@@ -134,11 +132,10 @@ INCLUDE := -Iliquid_engine -Iliquid_platform
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
 all: shaders $(if $(SHADER_ONLY),,$(TARGET) build_core)
-	@mkdir -p $(BUILD_PATH)/resources/shaders
-	@cp resources/shaders/*.spv $(BUILD_PATH)/resources/shaders
 
 test: all
 	@$(MAKE) --directory=testbed --no-print-directory
+	# @$(if $(shell which remedybg), remedybg start-debugging,)
 
 build_core: 
 	@$(MAKE) --directory=liquid_engine --no-print-directory
@@ -150,13 +147,18 @@ run:
 	@echo run none
 
 spit:
-	@echo "platform:   "$(TARGET_PLATFORM)
-	@echo "arch:       "$(TARGET_ARCH)
-	@echo "page size:  "$(MEMORY_PAGE_SIZE)
-	@echo "build path: "$(BUILD_PATH)
+	@echo "platform:     "$(TARGET_PLATFORM)
+	@echo "arch:         "$(TARGET_ARCH)
+	@echo "page size:    "$(LD_MEMORY_PAGE_SIZE)
+	@echo "build path:   "$(BUILD_PATH)
+	@echo "c compiler:   "$(CC)
+	@echo "c standard:   "$(CSTD)
+	@echo "c++ compiler: "$(CXX)
+	@echo "c++ standard: "$(CXXSTD)
+	@echo
+	@echo "-------- platform ------------"
 	@echo "target:     "$(TARGET)
-	@echo "compiler:   "$(CC)
-	@echo "standard:   "$(CSTD)
+	@echo
 	@echo "cflags:     "$(CFLAGS)
 	@echo
 	@echo "cppflags:   "$(CPPFLAGS)
@@ -167,22 +169,19 @@ spit:
 	@echo
 	@echo "main:       "$(LDMAIN)
 	@$(MAKE) --directory=liquid_engine spit
-	# @$(MAKE) --directory=testbed spit
-	# @$(MAKE) --directory=shaders spit
+	@$(MAKE) --directory=shaders spit
+	@$(MAKE) --directory=testbed spit
 
-clean: $(if $(SHADER_ONLY),clean_shaders, $(if $(RELEASE), clean_shaders clean_release, clean_debug clean_shaders))
+clean: $(if $(SHADER_ONLY),,clean_files) clean_shaders
 
 clean_shaders:
-	@echo "Make: cleaning shaders . . ."
-	rm -r -f resources/shaders
+	@echo "Make: cleaning "$(if $(RELEASE),release,debug)" shaders . . ."
+	-@rm -f ./$(BUILD_PATH)/resources/shaders/{*,.*} 2> /dev/null || true
 
-clean_debug:
-	@echo "Make: cleaning debug directory . . ."
-	rm -r -f build/debug/*
-
-clean_release:
-	@echo "Make: cleaning release directory . . ."
-	rm -r -f build/release/*
+clean_files:
+	@echo "Make: cleaning "$(if $(RELEASE),release,debug)" files . . ."
+	-@rm -f ./$(BUILD_PATH)/{*,.*} 2> /dev/null || true
+	-@rm -f ./$(OBJ_PATH)/{*,.*} 2> /dev/null || true
 
 help:
 	@echo "Arguments:"
@@ -222,5 +221,5 @@ $(TARGET): $(if $(IS_WINDOWS),$(WIN32RESOURCES),) $(LDMAIN) ./liquid_engine/defi
 	@mkdir -p $(OBJ_PATH)
 	@$(CC) $(CSTD) $(LDMAIN) $(WIN32RESOURCES) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
 
-.PHONY: all test shaders run clean clean_shaders clean_debug clean_release help build_core
+.PHONY: all test shaders run clean clean_shaders clean_files help build_core 
 

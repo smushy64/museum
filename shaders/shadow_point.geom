@@ -4,11 +4,11 @@
  * File Created: September 15, 2023
 */
 #version 450 core
-#include "lights.include"
+#include "lights.glsl"
 layout(triangles) in;
 layout(triangle_strip, max_vertices = 18) out;
 
-uniform layout(location = 1) int u_point_index = 0;
+uniform layout(location = 0) int u_point_index = 0;
 
 out layout(location = 0) vec4 g2f_frag_pos;
 out layout(location = 1) flat int g2f_point_index;

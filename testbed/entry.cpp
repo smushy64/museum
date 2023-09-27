@@ -26,9 +26,9 @@ struct GameMemory {
 };
 
 struct Vertex3D triangle_vertices[] = {
-    { { -0.5f, -0.5f, 0.0f }, { 0.0f, 0.0f }, { VEC3_FORWARD }, { RGBA_WHITE }, { VEC3_RIGHT } },
-    { {  0.5f, -0.5f, 0.0f }, { 1.0f, 0.0f }, { VEC3_FORWARD }, { RGBA_WHITE }, { VEC3_RIGHT } },
-    { {  0.0f,  0.5f, 0.0f }, { 0.0f, 1.0f }, { VEC3_FORWARD }, { RGBA_WHITE }, { VEC3_RIGHT } },
+    { { -0.5f, -0.5f, 0.0f }, { 0.0f, 0.0f }, { VEC3_FORWARD }, { RGB_RED }, { VEC3_RIGHT } },
+    { {  0.5f, -0.5f, 0.0f }, { 1.0f, 0.0f }, { VEC3_FORWARD }, { RGB_GREEN }, { VEC3_RIGHT } },
+    { {  0.0f,  0.5f, 0.0f }, { 0.5f, 1.0f }, { VEC3_FORWARD }, { RGB_BLUE }, { VEC3_RIGHT } },
 };
 
 u32 triangle_indices[] = { 0, 1, 2 };
@@ -80,9 +80,9 @@ c_linkage b32 application_initialize( void* in_memory ) {
         transform_create( VEC3_ZERO, QUAT_IDENTITY, VEC3_ONE );
 
     graphics_set_directional_light(
-        v3(-1.0f, -1.0f, -1.0f), RGB_GRAY );
+        v3_normalize( v3(-1.0f, -1.0f, -1.0f) ), RGB_WHITE, true );
     graphics_set_point_light(
-        0, VEC3_LEFT * 2.0f + VEC3_UP, RGB_BLUE, true );
+        0, VEC3_LEFT + (2.0f * VEC3_UP), RGB_RED, true );
 
     return true;
 }
@@ -146,25 +146,24 @@ c_linkage b32 application_run( TimeStamp time, void* in_memory ) {
         transform_world_matrix( &memory->cube0 ),
         0, 0, 0, 0, 0,
         RGB_WHITE,
-        false, true, false, false );
+        false, true, true, false );
     graphics_draw(
         transform_world_matrix( &memory->cube1 ),
         0, 0, 0, 0, 0,
         RGB_WHITE,
-        false, true, false, false );
+        false, true, true, false );
+    graphics_draw(
+        transform_world_matrix( &memory->triangle_transform ),
+        memory->triangle,
+        memory->triangle_diffuse,
+        0, 0, 0,
+        RGB_WHITE,
+        false, true, true, false );
     graphics_draw(
         memory->floor,
         0, 0, 0, 0, 0,
         RGB_WHITE,
         false, false, true, false );
-
-    graphics_draw(
-        transform_world_matrix( &memory->triangle_transform ),
-        memory->triangle,
-        memory->triangle_diffuse, 0, 0, 0,
-        RGB_WHITE,
-        false,
-        false, false, false );
 
     transform_rotate( &memory->cube0, q_angle_axis( time.delta_seconds, v3_normalize(VEC3_RIGHT + VEC3_UP) ) );
     transform_rotate( &memory->cube1, q_angle_axis( time.delta_seconds, VEC3_UP ) );

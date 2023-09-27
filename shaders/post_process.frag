@@ -3,7 +3,8 @@
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: September 17, 2023
 */
-#include "defines.include"
+// TODO(alicia): anti-aliasing switch
+#include "defines.glsl"
 in layout(location = 0) vec2 v2f_uv;
 
 uniform layout(binding = 0) sampler2D u_render_texture;

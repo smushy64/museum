@@ -5,7 +5,7 @@
 */
 #version 450 core
 #define NO_SHADOW 1
-#include "lights.include"
+#include "lights.glsl"
 
 in layout(location = 0) vec4 g2f_frag_pos;
 in layout(location = 1) flat int g2f_point_index;

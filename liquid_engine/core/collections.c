@@ -54,6 +54,13 @@ LD_API void* list_pop( List* list ) {
     void* result = (u8*)list + ( header->item_size * header->count );
     return result;
 }
+LD_API void* list_peek( List* list ) {
+    struct ListHeader* header = list_head( list );
+    if( !header->count ) {
+        return NULL;
+    }
+    return (u8*)list + ( header->item_size * ( header->count - 1 ) );
+}
 LD_API b32 list_insert( List* list, usize index, void* item ) {
     struct ListHeader* header = list_head( list );
     if( header->count == header->capacity ) {

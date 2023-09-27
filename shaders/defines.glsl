@@ -1,3 +1,5 @@
+#if !defined(GLSL_DEFINES)
+#define GLSL_DEFINES
 /**
  * Description:  Common things to include in shaders
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
@@ -22,6 +24,11 @@ layout(std140, binding = 2) uniform Data {
     // z - frame count
     // w - ???
     vec4 TIME;
+    // x - resolution
+    // y - resolution
+    // z - aspect ratio
+    // w - ???
+    vec4 SURFACE_RESOLUTION;
 };
 
 float elapsed_time() {
@@ -34,3 +41,15 @@ uint frame_count() {
     return floatBitsToUint( TIME.z );
 }
 
+vec2 surface_resolution() {
+    return SURFACE_RESOLUTION.xy;
+}
+float surface_aspect_ratio() {
+    return SURFACE_RESOLUTION.z;
+}
+
+float inv_lerp( float a, float b, float v ) {
+    return ( v - a ) / ( b - a );
+}
+
+#endif

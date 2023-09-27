@@ -13,6 +13,7 @@ clang++
 -DLIQUID_ENGINE_VERSION_MINOR=0
 -DLIQUID_ENGINE_EXECUTABLE="placeholder.exe"
 -DLD_PROFILING
+-DSTACK_SIZE=0x100000
 -fdeclspec
 -I.
 -I../liquid_engine

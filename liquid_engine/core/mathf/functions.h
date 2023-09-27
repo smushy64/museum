@@ -568,6 +568,8 @@ LD_API f32 v2_hmul( vec2 v );
 /// Hadamard product.
 /// Component-wise multiplication.
 LD_API vec2 v2_hadamard( vec2 lhs, vec2 rhs );
+/// Get the aspect ratio of x and y.
+LD_API f32 v2_aspect_ratio( vec2 v );
 /// Dot/inner product.
 LD_API f32 v2_dot( vec2 lhs, vec2 rhs );
 /// Rotate vector by theta(radians).
@@ -612,6 +614,8 @@ LD_API i32 iv2_hmul( ivec2 v );
 /// Hadamard product.
 /// Component-wise multiplication.
 LD_API ivec2 iv2_hadamard( ivec2 lhs, ivec2 rhs );
+/// Get the aspect ratio of x and y.
+LD_API f32 iv2_aspect_ratio( ivec2 v );
 /// Dot/inner product.
 LD_API f32 iv2_dot( ivec2 lhs, ivec2 rhs );
 /// Compare vectors for equality.

@@ -44,19 +44,20 @@ CPPFLAGS += -DGL_VERSION_MAJOR=$(GL_MAJOR)
 CPPFLAGS += -DGL_VERSION_MINOR=$(GL_MINOR)
 CPPFLAGS += -DVULKAN_VERSION_MAJOR=$(VK_MAJOR)
 CPPFLAGS += -DVULKAN_VERSION_MINOR=$(VK_MINOR)
-CPPFLAGS += -DLD_EXPORT
+CPPFLAGS += -DLD_EXPORT -DSTACK_SIZE=$(LD_STACK_SIZE)
 CPPFLAGS += -DPLATFORM_MEMORY_PAGE_SIZE=$(LD_MEMORY_PAGE_SIZE)
 
 ifeq ($(RELEASE), true)
 else
 	CPPFLAGS += -DLD_LOGGING -DLD_ASSERTIONS -DLD_PROFILING
+	CPPFLAGS += -DLD_DEVELOPER_MODE
 endif
 
 LDFLAGS := -shared
 
 ifeq ($(TARGET_PLATFORM), win32)
 	LDFLAGS += -fuse-ld=lld -nostdlib -lkernel32
-	LDFLAGS += -mstack-probe-size=999999999 -Wl,//stack:0x100000
+	LDFLAGS += -mstack-probe-size=999999999 -Wl,//stack:$(LD_STACK_SIZE)
 	# LDFLAGS += -Wl,--out-implib=$(LOCAL_BUILD_PATH)/$(LIB_CORE_NAME).lib
 
 	ifeq ($(RELEASE), true)
@@ -98,10 +99,9 @@ spit:
 	@echo "ldflags:    "$(LDFLAGS)
 	@echo
 	@echo "main:       "$(COREMAIN)
-	@echo
-	@echo "depends:    "$(dependencies)
 
 $(GENERATED_DEPENDENCIES_PATH): $(C)
+	@echo "Make: generating dependencies for liquid engine . . ."
 	@echo "// * Description:  Generated file containing all Liquid Engine core dependencies" > $(GENERATED_DEPENDENCIES_PATH)
 	@echo "// * Author:       Alicia Amarilla (smushyaa@gmail.com)" >> $(GENERATED_DEPENDENCIES_PATH)
 	@echo "// * Generated on: "$(shell date) >> $(GENERATED_DEPENDENCIES_PATH)

@@ -5,7 +5,9 @@
 // * File Created: September 12, 2023
 
 /// Size of the stack. Must always compile with this value.
-#define STACK_SIZE ((usize)(megabytes(1)))
+#if !defined(STACK_SIZE)
+    #error "Stack size must be defined!"
+#endif
 
 /// 32-bit floating point constants
 

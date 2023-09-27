@@ -8,6 +8,11 @@
 #include "defines.h"
 #include "core/strings.h"
 
+typedef struct {
+    usize from_inclusive;
+    usize to_exclusive;
+} Range_usize;
+
 /// Opaque pointer to a list.
 typedef void List;
 
@@ -27,6 +32,9 @@ LD_API b32 list_push( List* list, void* item );
 /// Pop the last item from list.
 /// Returns a pointer to the popped item or NULL if list was already empty.
 LD_API void* list_pop( List* list );
+/// Get a pointer to the last item of the list.
+/// Does not remove the item.
+LD_API void* list_peek( List* list );
 /// Insert an item into list.
 /// Returns true if there was enough space to insert.
 LD_API b32 list_insert( List* list, usize index, void* item );

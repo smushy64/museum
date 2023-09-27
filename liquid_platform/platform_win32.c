@@ -34,7 +34,6 @@ global HINSTANCE global_instance;
 
 #define WIN32_DECLARE_FUNCTION( ret, fn, ... )\
     typedef ret ___internal_##fn##FN( __VA_ARGS__ );\
-    maybe_unused\
     global ___internal_##fn##FN* ___internal_##fn = NULL
 
 #define WIN32_LOAD_FUNCTION( module, fn )\
@@ -235,6 +234,14 @@ void ___internal_XInputEnable_stub( BOOL enable ) {
     unused(enable);
 }
 
+// NOTE(alicia): DWM
+
+WIN32_DECLARE_FUNCTION(
+    HRESULT, DwmSetWindowAttribute,
+    HWND hWnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute );
+#define DwmSetWindowAttribute( hWnd, dwAttribute, pvAttribute, cbAttribute )\
+    ___internal_DwmSetWindowAttribute( hWnd, dwAttribute, pvAttribute, cbAttribute )
+
 // NOTE(alicia): WGL
 
 WIN32_DECLARE_FUNCTION( HGLRC, wglGetCurrentContext, void );
@@ -353,20 +360,26 @@ void* win32_gl_load_proc( const char* function_name );
 void win32_fatal_message_box( const char* title, const char* message );
 void win32_last_error( usize* out_error_len, const char** out_error );
 
-#define WIN32_SUCCESS              (0)
-#define WIN32_ERROR_OPEN_CORE      (1)
-#define WIN32_ERROR_LOAD_CORE_INIT (2)
-#define WIN32_ERROR_OPEN_USER32    (3)
-#define WIN32_ERROR_OPEN_GDI32     (4)
-#define WIN32_ERROR_OPEN_XINPUT    (5)
-#define WIN32_ERROR_OPEN_DSOUND    (6)
-#define WIN32_ERROR_OPEN_OPENGL    (7)
-#define WIN32_ERROR_LOAD_FUNCTION  (8)
-#define WIN32_MISSING_INSTRUCTIONS (9)
+#define WIN32_SUCCESS              ( 0)
+#define WIN32_ERROR_OPEN_CORE      ( 1)
+#define WIN32_ERROR_LOAD_CORE_INIT ( 2)
+#define WIN32_ERROR_OPEN_USER32    ( 3)
+#define WIN32_ERROR_OPEN_GDI32     ( 4)
+#define WIN32_ERROR_OPEN_XINPUT    ( 5)
+#define WIN32_ERROR_OPEN_DWM       ( 6)
+#define WIN32_ERROR_OPEN_DSOUND    ( 7)
+#define WIN32_ERROR_OPEN_OPENGL    ( 8)
+#define WIN32_ERROR_LOAD_FUNCTION  ( 9)
+#define WIN32_MISSING_INSTRUCTIONS (10)
 
 DWORD win32_report_last_error(void);
 LPSTR* WINAPI CommandLineToArgvA(LPSTR lpCmdline, int* numargs);
+#if defined(LD_CONSOLE_APP)
 _Noreturn void __stdcall mainCRTStartup(void) {
+#else
+_Noreturn void __stdcall WinMainCRTStartup(void) {
+#endif
+
     int argc    = 0;
     char** argv = CommandLineToArgvA( GetCommandLineA(), &argc );
 
@@ -380,6 +393,17 @@ _Noreturn void __stdcall mainCRTStartup(void) {
         GetStdHandle( STD_OUTPUT_HANDLE ), dwMode );
 
     #define EXIT(code) ExitProcess(code)
+
+#if defined(LD_DEVELOPER_MODE)
+    #define WIN32_REPORT_ERROR( message ) do {\
+        win32_console_write( win32_stderr_handle(), sizeof(message), message );\
+        win32_output_debug_string( message );\
+    } while(0)
+#else
+    #define WIN32_REPORT_ERROR( message ) unused(message)
+#endif
+
+#if defined(LD_DEVELOPER_MODE)
     #define WIN32_REPORT_FATAL_ERROR( error_code, message ) do {\
         if( win32_report_last_error() != ERROR_SUCCESS ) {\
             usize       last_error_len = 0;\
@@ -398,6 +422,16 @@ _Noreturn void __stdcall mainCRTStartup(void) {
                 message );\
         }\
     } while(0)
+#else
+    #define WIN32_REPORT_FATAL_ERROR( error_code, message ) do {\
+        win32_report_last_error();\
+        if( ___internal_MessageBoxA ) {\
+            win32_fatal_message_box(\
+                "Fatal Error" macro_value_to_string( error_code ),\
+                message );\
+        }\
+    } while(0)
+#endif
 
     #define WIN32_LOAD_REQUIRED( module, fn ) do {\
         if( !WIN32_LOAD_FUNCTION( module, fn ) ) {\
@@ -461,6 +495,11 @@ _Noreturn void __stdcall mainCRTStartup(void) {
         }
     }
 
+    HMODULE dwm = LoadLibraryA( "DWMAPI.DLL" );
+    if( !dwm ) {
+        WIN32_REPORT_ERROR( "Failed to load DWMAPI.DLL :(" );
+    }
+
     WIN32_LOAD_REQUIRED( user32, SetWindowPlacement );
     WIN32_LOAD_REQUIRED( user32, GetWindowPlacement );
     WIN32_LOAD_REQUIRED( user32, GetMonitorInfoA );
@@ -499,6 +538,10 @@ _Noreturn void __stdcall mainCRTStartup(void) {
 
     WIN32_LOAD_REQUIRED( xinput, XInputGetState );
     WIN32_LOAD_REQUIRED( xinput, XInputSetState );
+
+    if( !WIN32_LOAD_FUNCTION( dwm, DwmSetWindowAttribute ) ) {
+        WIN32_REPORT_ERROR( "Failed to load DwmSetWindowAttribute :(" );
+    }
     
     if( !WIN32_LOAD_FUNCTION( xinput, XInputEnable ) ) {
         ___internal_XInputEnable = ___internal_XInputEnable_stub;
@@ -844,10 +887,20 @@ PlatformSurface* win32_surface_create(
 
     SetWindowLongPtrA( handle, GWLP_USERDATA, (LONG_PTR)win32_surface );
 
+    if( ___internal_DwmSetWindowAttribute ) {
+        #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+        BOOL dwm_value = TRUE;
+        DwmSetWindowAttribute(
+            win32_surface->hWnd,
+            DWMWA_USE_IMMERSIVE_DARK_MODE,
+            &dwm_value, sizeof(dwm_value) );
+    }
+
     if( !create_hidden ) {
         win32_surface->is_visible = true;
         ShowWindow( handle, SW_SHOW );
     }
+
 
     return win32_surface;
 }

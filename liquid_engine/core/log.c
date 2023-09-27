@@ -114,24 +114,32 @@ hot internal void log_formatted(
             if( buffer.len == buffer.capacity ) {
                 buffer.len -= 2;
             }
-            ss_mut_push( &buffer, '\n' );
+            assert( ss_mut_push( &buffer, '\n' ) );
         } else {
             if( buffer.len == buffer.capacity ) {
                 buffer.len--;
             }
         }
 
-        ss_mut_push( &buffer, 0 );
+        assert( ss_mut_push( &buffer, 0 ) );
 
         if( is_error ) {
-            cstr_output_stderr( buffer.buffer );
+            ss_output_stderr( &buffer );
         } else {
-            cstr_output_stdout( buffer.buffer );
+            ss_output_stdout( &buffer );
         }
 
 #if defined(LD_PLATFORM_WINDOWS)
         if( OUTPUT_DEBUG_STRING_ENABLED ) {
-            platform->io.output_debug_string( buffer.buffer );
+            // NOTE(alicia): hacky solution to windows debuggers
+            // showing ANSI color codes instead of parsing them.
+            // Just chops off the color code before and
+            // after the logging message.
+            if( new_line ) {
+                buffer.buffer[buffer.len - 9] = '\n';
+            }
+            buffer.buffer[buffer.len - 8] = 0;
+            platform->io.output_debug_string( buffer.buffer + 7 );
         }
 #endif
     } else {
