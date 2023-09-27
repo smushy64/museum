@@ -180,6 +180,12 @@ void ss_mut_fill_to_capacity( StringSlice* slice, char character );
 b32 ss_mut_push( StringSlice* slice, char character );
 ```
 ```cpp
+/// Pop last character from string slice.
+/// If opt_out_char is not NULL, stores popped character.
+/// Returns true if slice was not empty before popping, false if it was.
+b32 ss_mut_pop( StringSlice* slice, char* opt_out_char );
+```
+```cpp
 /// Insert character into string slice.
 /// Returns true if slice had enough capacity to insert character.
 b32 ss_mut_insert( StringSlice* slice, char character, usize position );
@@ -312,7 +318,10 @@ void print_err_va( const char* format, va_list variadic );
 
 ```cpp
 /// Create a mutable string slice from literal.
-#define STRING( variable_name, literal )
+#define ss_mut( variable_name, literal )
+/// Create a constant string slice from literal.
+/// Result cannot be modified!
+#define ss_const( variable_name, literal )
 ```
 ```cpp
 /// Print to stdout with a new line at the end.

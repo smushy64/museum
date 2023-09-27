@@ -57,7 +57,10 @@ LD_API b32 ss_parse_int( StringSlice* slice, i64* out_integer ) {
 
     do {
         if( !char_is_digit( parse.buffer[at] ) ) {
-            return false;
+            if( !at ) {
+                return false;
+            }
+            break;
         }
 
         result *= 10;
@@ -79,7 +82,10 @@ LD_API b32 ss_parse_uint( StringSlice* slice, u64* out_integer ) {
 
     do {
         if( !char_is_digit( parse.buffer[at] ) ) {
-            return false;
+            if( !at ) {
+                return false;
+            }
+            break;
         }
 
         result *= 10;
@@ -365,6 +371,19 @@ LD_API b32 ss_mut_push( StringSlice* slice, char character ) {
 
     slice->buffer[slice->len++] = character;
 
+    return true;
+}
+LD_API b32 ss_mut_pop( StringSlice* slice, char* opt_out_char ) {
+    if( !slice->len ) {
+        return false;
+    }
+
+    slice->len--;
+    char c = slice->buffer[slice->len];
+    if( opt_out_char ) {
+        *opt_out_char = c;
+    }
+    
     return true;
 }
 LD_API b32 ss_mut_insert(
@@ -1007,8 +1026,8 @@ LD_API usize ss_mut_fmt_f64(
     return result;
 }
 LD_API usize ss_mut_fmt_b32( StringSlice* slice, b32 value ) {
-    STRING(ss_true, "true");
-    STRING(ss_false, "false");
+    ss_const( ss_true, "true" );
+    ss_const( ss_false, "false" );
 
     StringSlice* value_slice = value ? &ss_true : &ss_false;
 
@@ -1131,8 +1150,8 @@ internal usize ___fmt(
     intermediate.buffer   = intermediate_buffer;
     intermediate.capacity = ___intermediate_buffer_size;
 
-    STRING( ss_true, "true" );
-    STRING( ss_false, "false" );
+    ss_const( ss_true, "true" );
+    ss_const( ss_false, "false" );
 
     usize result = 0;
     

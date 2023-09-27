@@ -40,12 +40,13 @@ struct StringSlice {
 typedef struct StringSlice StringSlice;
 
 /// Create a mutable string slice from literal.
-/// This is a bad attempt to get around the
-/// limitations of the C language but whatever.
-#define STRING( variable_name, literal )\
+#define ss_mut( variable_name, literal )\
     char variable_name##_buffer[] = literal;\
     StringSlice variable_name = ss_from_cstr(\
         sizeof( variable_name##_buffer ) - 1, variable_name##_buffer )
+/// Create a constant string slice from literal.
+#define ss_const( variable_name, literal )\
+    StringSlice variable_name = ss_from_cstr( sizeof( literal ) - 1, literal )
 
 /// Create a string slice.
 /// The lifetime of the string slice is the lifetime
@@ -132,6 +133,10 @@ LD_API void ss_mut_fill_to_capacity( StringSlice* slice, char character );
 /// Push character to end of string slice.
 /// Returns true if slice had enough capacity to push character.
 LD_API b32 ss_mut_push( StringSlice* slice, char character );
+/// Pop last character from string slice.
+/// If opt_out_char is not NULL, stores popped character.
+/// Returns true if slice was not empty before popping, false if it was.
+LD_API b32 ss_mut_pop( StringSlice* slice, char* opt_out_char );
 /// Insert character into string slice.
 /// Returns true if slice had enough capacity to insert character.
 LD_API b32 ss_mut_insert( StringSlice* slice, char character, usize position );

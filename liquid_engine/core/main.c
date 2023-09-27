@@ -15,6 +15,7 @@
 #include "core/graphics/internal.h"
 
 global b32 global_application_is_running = true;
+global f32 global_resolution_scale       = 1.0f;
 
 #define LOGGING_SUBSYSTEM_SIZE (kilobytes(1))
 
@@ -30,9 +31,6 @@ struct PlatformAPI* platform = NULL;
     #define GAME_LIBRARY_PATH_DEFAULT "game.so"
 #endif
 
-#define DEFAULT_RESOLUTION_WIDTH  (800)
-#define DEFAULT_RESOLUTION_HEIGHT (600)
-
 #define CORE_SUCCESS                              (0)
 #define CORE_ERROR_PARSE                          (128)
 #define CORE_ERROR_RENDERER_BACKEND_NOT_SUPPORTED (129)
@@ -43,7 +41,11 @@ struct PlatformAPI* platform = NULL;
 #define CORE_ERROR_ENGINE_MEMORY_ALLOCATION       (134)
 #define CORE_ERROR_LOGGING_SUBSYSTEM_INITIALIZE   (135)
 #define CORE_ERROR_THREAD_SUBSYSTEM_INITIALIZE    (136)
-#define CORE_ERROR_CREATE_SURFACE                 (137)
+#define CORE_ERROR_RENDERER_SUBSYSTEM_INITIALIZE  (137)
+#define CORE_ERROR_APPLICATION_INITIALIZE         (138)
+#define CORE_ERROR_CREATE_SURFACE                 (139)
+#define CORE_ERROR_APPLICATION_RUN                (140)
+#define CORE_ERROR_RENDERER_DRAW                  (141)
 
 internal no_inline void on_resolution_change(
     PlatformSurface* surface,
@@ -55,9 +57,10 @@ internal no_inline void on_resolution_change(
     unused( old_width + old_height );
     unused( user_params );
 
-    ivec2 surface_dimensions = { new_width, new_height };
-    // TODO(alicia): framebuffer resolution scaling
-    ivec2 framebuffer_dimensions = surface_dimensions;
+    ivec2 surface_dimensions  = { new_width, new_height };
+    vec2  surface_dimensionsf = v2_iv2( surface_dimensions );
+    ivec2 framebuffer_dimensions = iv2_v2( v2_mul(
+        surface_dimensionsf, global_resolution_scale ) );
     renderer_subsystem_on_resize( surface_dimensions, framebuffer_dimensions );
 }
 internal no_inline void on_close(
@@ -112,6 +115,16 @@ internal no_inline void on_mouse_wheel(
     }
 }
 
+#define DEFAULT_RESOLUTION_WIDTH  (800)
+#define DEFAULT_RESOLUTION_HEIGHT (600)
+#define DEFAULT_RESOLUTION_SCALE  (1.0f)
+struct SettingsParse {
+    i32 resolution_width;
+    i32 resolution_height;
+    f32 resolution_scale;
+};
+internal struct SettingsParse parse_settings(void);
+
 internal void print_help(void);
 LD_API int core_init(
     int argc, char** argv,
@@ -120,36 +133,40 @@ LD_API int core_init(
     assert( in_platform );
     platform = in_platform;
 
-    // TODO(alicia): load from user settings.ini
-    i32 width  = DEFAULT_RESOLUTION_WIDTH;
-    i32 height = DEFAULT_RESOLUTION_HEIGHT;
+    struct SettingsParse settings = parse_settings();
+
+    i32 width  = settings.resolution_width;
+    i32 height = settings.resolution_height;
+    // TODO(alicia): make this modifiable through command line
+    global_resolution_scale = settings.resolution_scale;
     RendererBackend backend = RENDERER_BACKEND_OPENGL;
-    STRING( game_library_path, GAME_LIBRARY_PATH_DEFAULT );
+    ss_const( game_library_path, GAME_LIBRARY_PATH_DEFAULT );
 
     /* parse arguments */ {
 #if defined(LD_DEVELOPER_MODE)
-        STRING( libload, "--libload=" );
+        ss_const( libload, "--libload=" );
 #endif
-        STRING( set_width, "--width=" );
-        STRING( set_height, "--height=" );
-        STRING( help, "--help" );
-        STRING( h, "-h" );
+        ss_const( set_width, "--width=" );
+        ss_const( set_height, "--height=" );
+        ss_const( set_resolution_scale, "--resolution_scale=" );
+        ss_const( help, "--help" );
+        ss_const( h, "-h" );
 #if defined(LD_PLATFORM_WINDOWS)
 
 #if defined(LD_DEVELOPER_MODE)
-        STRING( output_debug_string, "--output-debug-string" );
+        ss_const( output_debug_string, "--output-debug-string" );
         b32 enable_output_debug_string = false;
 #endif
-        STRING( dx11,   "--directx11" );
-        STRING( dx12,   "--directx12" );
+        ss_const( dx11,   "--directx11" );
+        ss_const( dx12,   "--directx12" );
 #endif
-        STRING( opengl, "--opengl" );
-        STRING( vulkan, "--vulkan" );
+        ss_const( opengl, "--opengl" );
+        ss_const( vulkan, "--vulkan" );
 #if defined(LD_PLATFORM_MACOS) || defined(LD_PLATFORM_IOS)
-        STRING( metal,  "--metal" );
+        ss_const( metal,  "--metal" );
 #endif
 #if defined(LD_PLATFORM_WASM)
-        STRING( webgl,  "--webgl" );
+        ss_const( webgl,  "--webgl" );
 #endif
 
         b32 parse_error = false;
@@ -232,6 +249,33 @@ LD_API int core_init(
                 continue;
             }
 
+            if( ss_find( &current, &set_resolution_scale, NULL ) ) {
+                if( current.len - set_resolution_scale.len < 1 ) {
+                    println_err(
+                        LOG_COLOR_RED
+                        "invalid resolution scale!"
+                        LOG_COLOR_RESET
+                    );
+                    parse_error = true;
+                    break;
+                }
+                current.buffer += set_resolution_scale.len;
+                current.len    -= set_resolution_scale.len;
+                f64 parse_result = 0.0;
+                if( !ss_parse_float( &current, &parse_result ) ) {
+                    println_err(
+                        LOG_COLOR_RED
+                        "invalid resolution scale {s}!"
+                        LOG_COLOR_RESET,
+                        current
+                    );
+                    parse_error = true;
+                    break;
+                }
+                global_resolution_scale = max( parse_result, 0.1 );
+                continue;
+            }
+
             if( ss_cmp( &current, &opengl ) ) {
                 backend = RENDERER_BACKEND_OPENGL;
                 continue;
@@ -311,53 +355,53 @@ LD_API int core_init(
     println( "Engine Configuration:" );
     println( "Version:           {i}.{i}", LIQUID_ENGINE_VERSION_MAJOR, LIQUID_ENGINE_VERSION_MINOR );
 #if defined(LD_PLATFORM_WINDOWS)
-    STRING(os, "win32");
+    ss_const(os, "win32");
 #endif
 #if defined(LD_PLATFORM_MACOS)
-    STRING(os, "macos");
+    ss_const(os, "macos");
 #endif
 #if defined(LD_PLATFORM_IOS)
-    STRING(os, "ios");
+    ss_const(os, "ios");
 #endif
 #if defined(LD_PLATFORM_ANDROID)
-    STRING(os, "android");
+    ss_const(os, "android");
 #endif
 #if defined(LD_PLATFORM_LINUX)
-    STRING(os, "linux");
+    ss_const(os, "linux");
 #endif
 #if defined(LD_PLATFORM_WASM)
-    STRING(os, "wasm");
+    ss_const(os, "wasm");
 #endif
 #if defined(LD_ARCH_32_BIT)
     #if defined(LD_ARCH_X86)
-        STRING(arch, "x86");
+        ss_const(arch, "x86");
     #endif
     #if defined(LD_ARCH_ARM)
         #if defined(LD_ARCH_LITTLE_ENDIAN)
-            STRING(arch, "arm little-endian 32-bit");
+            ss_const(arch, "arm little-endian 32-bit");
         #endif
         #if defined(LD_ARCH_BIG_ENDIAN)
-            STRING(arch, "arm big-endian 32-bit");
+            ss_const(arch, "arm big-endian 32-bit");
         #endif
     #endif
     #if defined(LD_ARCH_WASM)
-        STRING(arch, "wasm 32-bit");
+        ss_const(arch, "wasm 32-bit");
     #endif
 #endif
 #if defined(LD_ARCH_64_BIT)
     #if defined(LD_ARCH_X86)
-        STRING(arch, "x86_64");
+        ss_const(arch, "x86_64");
     #endif
     #if defined(LD_ARCH_ARM)
         #if defined(LD_ARCH_LITTLE_ENDIAN)
-            STRING(arch, "arm little-endian 64-bit");
+            ss_const(arch, "arm little-endian 64-bit");
         #endif
         #if defined(LD_ARCH_BIG_ENDIAN)
-            STRING(arch, "arm big-endian 64-bit");
+            ss_const(arch, "arm big-endian 64-bit");
         #endif
     #endif
     #if defined(LD_ARCH_WASM)
-        STRING(arch, "wasm 64-bit");
+        ss_const(arch, "wasm 64-bit");
     #endif
 #endif
     println( "Platform:          {s}, {s}", os, arch );
@@ -365,6 +409,7 @@ LD_API int core_init(
     println( "Renderer Backend:  {cc}",
         renderer_backend_to_string( backend ) );
     println( "Resolution:        {i}x{i}", width, height );
+    println( "Resolution Scale:  {f,.2}x", global_resolution_scale );
 
     char fatal_error_title_buffer[255];
     char fatal_error_message_buffer[255];
@@ -548,8 +593,7 @@ LD_API int core_init(
         #define SURFACE_CREATE_HIDDEN true
         #define SURFACE_RESIZEABLE    true
         surface = platform->surface.create(
-            DEFAULT_RESOLUTION_WIDTH,
-            DEFAULT_RESOLUTION_HEIGHT,
+            width, height,
             "liquid engine",
             SURFACE_CREATE_HIDDEN,
             SURFACE_RESIZEABLE,
@@ -595,20 +639,26 @@ LD_API int core_init(
 
         if( !renderer_subsystem_init(
             surface, backend,
-            iv2(DEFAULT_RESOLUTION_WIDTH, DEFAULT_RESOLUTION_HEIGHT),
+            iv2_v2( v2_mul( v2( (f32)width, (f32)height ), global_resolution_scale ) ),
             &render_data,
             renderer_subsystem_buffer
         ) ) {
-            // TODO(alicia): error code + logging!
-            return -1;
+            platform->fatal_message_box(
+                "Fatal Error "
+                macro_value_to_string( CORE_ERROR_RENDERER_SUBSYSTEM_INITIALIZE ),
+                "Failed to initialize renderer subsystem!" );
+            return CORE_ERROR_RENDERER_SUBSYSTEM_INITIALIZE;
         }
     }
 
     void* application_memory =
         stack_allocator_push( &stack, application_memory_requirement );
     if( !application_initialize( application_memory ) ) {
-        // TODO(alicia): error code + logging!
-        return -1;
+        platform->fatal_message_box(
+            "Fatal Error "
+            macro_value_to_string( CORE_ERROR_APPLICATION_INITIALIZE ),
+            "Failed to initialize application!" );
+        return CORE_ERROR_APPLICATION_INITIALIZE;
     }
 
     TimeStamp time = {};
@@ -646,15 +696,21 @@ LD_API int core_init(
         }
 
         if( !application_run( time, application_memory ) ) {
-            // TODO(alicia): error code + logging!
-            return -1;
+            platform->fatal_message_box(
+                "Fatal Error "
+                macro_value_to_string( CORE_ERROR_APPLICATION_RUN ),
+                "Failed to run application!" );
+            return CORE_ERROR_APPLICATION_RUN;
         }
 
         render_data.time = time;
 
         if( !renderer_subsystem_draw() ) {
-            // TODO(alicia): error code + logging!
-            return -1;
+            platform->fatal_message_box(
+                "Fatal Error "
+                macro_value_to_string( CORE_ERROR_RENDERER_DRAW ),
+                "Renderer failed!" );
+            return CORE_ERROR_RENDERER_DRAW;
         }
 
         list_clear( render_data.list_commands );
@@ -690,24 +746,221 @@ internal void print_help(void) {
     println( "USAGE: {cc} [options]\n", LIQUID_ENGINE_EXECUTABLE );
     println( "OPTIONS:" );
 #if defined(LD_DEVELOPER_MODE)
-    println( "--libload=[string]     use a different game dll from default (developer mode only, default='" GAME_LIBRARY_PATH_DEFAULT "')"  );
-    println( "--output-debug-string  enable output debug string (developer mode only, win32 only, default=false)" );
+    println( "--libload=[string]         use a different game dll from default (developer mode only, default='" GAME_LIBRARY_PATH_DEFAULT "')"  );
+    println( "--output-debug-string      enable output debug string (developer mode only, win32 only, default=false)" );
 #endif
-    println( "--width=[integer]      overwrite screen width (default=settings.ini)" );
-    println( "--height=[integer]     overwrite screen height (default=settings.ini)" );
-    println( "--opengl               use OpenGL renderer backend (default)" );
-    println( "--vulkan               use Vulkan renderer backend" );
+    println( "--width=[integer]          overwrite screen width (default=settings.ini)" );
+    println( "--height=[integer]         overwrite screen height (default=settings.ini)" );
+    println( "--resolution_scale=[float] overwrite resolution scale (default=settings.ini)" );
+    println( "--opengl                   use OpenGL renderer backend (default)" );
+    println( "--vulkan                   use Vulkan renderer backend" );
 #if defined(LD_PLATFORM_MACOS) || defined(LD_PLATFORM_IOS)
-    println( "--metal                use Metal renderer backend (macos/ios only)" );
+    println( "--metal                    use Metal renderer backend (macos/ios only)" );
 #endif
 #if defined(LD_PLATFORM_WASM)
-    println( "--webgl                use WebGL renderer backend (wasm only)" );
+    println( "--webgl                    use WebGL renderer backend (wasm only)" );
 #endif
 #if defined(LD_PLATFORM_WINDOWS)
-    println( "--directx11            use DirectX11 renderer backend (win32 only)" );
-    println( "--directx12            use DirectX12 renderer backend (win32 only)" );
+    println( "--directx11                use DirectX11 renderer backend (win32 only)" );
+    println( "--directx12                use DirectX12 renderer backend (win32 only)" );
 #endif
-    println( "--help,-h              print this message" );
+    println( "--help,-h                  print this message" );
+}
+
+#define ENGINE_SETTINGS_BUFFER_CAPACITY (kilobytes(1))
+global char ENGINE_SETTINGS_BUFFER[ENGINE_SETTINGS_BUFFER_CAPACITY] = {};
+
+internal struct SettingsParse parse_settings(void) {
+    struct SettingsParse parse_result = {};
+
+    // TODO(alicia): load from user settings.ini
+    PlatformFileFlags flags =
+        PLATFORM_FILE_READ |
+        PLATFORM_FILE_READ |
+        PLATFORM_FILE_ONLY_EXISTING;
+    #define SETTINGS_PATH "./settings.ini"
+
+    PlatformFile* settings_file = platform->io.file_open(
+        SETTINGS_PATH, flags | PLATFORM_FILE_ONLY_EXISTING );
+
+    if( !settings_file ) {
+        settings_file = platform->io.file_open(
+            SETTINGS_PATH, PLATFORM_FILE_WRITE );
+        // TODO(alicia): logging!
+        assert( settings_file );
+
+        StringSlice default_settings;
+        default_settings.buffer   = ENGINE_SETTINGS_BUFFER;
+        default_settings.capacity = ENGINE_SETTINGS_BUFFER_CAPACITY;
+        default_settings.len      = 0;
+
+        ss_mut_fmt( &default_settings, "[resolution] \n" );
+        ss_mut_fmt( &default_settings, "width            = {i} \n", DEFAULT_RESOLUTION_WIDTH );
+        ss_mut_fmt( &default_settings, "height           = {i} \n", DEFAULT_RESOLUTION_HEIGHT );
+        ss_mut_fmt( &default_settings, "resolution_scale = {f,.1} \n", DEFAULT_RESOLUTION_SCALE );
+
+        b32 write_result = platform->io.file_write(
+            settings_file, default_settings.len, default_settings.buffer );
+
+        // TODO(alicia): logging!
+        assert( write_result );
+
+        platform->io.file_close( settings_file );
+
+        settings_file = platform->io.file_open( SETTINGS_PATH, flags );
+
+        // TODO(alicia): logging!
+        assert( settings_file );
+    }
+
+    parse_result.resolution_width  = DEFAULT_RESOLUTION_WIDTH;
+    parse_result.resolution_height = DEFAULT_RESOLUTION_HEIGHT;
+    parse_result.resolution_scale  = DEFAULT_RESOLUTION_SCALE;
+
+    usize settings_file_size = platform->io.file_query_size( settings_file );
+    if( !settings_file_size ) {
+        platform->io.file_close( settings_file );
+        return parse_result;
+    }
+
+    char* settings_file_buffer = ldalloc( settings_file_size, MEMORY_TYPE_ENGINE );
+    // TODO(alicia): logging
+    assert( settings_file_buffer );
+
+    // TODO(alicia): logging
+    assert( platform->io.file_read(
+        settings_file,
+        settings_file_size, settings_file_size,
+        settings_file_buffer ) );
+
+    StringSlice settings = {
+        settings_file_buffer, settings_file_size, settings_file_size
+    };
+
+    enum Section : u32 {
+        SECTION_UNKNOWN,
+        SECTION_RESOLUTION
+    };
+    enum Section section = SECTION_UNKNOWN;
+    unused(section);
+
+    ss_const( token_section_resolution, "[resolution]" );
+    ss_const( token_width, "width" );
+    ss_const( token_height, "height" );
+    ss_const( token_resolution_scale, "resolution_scale" );
+
+    usize eol = 0;
+    StringSlice line = ss_clone( &settings );
+
+    while( ss_find_char( &line, '\n', &eol ) ) {
+        StringSlice temp = ss_clone( &line );
+        temp.len = eol + 1;
+
+        switch( temp.buffer[0] ) {
+            case '[': {
+                if( ss_find( &temp, &token_section_resolution, NULL ) ) {
+                    section = SECTION_RESOLUTION;
+                }
+            } break;
+            case ';': {
+                section = SECTION_UNKNOWN;
+            } break;
+        }
+
+        if( section == SECTION_UNKNOWN ) {
+            goto skip;
+        }
+
+        switch( section ) {
+            case SECTION_RESOLUTION: {
+                if( ss_find( &temp, &token_width, NULL ) ) {
+                    StringSlice number;
+                    number.buffer = temp.buffer + token_width.len;
+                    number.len    = temp.len    - token_width.len;
+
+                    for( usize i = 0; i < number.len; ++i ) {
+                        char current = number.buffer[i];
+
+                        if( char_is_digit( current ) ) {
+                            number.buffer += i;
+                            number.len    -= i;
+
+                            u64 int_parse = 0;
+                            if( ss_parse_uint( &number, &int_parse ) ) {
+                                parse_result.resolution_width =
+                                    max( int_parse, 1 );
+                            }
+
+                            break;
+                        }
+                    }
+                } else if( ss_find( &temp, &token_height, NULL ) ) {
+                    StringSlice number;
+                    number.buffer = temp.buffer + token_height.len;
+                    number.len    = temp.len    - token_height.len;
+
+                    for( usize i = 0; i < number.len; ++i ) {
+                        char current = number.buffer[i];
+
+                        if( char_is_digit( current ) ) {
+                            number.buffer += i;
+                            number.len    -= i;
+
+                            u64 int_parse = 0;
+                            if( ss_parse_uint( &number, &int_parse ) ) {
+                                parse_result.resolution_height =
+                                    max( int_parse, 1 );
+                            }
+
+                            break;
+                        }
+                    }
+                } else if( ss_find( &temp, &token_resolution_scale, NULL ) ) {
+                    StringSlice number;
+                    number.buffer = temp.buffer + token_resolution_scale.len;
+                    number.len    = temp.len    - token_resolution_scale.len;
+
+                    for( usize i = 0; i < number.len; ++i ) {
+                        char current = number.buffer[i];
+
+                        if( char_is_digit( current ) ) {
+                            number.buffer += i;
+                            number.len    -= i;
+
+                            while(
+                                number.len &&
+                                !char_is_digit(number.buffer[number.len - 1])
+                            ) {
+                                ss_mut_pop( &number, NULL );
+                            }
+
+                            f64 float_parse = 0.0;
+                            if( ss_parse_float( &number, &float_parse ) ) {
+                                parse_result.resolution_scale =
+                                    max( float_parse, 0.1 );
+                            }
+
+                            break;
+                        }
+                    }
+                }
+            } break;
+            default: break;
+        }
+
+    skip:
+        line.buffer += temp.len;
+        line.len    -= temp.len;
+    }
+
+    ldfree( settings_file_buffer, settings_file_size, MEMORY_TYPE_ENGINE );
+    platform->io.file_close( settings_file );
+    return parse_result;
+}
+
+LD_API void engine_exit(void) {
+    LOG_NOTE( "Application requested program to exit." );
+    global_application_is_running = false;
 }
 
 #include "core_generated_dependencies.inl"

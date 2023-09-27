@@ -7,6 +7,7 @@
 #include <core/graphics.h>
 #include <core/timer.h>
 #include <core/input.h>
+#include <core/engine.h>
 
 struct GameMemory {
     Transform camera_transform;
@@ -92,7 +93,7 @@ c_linkage b32 application_run( TimeStamp time, void* in_memory ) {
     unused(time);
 
     if( input_key_press( KEY_ESCAPE ) ) {
-        // engine_exit();
+        engine_exit();
     }
 
     f32 move_speed   = 1.25f;

@@ -18,12 +18,8 @@
 #define max( a, b ) ( (a) < (b) ? (b) : (a) )
 
 /// Clamp a number between min and max, inclusive-inclusive
-#define clamp( value, min, max ) \
-    (\
-        ((value) < (min) ? (min) : (value)) > (max) ?\
-        (max) :\
-        ((value) < (min) ? (min) : (value))\
-    )
+#define clamp( value, min, max )\
+    ( (value) < (min) ? (min) : ( (value) > (max) ? (max) : (value) ) )
 /// Clamp a 32-bit float to 0-1
 #define clamp32_01( value )\
     clamp( (value), 0.0f, 1.0f )
