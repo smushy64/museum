@@ -1,17 +1,12 @@
 <!--
- * Description:  Constants
+ * Description:  Liquid Engine Core Constants
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
- * File Created: September 12, 2023
+ * File Created: September 27, 2023
 -->
 
-# Constants | [Table of Contents](./toc.md)
+# Liquid Engine Core Constants | [Table of Contents](../readme.md)
 
-To include in game DLL:
-```cpp
-#include <constants.h>
-```
-
-To include in engine:
+To include:
 ```cpp
 #include "constants.h"
 ```

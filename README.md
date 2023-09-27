@@ -29,10 +29,6 @@ No libraries are used with the exception of system libraries ( Win32, OpenGL etc
 - [mingw](https://www.mingw-w64.org/)
 - windres 2.41*
     - should be installed with mingw by default
-#### Linux requirements
-- pkg-config command
-- [SDL2](https://www.libsdl.org/)
-- pthreads
 #### Optional
 - [RemedyBG Debugger](https://remedybg.itch.io/remedybg)
 - [gf gdb frontend for linux](https://github.com/nakst/gf)
@@ -49,7 +45,7 @@ make all
 ```
 3) executable will be in ./build/debug/
 
-to build and execute testbed, run:
+to build testbed, run:
 ```console
 make test
 ```
@@ -59,11 +55,11 @@ to list other provided make recipes, run:
 make help
 ```
 
-More information on how to build and debug is available [here](./BUILD.md).
+More information on how to build and debug is available [here](./docs/build.md).
 
 ## Documentation
 
-Liquid Engine API documentation can be found [here](./docs/toc.md).
+Liquid Engine API documentation can be found [here](./docs/readme.md).
 
 ## Special Thanks
 

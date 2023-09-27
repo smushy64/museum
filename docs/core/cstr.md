@@ -1,19 +1,14 @@
 <!--
- * Description:  C string documentation
+ * Description:  Liquid Engine Core Cstr Documentation
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
- * File Created: September 05, 2023
+ * File Created: September 27, 2023
 -->
 
-# C String | [Table of Contents](./toc.md)
+# C Strings | [Table of Contents](../readme.md)
 
-To include in game DLL:
+To include:
 ```cpp
 #include <core/cstr.h>
-```
-
-To include in engine:
-```cpp
-#include "core/cstr.h"
 ```
 
 Includes:

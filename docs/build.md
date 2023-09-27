@@ -1,16 +1,15 @@
 <!--
  * Description:  Build instructions
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
- * File Created: July 19, 2023
+ * File Created: September 27, 2023
 -->
 
-# Building | [Table of Contents](./docs/toc.md)
+# Build Instructions | [Table of Contents](./readme.md)
 
 ## Jump Table
 - [Requirements](#requirements)
-    - [Common Requirements](#common-requirements)
-    - [Windows Requirements](#windows-requirements)
-    - [Linux Requirements](#linux-requirements)
+    - [Common](#common-requirements)
+    - [Windows](#windows-requirements)
     - [Optional Software](#optional-software)
 - [Debug Build Steps](#debug-build-steps)
 - [Release Build Steps](#release-build-steps)
@@ -21,7 +20,10 @@
     - [Visual Studio](#visual-studio)
 
 ## Requirements
-Currently, only Windows is supported as a build target
+Currently, only windows is supported as a build target.
+
+The linux platform layer has been written in past commits but
+I've decided it's better to just focus on one platform layer for the time being.
 
 ### Common requirements
 - clang 16.0.5 [^1]
@@ -31,10 +33,6 @@ Currently, only Windows is supported as a build target
 - [mingw](https://www.mingw-w64.org/)
 - windres 2.41 [^1]
     - should be installed with mingw by default
-### Linux requirements
-- pkg-config command
-- [SDL2](https://www.libsdl.org/)
-- pthreads
 ### Optional Software
 - [RemedyBG Debugger](https://remedybg.itch.io/remedybg)
 - [gf gdb frontend for linux](https://github.com/nakst/gf)
@@ -51,7 +49,7 @@ make all
 ```
 3) executable will be in ./build/debug/
 
-to build and execute testbed, run:
+to build and testbed, run:
 ``` console
 make test
 ```
@@ -82,28 +80,29 @@ make help
 
 ## Debugging
 Debug builds provide .pdb files on Windows
-and object/executable files build with debug symbols
-appropriate for gdb on *nix platforms.
+and object/executable files built with debug symbols
+appropriate for gdb on other platforms.
 
 ### Entry Points
-Windows: ldwin32main.c at line 288
+Windows: ../liquid_platform/platform_win32.c:380
 
 Linux: Unavailable
 
-Mac: Unavailable
+MacOS: Unavailable
 
 ### RemedyBG
-Under Session/Application and Parameters, set 'Command' to
+1) Under Session/Application and Parameters, set 'Command' to
 ```
-build/debug/liquid-engine-x-x-win32-x86_64-debug.exe
+./build/debug/liquid-engine-debug.exe
 ```
-where x-x is the current version of LiquidEngine.
-
-Set the command line arguments to
+2) Under Sesson/Application and Parameters, set 'Command Arguments' to
 ```
---libload=testbed-x-x-win32-x86_64-debug.dll
+--libload=testbed-debug.dll
 ```
-where x-x is the current version of LiquidEngine.
+3) Under Session/Application and Parameters set 'Working Directory' to
+```
+./build/debug/
+```
 
 Additionally, the command argument
 --output-debug-string is recommended to enable print out to the
@@ -114,24 +113,25 @@ Press F10 to begin debugging and break on entry point.
 RemedyBG is available [here](https://remedybg.itch.io/remedybg).
 
 ### gf
-1) Change directory to build/debug and run gf2.
+1) Change directory to ./build/debug and run gf2.
 2) Set 'Path to Executable' to
 ```
-build/debug/liquid-engine-x-x-linux-x86_64-debug
+./liquid-engine-debug
 ```
-where x-x is the current version of LiquidEngine.
 3) Set 'Command line arguments' to
 ```
---libload=testbed-x-x-linux-x86_64-debug.so
+--libload=testbed-debug.so
 ```
 
 gf is available [here](https://github.com/nakst/gf).
 
 ### Visual Studio
-Build a debug build and launch it in Visual Studio with
+1) Build a debug build and launch it in Visual Studio with
 ```console
-devenv build/debug/liquid-engine-x-x-debug-win32.exe
+devenv ./build/debug/liquid-engine-debug.exe
 ```
-where x-x is the current version of Liquid Engine, assuming that you're in the root directory of the project.
+2) Set working environment to ./build/debug/
+
 Then just run the debugger in the editor.
 Sources should automatically load as you step through the debugger.
+

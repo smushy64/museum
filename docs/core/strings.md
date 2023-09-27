@@ -1,16 +1,12 @@
 <!--
- * Description:  String Documentation
+ * Description:  Liquid Engine Core Strings Documentation
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
- * File Created: July 19, 2023
+ * File Created: September 27, 2023
 -->
 
-# String | [Table of Contents](./toc.md)
+# Liquid Engine Core Strings | [Table of Contents](../readme.md)
 
-To include in game DLL:
-```cpp
-#include <core/strings.h>
-```
-To include in engine:
+To include:
 ```cpp
 #include "core/strings.h"
 ```
@@ -40,11 +36,11 @@ Includes:
 ```cpp
 /// Slice of string buffer.
 /// Size: 24
-typedef struct StringView {
+typedef struct StringSlice {
     char* buffer;
     usize len;
     usize capacity;
-} StringView;
+} StringSlice;
 ```
 ```cpp
 /// Options for formatting integers.
@@ -316,8 +312,6 @@ void print_err_va( const char* format, va_list variadic );
 
 ```cpp
 /// Create a mutable string slice from literal.
-/// This is a bad attempt to get around the
-/// limitations of the C language but whatever.
 #define STRING( variable_name, literal )
 ```
 ```cpp
@@ -419,4 +413,5 @@ print( "|{cc,6}|", "hi" );
 ```
 |    hi|
 ```
+
 

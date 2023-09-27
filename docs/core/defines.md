@@ -1,16 +1,12 @@
 <!--
- * Description:  Defines
+ * Description:  Liquid Engine Core Defines
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
- * File Created: July 19, 2023
+ * File Created: September 27, 2023
 -->
 
-# Defines | [Table of Contents](./toc.md)
+# Liquid Engine Core Defines | [Table of Contents](../readme.md)
 
-To include in game DLL:
-```cpp
-#include <defines.h>
-```
-To include in engine:
+To include:
 ```cpp
 #include "defines.h"
 ```
