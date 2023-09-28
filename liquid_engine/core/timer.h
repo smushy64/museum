@@ -7,10 +7,12 @@
 */
 #include "defines.h"
 
-/// Time
+/// Timestamp.
 typedef struct TimeStamp {
     f32 delta_seconds;
+    f32 unscaled_delta_seconds;
     f32 elapsed_seconds;
+    f32 time_scale;
     u64 frame_count;
 } TimeStamp;
 

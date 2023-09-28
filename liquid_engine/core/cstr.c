@@ -2,7 +2,7 @@
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: September 05, 2023
 #include "core/cstr.h"
-#include "core/mem.h"
+#include "core/memoryf.h"
 #include "internal.h"
 
 LD_API usize cstr_len( const char* cstr ) {

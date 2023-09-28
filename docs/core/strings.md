@@ -13,7 +13,6 @@ To include:
 
 Includes:
 - "defines.h"
-- "core/variadic.h"
 
 ## Jump Table
 - [Types](#types)

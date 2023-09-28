@@ -312,7 +312,7 @@ void win32_sleep_milliseconds( u32 ms );
 
 void win32_read_gamepads( PlatformGamepad gamepads[4] );
 void win32_set_gamepad_rumble(
-    u32 gamepad_index, f32 left_motor, f32 right_motor );
+    u32 gamepad_index, u16 left_motor, u16 right_motor );
 PlatformFile* win32_stdout_handle(void);
 PlatformFile* win32_stderr_handle(void);
 void win32_console_write(
@@ -549,6 +549,8 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
 
     SYSTEM_INFO win32_info = {};
     GetSystemInfo( &win32_info );
+
+    global_win32_info.page_size = win32_info.dwPageSize;
 
     if( IsProcessorFeaturePresent(
         PF_XMMI_INSTRUCTIONS_AVAILABLE
@@ -1351,14 +1353,6 @@ LRESULT win32_winproc(
     #define KEY_ALT_LEFT  (18)
     #define KEY_ALT_RIGHT (224)
 
-    enum : u8 {
-        MOUSE_BUTTON_LEFT,
-        MOUSE_BUTTON_MIDDLE,
-        MOUSE_BUTTON_RIGHT,
-        MOUSE_BUTTON_EXTRA_1,
-        MOUSE_BUTTON_EXTRA_2
-    };
-
     #define WM_CLOSE_RETURN_VALUE            (0)
     #define WM_ACTIVATEAPP_RETURN_VALUE      (0)
     #define WM_WINDOWPOSCHANGED_RETURN_VALUE (0)
@@ -1448,11 +1442,11 @@ LRESULT win32_winproc(
                 Msg == WM_RBUTTONDOWN;
             PlatformMouseCode code;
             if( Msg == WM_LBUTTONDOWN || Msg == WM_LBUTTONUP ) {
-                code = MOUSE_BUTTON_LEFT;
+                code = PLATFORM_MOUSE_BUTTON_LEFT;
             } else if( Msg == WM_RBUTTONDOWN || Msg == WM_RBUTTONUP ) {
-                code = MOUSE_BUTTON_RIGHT;
+                code = PLATFORM_MOUSE_BUTTON_RIGHT;
             } else if( Msg == WM_MBUTTONDOWN || Msg == WM_MBUTTONUP ) {
-                code = MOUSE_BUTTON_MIDDLE;
+                code = PLATFORM_MOUSE_BUTTON_MIDDLE;
             } else {
                 return WM_MOUSEBUTTON_RETURN_VALUE;
             }
@@ -1471,7 +1465,7 @@ LRESULT win32_winproc(
 
             UINT button = GET_XBUTTON_WPARAM(wParam);
             b32 is_down = Msg == WM_XBUTTONDOWN;
-            PlatformMouseCode code = button + (MOUSE_BUTTON_EXTRA_1 - 1);
+            PlatformMouseCode code = button + (PLATFORM_MOUSE_BUTTON_EXTRA_1 - 1);
 
             if( win32_surface->callbacks.on_mouse_button ) {
                 win32_surface->callbacks.on_mouse_button(
@@ -1593,6 +1587,10 @@ void win32_read_gamepads( PlatformGamepad gamepads[4] ) {
         }
         XINPUT_GAMEPAD   gamepad = state.Gamepad;
         current->buttons = gamepad.wButtons;
+        // clear these bits in case xinput uses them
+        current->buttons &= ~(
+            PLATFORM_GAMEPAD_EXT_BUTTON_TRIGGER_LEFT |
+            PLATFORM_GAMEPAD_EXT_BUTTON_TRIGGER_RIGHT );
         current->trigger_left_normalized  = gamepad.bLeftTrigger;
         current->trigger_right_normalized = gamepad.bRightTrigger;
         current->stick_left_x_normalized  = gamepad.sThumbLX;
@@ -1600,39 +1598,18 @@ void win32_read_gamepads( PlatformGamepad gamepads[4] ) {
         current->stick_right_x_normalized = gamepad.sThumbRX;
         current->stick_right_x_normalized = gamepad.sThumbRY;
 
-        i16 lx_abs =
-            gamepad.sThumbLX < 0 ? -gamepad.sThumbLX : gamepad.sThumbLX;
-        i16 ly_abs =
-            gamepad.sThumbLY < 0 ? -gamepad.sThumbLY : gamepad.sThumbLY;
-
-        i16 rx_abs =
-            gamepad.sThumbRX < 0 ? -gamepad.sThumbRX : gamepad.sThumbRX;
-        i16 ry_abs =
-            gamepad.sThumbRY < 0 ? -gamepad.sThumbRY : gamepad.sThumbRY;
-
-        b32 stick_left_moved =
-            lx_abs >= XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE ||
-            ly_abs >= XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE;
-        b32 stick_right_moved =
-            rx_abs >= XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE ||
-            ry_abs >= XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE;
-           
-        current->buttons_ext |= ( stick_left_moved << 0 );
-        current->buttons_ext |= ( stick_right_moved << 1 );
-        current->buttons_ext |= ( (gamepad.bLeftTrigger > 25) << 2 );
-        current->buttons_ext |= ( (gamepad.bRightTrigger > 25) << 3 );
+        current->buttons |= ( (gamepad.bLeftTrigger > 25) << 2 );
+        current->buttons |= ( (gamepad.bRightTrigger > 25) << 3 );
     }
 }
 void win32_set_gamepad_rumble(
-    u32 gamepad_index, f32 left_motor, f32 right_motor
+    u32 gamepad_index, u16 motor_left, u16 motor_right
 ) {
     assert( gamepad_index < 4 );
-    assert( left_motor >= 0.0f && left_motor <= 1.0f );
-    assert( right_motor >= 0.0f && right_motor <= 1.0f );
 
     XINPUT_VIBRATION vibration;
-    vibration.wLeftMotorSpeed  = (u16)(left_motor * (f32)U16_MAX);
-    vibration.wRightMotorSpeed = (u16)(right_motor * (f32)U16_MAX);
+    vibration.wLeftMotorSpeed  = motor_left;
+    vibration.wRightMotorSpeed = motor_right;
 
     XInputSetState( gamepad_index, &vibration );
 }

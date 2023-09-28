@@ -10,20 +10,13 @@
 */
 #include "defines.h"
 #include "constants.h"
-#include "core/mathf/types.h"
 
-#define GAMEPAD_MOTOR_LEFT  (0)
-#define GAMEPAD_MOTOR_RIGHT (1)
+#define INPUT_GAMEPAD_COUNT (4)
 
-#define GAMEPAD_MAX_INDEX (4)
-#define GAMEPAD_DEFAULT_STICK_DEADZONE          (0.05f)
-#define GAMEPAD_DEFAULT_TRIGGER_DEADZONE        (0.05f)
-#define GAMEPAD_DEFAULT_TRIGGER_PRESS_THRESHOLD (0.50f)
-
-#define KEY_COUNT (109)
+#define INPUT_KEY_COUNT (109)
 
 /// Key Codes
-typedef enum KeyboardCode : u8 {
+typedef enum KeyCode : u8 {
     KEY_BACKSPACE  = 8,
     KEY_TAB        = 9,
 
@@ -147,10 +140,10 @@ typedef enum KeyboardCode : u8 {
     KEY_CONTROL_RIGHT = 225,
 
     KEY_UNKNOWN = U8_MAX,
-} KeyboardCode;
+} KeyCode;
 
 maybe_unused
-header_only const char* keyboard_code_to_string( KeyboardCode keycode ) {
+header_only const char* keyboard_code_to_string( KeyCode keycode ) {
     switch( keycode ) {
         case KEY_SPACE:          return "Space";
         case KEY_A:              return "A";
@@ -265,246 +258,78 @@ header_only const char* keyboard_code_to_string( KeyboardCode keycode ) {
     }
 }
 
-/// Mouse Button Codes
-typedef enum MouseCode : u8 {
-    MOUSE_BUTTON_UNKNOWN = U8_MAX,
-    MOUSE_BUTTON_LEFT = 0,
-    MOUSE_BUTTON_MIDDLE,
-    MOUSE_BUTTON_RIGHT,
-    MOUSE_BUTTON_EXTRA_1,
-    MOUSE_BUTTON_EXTRA_2,
+typedef u8 MouseCode;
+#define MOUSE_BUTTON_LEFT   (1 << 0)
+#define MOUSE_BUTTON_MIDDLE (1 << 1)
+#define MOUSE_BUTTON_RIGHT  (1 << 2)
+#define MOUSE_BUTTON_X1     (1 << 3)
+#define MOUSE_BUTTON_X2     (1 << 4)
 
-    MOUSE_BUTTON_COUNT
-} MouseCode;
-maybe_unused
-header_only const char* mouse_code_to_string( MouseCode mouse_code ) {
-    const char* strings[MOUSE_BUTTON_COUNT] = {
-        "Mouse Button Left",
-        "Mouse Button Middle",
-        "Mouse Button Right",
-        "Mouse Button Extra 1",
-        "Mouse Button Extra 2",
-    };
-    if( mouse_code >= MOUSE_BUTTON_COUNT ) {
-        return "Unknown";
-    }
-    return strings[mouse_code];
-}
+typedef u16 GamepadCode;
+#define GAMEPAD_CODE_DPAD_UP       (1 << 0)
+#define GAMEPAD_CODE_DPAD_DOWN     (1 << 1)
+#define GAMEPAD_CODE_DPAD_LEFT     (1 << 2)
+#define GAMEPAD_CODE_DPAD_RIGHT    (1 << 3)
+#define GAMEPAD_CODE_START         (1 << 4)
+#define GAMEPAD_CODE_SELECT        (1 << 5)
+#define GAMEPAD_CODE_STICK_LEFT    (1 << 6)
+#define GAMEPAD_CODE_STICK_RIGHT   (1 << 7)
+#define GAMEPAD_CODE_BUMPER_LEFT   (1 << 8)
+#define GAMEPAD_CODE_BUMPER_RIGHT  (1 << 9)
+#define GAMEPAD_CODE_TRIGGER_LEFT  (1 << 10)
+#define GAMEPAD_CODE_TRIGGER_RIGHT (1 << 11)
+#define GAMEPAD_CODE_FACE_DOWN     (1 << 12)
+#define GAMEPAD_CODE_FACE_RIGHT    (1 << 13)
+#define GAMEPAD_CODE_FACE_LEFT     (1 << 14)
+#define GAMEPAD_CODE_FACE_UP       (1 << 15)
 
-/// Gamepad Codes
-typedef enum GamepadCode : u8 {
-    GAMEPAD_CODE_UNKNOWN = 0,
+LD_API b32 input_key_down( KeyCode code );
+LD_API b32 input_key_up( KeyCode code );
+LD_API b32 input_key( KeyCode code );
 
-    GAMEPAD_CODE_STICK_LEFT,
-    GAMEPAD_CODE_STICK_RIGHT,
+LD_API b32 input_mouse_down( MouseCode code );
+LD_API b32 input_mouse_up( MouseCode code );
+LD_API b32 input_mouse_button( MouseCode code );
 
-    GAMEPAD_CODE_STICK_LEFT_CLICK,
-    GAMEPAD_CODE_STICK_RIGHT_CLICK,
+LD_API f32 input_mouse_x(void);
+LD_API f32 input_mouse_y(void);
+LD_API f32 input_mouse_delta_x(void);
+LD_API f32 input_mouse_delta_y(void);
 
-    GAMEPAD_CODE_TRIGGER_LEFT,
-    GAMEPAD_CODE_TRIGGER_RIGHT,
+LD_API i32 input_mouse_wheel(void);
+LD_API i32 input_mouse_wheel_horizontal(void);
 
-    GAMEPAD_CODE_BUMPER_LEFT,
-    GAMEPAD_CODE_BUMPER_RIGHT,
+LD_API b32 input_gamepad_down( usize gamepad, GamepadCode code );
+LD_API b32 input_gamepad_up( usize gamepad, GamepadCode code );
+LD_API b32 input_gamepad_button( usize gamepad, GamepadCode code );
 
-    GAMEPAD_CODE_DPAD_LEFT,
-    GAMEPAD_CODE_DPAD_RIGHT,
-    GAMEPAD_CODE_DPAD_UP,
-    GAMEPAD_CODE_DPAD_DOWN,
+LD_API f32 input_gamepad_stick_left_x( usize gamepad );
+LD_API f32 input_gamepad_stick_left_y( usize gamepad );
+LD_API f32 input_gamepad_stick_right_x( usize gamepad );
+LD_API f32 input_gamepad_stick_right_y( usize gamepad );
 
-    GAMEPAD_CODE_FACE_LEFT,
-    GAMEPAD_CODE_FACE_RIGHT,
-    GAMEPAD_CODE_FACE_UP,
-    GAMEPAD_CODE_FACE_DOWN,
+LD_API f32 input_gamepad_trigger_left( usize gamepad );
+LD_API f32 input_gamepad_trigger_right( usize gamepad );
 
-    GAMEPAD_CODE_START,
-    GAMEPAD_CODE_SELECT,
+LD_API void input_gamepad_set_rumble(
+    usize gamepad, f32 rumble_left, f32 rumble_right );
+LD_API void input_gamepad_query_rumble(
+    usize gamepad, f32* out_rumble_left, f32* out_rumble_right );
 
-    GAMEPAD_CODE_COUNT
-} GamepadCode;
-
-maybe_unused
-header_only const char* gamepad_code_to_string( GamepadCode gamepad_code ) {
-    const char* strings[GAMEPAD_CODE_COUNT] = {
-        "Unknown",
-        "STICK Left",
-        "STICK Right",
-        "STICK Left Click",
-        "STICK Right Click",
-        "TRIGGER Left",
-        "TRIGGER Right",
-        "BUMPER Left",
-        "BUMPER Right",
-        "DPAD Left",
-        "DPAD Right",
-        "DPAD Up",
-        "DPAD Down",
-        "Face Left",
-        "Face Right",
-        "Face Up",
-        "Face Down",
-        "START",
-        "SELECT",
-    };
-    if( gamepad_code >= GAMEPAD_CODE_COUNT ) {
-        return strings[0];
-    }
-    return strings[gamepad_code];
-}
+LD_API b32 input_gamepad_is_active( usize gamepad );
 
 #if defined(LD_API_INTERNAL)
+    #include "core/internal.h"
 
-    /// Input subsystem size.
-    extern usize INPUT_SUBSYSTEM_SIZE;
-    /// Initialize input subsystem.
-    void input_subsystem_init( void* buffer );
-
-    /// Set a key's state.
-    void input_set_key( KeyboardCode keycode, b32 is_down );
-    /// Set a mouse button's state.
-    void input_set_mouse_button( MouseCode mousecode, b32 is_down );
-    /// Set mouse's position.
-    void input_set_mouse_position( ivec2 position );
-    /// Set mouse wheel's state.
-    void input_set_mouse_wheel( i32 delta );
-    /// Set horizontal mouse wheel's state.
-    void input_set_horizontal_mouse_wheel( i32 delta );
-
-    /// Set gamepad button state.
-    void input_set_gamepad_button(
-        u32 gamepad_index, GamepadCode code, b32 is_down );
-    /// Set gamepad trigger left state.
-    void input_set_gamepad_trigger_left( u32 gamepad_index, f32 value );
-    /// Set gamepad trigger right state.
-    void input_set_gamepad_trigger_right( u32 gamepad_index, f32 value );
-    /// Set gamepad stick left state.
-    void input_set_gamepad_stick_left( u32 gamepad_index, vec2 value );
-    /// Set gamepad stick right state.
-    void input_set_gamepad_stick_right( u32 gamepad_index, vec2 value );
-    /// Set gamepad active state.
-    void input_set_gamepad_active( u32 gamepad_index, b32 is_active );
-
-    /// Swap input states.
-    void input_swap(void);
-
-#endif // internal
-
-/// Is key down this frame?
-LD_API b32 input_is_key_down( KeyboardCode code );
-/// Was key down last frame?
-LD_API b32 input_was_key_down( KeyboardCode code );
-/// Has key been pressed this frame?
-maybe_unused
-header_only b32 input_key_press( KeyboardCode code ) {
-    b32 is  = input_is_key_down( code );
-    b32 was = input_was_key_down( code );
-    return (is != was) && is;
-}
-/// Is mouse button down this frame?
-LD_API b32 input_is_mouse_button_down( MouseCode code );
-/// Was mouse button down last frame?
-LD_API b32 input_was_mouse_button_down( MouseCode code );
-/// Has mouse button been pressed this frame?
-maybe_unused
-header_only b32 input_mouse_button_press( MouseCode code ) {
-    b32 is  = input_is_mouse_button_down( code );
-    b32 was = input_was_mouse_button_down( code );
-    return (is != was) && is;
-}
-/// Current frame's mouse position.
-LD_API ivec2 input_mouse_position(void);
-/// Last frame's mouse position.
-LD_API ivec2 input_last_mouse_position(void);
-/// Current frame's mouse wheel state.
-LD_API i32 input_mouse_wheel(void);
-/// Last frame's mouse wheel state.
-LD_API i32 input_last_mouse_wheel(void);
-/// Did mouse wheel change this frame?
-maybe_unused
-header_only b32 input_mouse_wheel_moved(void) {
-    i32 mw  = input_mouse_wheel();
-    i32 lmw = input_last_mouse_wheel();
-    return mw != lmw;
-}
-/// Current frame's horizontal mouse wheel state.
-LD_API i32 input_horizontal_mouse_wheel(void);
-/// Last frame's horizontal mouse wheel state.
-LD_API i32 input_last_horizontal_mouse_wheel(void);
-/// Did horizontal mouse wheel change this frame?
-maybe_unused
-header_only b32 input_horizontal_mouse_wheel_moved(void) {
-    i32 mw  = input_horizontal_mouse_wheel();
-    i32 lmw = input_last_horizontal_mouse_wheel();
-    return mw != lmw;
-}
-/// Is gamepad active?
-LD_API b32 input_gamepad_is_active( u32 index );
-/// Is gamepad button down this frame?
-LD_API b32 input_is_gamepad_button_down( u32 index, GamepadCode code );
-/// Was gamepad button down last frame?
-LD_API b32 input_was_gamepad_button_down( u32 index, GamepadCode code );
-/// Has gamepad button been pressed this frame?
-maybe_unused
-header_only b32 input_gamepad_button_press( u32 index, GamepadCode code ) {
-    b32 is  = input_is_gamepad_button_down( index, code );
-    b32 was = input_was_gamepad_button_down( index, code );
-    return (is != was) && is;
-}
-/// Current frame's gamepad stick left state.
-LD_API vec2 input_gamepad_stick_left( u32 index );
-/// Last frame's gamepad stick left state.
-LD_API vec2 input_gamepad_last_stick_left( u32 index );
-/// Current frame's gamepad stick right state.
-LD_API vec2 input_gamepad_stick_right( u32 index );
-/// Last frame's gamepad stick right state.
-LD_API vec2 input_gamepad_last_stick_right( u32 index );
-/// Current frame's gamepad trigger left state.
-LD_API f32 input_gamepad_trigger_left( u32 index );
-/// Last frame's gamepad trigger left state.
-LD_API f32 input_gamepad_last_trigger_left( u32 index );
-/// Current frame's gamepad trigger right state.
-LD_API f32 input_gamepad_trigger_right( u32 index );
-/// Last frame's gamepad trigger left state.
-LD_API f32 input_gamepad_last_trigger_right( u32 index );
-/// Set gamepad's motor state.
-LD_API void input_gamepad_set_motor_state( u32 index, f32 left, f32 right );
-/// Get gamepad's motor state.
-LD_API f32 input_gamepad_motor_state( u32 index, u32 motor );
-/// Get gamepad stick left deadzone.
-LD_API f32 input_gamepad_stick_left_deadzone( u32 index );
-/// Get gamepad stick right deadzone.
-LD_API f32 input_gamepad_stick_right_deadzone( u32 index );
-/// Get gamepad trigger left deadzone.
-LD_API f32 input_gamepad_trigger_left_deadzone( u32 index );
-/// Get gamepad trigger right deadzone.
-LD_API f32 input_gamepad_trigger_right_deadzone( u32 index );
-/// Get gamepad trigger press threshold.
-/// This is the value at which the trigger registers as a button press.
-LD_API f32 input_gamepad_trigger_press_threshold( u32 index );
-/// Set stick left deadzone.
-LD_API void input_gamepad_set_stick_left_deadzone( u32 index, f32 deadzone );
-/// Set stick right deadzone.
-LD_API void input_gamepad_set_stick_right_deadzone( u32 index, f32 deadzone );
-/// Set trigger left deadzone.
-LD_API void input_gamepad_set_trigger_left_deadzone( u32 index, f32 deadzone );
-/// Set trigger right deadzone.
-LD_API void input_gamepad_set_trigger_right_deadzone( u32 index, f32 deadzone );
-/// Set trigger press threshold.
-/// This is the value at which the trigger registers as a button press.
-LD_API void input_gamepad_set_trigger_press_threshold( u32 index, f32 threshold );
-/// Convert mouse pixel position to normalized device coordinates.
-maybe_unused
-header_only vec2 mouse_position_to_ndc(
-    ivec2 position, ivec2 surface_dimensions
-) {
-    vec2 result = {
-        (f32)position.x / (f32)surface_dimensions.x,
-        (f32)position.y / (f32)surface_dimensions.y,
-    };
-    result.x = ( result.x - 0.5f ) * 2.0f;
-    result.y = ( result.y - 0.5f ) * 2.0f;
-
-    return result;
-}
+    usize input_subsystem_query_size(void);
+    void input_subsystem_initialize( void* buffer );
+    void input_subsystem_swap_state(void);
+    void input_subsystem_update_gamepads(void);
+    void input_subsystem_set_key( KeyCode code, b32 is_down );
+    void input_subsystem_set_mouse_button( PlatformMouseCode code, b32 is_down );
+    void input_subsystem_set_mouse_wheel( i32 wheel );
+    void input_subsystem_set_mouse_wheel_horizontal( i32 wheel );
+    void input_subsystem_set_mouse_position( f32 x, f32 y );
+#endif
 
 #endif // header guard

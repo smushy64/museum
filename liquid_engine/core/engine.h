@@ -9,5 +9,9 @@
 
 /// Request engine to exit program.
 LD_API void engine_exit(void);
+/// Query time scale.
+LD_API f32 engine_query_time_scale(void);
+/// Set time scale.
+LD_API void engine_set_time_scale( f32 scale );
 
 #endif /* header guard */

@@ -8,6 +8,7 @@
 #include <core/timer.h>
 #include <core/input.h>
 #include <core/engine.h>
+#include <core/memoryf.h>
 
 struct GameMemory {
     Transform camera_transform;
@@ -92,17 +93,17 @@ c_linkage b32 application_run( TimeStamp time, void* in_memory ) {
     GameMemory* memory = (GameMemory*)in_memory;
     unused(time);
 
-    if( input_key_press( KEY_ESCAPE ) ) {
+    if( input_key_down( KEY_ESCAPE ) ) {
         engine_exit();
     }
 
     f32 move_speed   = 1.25f;
     f32 rotate_speed = 1.25f;
 
-    b32 arrow_left  = input_is_key_down( KEY_ARROW_LEFT );
-    b32 arrow_right = input_is_key_down( KEY_ARROW_RIGHT );
-    b32 arrow_up    = input_is_key_down( KEY_ARROW_UP );
-    b32 arrow_down  = input_is_key_down( KEY_ARROW_DOWN );
+    b32 arrow_left  = input_key( KEY_ARROW_LEFT );
+    b32 arrow_right = input_key( KEY_ARROW_RIGHT );
+    b32 arrow_up    = input_key( KEY_ARROW_UP );
+    b32 arrow_down  = input_key( KEY_ARROW_DOWN );
     if( arrow_left || arrow_right || arrow_up || arrow_down ) {
         f32 yrot = -((f32)arrow_right - (f32)arrow_left);
         f32 xrot = (f32)arrow_up - (f32)arrow_down;
@@ -118,12 +119,12 @@ c_linkage b32 application_run( TimeStamp time, void* in_memory ) {
         transform_rotate( memory->camera.transform, y_rotation );
     }
 
-    b32 key_a = input_is_key_down( KEY_A );
-    b32 key_d = input_is_key_down( KEY_D );
-    b32 key_w = input_is_key_down( KEY_W );
-    b32 key_s = input_is_key_down( KEY_S );
-    b32 key_shift = input_is_key_down( KEY_SHIFT_LEFT );
-    b32 key_space = input_is_key_down( KEY_SPACE );
+    b32 key_a = input_key( KEY_A );
+    b32 key_d = input_key( KEY_D );
+    b32 key_w = input_key( KEY_W );
+    b32 key_s = input_key( KEY_S );
+    b32 key_shift = input_key( KEY_SHIFT_LEFT );
+    b32 key_space = input_key( KEY_SPACE );
     if( key_a || key_d || key_w || key_s || key_shift || key_space ) {
         vec3 camera_delta = {};
         camera_delta.x = ((f32)key_d - (f32)key_a);

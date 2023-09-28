@@ -289,6 +289,11 @@ typedef void* pvoid;
 /// Infinite loop.
 #define loop for( ;; )
 
+typedef __builtin_va_list va_list;
+#define va_arg   __builtin_va_arg
+#define va_start __builtin_va_start
+#define va_end   __builtin_va_end
+
 /// Define a 24-bit RGB value (using u32)
 #define rgb_u32( r, g, b )\
     ( 255 << 24u | b << 16u | g << 8u | r )

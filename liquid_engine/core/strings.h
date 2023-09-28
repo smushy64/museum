@@ -6,7 +6,6 @@
  * File Created: April 28, 2023
 */
 #include "defines.h"
-#include "core/variadic.h"
 
 /// Push character to stdout.
 LD_API void char_output_stdout( char character );
@@ -79,7 +78,7 @@ LD_API StringSlice ss_from_cstr( usize opt_len, const char* cstr );
 header_only b32 ss_is_empty( StringSlice* slice ) {
     return !slice->len;
 }
-/// Returns true of slice is full.
+/// Returns true if slice is full.
 header_only b32 ss_is_full( StringSlice* slice ) {
     return slice->len == slice->capacity;
 }

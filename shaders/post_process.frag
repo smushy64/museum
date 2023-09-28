@@ -11,7 +11,7 @@ uniform layout(binding = 0) sampler2D u_render_texture;
 
 vec3 fxaa( vec2 uv );
 void main() {
-    vec3 base_color = fxaa( clamp( v2f_uv, vec2(0.001), vec2(0.999) ) );
+    vec3 base_color = fxaa( v2f_uv );
 
     vec3 final_color = linear_to_srgb( base_color );
     FRAG_COLOR = vec4( final_color, 1.0 );

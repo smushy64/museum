@@ -5,7 +5,7 @@
 */
 #include "core/strings.h"
 #include "core/log.h"
-#include "core/mem.h"
+#include "core/memoryf.h"
 #include "core/cstr.h"
 
 #include "core/mathf.h"

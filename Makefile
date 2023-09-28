@@ -16,8 +16,6 @@ export LD_MINOR   := 2
 export LD_VERSION := $(LD_MAJOR).$(LD_MINOR)
 export LD_NAME    := liquid-engine
 
-# 4 KB
-export LD_MEMORY_PAGE_SIZE := 0x1000
 # 1 MB
 export LD_STACK_SIZE := 0x100000
 
@@ -103,7 +101,6 @@ CPPFLAGS += -DGL_VERSION_MINOR=$(GL_MINOR)
 CPPFLAGS += -DVULKAN_VERSION_MAJOR=$(VK_MAJOR)
 CPPFLAGS += -DVULKAN_VERSION_MINOR=$(VK_MINOR)
 CPPFLAGS += -DLD_EXPORT
-CPPFLAGS += -DPLATFORM_MEMORY_PAGE_SIZE=$(LD_MEMORY_PAGE_SIZE)
 CPPFLAGS += -DLIQUID_ENGINE_CORE_LIBRARY_PATH=\"$(LIB_CORE)\"
 CPPFLAGS += -DLD_PLATFORM_INTERNAL
 CPPFLAGS += -DSTACK_SIZE=$(LD_STACK_SIZE)
@@ -149,7 +146,6 @@ run:
 spit:
 	@echo "platform:     "$(TARGET_PLATFORM)
 	@echo "arch:         "$(TARGET_ARCH)
-	@echo "page size:    "$(LD_MEMORY_PAGE_SIZE)
 	@echo "build path:   "$(BUILD_PATH)
 	@echo "c compiler:   "$(CC)
 	@echo "c standard:   "$(CSTD)

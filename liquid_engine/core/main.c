@@ -6,16 +6,17 @@
 #include "core/graphics.h"
 #include "core/strings.h"
 #include "core/log.h"
-#include "core/allocator.h"
-#include "core/mem.h"
+#include "core/memoryf.h"
 #include "core/thread.h"
 #include "core/input.h"
 #include "core/mathf.h"
 #include "core/timer.h"
+#include "core/engine.h"
 #include "core/graphics/internal.h"
 
 global b32 global_application_is_running = true;
 global f32 global_resolution_scale       = 1.0f;
+global TimeStamp* global_time_stamp      = NULL;
 
 #define LOGGING_SUBSYSTEM_SIZE (kilobytes(1))
 
@@ -84,7 +85,7 @@ internal no_inline void on_key(
 ) {
     unused(surface);
     unused(user_params);
-    input_set_key( code, is_down );
+    input_subsystem_set_key( code, is_down );
 }
 internal no_inline void on_mouse_button(
     PlatformSurface* surface, b32 is_down,
@@ -92,7 +93,7 @@ internal no_inline void on_mouse_button(
 ) {
     unused(surface);
     unused(user_params);
-    input_set_mouse_button( code, is_down );
+    input_subsystem_set_mouse_button( code, is_down );
 }
 internal no_inline void on_mouse_move(
     PlatformSurface* surface,
@@ -100,7 +101,7 @@ internal no_inline void on_mouse_move(
 ) {
     unused(surface);
     unused(user_params);
-    input_set_mouse_position( iv2( x, y ) );
+    input_subsystem_set_mouse_position( x, y );
 }
 internal no_inline void on_mouse_wheel(
     PlatformSurface* surface,
@@ -109,9 +110,9 @@ internal no_inline void on_mouse_wheel(
     unused(surface);
     unused(user_params);
     if( is_horizontal ) {
-        input_set_horizontal_mouse_wheel( value );
+        input_subsystem_set_mouse_wheel_horizontal( value );
     } else {
-        input_set_mouse_wheel( value );
+        input_subsystem_set_mouse_wheel( value );
     }
 }
 
@@ -122,6 +123,7 @@ struct SettingsParse {
     i32 resolution_width;
     i32 resolution_height;
     f32 resolution_scale;
+    enum RendererBackend backend;
 };
 internal struct SettingsParse parse_settings(void);
 
@@ -133,13 +135,42 @@ LD_API int core_init(
     assert( in_platform );
     platform = in_platform;
 
+    char fatal_error_title_buffer[255];
+    char fatal_error_message_buffer[255];
+    StringSlice fatal_error_title =
+        ss( 255, fatal_error_title_buffer );
+    StringSlice fatal_error_message =
+        ss( 255, fatal_error_message_buffer );
+
+#if defined(LD_LOGGING)
+    /* initialize logging subsystem */ {
+        void* logging_subsystem_buffer = platform->memory.heap_alloc( kilobytes(1) );
+        if( !logging_subsystem_buffer || !log_subsystem_init(
+            LOG_LEVEL_ALL_VERBOSE,
+            kilobytes(1),
+            logging_subsystem_buffer
+        ) ) {
+            println_err(
+                LOG_COLOR_RED
+                "[FATAL] Failed to initialize logging subsystem!"
+                LOG_COLOR_RESET );
+            platform->fatal_message_box(
+                "Fatal Error "
+                macro_value_to_string(
+                    CORE_ERROR_LOGGING_SUBSYSTEM_INITIALIZE ),
+                "Failed to initialize logging subsystem!" );
+            return CORE_ERROR_LOGGING_SUBSYSTEM_INITIALIZE;
+        }
+    }
+#endif
+
     struct SettingsParse settings = parse_settings();
 
     i32 width  = settings.resolution_width;
     i32 height = settings.resolution_height;
     // TODO(alicia): make this modifiable through command line
     global_resolution_scale = settings.resolution_scale;
-    RendererBackend backend = RENDERER_BACKEND_OPENGL;
+    RendererBackend backend = settings.backend;
     ss_const( game_library_path, GAME_LIBRARY_PATH_DEFAULT );
 
     /* parse arguments */ {
@@ -343,17 +374,22 @@ LD_API int core_init(
     }
 
     if( !renderer_backend_is_supported( backend ) ) {
-        println_err(
-            LOG_COLOR_RED
-            "renderer backend '{cc}' is not supported on current platform!"
-            LOG_COLOR_RESET,
-            renderer_backend_to_string( backend )
-        );
+        ss_mut_fmt(
+            &fatal_error_title,
+            "Fatal Error ({u8}){c}",
+            CORE_ERROR_RENDERER_BACKEND_NOT_SUPPORTED, 0 );
+        ss_mut_fmt(
+            &fatal_error_message,
+            "Renderer backend '{cc}' is not supported on current platform!{c}",
+            renderer_backend_to_string( backend ), 0 );
+        LOG_FATAL( "{s}", fatal_error_message );
+        platform->fatal_message_box(
+            fatal_error_title_buffer, fatal_error_message_buffer );
         return CORE_ERROR_RENDERER_BACKEND_NOT_SUPPORTED;
     }
 
-    println( "Engine Configuration:" );
-    println( "Version:           {i}.{i}", LIQUID_ENGINE_VERSION_MAJOR, LIQUID_ENGINE_VERSION_MINOR );
+    LOG_NOTE( "Engine Configuration:" );
+    LOG_NOTE( "Version:           {i}.{i}", LIQUID_ENGINE_VERSION_MAJOR, LIQUID_ENGINE_VERSION_MINOR );
 #if defined(LD_PLATFORM_WINDOWS)
     ss_const(os, "win32");
 #endif
@@ -404,19 +440,13 @@ LD_API int core_init(
         ss_const(arch, "wasm 64-bit");
     #endif
 #endif
-    println( "Platform:          {s}, {s}", os, arch );
-    println( "Game Library Path: {s}", game_library_path );
-    println( "Renderer Backend:  {cc}",
+    LOG_NOTE( "Platform:          {s}, {s}", os, arch );
+    LOG_NOTE( "Page Size:         {usize}", platform->query_info()->page_size );
+    LOG_NOTE( "Game Library Path: {s}", game_library_path );
+    LOG_NOTE( "Renderer Backend:  {cc}",
         renderer_backend_to_string( backend ) );
-    println( "Resolution:        {i}x{i}", width, height );
-    println( "Resolution Scale:  {f,.2}x", global_resolution_scale );
-
-    char fatal_error_title_buffer[255];
-    char fatal_error_message_buffer[255];
-    StringSlice fatal_error_title =
-        ss( 255, fatal_error_title_buffer );
-    StringSlice fatal_error_message =
-        ss( 255, fatal_error_message_buffer );
+    LOG_NOTE( "Resolution:        {i}x{i}", width, height );
+    LOG_NOTE( "Resolution Scale:  {f,.2}x", global_resolution_scale );
 
     PlatformLibrary* game =
         platform->library.open( game_library_path.buffer );
@@ -429,6 +459,7 @@ LD_API int core_init(
             &fatal_error_message,
             "Failed to load game library! Game library path: {s}{c}",
             game_library_path, 0 );
+        LOG_FATAL("{s}", fatal_error_message);
         platform->fatal_message_box(
             fatal_error_title_buffer, fatal_error_message_buffer );
         return CORE_ERROR_OPEN_GAME_LIBRARY;
@@ -454,6 +485,7 @@ LD_API int core_init(
             &fatal_error_message,
             "Failed to load game memory requirement!{c}",
             0 );
+        LOG_FATAL("{s}", fatal_error_message);
         platform->fatal_message_box(
             fatal_error_title_buffer, fatal_error_message_buffer );
         return CORE_ERROR_LOAD_GAME_MEMORY_REQUIREMENT;
@@ -467,6 +499,7 @@ LD_API int core_init(
             &fatal_error_message,
             "Failed to load game initialize function!{c}",
             0 );
+        LOG_FATAL("{s}", fatal_error_message);
         platform->fatal_message_box(
             fatal_error_title_buffer, fatal_error_message_buffer );
         return CORE_ERROR_LOAD_GAME_INITIALIZE;
@@ -480,6 +513,7 @@ LD_API int core_init(
             &fatal_error_message,
             "Failed to load game run function!{c}",
             0 );
+        LOG_FATAL("{s}", fatal_error_message);
         platform->fatal_message_box(
             fatal_error_title_buffer, fatal_error_message_buffer );
         return CORE_ERROR_LOAD_GAME_RUN;
@@ -492,16 +526,13 @@ LD_API int core_init(
     usize renderer_command_buffer_size     = 0;
     usize application_memory_requirement   = 0;
     /* allocate stack */ {
-#if defined(LD_LOGGING)
-        stack_size += LOGGING_SUBSYSTEM_SIZE;
-#endif
         application_memory_requirement =
             application_query_memory_requirement();
 
         stack_size += application_memory_requirement;
 
         stack_size += THREAD_SUBSYSTEM_SIZE;
-        stack_size += INPUT_SUBSYSTEM_SIZE;
+        stack_size += input_subsystem_query_size();
 
         renderer_subsystem_size = renderer_subsystem_query_size( backend );
         stack_size += renderer_subsystem_size;
@@ -512,9 +543,13 @@ LD_API int core_init(
 
         stack_size += renderer_command_buffer_size;
 
-        usize stack_page_count = calculate_page_count( stack_size );
-        stack_buffer = ldpage_alloc( stack_page_count, MEMORY_TYPE_ENGINE );
-        stack_size   = stack_page_count * MEMORY_PAGE_SIZE;
+        usize stack_page_count = memory_size_to_page_count( stack_size );
+        stack_buffer = system_page_alloc( stack_page_count );
+        stack_size   = page_count_to_memory_size( stack_page_count );
+
+        LOG_INFO(
+            "Stack Size: {usize} Stack Pages: {usize}",
+            stack_size, stack_page_count );
         if( !stack_buffer ) {
             ss_mut_fmt(
                 &fatal_error_title,
@@ -524,45 +559,22 @@ LD_API int core_init(
                 &fatal_error_message,
                 "Out of Memory!{c}",
                 0 );
+            LOG_FATAL("{s}", fatal_error_message);
             platform->fatal_message_box(
                 fatal_error_title_buffer, fatal_error_message_buffer );
             return CORE_ERROR_ENGINE_MEMORY_ALLOCATION;
         }
+
     }
 
-    StackAllocator stack;
-    stack.size        = stack_size;
+    StackAllocator stack = {};
     stack.buffer      = stack_buffer;
-    stack.memory_type = MEMORY_TYPE_ENGINE;
-    stack.current     = 0;
-
-#if defined(LD_LOGGING)
-    /* initialize logging subsystem */ {
-        void* logging_subsystem_buffer =
-            stack_allocator_push( &stack, LOGGING_SUBSYSTEM_SIZE );
-        if( !log_subsystem_init(
-            LOG_LEVEL_ALL_VERBOSE,
-            LOGGING_SUBSYSTEM_SIZE,
-            logging_subsystem_buffer
-        ) ) {
-            println_err(
-                LOG_COLOR_RED
-                "[FATAL] Failed to initialize logging subsystem!"
-                LOG_COLOR_RESET );
-            platform->fatal_message_box(
-                "Fatal Error "
-                macro_value_to_string(
-                    CORE_ERROR_LOGGING_SUBSYSTEM_INITIALIZE ),
-                "Failed to initialize logging subsystem!" );
-            return CORE_ERROR_LOGGING_SUBSYSTEM_INITIALIZE;
-        }
-    }
-#endif
+    stack.buffer_size = stack_size;
 
     /* initialize input subsystem */ {
         void* input_subsytem_buffer =
-            stack_allocator_push( &stack, INPUT_SUBSYSTEM_SIZE );
-        input_subsystem_init( input_subsytem_buffer );
+            stack_allocator_push( &stack, input_subsystem_query_size() );
+        input_subsystem_initialize( input_subsytem_buffer );
     }
 
     /* initialize threading subsystem */ {
@@ -643,6 +655,7 @@ LD_API int core_init(
             &render_data,
             renderer_subsystem_buffer
         ) ) {
+            LOG_FATAL( "Failed to initialize renderer subsystem!" );
             platform->fatal_message_box(
                 "Fatal Error "
                 macro_value_to_string( CORE_ERROR_RENDERER_SUBSYSTEM_INITIALIZE ),
@@ -654,6 +667,7 @@ LD_API int core_init(
     void* application_memory =
         stack_allocator_push( &stack, application_memory_requirement );
     if( !application_initialize( application_memory ) ) {
+        LOG_FATAL( "Failed to initialize application!" );
         platform->fatal_message_box(
             "Fatal Error "
             macro_value_to_string( CORE_ERROR_APPLICATION_INITIALIZE ),
@@ -661,26 +675,26 @@ LD_API int core_init(
         return CORE_ERROR_APPLICATION_INITIALIZE;
     }
 
-    TimeStamp time = {};
+    TimeStamp time  = {};
+    time.time_scale = 1.0f;
+    global_time_stamp = &time;
 
     while( global_application_is_running ) {
-        input_swap();
+        input_subsystem_swap_state();
+        input_subsystem_update_gamepads();
         platform->surface.pump_events();
 
         if( !surface_is_active ) {
             continue;
         }
 
-        if(
-            input_is_key_down( KEY_ALT_LEFT ) ||
-            input_is_key_down( KEY_ALT_RIGHT )
-        ) {
-            if( input_is_key_down( KEY_F4 ) ) {
+        if( input_key( KEY_ALT_LEFT ) || input_key( KEY_ALT_RIGHT ) ) {
+            if( input_key( KEY_F4 ) ) {
                 break;
             }
         }
 
-        if( input_key_press( KEY_F11 ) ) {
+        if( input_key_down( KEY_F11 ) ) {
             PlatformSurfaceMode mode =
                 platform->surface.query_mode( surface );
             switch( mode ) {
@@ -696,6 +710,7 @@ LD_API int core_init(
         }
 
         if( !application_run( time, application_memory ) ) {
+            LOG_FATAL( "Failed to run application!" );
             platform->fatal_message_box(
                 "Fatal Error "
                 macro_value_to_string( CORE_ERROR_APPLICATION_RUN ),
@@ -706,6 +721,7 @@ LD_API int core_init(
         render_data.time = time;
 
         if( !renderer_subsystem_draw() ) {
+            LOG_FATAL( "Renderer failed!" );
             platform->fatal_message_box(
                 "Fatal Error "
                 macro_value_to_string( CORE_ERROR_RENDERER_DRAW ),
@@ -717,7 +733,9 @@ LD_API int core_init(
 
         time.frame_count++;
         f64 elapsed_seconds  = platform->time.elapsed_seconds();
-        time.delta_seconds   = elapsed_seconds - time.elapsed_seconds;
+        time.delta_seconds   =
+            (time.unscaled_delta_seconds = elapsed_seconds - time.elapsed_seconds) *
+            time.time_scale;
         time.elapsed_seconds = elapsed_seconds;
     }
 
@@ -794,10 +812,11 @@ internal struct SettingsParse parse_settings(void) {
         default_settings.capacity = ENGINE_SETTINGS_BUFFER_CAPACITY;
         default_settings.len      = 0;
 
-        ss_mut_fmt( &default_settings, "[resolution] \n" );
+        ss_mut_fmt( &default_settings, "[graphics] \n" );
         ss_mut_fmt( &default_settings, "width            = {i} \n", DEFAULT_RESOLUTION_WIDTH );
         ss_mut_fmt( &default_settings, "height           = {i} \n", DEFAULT_RESOLUTION_HEIGHT );
         ss_mut_fmt( &default_settings, "resolution_scale = {f,.1} \n", DEFAULT_RESOLUTION_SCALE );
+        ss_mut_fmt( &default_settings, "backend          = opengl \n" );
 
         b32 write_result = platform->io.file_write(
             settings_file, default_settings.len, default_settings.buffer );
@@ -816,6 +835,7 @@ internal struct SettingsParse parse_settings(void) {
     parse_result.resolution_width  = DEFAULT_RESOLUTION_WIDTH;
     parse_result.resolution_height = DEFAULT_RESOLUTION_HEIGHT;
     parse_result.resolution_scale  = DEFAULT_RESOLUTION_SCALE;
+    parse_result.backend           = RENDERER_BACKEND_OPENGL;
 
     usize settings_file_size = platform->io.file_query_size( settings_file );
     if( !settings_file_size ) {
@@ -823,7 +843,7 @@ internal struct SettingsParse parse_settings(void) {
         return parse_result;
     }
 
-    char* settings_file_buffer = ldalloc( settings_file_size, MEMORY_TYPE_ENGINE );
+    char* settings_file_buffer = system_alloc( settings_file_size );
     // TODO(alicia): logging
     assert( settings_file_buffer );
 
@@ -839,15 +859,23 @@ internal struct SettingsParse parse_settings(void) {
 
     enum Section : u32 {
         SECTION_UNKNOWN,
-        SECTION_RESOLUTION
+        SECTION_GRAPHICS
     };
     enum Section section = SECTION_UNKNOWN;
     unused(section);
 
-    ss_const( token_section_resolution, "[resolution]" );
+    ss_const( token_section_resolution, "[graphics]" );
     ss_const( token_width, "width" );
     ss_const( token_height, "height" );
     ss_const( token_resolution_scale, "resolution_scale" );
+    ss_const( token_backend, "backend" );
+
+    ss_const( token_opengl, "opengl" );
+    ss_const( token_vulkan, "vulkan" );
+    ss_const( token_metal, "metal" );
+    ss_const( token_webgl, "webgl" );
+    ss_const( token_directx11, "directx11" );
+    ss_const( token_directx12, "directx12" );
 
     usize eol = 0;
     StringSlice line = ss_clone( &settings );
@@ -859,7 +887,7 @@ internal struct SettingsParse parse_settings(void) {
         switch( temp.buffer[0] ) {
             case '[': {
                 if( ss_find( &temp, &token_section_resolution, NULL ) ) {
-                    section = SECTION_RESOLUTION;
+                    section = SECTION_GRAPHICS;
                 }
             } break;
             case ';': {
@@ -872,7 +900,7 @@ internal struct SettingsParse parse_settings(void) {
         }
 
         switch( section ) {
-            case SECTION_RESOLUTION: {
+            case SECTION_GRAPHICS: {
                 if( ss_find( &temp, &token_width, NULL ) ) {
                     StringSlice number;
                     number.buffer = temp.buffer + token_width.len;
@@ -943,6 +971,24 @@ internal struct SettingsParse parse_settings(void) {
                             break;
                         }
                     }
+                } else if( ss_find( &temp, &token_backend, NULL ) ) {
+                    StringSlice backend;
+                    backend.buffer = temp.buffer + token_backend.len;
+                    backend.len    = temp.len    - token_backend.len;
+
+                    if( ss_find( &backend, &token_opengl, NULL ) ) {
+                        parse_result.backend = RENDERER_BACKEND_OPENGL;
+                    } else if( ss_find( &backend, &token_vulkan, NULL ) ) {
+                        parse_result.backend = RENDERER_BACKEND_VULKAN;
+                    } else if( ss_find( &backend, &token_metal, NULL ) ) {
+                        parse_result.backend = RENDERER_BACKEND_METAL;
+                    } else if( ss_find( &backend, &token_webgl, NULL ) ) {
+                        parse_result.backend = RENDERER_BACKEND_WEBGL;
+                    } else if( ss_find( &backend, &token_directx11, NULL ) ) {
+                        parse_result.backend = RENDERER_BACKEND_DX11;
+                    } else if( ss_find( &backend, &token_directx12, NULL ) ) {
+                        parse_result.backend = RENDERER_BACKEND_DX12;
+                    }
                 }
             } break;
             default: break;
@@ -953,7 +999,12 @@ internal struct SettingsParse parse_settings(void) {
         line.len    -= temp.len;
     }
 
-    ldfree( settings_file_buffer, settings_file_size, MEMORY_TYPE_ENGINE );
+    if( !renderer_backend_is_supported( parse_result.backend ) ) {
+        // TODO(alicia): replace with default backend for platform.
+        parse_result.backend = RENDERER_BACKEND_OPENGL;
+    }
+
+    system_free( settings_file_buffer, settings_file_size );
     platform->io.file_close( settings_file );
     return parse_result;
 }
@@ -961,6 +1012,12 @@ internal struct SettingsParse parse_settings(void) {
 LD_API void engine_exit(void) {
     LOG_NOTE( "Application requested program to exit." );
     global_application_is_running = false;
+}
+LD_API f32 engine_query_time_scale(void) {
+    return global_time_stamp->time_scale;
+}
+LD_API void engine_set_time_scale( f32 scale ) {
+    global_time_stamp->time_scale = max( scale, 0.001f );
 }
 
 #include "core_generated_dependencies.inl"

@@ -60,7 +60,6 @@ typedef struct RenderData {
     TimeStamp      time;
 
     struct RenderCommand* list_commands;
-    Range_usize draw3d_command_range;
 } RenderData;
 
 struct CommandPointLight {

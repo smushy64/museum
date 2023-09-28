@@ -1,17 +1,11 @@
-#if !defined(COLLECTIONS_HPP)
-#define COLLECTIONS_HPP
+#if !defined(LD_CORE_COLLECTIONS_H)
+#define LD_CORE_COLLECTIONS_H
 /**
  * Description:  Collections
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: May 01, 2023
 */
 #include "defines.h"
-#include "core/strings.h"
-
-typedef struct {
-    usize from_inclusive;
-    usize to_exclusive;
-} Range_usize;
 
 /// Opaque pointer to a list.
 typedef void List;
@@ -29,6 +23,9 @@ LD_API void list_set_capacity( List* list, usize new_capacity );
 /// Push an item into list.
 /// Returns true if there was enough space to push.
 LD_API b32 list_push( List* list, void* item );
+/// Append items to the end of a list.
+/// Returns true if list had enough capacity to append items.
+LD_API b32 list_append( List* list, usize append_count, void* append_items );
 /// Pop the last item from list.
 /// Returns a pointer to the popped item or NULL if list was already empty.
 LD_API void* list_pop( List* list );
@@ -57,6 +54,7 @@ LD_API void list_fill_to_capacity( List* list, void* item );
 /// Set list count to zero.
 LD_API void list_clear( List* list );
 /// Get a pointer to the start of the list's buffer.
+/// This pointer must be used when reallocating/freeing list buffer.
 LD_API void* list_head( List* list );
 /// Get how many items are in a list.
 LD_API usize list_count( List* list );
@@ -79,92 +77,5 @@ LD_API void sorting_quicksort(
     void* opt_lt_params,
     SortSwapFN* swap
 );
-
-/// Dynamic type map.
-typedef struct Map {
-    void* buffer;
-    usize key_size;
-    usize value_size;
-    usize count;
-    usize capacity;
-} Map;
-/// Create a map.
-header_only Map map_create(
-    usize key_size, usize value_size,
-    usize buffer_size, void* buffer
-) {
-    usize kv_size  = key_size + value_size;
-    assert( buffer_size % kv_size == 0 );
-    Map result;
-    result.buffer     = buffer;
-    result.key_size   = key_size;
-    result.value_size = value_size;
-    result.capacity   = buffer_size / kv_size;
-    result.count      = 0;
-    return result;
-}
-LD_API b32 map_set( Map* map, void* key, void* new_value );
-LD_API b32 map_get( Map* map, void* key, void* out_value );
-LD_API b32 map_key_exists( Map* map, void* key );
-LD_API b32 map_push( Map* map, void* key, void* value );
-LD_API b32 map_remove( Map* map, void* key, void* opt_out_value );
-
-typedef struct {
-    u32 key, value;
-} KV_u32_u32;
-
-typedef struct {
-    KV_u32_u32* pairs;
-    usize count;
-    usize capacity;
-} Map_u32_u32;
-
-header_only Map_u32_u32 map_u32_u32_create( usize buffer_size, void* buffer ) {
-    assert( buffer_size % sizeof(KV_u32_u32) == 0 );
-    usize capacity = buffer_size / sizeof(KV_u32_u32);
-    Map_u32_u32 result;
-
-    result.pairs    = (KV_u32_u32*)buffer;
-    result.capacity = capacity;
-    result.count    = 0;
-
-    return result;
-}
-LD_API b32 map_u32_u32_set( Map_u32_u32* map, u32 key, u32 new_value );
-LD_API b32 map_u32_u32_get( Map_u32_u32* map, u32 key, u32* out_value );
-LD_API b32 map_u32_u32_key_exists( Map_u32_u32* map, u32 key );
-LD_API b32 map_u32_u32_push( Map_u32_u32* map, u32 key, u32 value );
-LD_API b32 map_u32_u32_remove( Map_u32_u32* map, u32 key, u32* opt_out_value );
-
-typedef struct {
-    StringSlice key;
-    u8 value[];
-} KV_StringSlice;
-
-typedef struct {
-    void* buffer;
-    usize value_size;
-    usize count;
-    usize capacity;
-} MapStringSlice;
-
-header_only MapStringSlice map_ss_create(
-    usize value_size, usize buffer_size, void* buffer
-) {
-    usize kv_size = sizeof(StringSlice) + value_size;
-    assert( buffer_size % kv_size == 0 );
-    MapStringSlice result;
-    result.buffer     = buffer;
-    result.value_size = value_size;
-    result.capacity   = buffer_size / kv_size;
-    result.count      = 0;
-    return result;
-}
-LD_API b32 map_ss_set( MapStringSlice* map, StringSlice key, void* new_value );
-LD_API b32 map_ss_get( MapStringSlice* map, StringSlice key, void* out_value );
-LD_API b32 map_ss_key_exists( MapStringSlice* map, StringSlice key );
-LD_API b32 map_ss_push( MapStringSlice* map, StringSlice key, void* value );
-LD_API b32 map_ss_remove(
-    MapStringSlice* map, StringSlice key, void* opt_out_value );
 
 #endif // header guard

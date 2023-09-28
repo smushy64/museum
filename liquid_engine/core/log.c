@@ -6,7 +6,6 @@
 #include "core/log.h"
 #include "core/cstr.h"
 #include "core/strings.h"
-#include "core/mem.h"
 #include "core/thread.h"
 #include "internal.h"
 

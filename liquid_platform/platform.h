@@ -24,7 +24,13 @@ typedef void PlatformSurface;
 /// This keycode corresponds to Liquid Engine core keycodes.
 typedef u8 PlatformKeyboardCode;
 /// This mouse code corresponds to Liquid Engine core mouse codes.
-typedef u8 PlatformMouseCode;
+typedef enum : u8 {
+    PLATFORM_MOUSE_BUTTON_LEFT,
+    PLATFORM_MOUSE_BUTTON_MIDDLE,
+    PLATFORM_MOUSE_BUTTON_RIGHT,
+    PLATFORM_MOUSE_BUTTON_EXTRA_1,
+    PLATFORM_MOUSE_BUTTON_EXTRA_2
+} PlatformMouseCode;
 
 typedef void PlatformSurfaceCallbackOnResolutionChangeFN(
     PlatformSurface* surface,
@@ -82,21 +88,16 @@ typedef u16 PlatformGamepadButtons;
 #define PLATFORM_GAMEPAD_BUTTON_STICK_RIGHT_CLICK (1 << 7)
 #define PLATFORM_GAMEPAD_BUTTON_BUMPER_LEFT       (1 << 8)
 #define PLATFORM_GAMEPAD_BUTTON_BUMPER_RIGHT      (1 << 9)
+#define PLATFORM_GAMEPAD_EXT_BUTTON_TRIGGER_LEFT  (1 << 10)
+#define PLATFORM_GAMEPAD_EXT_BUTTON_TRIGGER_RIGHT (1 << 11)
 #define PLATFORM_GAMEPAD_BUTTON_FACE_DOWN         (1 << 12)
 #define PLATFORM_GAMEPAD_BUTTON_FACE_RIGHT        (1 << 13)
 #define PLATFORM_GAMEPAD_BUTTON_FACE_LEFT         (1 << 14)
 #define PLATFORM_GAMEPAD_BUTTON_FACE_UP           (1 << 15)
 
-typedef u8 PlatformGamepadButtonsEXT;
-#define PLATFORM_GAMEPAD_EXT_BUTTON_STICK_LEFT    (1 << 0)
-#define PLATFORM_GAMEPAD_EXT_BUTTON_STICK_RIGHT   (1 << 1)
-#define PLATFORM_GAMEPAD_EXT_BUTTON_TRIGGER_LEFT  (1 << 2)
-#define PLATFORM_GAMEPAD_EXT_BUTTON_TRIGGER_RIGHT (1 << 3)
-
 typedef struct {
-    PlatformGamepadButtons    buttons;
-    PlatformGamepadButtonsEXT buttons_ext;
-    u8 is_active;
+    PlatformGamepadButtons buttons;
+    b8 is_active;
     union {
         struct { u16 trigger_left_normalized, trigger_right_normalized; };
         u32 triggers;
@@ -149,6 +150,7 @@ typedef u16 PlatformProcessorFeatures;
 typedef struct {
     char                      cpu_name[PLATFORM_CPU_NAME_BUFFER_SIZE];
     usize                     total_memory;
+    usize                     page_size;
     u16                       logical_processor_count;
     PlatformProcessorFeatures features;
 } PlatformInfo;
@@ -223,7 +225,7 @@ typedef struct {
 
 typedef void PlatformIOReadGamepadsFN( PlatformGamepad gamepads[4] );
 typedef void PlatformIOSetGamepadRumbleFN(
-    u32 gamepad_index, f32 left_motor, f32 right_motor );
+    u32 gamepad_index, u16 normalized_motor_left, u16 normalized_motor_right );
 typedef PlatformFile* PlatformIOGetStdOutFN(void);
 typedef PlatformFile* PlatformIOGetStdErrFN(void);
 typedef void PlatformConsoleWriteFN(

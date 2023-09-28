@@ -1,9 +1,11 @@
-// * Description:  OpenGL Implementation
-// * Author:       Alicia Amarilla (smushyaa@gmail.com)
-// * File Created: September 24, 2023
+/**
+ * Description:  OpenGL Implementation
+ * Author:       Alicia Amarilla (smushyaa@gmail.com)
+ * File Created: September 24, 2023
+*/
 #include "defines.h"
 #include "core/log.h"
-#include "core/mem.h"
+#include "core/memoryf.h"
 #include "core/mathf.h"
 #include "core/graphics/primitives.h"
 #include "core/graphics/internal.h"
@@ -917,7 +919,7 @@ b32 gl_subsystem_init(void) {
         GL_OPEN_SHADER(
             "./resources/shaders/phong.frag.spv", phong_frag );
 
-        u8* read_buffer = ldalloc( buffer_size, MEMORY_TYPE_RENDERER );
+        u8* read_buffer = system_alloc( buffer_size );
         assert( read_buffer );
 
         GL_READ_SHADER( post_process_vert );
@@ -984,7 +986,7 @@ b32 gl_subsystem_init(void) {
 
         gl_shader_delete( 3, shadow_point_shaders );
 
-        ldfree( read_buffer, buffer_size, MEMORY_TYPE_RENDERER );
+        system_free( read_buffer, buffer_size );
     }
 
     return true;
