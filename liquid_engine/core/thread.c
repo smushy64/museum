@@ -35,17 +35,14 @@ LD_API void thread_work_queue_push(
     read_write_fence();
 
     WORK_QUEUE->push_entry = interlocked_increment_u32(
-        &WORK_QUEUE->push_entry
-    ) % MAX_WORK_ENTRY_COUNT;
+        &WORK_QUEUE->push_entry ) % MAX_WORK_ENTRY_COUNT;
 
     WORK_QUEUE->pending_work_count = interlocked_increment_u32(
-        &WORK_QUEUE->pending_work_count
-    );
+        &WORK_QUEUE->pending_work_count );
 
     LOG_ASSERT(
         WORK_QUEUE->pending_work_count < MAX_WORK_ENTRY_COUNT,
-        "Exceeded thread work entry count!!"
-    );
+        "Exceeded thread work entry count!!" );
 
     read_write_fence();
     semaphore_signal( WORK_QUEUE->wake_semaphore );
@@ -160,11 +157,10 @@ usize SEM_NAME_INDEX = 0;
 LD_API Semaphore* semaphore_create(void) {
     StringSlice name;
     name.buffer   = SEM_NAME_BUFFER;
-    name.len      = 255;
+    name.len      = 0;
     name.capacity = 255;
 
-    ss_mut_fmt( &name, "sem{u64}", (u64)SEM_NAME_INDEX );
-    SEM_NAME_INDEX++;
+    ss_mut_fmt( &name, "sem_{usize}", SEM_NAME_INDEX++ );
 
     Semaphore* result =
         platform->thread.semaphore_create( SEM_NAME_BUFFER, 0 );
@@ -186,7 +182,7 @@ LD_API void semaphore_signal( Semaphore* semaphore ) {
 LD_API void semaphore_wait( Semaphore* semaphore ) {
     platform->thread.semaphore_wait( semaphore );
 }
-LD_API void semaphore_wait_for( Semaphore* semaphore, u32 ms ) {
+LD_API void semaphore_wait_timed( Semaphore* semaphore, u32 ms ) {
     platform->thread.semaphore_wait_timed( semaphore, ms );
 }
 LD_API void semaphore_destroy( Semaphore* semaphore ) {

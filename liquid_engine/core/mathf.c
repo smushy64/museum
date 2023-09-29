@@ -1174,12 +1174,12 @@ quat q_angle_axis( f32 angle, vec3 axis ) {
     f32 half_angle = angle / 2.0f;
     f32 sin, cos;
     sincos32( half_angle, &sin, &cos );
-    return (quat){
-        cos,
-        axis.x * sin,
-        axis.y * sin,
-        axis.z * sin,
-    };
+    quat result;
+    result.w = cos;
+    result.x = axis.x * sin;
+    result.y = axis.y * sin;
+    result.z = axis.z * sin;
+    return q_normalize( result );
 }
 quat q_euler( f32 pitch, f32 yaw, f32 roll ) {
     f32 half_x = pitch / 2.0f;

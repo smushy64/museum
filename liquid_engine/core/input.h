@@ -1,5 +1,5 @@
-#if !defined(INPUT_HPP)
-#define INPUT_HPP
+#if !defined(LD_CORE_INPUT_H)
+#define LD_CORE_INPUT_H
 /**
  * Description:  Input Codes
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
@@ -12,8 +12,6 @@
 #include "constants.h"
 
 #define INPUT_GAMEPAD_COUNT (4)
-
-#define INPUT_KEY_COUNT (109)
 
 /// Key Codes
 typedef enum KeyCode : u8 {
@@ -139,6 +137,7 @@ typedef enum KeyCode : u8 {
     KEY_ALT_RIGHT,
     KEY_CONTROL_RIGHT = 225,
 
+    KEY_COUNT,
     KEY_UNKNOWN = U8_MAX,
 } KeyCode;
 
@@ -291,13 +290,20 @@ LD_API b32 input_mouse_down( MouseCode code );
 LD_API b32 input_mouse_up( MouseCode code );
 LD_API b32 input_mouse_button( MouseCode code );
 
-LD_API f32 input_mouse_x(void);
-LD_API f32 input_mouse_y(void);
-LD_API f32 input_mouse_delta_x(void);
-LD_API f32 input_mouse_delta_y(void);
+LD_API i32 input_mouse_absolute_position_x(void);
+LD_API i32 input_mouse_absolute_position_y(void);
+
+LD_API f32 input_mouse_position_x(void);
+LD_API f32 input_mouse_position_y(void);
+
+LD_API f32 input_mouse_relative_x(void);
+LD_API f32 input_mouse_relative_y(void);
 
 LD_API i32 input_mouse_wheel(void);
 LD_API i32 input_mouse_wheel_horizontal(void);
+
+LD_API void input_mouse_set_locked( b32 is_locked );
+LD_API b32 input_is_mouse_locked(void);
 
 LD_API b32 input_gamepad_down( usize gamepad, GamepadCode code );
 LD_API b32 input_gamepad_up( usize gamepad, GamepadCode code );
@@ -329,7 +335,8 @@ LD_API b32 input_gamepad_is_active( usize gamepad );
     void input_subsystem_set_mouse_button( PlatformMouseCode code, b32 is_down );
     void input_subsystem_set_mouse_wheel( i32 wheel );
     void input_subsystem_set_mouse_wheel_horizontal( i32 wheel );
-    void input_subsystem_set_mouse_position( f32 x, f32 y );
+    void input_subsystem_set_mouse_position( i32 x, i32 y, f32 x01, f32 y01 );
+    void input_subsystem_set_mouse_relative( f32 x_rel, f32 y_rel );
 #endif
 
 #endif // header guard

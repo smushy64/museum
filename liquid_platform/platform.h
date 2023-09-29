@@ -48,6 +48,8 @@ typedef void PlatformSurfaceCallbackOnMouseButtonFN(
     PlatformMouseCode mousecode, void* user_params );
 typedef void PlatformSurfaceCallbackOnMouseMoveFN(
     PlatformSurface* surface, i32 x, i32 y, void* user_params );
+typedef void PlatformSurfaceCallbackOnMouseMoveRelativeFN(
+    PlatformSurface* surface, i32 relative_x, i32 relative_y, void* user_params );
 typedef void PlatformSurfaceCallbackOnMouseWheelFN(
     PlatformSurface* surface, b32 is_horizontal, i32 value, void* user_params );
 
@@ -64,6 +66,8 @@ typedef struct {
     void* on_mouse_button_params;
     PlatformSurfaceCallbackOnMouseMoveFN* on_mouse_move;
     void* on_mouse_move_params;
+    PlatformSurfaceCallbackOnMouseMoveRelativeFN* on_mouse_move_relative;
+    void* on_mouse_move_relative_params;
     PlatformSurfaceCallbackOnMouseWheelFN* on_mouse_wheel;
     void* on_mouse_wheel_params;
 } PlatformSurfaceCallbacks;
@@ -226,6 +230,7 @@ typedef struct {
 typedef void PlatformIOReadGamepadsFN( PlatformGamepad gamepads[4] );
 typedef void PlatformIOSetGamepadRumbleFN(
     u32 gamepad_index, u16 normalized_motor_left, u16 normalized_motor_right );
+typedef void PlatformIOSetMouseVisibleFN( b32 is_visible );
 typedef PlatformFile* PlatformIOGetStdOutFN(void);
 typedef PlatformFile* PlatformIOGetStdErrFN(void);
 typedef void PlatformConsoleWriteFN(
@@ -248,6 +253,7 @@ typedef void PlatformWin32OutputDebugStringFN( const char* cstr );
 typedef struct {
     PlatformIOReadGamepadsFN*     read_gamepads;
     PlatformIOSetGamepadRumbleFN* set_gamepad_rumble;
+    PlatformIOSetMouseVisibleFN*  set_mouse_visible;
     PlatformIOGetStdOutFN*        stdout_handle;
     PlatformIOGetStdErrFN*        stderr_handle;
     PlatformConsoleWriteFN*       console_write;

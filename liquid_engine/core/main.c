@@ -99,9 +99,23 @@ internal no_inline void on_mouse_move(
     PlatformSurface* surface,
     i32 x, i32 y, void* user_params
 ) {
+    unused(user_params);
+
+    i32 width, height;
+    platform->surface.query_dimensions( surface, &width, &height );
+
+    f32 x01 = (f32)x / (f32)width;
+    f32 y01 = (f32)y / (f32)height;
+    input_subsystem_set_mouse_position( x, y, x01, y01 );
+}
+internal no_inline void on_mouse_move_relative(
+    PlatformSurface* surface,
+    i32 x_rel, i32 y_rel, void* user_params
+) {
     unused(surface);
     unused(user_params);
-    input_subsystem_set_mouse_position( x, y );
+
+    input_subsystem_set_mouse_relative( x_rel, y_rel );
 }
 internal no_inline void on_mouse_wheel(
     PlatformSurface* surface,
@@ -630,6 +644,7 @@ LD_API int core_init(
         callbacks.on_key                      = on_key;
         callbacks.on_mouse_button             = on_mouse_button;
         callbacks.on_mouse_move               = on_mouse_move;
+        callbacks.on_mouse_move_relative      = on_mouse_move_relative;
         callbacks.on_mouse_wheel              = on_mouse_wheel;
         callbacks.on_resolution_change        = on_resolution_change;
 
@@ -730,6 +745,10 @@ LD_API int core_init(
         }
 
         list_clear( render_data.list_commands );
+
+        if( input_is_mouse_locked() ) {
+            platform->surface.center_cursor( surface );
+        }
 
         time.frame_count++;
         f64 elapsed_seconds  = platform->time.elapsed_seconds();

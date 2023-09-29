@@ -21,7 +21,7 @@ LD_API void semaphore_signal( Semaphore* semaphore );
 /// Wait for a semaphore to be signaled.
 LD_API void semaphore_wait( Semaphore* semaphore );
 /// Wait for a semaphore to be signaled for milliseconds.
-LD_API void semaphore_wait_for( Semaphore* semaphore, u32 ms );
+LD_API void semaphore_wait_timed( Semaphore* semaphore, u32 ms );
 /// Destroy a semaphore.
 LD_API void semaphore_destroy( Semaphore* semaphore );
 
@@ -45,13 +45,11 @@ LD_API u32 interlocked_exchange_u32( volatile u32* target, u32 value );
 /// Multi-Threading safe compare and exchange.
 LD_API u32 interlocked_compare_exchange_u32(
     volatile u32* dst,
-    u32 exchange, u32 comperand
-);
+    u32 exchange, u32 comperand );
 /// Multi-Threading safe compare and exchange.
 LD_API void* interlocked_compare_exchange_pointer(
     void* volatile* dst,
-    void* exchange, void* comperand
-);
+    void* exchange, void* comperand );
 
 #if defined(LD_ARCH_X86)
     /// Complete all reads and writes before this.

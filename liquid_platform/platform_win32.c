@@ -11,6 +11,7 @@
 #include <psapi.h>
 #include <xinput.h>
 #include <intrin.h>
+#include <hidusage.h>
 
 // NOTE(alicia): globals
 
@@ -40,6 +41,14 @@ global HINSTANCE global_instance;
     (___internal_##fn = (___internal_##fn##FN *)GetProcAddress( module, #fn ))
 
 // NOTE(alicia): User32
+
+WIN32_DECLARE_FUNCTION( BOOL, RegisterRawInputDevices, PCRAWINPUTDEVICE pRawInputDevices, UINT uiNumDevices, UINT cbSize );
+#define RegisterRawInputDevices( pRawInputDevices, uiNumDevices, cbSize )\
+    ___internal_RegisterRawInputDevices( pRawInputDevices, uiNumDevices, cbSize )
+
+WIN32_DECLARE_FUNCTION( UINT, GetRawInputData, HRAWINPUT hRawInput, UINT uiCommand, LPVOID pData, PUINT pcbSize, UINT cbSizeHeader );
+#define GetRawInputData( hRawInput, uiCommand, pData, pcbSize, cbSizeHeader )\
+    ___internal_GetRawInputData( hRawInput, uiCommand, pData, pcbSize, cbSizeHeader )
 
 WIN32_DECLARE_FUNCTION(
     BOOL, SetWindowPlacement, HWND hWnd, WINDOWPLACEMENT* lpwndpl );
@@ -313,6 +322,7 @@ void win32_sleep_milliseconds( u32 ms );
 void win32_read_gamepads( PlatformGamepad gamepads[4] );
 void win32_set_gamepad_rumble(
     u32 gamepad_index, u16 left_motor, u16 right_motor );
+void win32_set_mouse_visible( b32 is_visible );
 PlatformFile* win32_stdout_handle(void);
 PlatformFile* win32_stderr_handle(void);
 void win32_console_write(
@@ -500,6 +510,8 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
         WIN32_REPORT_ERROR( "Failed to load DWMAPI.DLL :(" );
     }
 
+    WIN32_LOAD_REQUIRED( user32, RegisterRawInputDevices );
+    WIN32_LOAD_REQUIRED( user32, GetRawInputData );
     WIN32_LOAD_REQUIRED( user32, SetWindowPlacement );
     WIN32_LOAD_REQUIRED( user32, GetWindowPlacement );
     WIN32_LOAD_REQUIRED( user32, GetMonitorInfoA );
@@ -722,6 +734,7 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
 
     api.io.read_gamepads       = win32_read_gamepads;
     api.io.set_gamepad_rumble  = win32_set_gamepad_rumble;
+    api.io.set_mouse_visible   = win32_set_mouse_visible;
     api.io.stdout_handle       = win32_stdout_handle;
     api.io.stderr_handle       = win32_stderr_handle;
     api.io.console_write       = win32_console_write;
@@ -876,6 +889,15 @@ PlatformSurface* win32_surface_create(
         return false;
     }
     HDC hdc = GetDC( handle );
+
+    /* setup raw input */ {
+        RAWINPUTDEVICE rid;
+        rid.usUsagePage = HID_USAGE_PAGE_GENERIC;
+        rid.usUsage     = HID_USAGE_GENERIC_MOUSE;
+        rid.dwFlags     = RIDEV_INPUTSINK;
+        rid.hwndTarget  = handle;
+        RegisterRawInputDevices( &rid, 1, sizeof(rid) );
+    }
 
     win32_surface->hWnd       = handle;
     win32_surface->hDc        = hdc;
@@ -1360,6 +1382,7 @@ LRESULT win32_winproc(
     #define WM_MOUSEBUTTON_RETURN_VALUE      (0)
     #define WM_MOUSEWHEEL_RETURN_VALUE       (0)
     #define WM_KEY_RETURN_VALUE              (0)
+    #define WM_INPUT_RETURN_VALUE            (0)
 
     switch( Msg ) {
         case WM_CLOSE: {
@@ -1423,12 +1446,34 @@ LRESULT win32_winproc(
 
             if( win32_surface->callbacks.on_mouse_move ) {
                 win32_surface->callbacks.on_mouse_move(
-                    win32_surface,
-                    x, y,
-                    win32_surface->callbacks.on_mouse_move_params
-                );
+                    win32_surface, x, y,
+                    win32_surface->callbacks.on_mouse_move_params );
             }
         } return WM_MOUSEMOVE_RETURN_VALUE;
+
+        case WM_INPUT: {
+            UINT dwSize = sizeof(RAWINPUT);
+            BYTE lpb[sizeof(RAWINPUT)];
+
+            GetRawInputData(
+                (HRAWINPUT)lParam,
+                RID_INPUT,
+                lpb, &dwSize,
+                sizeof(RAWINPUTHEADER) );
+
+            RAWINPUT* raw = (RAWINPUT*)lpb;
+            if( raw->header.dwType == RIM_TYPEMOUSE ) {
+                i32 x_pos_relative = raw->data.mouse.lLastX;
+                i32 y_pos_relative = raw->data.mouse.lLastY;
+
+                if( win32_surface->callbacks.on_mouse_move_relative ) {
+                    win32_surface->callbacks.on_mouse_move_relative(
+                        win32_surface,
+                        -x_pos_relative, -y_pos_relative,
+                        win32_surface->callbacks.on_mouse_move_relative_params );
+                }
+            }
+        } return WM_INPUT_RETURN_VALUE;
 
         case WM_LBUTTONDOWN:
         case WM_LBUTTONUP:
@@ -1612,6 +1657,9 @@ void win32_set_gamepad_rumble(
     vibration.wRightMotorSpeed = motor_right;
 
     XInputSetState( gamepad_index, &vibration );
+}
+void win32_set_mouse_visible( b32 is_visible ) {
+    ShowCursor( is_visible );
 }
 PlatformFile* win32_stdout_handle(void) {
     return GetStdHandle( STD_OUTPUT_HANDLE );
