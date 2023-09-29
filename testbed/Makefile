@@ -71,7 +71,7 @@ H := $(call recurse,../liquid_engine,*.h)
 GENERATED_DEPENDENCIES := $(CPP)
 GENERATED_DEPENDENCIES := $(addsuffix \",$(GENERATED_DEPENDENCIES))
 GENERATED_DEPENDENCIES := $(addprefix "#include \"",$(GENERATED_DEPENDENCIES))
-GENERATED_DEPENDENCIES_PATH := core_generated_dependencies.inl
+GENERATED_DEPENDENCIES_PATH := testbed_generated_dependencies.inl
 
 all: $(TARGET)
 

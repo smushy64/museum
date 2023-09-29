@@ -173,3 +173,5 @@ c_linkage b32 application_run( TimeStamp time, void* in_memory ) {
     return true;
 }
 
+#include "testbed_generated_dependencies.inl"
+

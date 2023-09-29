@@ -23,7 +23,7 @@ typedef void PlatformSurface;
 
 /// This keycode corresponds to Liquid Engine core keycodes.
 typedef u8 PlatformKeyboardCode;
-/// This mouse code corresponds to Liquid Engine core mouse codes.
+/// Mouse codes.
 typedef enum : u8 {
     PLATFORM_MOUSE_BUTTON_LEFT,
     PLATFORM_MOUSE_BUTTON_MIDDLE,

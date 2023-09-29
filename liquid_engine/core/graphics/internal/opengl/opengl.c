@@ -1192,9 +1192,9 @@ void gl_framebuffers_create(
                     GL_RGBA16, dimensions.width, dimensions.height );
 
                 glTextureParameteri(
-                    color_attachment, GL_TEXTURE_WRAP_S, GL_REPEAT );
+                    color_attachment, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
                 glTextureParameteri(
-                    color_attachment, GL_TEXTURE_WRAP_T, GL_REPEAT );
+                    color_attachment, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
                 glTextureParameteri(
                     color_attachment, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
                 glTextureParameteri(
