@@ -38,7 +38,6 @@ u32 triangle_indices[] = { 0, 1, 2 };
 u8  triangle_diffuse[] = { 255, 255, 255 };
 
 c_linkage usize application_query_memory_requirement() {
-    logging_set_level( LOGGING_LEVEL_ALL );
     return sizeof(GameMemory);
 }
 

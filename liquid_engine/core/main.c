@@ -139,7 +139,9 @@ struct SettingsParse {
     f32 resolution_scale;
     enum RendererBackend backend;
 };
-internal struct SettingsParse parse_settings(void);
+internal b32 parse_settings( struct SettingsParse* out_parse_result );
+
+global PlatformSurface* ENGINE_SURFACE = NULL;
 
 internal void print_help(void);
 LD_API int core_init(
@@ -161,7 +163,7 @@ LD_API int core_init(
 #if defined(LD_LOGGING)
 
     PlatformFile* logging_file = platform->io.file_open(
-        "./logging.txt", PLATFORM_FILE_WRITE | PLATFORM_FILE_SHARE_READ );
+        "./museum-logging.txt", PLATFORM_FILE_WRITE | PLATFORM_FILE_SHARE_READ );
 
     if( !logging_file ) {
         println_err( "[FATAL] Failed to open logging file!" );
@@ -169,14 +171,17 @@ LD_API int core_init(
     }
 
     logging_subsystem_initialize( logging_file );
+    logging_set_level( LOGGING_LEVEL_ALL );
 
 #endif
 
-    struct SettingsParse settings = parse_settings();
+    struct SettingsParse settings = {};
+    if( !parse_settings( &settings ) ) {
+        return CORE_ERROR_PARSE;
+    }
 
     i32 width  = settings.resolution_width;
     i32 height = settings.resolution_height;
-    // TODO(alicia): make this modifiable through command line
     global_resolution_scale = settings.resolution_scale;
     RendererBackend backend = settings.backend;
     ss_const( game_library_path, GAME_LIBRARY_PATH_DEFAULT );
@@ -646,6 +651,8 @@ LD_API int core_init(
         platform->surface.set_visible( surface, true );
     }
 
+    ENGINE_SURFACE = surface;
+
     RenderData render_data = {};
     /* initialize renderer */ {
         void* renderer_subsystem_buffer =
@@ -701,18 +708,7 @@ LD_API int core_init(
         }
 
         if( input_key_down( KEY_F11 ) ) {
-            PlatformSurfaceMode mode =
-                platform->surface.query_mode( surface );
-            switch( mode ) {
-                case PLATFORM_SURFACE_FULLSCREEN: {
-                    platform->surface.set_mode(
-                        surface, PLATFORM_SURFACE_WINDOWED );
-                } break;
-                case PLATFORM_SURFACE_WINDOWED: {
-                    platform->surface.set_mode(
-                        surface, PLATFORM_SURFACE_FULLSCREEN );
-                } break;
-            }
+            engine_toggle_fullscreen();
         }
 
         if( !application_run( application_memory ) ) {
@@ -794,10 +790,9 @@ internal void print_help(void) {
 #define ENGINE_SETTINGS_BUFFER_CAPACITY (kilobytes(1))
 global char ENGINE_SETTINGS_BUFFER[ENGINE_SETTINGS_BUFFER_CAPACITY] = {};
 
-internal struct SettingsParse parse_settings(void) {
+internal b32 parse_settings( struct SettingsParse* out_parse_result ) {
     struct SettingsParse parse_result = {};
 
-    // TODO(alicia): load from user settings.ini
     PlatformFileFlags flags =
         PLATFORM_FILE_READ |
         PLATFORM_FILE_READ |
@@ -810,8 +805,10 @@ internal struct SettingsParse parse_settings(void) {
     if( !settings_file ) {
         settings_file = platform->io.file_open(
             SETTINGS_PATH, PLATFORM_FILE_WRITE );
-        // TODO(alicia): logging!
-        assert( settings_file );
+        if( !settings_file ) {
+            fatal_log( "Failed to open settings file at all!" );
+            return false;
+        }
 
         StringSlice default_settings;
         default_settings.buffer   = ENGINE_SETTINGS_BUFFER;
@@ -827,15 +824,19 @@ internal struct SettingsParse parse_settings(void) {
         b32 write_result = platform->io.file_write(
             settings_file, default_settings.len, default_settings.buffer );
 
-        // TODO(alicia): logging!
-        assert( write_result );
+        if( !write_result ) {
+            fatal_log( "Failed to write to settings file!" );
+            return false;
+        }
 
         platform->io.file_close( settings_file );
 
         settings_file = platform->io.file_open( SETTINGS_PATH, flags );
 
-        // TODO(alicia): logging!
-        assert( settings_file );
+        if( !settings_file ) {
+            fatal_log( "Failed to reopen settings file for reading!" );
+            return false;
+        }
     }
 
     parse_result.resolution_width  = DEFAULT_RESOLUTION_WIDTH;
@@ -846,18 +847,29 @@ internal struct SettingsParse parse_settings(void) {
     usize settings_file_size = platform->io.file_query_size( settings_file );
     if( !settings_file_size ) {
         platform->io.file_close( settings_file );
-        return parse_result;
+        *out_parse_result = parse_result;
+        warn_log( "Settings file is empty!" );
+        return true;
     }
 
     char* settings_file_buffer = system_alloc( settings_file_size );
-    // TODO(alicia): logging
-    assert( settings_file_buffer );
+    if( !settings_file_buffer ) {
+        platform->io.file_close( settings_file );
+        fatal_log( "Failed to allocate settings file buffer!" );
+        return false;
+    }
 
     // TODO(alicia): logging
-    assert( platform->io.file_read(
+    b32 read_result = platform->io.file_read(
         settings_file,
         settings_file_size,
-        settings_file_buffer ) );
+        settings_file_buffer );
+    if( !read_result ) {
+        platform->io.file_close( settings_file );
+        system_free( settings_file_buffer, settings_file_size );
+        fatal_log( "Failed to read settings file!" );
+        return false;
+    }
 
     StringSlice settings = {
         settings_file_buffer, settings_file_size, settings_file_size
@@ -868,7 +880,6 @@ internal struct SettingsParse parse_settings(void) {
         SECTION_GRAPHICS
     };
     enum Section section = SECTION_UNKNOWN;
-    unused(section);
 
     ss_const( token_section_resolution, "[graphics]" );
     ss_const( token_width, "width" );
@@ -1012,12 +1023,28 @@ internal struct SettingsParse parse_settings(void) {
 
     system_free( settings_file_buffer, settings_file_size );
     platform->io.file_close( settings_file );
-    return parse_result;
+
+    *out_parse_result = parse_result;
+    return true;
 }
 
 LD_API void engine_exit(void) {
     note_log( "Application requested program to exit." );
     global_application_is_running = false;
+}
+LD_API void engine_set_fullscreen( b32 is_fullscreen ) {
+    assert( ENGINE_SURFACE );
+    PlatformSurfaceMode mode =
+        is_fullscreen ? PLATFORM_SURFACE_FULLSCREEN : PLATFORM_SURFACE_WINDOWED;
+    platform->surface.set_mode( ENGINE_SURFACE, mode );
+}
+LD_API b32 engine_query_fullscreen(void) {
+    assert( ENGINE_SURFACE );
+    return
+        platform->surface.query_mode( ENGINE_SURFACE ) == PLATFORM_SURFACE_FULLSCREEN;
+}
+LD_API void engine_toggle_fullscreen(void) {
+    engine_set_fullscreen( !engine_query_fullscreen() );
 }
 
 #include "core_generated_dependencies.inl"
