@@ -180,18 +180,13 @@ struct Vertex2D vertex2d( vec2 position, vec2 uv ) {
     return result;
 }
 
-#define VERTEX_3D_LOCATION_POSITION (0)
-#define VERTEX_3D_LOCATION_UV       (1)
-#define VERTEX_3D_LOCATION_NORMAL   (2)
-#define VERTEX_3D_LOCATION_COLOR    (3)
-#define VERTEX_3D_LOCATION_TANGENT  (4)
 /// 3D Vertex for use in renderer.
 struct Vertex3D {
     vec3 position;
-    vec2 uv;
     vec3 normal;
-    vec3 color;
     vec3 tangent; 
+    vec3 color;
+    vec2 uv;
 };
 /// Make vertex 3d.
 header_only force_inline maybe_unused

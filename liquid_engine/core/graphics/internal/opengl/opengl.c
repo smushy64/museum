@@ -4,9 +4,12 @@
  * File Created: September 24, 2023
 */
 #include "defines.h"
-#include "core/log.h"
+#include "core/logging.h"
 #include "core/memoryf.h"
 #include "core/mathf.h"
+#include "core/time.h"
+#include "core/strings.h"
+#include "core/collections.h"
 #include "core/graphics/primitives.h"
 #include "core/graphics/internal.h"
 #include "core/graphics/internal/opengl.h"
@@ -19,7 +22,7 @@ global struct OpenGLSubsystem* global_gl = NULL;
 #define GL_VERTEX_3D_ATTRIBUTE_COUNT (5)
 global struct GLVertexBufferLayout global_vertex3d_buffer_layout;
 global GLint global_vertex3d_attribute_component_counts[GL_VERTEX_3D_ATTRIBUTE_COUNT] =
-    { 3, 2, 3, 3, 3 };
+    { 3, 3, 3, 3, 2 };
 global GLenum global_vertex3d_attribute_types[GL_VERTEX_3D_ATTRIBUTE_COUNT] =
     { GL_FLOAT, GL_FLOAT, GL_FLOAT, GL_FLOAT, GL_FLOAT };
 
@@ -100,9 +103,9 @@ internal no_inline b32 gl_begin_frame(void) {
 
     /* update misc data */ {
         struct OpenGLUniformBufferData buffer_data = {};
-        buffer_data.delta_seconds   = global_render_data->time.delta_seconds;
-        buffer_data.elapsed_seconds = global_render_data->time.elapsed_seconds;
-        buffer_data.frame_count     = global_render_data->time.frame_count % U32_MAX;
+        buffer_data.delta_seconds   = time_delta();
+        buffer_data.elapsed_seconds = time_elapsed();
+        buffer_data.frame_count     = time_frame_count() % U32_MAX;
 
         buffer_data.surface_resolution = v2_iv2( global_renderer->surface_dimensions );
         buffer_data.aspect_ratio       =
@@ -139,13 +142,13 @@ internal no_inline b32 gl_begin_frame(void) {
                     buffer_light.matrix = m4_mul_m4( &proj, &view );
 
                     if( command->directional_light.is_active ) {
-                        GL_LOG_NOTE( "Directional light has been activated." );
-                        GL_LOG_NOTE(
+                        note_log_gl( "Directional light has been activated." );
+                        note_log_gl(
                             "Directional Light "
                             "direction: {v3,.2} color: {v3,.2}",
                             buffer_light.direction, buffer_light.color );
                     } else {
-                        GL_LOG_NOTE( "Directional light has been deactivated." );
+                        note_log_gl( "Directional light has been deactivated." );
                     }
 
                     glNamedBufferSubData(
@@ -192,13 +195,13 @@ internal no_inline b32 gl_begin_frame(void) {
                     }
 
                     if( command->point_light.is_active ) {
-                        GL_LOG_NOTE( "Light [{u}] has been activated.",
+                        note_log_gl( "Light [{u}] has been activated.",
                             command->point_light.index );
-                        GL_LOG_NOTE( "Light position: {v3,.2} color: {v3,.2}",
+                        note_log_gl( "Light position: {v3,.2} color: {v3,.2}",
                             command->point_light.position,
                             command->point_light.color );
                     } else {
-                        GL_LOG_NOTE( "Light [{u}] has been deactivated.",
+                        note_log_gl( "Light [{u}] has been deactivated.",
                             command->point_light.index );
                     }
                     usize offset = offsetof( struct OpenGLUniformBufferLights, point );
@@ -586,21 +589,21 @@ b32 gl_subsystem_init(void) {
     if( !platform->surface.gl_init( global_renderer->surface ) ) {
         StringSlice last_error;
         platform->last_error( &last_error.len, (const char**)&last_error.buffer );
-        GL_LOG_FATAL( "Failed to initialize OpenGL!" );
-        GL_LOG_FATAL( "{s}", last_error );
+        fatal_log_gl( "Failed to initialize OpenGL!" );
+        fatal_log_gl( "{s}", last_error );
         return false;
     }
 
     if( !gl_load_functions( platform->gl_load_proc ) ) {
-        GL_LOG_FATAL( "Failed to load OpenGL functions!" );
+        fatal_log_gl( "Failed to load OpenGL functions!" );
         return false;
     }
 
     GLint shader_binary_format_count = 0;
     glGetIntegerv( GL_NUM_SHADER_BINARY_FORMATS, &shader_binary_format_count );
     if( !shader_binary_format_count ) {
-        GL_LOG_FATAL( "No binary formats are supported!" );
-        GL_LOG_FATAL( "SPIR-V support is required!" );
+        fatal_log_gl( "No binary formats are supported!" );
+        fatal_log_gl( "SPIR-V support is required!" );
         return false;
     }
 
@@ -890,7 +893,7 @@ b32 gl_subsystem_init(void) {
 
         #define GL_READ_SHADER( name )\
             assert( platform->io.file_read(\
-                file_##name, name##_size, name##_size,\
+                file_##name, name##_size,\
                 read_buffer + name##_offset ) );\
             platform->io.file_close( file_##name )
         
@@ -1037,16 +1040,16 @@ void gl_debug_callback(
 
     switch( severity ) {
         case GL_DEBUG_SEVERITY_HIGH: {
-            GL_LOG_ERROR( "{u32} {cc} {cc} | {cc}", GL_DEBUG_MESSAGE_FORMAT );
+            error_log_gl( "{u32} {cc} {cc} | {cc}", GL_DEBUG_MESSAGE_FORMAT );
         } break;
         case GL_DEBUG_SEVERITY_MEDIUM: {
-            GL_LOG_WARN( "{u32} {cc} {cc} | {cc}", GL_DEBUG_MESSAGE_FORMAT );
+            warn_log_gl( "{u32} {cc} {cc} | {cc}", GL_DEBUG_MESSAGE_FORMAT );
         } break;
         case GL_DEBUG_SEVERITY_LOW: {
-            GL_LOG_INFO( "{u32} {cc} {cc} | {cc}", GL_DEBUG_MESSAGE_FORMAT );
+            info_log_gl( "{u32} {cc} {cc} | {cc}", GL_DEBUG_MESSAGE_FORMAT );
         } break;
         default: {
-            GL_LOG_NOTE( "{u32} {cc} {cc} | {cc}", GL_DEBUG_MESSAGE_FORMAT );
+            note_log_gl( "{u32} {cc} {cc} | {cc}", GL_DEBUG_MESSAGE_FORMAT );
         } break;
     }
 #endif
@@ -1280,7 +1283,7 @@ void gl_framebuffers_create(
 #if defined(LD_ASSERTIONS)
         GLenum status = glCheckNamedFramebufferStatus( id, GL_FRAMEBUFFER );
         if( status != GL_FRAMEBUFFER_COMPLETE ) {
-            GL_LOG_ERROR( "Framebuffer [{usize}][{cc}] is incomplete!",
+            error_log_gl( "Framebuffer [{usize}][{cc}] is incomplete!",
                 index, gl_framebuffer_type_to_cstr( type ) );
             panic();
         }
@@ -1288,7 +1291,7 @@ void gl_framebuffers_create(
 
 #if defined(LD_LOGGING)
         if( log ) {
-            GL_LOG_NOTE(
+            note_log_gl(
                 "Framebuffer [{usize}][{cc}] created with resolution {i}x{i}.",
                 index, gl_framebuffer_type_to_cstr( type ),
                 dimensions.width, dimensions.height );
@@ -1324,7 +1327,7 @@ void gl_framebuffers_resize(
         ivec2 new              = global_gl->fbo_dimensions[index];
         GLFramebufferType type = global_gl->fbo_type[index];
 
-        GL_LOG_NOTE( "Framebuffer [{usize}][{cc}] resized from {i}x{i} to {i}x{i}",
+        note_log_gl( "Framebuffer [{usize}][{cc}] resized from {i}x{i} to {i}x{i}",
             index, gl_framebuffer_type_to_cstr( type ),
             old.width, old.height, new.width, new.height );
     }
@@ -1439,7 +1442,7 @@ void gl_vertex_arrays_create(
             offset += attribute_size;
         }
 
-        GL_LOG_NOTE( "Vertex Array [{u}] created.", vao );
+        note_log_gl( "Vertex Array [{u}] created.", vao );
     }
 }
 void gl_vertex_arrays_delete_range( usize from_inclusive, usize to_exclusive ) {

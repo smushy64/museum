@@ -37,15 +37,15 @@ LD_API void mutex_unlock( Mutex* mutex );
 LD_API void mutex_destroy( Mutex* mutex );
 
 /// Multi-Threading safe increment.
-LD_API u32 interlocked_increment_u32( volatile u32* addend );
+LD_API i32 interlocked_increment_i32( volatile i32* addend );
 /// Multi-Threading safe decrement.
-LD_API u32 interlocked_decrement_u32( volatile u32* addend );
+LD_API i32 interlocked_decrement_i32( volatile i32* addend );
 /// Multi-Threading safe exchange.
-LD_API u32 interlocked_exchange_u32( volatile u32* target, u32 value );
+LD_API i32 interlocked_exchange_i32( volatile i32* target, i32 value );
 /// Multi-Threading safe compare and exchange.
-LD_API u32 interlocked_compare_exchange_u32(
-    volatile u32* dst,
-    u32 exchange, u32 comperand );
+LD_API i32 interlocked_compare_exchange_i32(
+    volatile i32* dst,
+    i32 exchange, i32 comperand );
 /// Multi-Threading safe compare and exchange.
 LD_API void* interlocked_compare_exchange_pointer(
     void* volatile* dst,

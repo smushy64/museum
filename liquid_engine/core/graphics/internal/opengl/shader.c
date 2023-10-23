@@ -2,7 +2,7 @@
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: September 24, 2023
 #include "defines.h"
-#include "core/log.h"
+#include "core/logging.h"
 #include "core/strings.h"
 #include "core/graphics/internal/opengl.h"
 #include "core/graphics/internal/opengl/types.h"
@@ -16,8 +16,8 @@ internal void gl_shader_report_error(
 internal b32 gl_create_shader( GLShaderStage stage, GLShaderID* out_shader ) {
     GLShaderID shader = glCreateShader( stage );
     if( !shader ) {
-        GL_LOG_ERROR( "Failed to create shader!" );
-        GL_LOG_ERROR(
+        error_log_gl( "Failed to create shader!" );
+        error_log_gl(
             "Shader stage is invalid: {u32,x}", shader );
         return false;
     }
@@ -44,7 +44,7 @@ b32 gl_shader_compile_source(
     glGetShaderiv( shader, GL_COMPILE_STATUS, &compile_status );
 
     if( compile_status ) {
-        GL_LOG_NOTE(
+        note_log_gl(
             "Shader [{u32}][{cc}] compiled successfully.",
             shader, gl_shader_stage_to_cstr( stage ) );
         *out_shader = shader;
@@ -56,12 +56,12 @@ b32 gl_shader_compile_source(
     gl_shader_report_error( shader, false, &error_message_len, &error_message );
     StringSlice error = ss_from_cstr( error_message_len, error_message );
 
-    GL_LOG_ERROR(
+    error_log_gl(
         "Failed to compile shader stage {cc}!", gl_shader_stage_to_cstr( stage ) );
     if( !error.len ) {
-        GL_LOG_ERROR( "Unable to retrieve error log!" );
+        error_log_gl( "Unable to retrieve error log!" );
     } else {
-        GL_LOG_ERROR( "{s}", error );
+        error_log_gl( "{s}", error );
     }
 
     return false;
@@ -90,7 +90,7 @@ b32 gl_shader_compile_spirv(
     glGetShaderiv( shader, GL_COMPILE_STATUS, &compile_status );
 
     if( compile_status ) {
-        GL_LOG_NOTE(
+        note_log_gl(
             "Shader [{u32}][{cc}] compiled successfully.",
             shader, gl_shader_stage_to_cstr( stage ) );
         *out_shader = shader;
@@ -102,12 +102,12 @@ b32 gl_shader_compile_spirv(
     gl_shader_report_error( shader, false, &error_message_len, &error_message );
     StringSlice error = ss_from_cstr( error_message_len, error_message );
 
-    GL_LOG_ERROR(
+    error_log_gl(
         "Failed to compile shader stage {cc}!", gl_shader_stage_to_cstr( stage ) );
     if( !error.len ) {
-        GL_LOG_ERROR( "Unable to retrieve error log!" );
+        error_log_gl( "Unable to retrieve error log!" );
     } else {
-        GL_LOG_ERROR( "{s}", error );
+        error_log_gl( "{s}", error );
     }
 
     return false;
@@ -117,7 +117,7 @@ b32 gl_shader_program_link(
 ) {
     GLShaderProgramID program = glCreateProgram();
     if( !program ) {
-        GL_LOG_FATAL( "An unknown error occurred when creating a Shader Program!" );
+        fatal_log_gl( "An unknown error occurred when creating a Shader Program!" );
         return false;
     }
 
@@ -135,7 +135,7 @@ b32 gl_shader_program_link(
     glGetProgramiv( program, GL_LINK_STATUS, &link_status );
 
     if( link_status ) {
-        GL_LOG_NOTE( "Program [{u32}] compiled successfully.", program );
+        note_log_gl( "Program [{u32}] compiled successfully.", program );
         *out_shader_program = program;
         return true;
     }
@@ -145,11 +145,11 @@ b32 gl_shader_program_link(
     gl_shader_report_error( program, true, &error_message_len, &error_message );
     StringSlice error = ss_from_cstr( error_message_len, error_message );
 
-    GL_LOG_ERROR( "Failed to link shaders!" );
+    error_log_gl( "Failed to link shaders!" );
     if( !error.len ) {
-        GL_LOG_ERROR( "Unable to retrieve error log!" );
+        error_log_gl( "Unable to retrieve error log!" );
     } else {
-        GL_LOG_ERROR( "{s}", error );
+        error_log_gl( "{s}", error );
     }
 
     return false;

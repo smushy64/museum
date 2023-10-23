@@ -84,6 +84,12 @@ GENERATED_DEPENDENCIES_PATH := core_generated_dependencies.inl
 
 all: $(TARGET)
 
+generate_dependencies: $(GENERATED_DEPENDENCIES_PATH)
+
+clean_dependencies:
+	@echo "Make: cleaning liquid engine dependencies . . ."
+	-@rm -f $(GENERATED_DEPENDENCIES_PATH) 2> /dev/null || true
+
 spit:
 	@echo
 	@echo "-------- lib core ---------"
@@ -114,5 +120,5 @@ $(TARGET): $(GENERATED_DEPENDENCIES_PATH) $(COREMAIN) $(C) $(H) ../liquid_platfo
 	@mkdir -p $(LOCAL_OBJ_PATH)
 	@$(CC) $(CSTD) $(COREMAIN) ../liquid_platform/platform_dllmain.c -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
 
-.PHONY: all spit
+.PHONY: all spit clean_dependencies generate_dependencies
 

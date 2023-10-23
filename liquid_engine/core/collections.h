@@ -17,9 +17,9 @@ LD_API usize list_calculate_memory_requirement( usize capacity, usize item_size 
 /// Returns a pointer to the start of the list.
 /// Use list_head() to get a pointer to the list buffer.
 LD_API List* list_create( usize capacity, usize item_size, void* buffer );
-/// Set list capacity.
+/// Set list capacity and head.
 /// Only use this when list buffer is reallocated.
-LD_API void list_set_capacity( List* list, usize new_capacity );
+LD_API List* list_resize( void* head, usize new_capacity );
 /// Push an item into list.
 /// Returns true if there was enough space to push.
 LD_API b32 list_push( List* list, void* item );
@@ -62,20 +62,5 @@ LD_API usize list_count( List* list );
 LD_API usize list_capacity( List* list );
 /// Get how large each item is in a list.
 LD_API usize list_item_size( List* list );
-
-/// Less than function used for sorting.
-typedef b32 SortLTFN( void* lhs, void* rhs, void* params );
-/// Swap elements function used for sorting.
-typedef void SortSwapFN( void* lhs, void* rhs );
-/// Quicksort sorting algorithm implementation.
-LD_API void sorting_quicksort(
-    isize from_inclusive,
-    isize to_inclusive,
-    usize element_size,
-    void* buffer,
-    SortLTFN* lt,
-    void* opt_lt_params,
-    SortSwapFN* swap
-);
 
 #endif // header guard

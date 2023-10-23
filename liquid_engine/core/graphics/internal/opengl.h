@@ -143,7 +143,7 @@ void gl_vertex_arrays_delete( usize count, RenderID* indices );
 void gl_vertex_arrays_delete_range( usize from_inclusive, usize to_exclusive );
 void gl_vertex_array_draw( usize index, GLDrawMode* draw_mode_override );
 
-struct packedpad OpenGLUniformBufferCamera {
+struct no_padding OpenGLUniformBufferCamera {
     mat4 view_projection_ui;
     mat4 view_projection_3d;
     union {
@@ -164,7 +164,7 @@ struct packedpad OpenGLUniformBufferCamera {
     };
 };
 
-struct packedpad OpenGLUniformBufferDirectionalLight {
+struct no_padding OpenGLUniformBufferDirectionalLight {
     union {
         struct {
             vec3 color;
@@ -183,7 +183,7 @@ struct packedpad OpenGLUniformBufferDirectionalLight {
 };
 
 #define GL_POINT_LIGHT_MATRIX_COUNT (6)
-struct packedpad OpenGLUniformBufferPointLight {
+struct no_padding OpenGLUniformBufferPointLight {
     union {
         struct {
             vec3 color;
@@ -210,12 +210,12 @@ struct packedpad OpenGLUniformBufferPointLight {
     };
 };
 
-struct packedpad OpenGLUniformBufferLights {
+struct no_padding OpenGLUniformBufferLights {
     struct OpenGLUniformBufferDirectionalLight directional;
     struct OpenGLUniformBufferPointLight       point[POINT_LIGHT_COUNT];
 };
 
-struct packedpad OpenGLUniformBufferData {
+struct no_padding OpenGLUniformBufferData {
     union {
         struct {
             f32 elapsed_seconds;
@@ -279,143 +279,78 @@ struct OpenGLSubsystem {
 };
 
 #if defined(LD_LOGGING)
-    #define GL_LOG_NOTE( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_INFO | LOG_LEVEL_VERBOSE,\
-            false, true,\
-            LOG_COLOR_RESET\
-            "[GL NOTE] "\
-            format\
-            LOG_COLOR_RESET,\
-            ##__VA_ARGS__\
-        )
-    #define GL_LOG_INFO( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_INFO,\
-            false, true,\
-            LOG_COLOR_WHITE\
-            "[GL INFO] " format\
-            LOG_COLOR_RESET,\
-            ##__VA_ARGS__\
-        )
-    #define GL_LOG_DEBUG( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_DEBUG,\
-            false, true,\
-            LOG_COLOR_BLUE\
-            "[GL DEBUG] " format\
-            LOG_COLOR_RESET,\
-            ##__VA_ARGS__\
-        )
-    #define GL_LOG_WARN( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_WARN,\
-            false, true,\
-            LOG_COLOR_YELLOW\
-            "[GL WARN] " format\
-            LOG_COLOR_RESET,\
-            ##__VA_ARGS__\
-        )
-    #define GL_LOG_ERROR( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_ERROR,\
-            false, true,\
-            LOG_COLOR_RED\
-            "[GL ERROR] " format\
-            LOG_COLOR_RESET,\
-            ##__VA_ARGS__\
-        )
+    #define fatal_log_gl( format, ... )\
+        logging_output_fmt_locked(\
+            LOGGING_TYPE_FATAL, NULL,\
+			false, true, true, true,\
+            "[GL FATAL | " __FILE__ ":{u} > {cc}()] " format,\
+            __LINE__, __FUNCTION__, ##__VA_ARGS__ )
+    #define error_log_gl( format, ... )\
+        logging_output_fmt_locked(\
+            LOGGING_TYPE_ERROR, NULL,\
+			false, false, true, true, "[GL ERROR] " format, ##__VA_ARGS__ )
+    #define warn_log_gl( format, ... )\
+        logging_output_fmt_locked(\
+            LOGGING_TYPE_WARN, NULL,\
+			false, false, true, true, "[GL WARN] " format, ##__VA_ARGS__ )
+    #define debug_log_gl( format, ... )\
+        logging_output_fmt_locked(\
+            LOGGING_TYPE_DEBUG, NULL,\
+			false, false, true, true, "[GL DEBUG] " format, ##__VA_ARGS__ )
+    #define info_log_gl( format, ... )\
+        logging_output_fmt_locked(\
+            LOGGING_TYPE_INFO, NULL,\
+			false, false, true, true, "[GL INFO] " format, ##__VA_ARGS__ )
+    #define note_log_gl( format, ... )\
+        logging_output_fmt_locked(\
+            LOGGING_TYPE_NOTE, NULL,\
+			false, false, true, true, "[GL NOTE] " format, ##__VA_ARGS__ )
 
-    #define GL_LOG_NOTE_TRACE( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_INFO | LOG_LEVEL_TRACE | LOG_LEVEL_VERBOSE,\
-            false, true,\
-            LOG_COLOR_RESET\
-            "[GL NOTE | {cc}() | {cc}:{i}] " format\
-            LOG_COLOR_RESET,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__,\
-            ##__VA_ARGS__\
-        )
-
-    #define GL_LOG_INFO_TRACE( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_INFO | LOG_LEVEL_TRACE,\
-            false, true,\
-            LOG_COLOR_WHITE\
-            "[GL INFO | {cc}() | {cc}:{i}] " format\
-            LOG_COLOR_RESET,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__,\
-            ##__VA_ARGS__\
-        )
-
-    #define GL_LOG_DEBUG_TRACE( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_DEBUG | LOG_LEVEL_TRACE,\
-            false, true,\
-            LOG_COLOR_BLUE\
-            "[GL DEBUG | {cc}() | {cc}:{i}] " format\
-            LOG_COLOR_RESET,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__,\
-            ##__VA_ARGS__\
-        )
-        
-    #define GL_LOG_WARN_TRACE( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_WARN | LOG_LEVEL_TRACE,\
-            false, true,\
-            LOG_COLOR_YELLOW\
-            "[GL WARN | {cc}() | {cc}:{i}] " format\
-            LOG_COLOR_RESET,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__,\
-            ##__VA_ARGS__\
-        )
-
-    #define GL_LOG_ERROR_TRACE( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
-            false, true,\
-            LOG_COLOR_RED\
-            "[GL ERROR | {cc}() | {cc}:{i}] " format\
-            LOG_COLOR_RESET,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__,\
-            ##__VA_ARGS__\
-        )
-
-    #define GL_LOG_FATAL( format, ... ) \
-        log_formatted_locked(\
-            LOG_LEVEL_ERROR | LOG_LEVEL_TRACE,\
-            true, true,\
-            LOG_COLOR_RED\
-            "[GL FATAL | {cc}() | {cc}:{i}] " format\
-            LOG_COLOR_RESET,\
-            __FUNCTION__,\
-            __FILE__,\
-            __LINE__,\
-            ##__VA_ARGS__\
-        )
+    #define trace_error_log_gl( format, ... )\
+        logging_output_fmt_locked(\
+            LOGGING_TYPE_ERROR, NULL,\
+			true, false, true, true,\
+            "[GL ERROR | " __FILE__ ":{u} > {cc}()] " format,\
+            __LINE__, __FUNCTION__, ##__VA_ARGS__ )
+    #define trace_warn_log_gl( format, ... )\
+        logging_output_fmt_locked(\
+            LOGGING_TYPE_WARN, NULL,\
+			true, false, true, true,\
+            "[GL WARN | " __FILE__ ":{u} > {cc}()] " format,\
+			__LINE__, __FUNCTION__, ##__VA_ARGS__ )
+    #define trace_debug_log_gl( format, ... )\
+        logging_output_fmt_locked(\
+            LOGGING_TYPE_DEBUG, NULL,\
+			true, false, true, true,\
+            "[GL DEBUG | " __FILE__ ":{u} > {cc}()] " format,\
+			__LINE__, __FUNCTION__, ##__VA_ARGS__ )
+    #define trace_info_log_gl( format, ... )\
+        logging_output_fmt_locked(\
+            LOGGING_TYPE_INFO, NULL,\
+			true, false, true, true,\
+            "[GL INFO | " __FILE__ ":{u} > {cc}()] " format,\
+			__LINE__, __FUNCTION__, ##__VA_ARGS__ )
+    #define trace_note_log_gl( format, ... )\
+        logging_output_fmt_locked(\
+            LOGGING_TYPE_NOTE, NULL,\
+			true, false, true, true,\
+            "[GL NOTE | " __FILE__ ":{u} > {cc}()] " format,\
+			__LINE__, __FUNCTION__, ##__VA_ARGS__ )
 #else
-    #define GL_LOG_NOTE( format, ... )        unused(format)
-    #define GL_LOG_INFO( format, ... )        unused(format) 
-    #define GL_LOG_DEBUG( format, ... )       unused(format)  
-    #define GL_LOG_WARN( format, ... )        unused(format)   
-    #define GL_LOG_ERROR( format, ... )       unused(format)    
-    #define GL_LOG_NOTE_TRACE( format, ... )  unused(format)      
-    #define GL_LOG_INFO_TRACE( format, ... )  unused(format)         
-    #define GL_LOG_DEBUG_TRACE( format, ... ) unused(format)        
-    #define GL_LOG_WARN_TRACE( format, ... )  unused(format)         
-    #define GL_LOG_ERROR_TRACE( format, ... ) unused(format)            
-    #define GL_LOG_FATAL( format, ... )       unused(format)        
-#endif
+    #define fatal_log_gl( ... )
+    #define error_log_gl( ... )
+    #define warn_log_gl( ... )
+    #define debug_log_gl( ... )
+    #define info_log_gl( ... )
+    #define note_log_gl( ... )
+
+    #define trace_error_log_gl( ... )
+    #define trace_warn_log_gl( ... )
+    #define trace_debug_log_gl( ... )
+    #define trace_info_log_gl( ... )
+    #define trace_note_log_gl( ... )
+#endif // LD_LOGGING
+
 
 #endif // API internal
 #endif // header guard

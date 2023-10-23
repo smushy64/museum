@@ -3,7 +3,7 @@
 // * File Created: July 22, 2023
 #include "constants.h"
 #include "core/thread.h"
-#include "core/log.h"
+#include "core/logging.h"
 #include "core/strings.h"
 #include "core/internal.h"
 
@@ -18,10 +18,10 @@ typedef struct ThreadWorkQueue {
 
     Semaphore* wake_semaphore;
 
-    volatile u32 push_entry;
-    volatile u32 read_entry;
-    volatile u32 entry_completion_count;
-    volatile u32 pending_work_count;
+    volatile i32 push_entry;
+    volatile i32 read_entry;
+    volatile i32 entry_completion_count;
+    volatile i32 pending_work_count;
 } ThreadWorkQueue;
 
 global ThreadWorkQueue* WORK_QUEUE = NULL;
@@ -34,13 +34,13 @@ LD_API void thread_work_queue_push(
 
     read_write_fence();
 
-    WORK_QUEUE->push_entry = interlocked_increment_u32(
+    WORK_QUEUE->push_entry = interlocked_increment_i32(
         &WORK_QUEUE->push_entry ) % MAX_WORK_ENTRY_COUNT;
 
-    WORK_QUEUE->pending_work_count = interlocked_increment_u32(
+    WORK_QUEUE->pending_work_count = interlocked_increment_i32(
         &WORK_QUEUE->pending_work_count );
 
-    LOG_ASSERT(
+    assert_log(
         WORK_QUEUE->pending_work_count < MAX_WORK_ENTRY_COUNT,
         "Exceeded thread work entry count!!" );
 
@@ -59,7 +59,7 @@ internal b32 thread_work_queue_pop( ThreadWorkEntry* out_work_entry ) {
 
     read_write_fence();
 
-    WORK_QUEUE->read_entry = interlocked_increment_u32(
+    WORK_QUEUE->read_entry = interlocked_increment_i32(
         &WORK_QUEUE->read_entry
     ) % MAX_WORK_ENTRY_COUNT;
 
@@ -78,9 +78,9 @@ internal b32 thread_proc( void* params ) {
             read_write_fence();
 
             WORK_QUEUE->entry_completion_count =
-                interlocked_increment_u32( &WORK_QUEUE->entry_completion_count );
+                interlocked_increment_i32( &WORK_QUEUE->entry_completion_count );
             WORK_QUEUE->pending_work_count =
-                interlocked_decrement_u32( &WORK_QUEUE->pending_work_count );
+                interlocked_decrement_i32( &WORK_QUEUE->pending_work_count );
         }
     }
 
@@ -93,7 +93,7 @@ b32 thread_subsystem_init( u32 logical_processor_count, void* buffer ) {
 
     WORK_QUEUE->wake_semaphore = semaphore_create();
     if( !WORK_QUEUE->wake_semaphore ) {
-        LOG_FATAL( "Failed to create wake semaphore!" );
+        fatal_log( "Failed to create wake semaphore!" );
         return false;
     }
 
@@ -109,7 +109,7 @@ b32 thread_subsystem_init( u32 logical_processor_count, void* buffer ) {
             StringSlice last_error;
             platform->last_error(
                 &last_error.len, (const char**)&last_error.buffer );
-            LOG_ERROR( "{s}", last_error );
+            error_log( "{s}", last_error );
 #endif
             break;
         }
@@ -117,32 +117,31 @@ b32 thread_subsystem_init( u32 logical_processor_count, void* buffer ) {
     }
 
     if( !thread_handle_count ) {
-        LOG_FATAL( "Failed to create any threads!" );
+        fatal_log( "Failed to create any threads!" );
         return false;
     }
 
     read_write_fence();
 
-    LOG_INFO( "Threading subsystem successfully initialized." );
-    LOG_NOTE( "Instantiated {u} threads.", thread_handle_count );
+    info_log( "Threading subsystem successfully initialized." );
+    note_log( "Instantiated {u} threads.", thread_handle_count );
     return true;
 }
 
-LD_API u32 interlocked_increment_u32( volatile u32* addend ) {
-    return __sync_fetch_and_add( addend, 1 );
+LD_API i32 interlocked_increment_i32( volatile i32* addend ) {
+    return platform->thread.interlocked_add( addend, 1 );
 }
-LD_API u32 interlocked_decrement_u32( volatile u32* addend ) {
-    return __sync_fetch_and_sub( addend, 1 );
+LD_API i32 interlocked_decrement_i32( volatile i32* addend ) {
+    return platform->thread.interlocked_sub( addend, 1 );
 }
-LD_API u32 interlocked_exchange_u32( volatile u32* target, u32 value ) {
-    return __sync_swap( target, value );
+LD_API i32 interlocked_exchange_i32( volatile i32* target, i32 value ) {
+    return platform->thread.interlocked_exchange( target, value );
 }
-LD_API u32 interlocked_compare_exchange_u32(
-    volatile u32* dst,
-    u32 exchange, u32 comperand
+LD_API i32 interlocked_compare_exchange_i32(
+    volatile i32* dst,
+    i32 exchange, i32 comperand
 ) {
-    return __sync_val_compare_and_swap(
-        dst, exchange, comperand );
+    return platform->thread.interlocked_compare_exchange( dst, exchange, comperand );
 }
 LD_API void* interlocked_compare_exchange_pointer(
     void* volatile* dst,
@@ -170,7 +169,7 @@ LD_API Semaphore* semaphore_create(void) {
         StringSlice last_error;
         platform->last_error(
             &last_error.len, (const char**)&last_error.buffer );
-        LOG_ERROR( "{s}", last_error );
+        error_log( "{s}", last_error );
     }
 #endif
 

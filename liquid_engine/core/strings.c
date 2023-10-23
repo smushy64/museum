@@ -4,7 +4,6 @@
  * File Created: April 28, 2023
 */
 #include "core/strings.h"
-#include "core/log.h"
 #include "core/memoryf.h"
 #include "core/cstr.h"
 

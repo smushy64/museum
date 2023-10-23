@@ -75,6 +75,12 @@ GENERATED_DEPENDENCIES_PATH := testbed_generated_dependencies.inl
 
 all: $(TARGET)
 
+generate_dependencies: $(GENERATED_DEPENDENCIES_PATH)
+
+clean_dependencies:
+	@echo "Make: cleaning testbed dependencies . . ."
+	-@rm -f $(GENERATED_DEPENDENCIES_PATH) 2> /dev/null || true
+
 spit:
 	@echo
 	@echo "-------- lib testbed ---------"
@@ -105,5 +111,5 @@ $(TARGET): $(GENERATED_DEPENDENCIES_PATH) $(TESTBEDMAIN) $(CPP) $(H)
 	@mkdir -p $(LOCAL_OBJ_PATH)
 	@$(CXX) $(CXXSTD) -x c++ $(TESTBEDMAIN) ../liquid_platform/platform_dllmain.c -o $(TARGET) $(CXXFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
 
-.PHONY: all spit
+.PHONY: all spit generate_dependencies clean_dependencies
 

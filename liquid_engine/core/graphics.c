@@ -2,9 +2,11 @@
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: September 18, 2023
 #include "defines.h"
-#include "core/log.h"
+#include "core/logging.h"
+#include "core/sort.h"
 #include "core/mathf.h"
 #include "core/memoryf.h"
+#include "core/collections.h"
 #include "core/graphics.h"
 #include "core/graphics/internal.h"
 #include "core/graphics/internal/opengl.h"
@@ -45,7 +47,7 @@ b32 renderer_subsystem_init(
                 return false;
             }
         } break;
-        default: UNIMPLEMENTED();
+        default: unimplemented();
     }
 
     ivec2 surface_dimensions;
@@ -161,7 +163,7 @@ internal b32 renderer_subsystem_end_frame(void) {
 b32 renderer_subsystem_draw(void) {
     if( renderer_subsystem_begin_frame() ) {
         if( !renderer_subsystem_end_frame() ) {
-            LOG_FATAL( "Renderer failed!" );
+            fatal_log( "Renderer failed!" );
             return false;
         }
     } else {

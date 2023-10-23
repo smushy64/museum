@@ -253,7 +253,7 @@ typedef void* pvoid;
 /// Never inline function.
 #define no_inline __attribute__((noinline))
 /// Don't introduce padding to struct.
-#define packedpad __attribute__((__packed__))
+#define no_padding __attribute__((__packed__))
 /// Function is internal to translation unit.
 #define internal static
 /// Value is local to function.
@@ -262,8 +262,6 @@ typedef void* pvoid;
 #define global static
 /// Mark function/struct as deprecated.
 #define deprecate __attribute__((deprecated))
-/// Mark union as transparent.
-#define transparent __attribute__((__transparent_union__))
 /// Mark function/type as possibly unused.
 #define maybe_unused __attribute__((unused))
 /// Mark value with alignment.
@@ -288,6 +286,9 @@ typedef void* pvoid;
 
 /// Infinite loop.
 #define loop for( ;; )
+
+/// No-op attribute
+#define attribute_none
 
 typedef __builtin_va_list va_list;
 #define va_arg   __builtin_va_arg
@@ -345,21 +346,23 @@ typedef __builtin_va_list va_list;
 /// Terabytes to bytes
 #define terabytes(tb) ( terabytes( (tb) ) * 1024ULL )
 
-#if defined(LD_EXPORT)
-    #if defined(LD_PLATFORM_WINDOWS)
-        /// Import/Export function
-        #define LD_API __declspec(dllexport)
+#if !defined(LD_API)
+    #if defined(LD_EXPORT)
+        #if defined(LD_PLATFORM_WINDOWS)
+            /// Import/Export function
+            #define LD_API __declspec(dllexport)
+        #else
+            /// Import/Export function
+            #define LD_API __attribute__((visibility("default")))
+        #endif
     #else
-        /// Import/Export function
-        #define LD_API __attribute__((visibility("default")))
-    #endif
-#else
-    #if defined(LD_PLATFORM_WINDOWS)
-        /// Import/Export function
-        #define LD_API __declspec(dllimport) c_linkage
-    #else
-        /// Import/Export function
-        #define LD_API c_linkage
+        #if defined(LD_PLATFORM_WINDOWS)
+            /// Import/Export function
+            #define LD_API __declspec(dllimport) c_linkage
+        #else
+            /// Import/Export function
+            #define LD_API c_linkage
+        #endif
     #endif
 #endif
 

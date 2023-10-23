@@ -5,24 +5,24 @@
 #include <platform.h>
 #include "core/graphics.h"
 #include "core/strings.h"
-#include "core/log.h"
+#include "core/logging.h"
 #include "core/memoryf.h"
 #include "core/thread.h"
 #include "core/input.h"
 #include "core/mathf.h"
-#include "core/timer.h"
+#include "core/time.h"
 #include "core/engine.h"
+#include "core/collections.h"
 #include "core/graphics/internal.h"
 
 global b32 global_application_is_running = true;
 global f32 global_resolution_scale       = 1.0f;
-global TimeStamp* global_time_stamp      = NULL;
 
 #define LOGGING_SUBSYSTEM_SIZE (kilobytes(1))
 
 typedef usize ApplicationQueryMemoryRequirementFN(void);
 typedef b32 ApplicationInitializeFN( void* memory );
-typedef b32 ApplicationRunFN( TimeStamp time, void* memory );
+typedef b32 ApplicationRunFN( void* memory );
 
 struct PlatformAPI* platform = NULL;
 
@@ -69,7 +69,7 @@ internal no_inline void on_close(
 ) {
     unused(surface && user_params);
     global_application_is_running = false;
-    LOG_NOTE( "Application is shutting down." );
+    note_log( "Application is shutting down." );
 }
 internal no_inline void on_activate(
     PlatformSurface* surface, b32 is_active, void* user_params
@@ -77,7 +77,7 @@ internal no_inline void on_activate(
     unused(surface);
     b32* surface_is_active = user_params;
     *surface_is_active     = is_active;
-    LOG_NOTE( "Surface {cc}", is_active ? "is active." : "is inactive." );
+    note_log( "Surface {cc}", is_active ? "is active." : "is inactive." );
 }
 internal no_inline void on_key(
     PlatformSurface* surface, b32 is_down,
@@ -149,6 +149,8 @@ LD_API int core_init(
     assert( in_platform );
     platform = in_platform;
 
+    time_subsystem_initialize();
+
     char fatal_error_title_buffer[255];
     char fatal_error_message_buffer[255];
     StringSlice fatal_error_title =
@@ -157,25 +159,17 @@ LD_API int core_init(
         ss( 255, fatal_error_message_buffer );
 
 #if defined(LD_LOGGING)
-    /* initialize logging subsystem */ {
-        void* logging_subsystem_buffer = platform->memory.heap_alloc( kilobytes(1) );
-        if( !logging_subsystem_buffer || !log_subsystem_init(
-            LOG_LEVEL_ALL_VERBOSE,
-            kilobytes(1),
-            logging_subsystem_buffer
-        ) ) {
-            println_err(
-                LOG_COLOR_RED
-                "[FATAL] Failed to initialize logging subsystem!"
-                LOG_COLOR_RESET );
-            platform->fatal_message_box(
-                "Fatal Error "
-                macro_value_to_string(
-                    CORE_ERROR_LOGGING_SUBSYSTEM_INITIALIZE ),
-                "Failed to initialize logging subsystem!" );
-            return CORE_ERROR_LOGGING_SUBSYSTEM_INITIALIZE;
-        }
+
+    PlatformFile* logging_file = platform->io.file_open(
+        "./logging.txt", PLATFORM_FILE_WRITE | PLATFORM_FILE_SHARE_READ );
+
+    if( !logging_file ) {
+        println_err( "[FATAL] Failed to open logging file!" );
+        return CORE_ERROR_LOGGING_SUBSYSTEM_INITIALIZE;
     }
+
+    logging_subsystem_initialize( logging_file );
+
 #endif
 
     struct SettingsParse settings = parse_settings();
@@ -226,9 +220,9 @@ LD_API int core_init(
                     path.buffer += libload.len;
                     path.len    -= libload.len;
                     println_err(
-                        LOG_COLOR_RED
+                        CONSOLE_COLOR_RED
                         "invalid game library path: {s}"
-                        LOG_COLOR_RESET,
+                        CONSOLE_COLOR_RESET,
                         path
                     );
                     parse_error = true;
@@ -243,9 +237,9 @@ LD_API int core_init(
             if( ss_find( &current, &set_width, NULL ) ) {
                 if( current.len - set_width.len < 1 ) {
                     println_err(
-                        LOG_COLOR_RED
+                        CONSOLE_COLOR_RED
                         "invalid width!"
-                        LOG_COLOR_RESET
+                        CONSOLE_COLOR_RESET
                     );
                     parse_error = true;
                     break;
@@ -255,9 +249,9 @@ LD_API int core_init(
                 u64 parse_result = 0;
                 if( !ss_parse_uint( &current, &parse_result ) ) {
                     println_err(
-                        LOG_COLOR_RED
+                        CONSOLE_COLOR_RED
                         "invalid width {s}!"
-                        LOG_COLOR_RESET,
+                        CONSOLE_COLOR_RESET,
                         current
                     );
                     parse_error = true;
@@ -270,9 +264,9 @@ LD_API int core_init(
             if( ss_find( &current, &set_height, NULL ) ) {
                 if( current.len - set_height.len < 1 ) {
                     println_err(
-                        LOG_COLOR_RED
+                        CONSOLE_COLOR_RED
                         "invalid height!"
-                        LOG_COLOR_RESET
+                        CONSOLE_COLOR_RESET
                     );
                     parse_error = true;
                     break;
@@ -282,9 +276,9 @@ LD_API int core_init(
                 u64 parse_result = 0;
                 if( !ss_parse_uint( &current, &parse_result ) ) {
                     println_err(
-                        LOG_COLOR_RED
+                        CONSOLE_COLOR_RED
                         "invalid height {s}!"
-                        LOG_COLOR_RESET,
+                        CONSOLE_COLOR_RESET,
                         current
                     );
                     parse_error = true;
@@ -297,9 +291,9 @@ LD_API int core_init(
             if( ss_find( &current, &set_resolution_scale, NULL ) ) {
                 if( current.len - set_resolution_scale.len < 1 ) {
                     println_err(
-                        LOG_COLOR_RED
+                        CONSOLE_COLOR_RED
                         "invalid resolution scale!"
-                        LOG_COLOR_RESET
+                        CONSOLE_COLOR_RESET
                     );
                     parse_error = true;
                     break;
@@ -309,9 +303,9 @@ LD_API int core_init(
                 f64 parse_result = 0.0;
                 if( !ss_parse_float( &current, &parse_result ) ) {
                     println_err(
-                        LOG_COLOR_RED
+                        CONSOLE_COLOR_RED
                         "invalid resolution scale {s}!"
-                        LOG_COLOR_RESET,
+                        CONSOLE_COLOR_RESET,
                         current
                     );
                     parse_error = true;
@@ -367,9 +361,9 @@ LD_API int core_init(
             }
 
             println_err(
-                LOG_COLOR_RED
+                CONSOLE_COLOR_RED
                 "unrecognized argument: {s}"
-                LOG_COLOR_RESET,
+                CONSOLE_COLOR_RESET,
                 current );
             parse_error = true;
             break;
@@ -382,7 +376,7 @@ LD_API int core_init(
 
 #if defined(LD_PLATFORM_WINDOWS) && defined(LD_DEVELOPER_MODE)
         if( enable_output_debug_string ) {
-            log_subsystem_win32_enable_output_debug_string();
+            logging_set_output_debug_string_enabled( true );
         }
 #endif
     }
@@ -396,14 +390,14 @@ LD_API int core_init(
             &fatal_error_message,
             "Renderer backend '{cc}' is not supported on current platform!{c}",
             renderer_backend_to_string( backend ), 0 );
-        LOG_FATAL( "{s}", fatal_error_message );
+        fatal_log( "{s}", fatal_error_message );
         platform->fatal_message_box(
             fatal_error_title_buffer, fatal_error_message_buffer );
         return CORE_ERROR_RENDERER_BACKEND_NOT_SUPPORTED;
     }
 
-    LOG_NOTE( "Engine Configuration:" );
-    LOG_NOTE( "Version:           {i}.{i}", LIQUID_ENGINE_VERSION_MAJOR, LIQUID_ENGINE_VERSION_MINOR );
+    note_log( "Engine Configuration:" );
+    note_log( "Version:           {i}.{i}", LIQUID_ENGINE_VERSION_MAJOR, LIQUID_ENGINE_VERSION_MINOR );
 #if defined(LD_PLATFORM_WINDOWS)
     ss_const(os, "win32");
 #endif
@@ -454,13 +448,13 @@ LD_API int core_init(
         ss_const(arch, "wasm 64-bit");
     #endif
 #endif
-    LOG_NOTE( "Platform:          {s}, {s}", os, arch );
-    LOG_NOTE( "Page Size:         {usize}", platform->query_info()->page_size );
-    LOG_NOTE( "Game Library Path: {s}", game_library_path );
-    LOG_NOTE( "Renderer Backend:  {cc}",
+    note_log( "Platform:          {s}, {s}", os, arch );
+    note_log( "Page Size:         {usize}", platform->query_info()->page_size );
+    note_log( "Game Library Path: {s}", game_library_path );
+    note_log( "Renderer Backend:  {cc}",
         renderer_backend_to_string( backend ) );
-    LOG_NOTE( "Resolution:        {i}x{i}", width, height );
-    LOG_NOTE( "Resolution Scale:  {f,.2}x", global_resolution_scale );
+    note_log( "Resolution:        {i}x{i}", width, height );
+    note_log( "Resolution Scale:  {f,.2}x", global_resolution_scale );
 
     PlatformLibrary* game =
         platform->library.open( game_library_path.buffer );
@@ -473,7 +467,7 @@ LD_API int core_init(
             &fatal_error_message,
             "Failed to load game library! Game library path: {s}{c}",
             game_library_path, 0 );
-        LOG_FATAL("{s}", fatal_error_message);
+        fatal_log("{s}", fatal_error_message);
         platform->fatal_message_box(
             fatal_error_title_buffer, fatal_error_message_buffer );
         return CORE_ERROR_OPEN_GAME_LIBRARY;
@@ -499,7 +493,7 @@ LD_API int core_init(
             &fatal_error_message,
             "Failed to load game memory requirement!{c}",
             0 );
-        LOG_FATAL("{s}", fatal_error_message);
+        fatal_log("{s}", fatal_error_message);
         platform->fatal_message_box(
             fatal_error_title_buffer, fatal_error_message_buffer );
         return CORE_ERROR_LOAD_GAME_MEMORY_REQUIREMENT;
@@ -513,7 +507,7 @@ LD_API int core_init(
             &fatal_error_message,
             "Failed to load game initialize function!{c}",
             0 );
-        LOG_FATAL("{s}", fatal_error_message);
+        fatal_log("{s}", fatal_error_message);
         platform->fatal_message_box(
             fatal_error_title_buffer, fatal_error_message_buffer );
         return CORE_ERROR_LOAD_GAME_INITIALIZE;
@@ -527,7 +521,7 @@ LD_API int core_init(
             &fatal_error_message,
             "Failed to load game run function!{c}",
             0 );
-        LOG_FATAL("{s}", fatal_error_message);
+        fatal_log("{s}", fatal_error_message);
         platform->fatal_message_box(
             fatal_error_title_buffer, fatal_error_message_buffer );
         return CORE_ERROR_LOAD_GAME_RUN;
@@ -561,7 +555,7 @@ LD_API int core_init(
         stack_buffer = system_page_alloc( stack_page_count );
         stack_size   = page_count_to_memory_size( stack_page_count );
 
-        LOG_INFO(
+        info_log(
             "Stack Size: {usize} Stack Pages: {usize}",
             stack_size, stack_page_count );
         if( !stack_buffer ) {
@@ -573,7 +567,7 @@ LD_API int core_init(
                 &fatal_error_message,
                 "Out of Memory!{c}",
                 0 );
-            LOG_FATAL("{s}", fatal_error_message);
+            fatal_log("{s}", fatal_error_message);
             platform->fatal_message_box(
                 fatal_error_title_buffer, fatal_error_message_buffer );
             return CORE_ERROR_ENGINE_MEMORY_ALLOCATION;
@@ -602,7 +596,7 @@ LD_API int core_init(
             thread_count,
             threading_subsystem_buffer
         ) ) {
-            LOG_FATAL( "Failed to initialize thread subsystem!" );
+            fatal_log( "Failed to initialize thread subsystem!" );
             platform->fatal_message_box(
                 "Fatal Error "
                 macro_value_to_string(
@@ -628,8 +622,8 @@ LD_API int core_init(
             StringSlice last_error;
             platform->last_error(
                 &last_error.len, (const char**)&last_error.buffer );
-            LOG_FATAL( "{s}", last_error );
-            LOG_FATAL( "Failed to create main surface!" );
+            fatal_log( "{s}", last_error );
+            fatal_log( "Failed to create main surface!" );
             platform->fatal_message_box(
                 "Fatal Error "
                 macro_value_to_string( CORE_ERROR_CREATE_SURFACE ),
@@ -670,7 +664,7 @@ LD_API int core_init(
             &render_data,
             renderer_subsystem_buffer
         ) ) {
-            LOG_FATAL( "Failed to initialize renderer subsystem!" );
+            fatal_log( "Failed to initialize renderer subsystem!" );
             platform->fatal_message_box(
                 "Fatal Error "
                 macro_value_to_string( CORE_ERROR_RENDERER_SUBSYSTEM_INITIALIZE ),
@@ -682,7 +676,7 @@ LD_API int core_init(
     void* application_memory =
         stack_allocator_push( &stack, application_memory_requirement );
     if( !application_initialize( application_memory ) ) {
-        LOG_FATAL( "Failed to initialize application!" );
+        fatal_log( "Failed to initialize application!" );
         platform->fatal_message_box(
             "Fatal Error "
             macro_value_to_string( CORE_ERROR_APPLICATION_INITIALIZE ),
@@ -690,9 +684,6 @@ LD_API int core_init(
         return CORE_ERROR_APPLICATION_INITIALIZE;
     }
 
-    TimeStamp time  = {};
-    time.time_scale = 1.0f;
-    global_time_stamp = &time;
 
     while( global_application_is_running ) {
         input_subsystem_swap_state();
@@ -724,8 +715,8 @@ LD_API int core_init(
             }
         }
 
-        if( !application_run( time, application_memory ) ) {
-            LOG_FATAL( "Failed to run application!" );
+        if( !application_run( application_memory ) ) {
+            fatal_log( "Failed to run application!" );
             platform->fatal_message_box(
                 "Fatal Error "
                 macro_value_to_string( CORE_ERROR_APPLICATION_RUN ),
@@ -733,10 +724,8 @@ LD_API int core_init(
             return CORE_ERROR_APPLICATION_RUN;
         }
 
-        render_data.time = time;
-
         if( !renderer_subsystem_draw() ) {
-            LOG_FATAL( "Renderer failed!" );
+            fatal_log( "Renderer failed!" );
             platform->fatal_message_box(
                 "Fatal Error "
                 macro_value_to_string( CORE_ERROR_RENDERER_DRAW ),
@@ -750,19 +739,17 @@ LD_API int core_init(
             platform->surface.center_cursor( surface );
         }
 
-        time.frame_count++;
-        f64 elapsed_seconds  = platform->time.elapsed_seconds();
-        time.delta_seconds   =
-            (time.unscaled_delta_seconds = elapsed_seconds - time.elapsed_seconds) *
-            time.time_scale;
-        time.elapsed_seconds = elapsed_seconds;
+        time_subsystem_update();
     }
 
     platform->surface.clear_callbacks( surface );
 
     renderer_subsystem_shutdown();
     platform->surface.destroy( surface );
-    log_subsystem_shutdown();
+
+#if defined(LD_LOGGING)
+    platform->io.file_close( logging_file );
+#endif
 
     return CORE_SUCCESS;
 }
@@ -869,7 +856,7 @@ internal struct SettingsParse parse_settings(void) {
     // TODO(alicia): logging
     assert( platform->io.file_read(
         settings_file,
-        settings_file_size, settings_file_size,
+        settings_file_size,
         settings_file_buffer ) );
 
     StringSlice settings = {
@@ -1029,14 +1016,8 @@ internal struct SettingsParse parse_settings(void) {
 }
 
 LD_API void engine_exit(void) {
-    LOG_NOTE( "Application requested program to exit." );
+    note_log( "Application requested program to exit." );
     global_application_is_running = false;
-}
-LD_API f32 engine_query_time_scale(void) {
-    return global_time_stamp->time_scale;
-}
-LD_API void engine_set_time_scale( f32 scale ) {
-    global_time_stamp->time_scale = max( scale, 0.001f );
 }
 
 #include "core_generated_dependencies.inl"

@@ -5,24 +5,24 @@
 */
 #include "defines.h"
 #include "core/memoryf.h"
-#include "core/log.h"
+#include "core/logging.h"
 #include "core/internal.h"
 
 #define LOG_MEMORY_SUCCESS( title, format, ... )\
-    log_formatted_locked(\
-        LOG_LEVEL_TRACE | LOG_LEVEL_DEBUG,\
-        false, true, LOG_COLOR_GREEN "[" title " | {cc}() | {cc}:{i}] "\
-        format LOG_COLOR_RESET,\
-        function, file, line,\
-        ##__VA_ARGS__ )
+    logging_output_fmt_locked(\
+        LOGGING_TYPE_DEBUG, CONSOLE_COLOR_GREEN,\
+        true, false, true, true,\
+        "[" title " | {cc}:{u} > {cc}()] " format,\
+        file, line, function, ##__VA_ARGS__\
+    )
 
 #define LOG_MEMORY_ERROR( title, format, ... )\
-    log_formatted_locked(\
-        LOG_LEVEL_TRACE | LOG_LEVEL_ERROR,\
-        true, true, LOG_COLOR_RED "[" title " | {cc}() | {cc}:{i}] "\
-        format LOG_COLOR_RESET,\
-        function, file, line,\
-        ##__VA_ARGS__ )
+    logging_output_fmt_locked(\
+        LOGGING_TYPE_ERROR, CONSOLE_COLOR_RED,\
+        true, false, true, true,\
+        "[" title " | {cc}:{u} > {cc}()] " format,\
+        file, line, function, ##__VA_ARGS__\
+    )
 
 internal force_inline usize ___aligned_size( usize size, usize alignment ) {
     assert( alignment % 2 == 0 );
@@ -284,13 +284,10 @@ LD_API void mem_copy_overlapped( void* dst, const void* src, usize size ) {
 }
 LD_API void mem_set( void* dst, u8 value, usize size ) {
     usize size64 = size / sizeof(u64);
-    u64 value64  =
-        ( value << 7 ) | ( value << 6 ) |
-        ( value << 5 ) | ( value << 4 ) |
-        ( value << 3 ) | ( value << 2 ) |
-        ( value << 1 ) | ( value << 0 );
+    union { u8 bytes[sizeof(u64)]; u64 longlong; } value64 = {
+        .bytes = { value, value, value, value, value, value, value, value } };
     for( usize i = 0; i < size64; ++i ) {
-        *((u64*)dst + i) = value64;
+        *((u64*)dst + i) = value64.longlong;
     }
 
     usize remainder     = size % sizeof(u64);
@@ -363,7 +360,7 @@ LD_API void* ___internal_system_page_alloc( usize pages ) {
 }
 LD_API void  ___internal_system_page_free( void* memory, usize pages ) {
     PAGE_MEMORY_USAGE -= pages;
-    platform->memory.page_free( page_count_to_memory_size( pages ), memory );
+    platform->memory.page_free( memory, page_count_to_memory_size( pages ) );
 }
 
 LD_API void* ___internal_system_page_alloc_trace(
@@ -393,7 +390,7 @@ LD_API void  ___internal_system_page_free_trace(
         "PAGE", "Freed {f,b,.2}. Pointer: {usize,x}",
         (f64)memory_size, (usize)memory );
     PAGE_MEMORY_USAGE -= pages;
-    platform->memory.page_free( memory_size, memory );
+    platform->memory.page_free( memory, memory_size );
 }
 
 LD_API void* ___internal_system_alloc( usize size ) {
@@ -425,14 +422,14 @@ LD_API void* ___internal_system_realloc(
 }
 LD_API void ___internal_system_free( void* memory, usize size ) {
     HEAP_MEMORY_USAGE -= size;
-    platform->memory.heap_free( size, memory );
+    platform->memory.heap_free( memory, size );
 }
 LD_API void ___internal_system_free_aligned(
     void* memory, usize size, usize alignment
 ) {
     usize aligned_size = ___aligned_size( size, alignment );
     HEAP_MEMORY_USAGE -= aligned_size;
-    platform->memory.heap_free( size, ___get_aligned_pointer( memory ) );
+    platform->memory.heap_free( ___get_aligned_pointer( memory ), size );
 }
 
 LD_API void* ___internal_system_alloc_trace(
@@ -487,7 +484,7 @@ LD_API void* ___internal_system_realloc_trace(
 LD_API void ___internal_system_free_trace(
     void* memory, usize size, const char* function, const char* file, int line
 ) {
-    platform->memory.heap_free( size, memory );
+    platform->memory.heap_free( memory, size );
     LOG_MEMORY_SUCCESS(
         "HEAP", "Freed {f,b,.2}. Pointer: {usize,x}",
         (f64)size, (usize)memory );

@@ -6,8 +6,6 @@
 #include "defines.h"
 
 #if defined(LD_API_INTERNAL)
-#include "core/timer.h"
-#include "core/collections.h"
 #include "core/internal.h"
 #include "core/graphics/types.h"
 #include "core/mathf/types.h"
@@ -57,7 +55,6 @@ typedef u32 Draw3DFlags;
 
 typedef struct RenderData {
     struct Camera* camera;
-    TimeStamp      time;
 
     struct RenderCommand* list_commands;
 } RenderData;

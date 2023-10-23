@@ -463,29 +463,15 @@ struct Transform {
     vec3 position;
     quat rotation;
     vec3 scale;
-    struct { b16 matrix_dirty, camera_dirty; };
+    struct { b8 local_matrix_dirty, world_matrix_dirty, camera_dirty; };
 
-    mat4 matrix;
+    mat4 local_matrix;
+    mat4 world_matrix;
     struct Transform* parent;
 };
 
 /// Create a transform.
-header_only Transform transform_create(
-    vec3 position, quat rotation, vec3 scale
-) {
-    Transform result;
-    result.position = position;
-    result.rotation = rotation;
-    result.scale    = scale;
-
-    result.matrix       = MAT4_IDENTITY;
-    result.matrix_dirty = true;
-    result.camera_dirty = true;
-
-    result.parent       = NULL;
-
-    return result;
-}
+LD_API Transform transform_create( vec3 position, quat rotation, vec3 scale );
 /// Create a default transform.
 header_only Transform transform_zero(void) {
     return transform_create( v3_zero(), QUAT_IDENTITY, VEC3_ONE );

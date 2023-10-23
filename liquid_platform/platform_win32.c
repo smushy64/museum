@@ -5,7 +5,7 @@
 #include "constants.h"
 #include "platform.h"
 #define WIN32_LEAN_AND_MEAN
-#define NO_MIN_MAX
+#define NOMINMAX
 #include <windows.h>
 #include <windowsx.h>
 #include <psapi.h>
@@ -19,6 +19,9 @@ global LARGE_INTEGER global_performance_counter;
 global LARGE_INTEGER global_performance_frequency;
 
 global PlatformInfo global_win32_info;
+
+#if !defined(LD_HEADLESS)
+
 global HINSTANCE global_instance;
 
 #define WIN32_FULLSCREEN_DWSTYLE   WS_POPUP
@@ -33,6 +36,8 @@ global HINSTANCE global_instance;
 #define WIN32_WINDOWED_DWEXSTYLE\
     WS_EX_OVERLAPPEDWINDOW
 
+#endif // if not headless
+
 #define WIN32_DECLARE_FUNCTION( ret, fn, ... )\
     typedef ret ___internal_##fn##FN( __VA_ARGS__ );\
     global ___internal_##fn##FN* ___internal_##fn = NULL
@@ -41,6 +46,17 @@ global HINSTANCE global_instance;
     (___internal_##fn = (___internal_##fn##FN *)GetProcAddress( module, #fn ))
 
 // NOTE(alicia): User32
+
+#if !defined(LD_HEADLESS)
+
+WIN32_DECLARE_FUNCTION( HWND, SetFocus, HWND hWnd );
+#define SetFocus( hWnd ) ___internal_SetFocus( hWnd )
+
+WIN32_DECLARE_FUNCTION(
+    HANDLE, LoadImageA,
+    HINSTANCE hInst, LPCSTR name, UINT type, int cx, int cy, UINT fuLoad );
+#define LoadImageA( hInst, name, type, cx, cy, fuLoad )\
+    ___internal_LoadImageA( hInst, name, type, cx, cy, fuLoad )
 
 WIN32_DECLARE_FUNCTION( BOOL, RegisterRawInputDevices, PCRAWINPUTDEVICE pRawInputDevices, UINT uiNumDevices, UINT cbSize );
 #define RegisterRawInputDevices( pRawInputDevices, uiNumDevices, cbSize )\
@@ -74,12 +90,6 @@ WIN32_DECLARE_FUNCTION(
     HMONITOR, MonitorFromWindow, HWND hWnd, DWORD dwFlags );
 #define MonitorFromWindow( hWnd, dwFlags )\
     ___internal_MonitorFromWindow( hWnd, dwFlags )
-
-WIN32_DECLARE_FUNCTION(
-    HANDLE, LoadImageA,
-    HINSTANCE hInst, LPCSTR name, UINT type, int cx, int cy, UINT fuLoad );
-#define LoadImageA( hInst, name, type, cx, cy, fuLoad )\
-    ___internal_LoadImageA( hInst, name, type, cx, cy, fuLoad )
 
 WIN32_DECLARE_FUNCTION(
     LONG_PTR, GetWindowLongPtrA, HWND hWnd, int nIndex );
@@ -198,7 +208,11 @@ WIN32_DECLARE_FUNCTION(
 #define SetWindowPos( hWnd, hWndInsertAfter, X, Y, cx, cy, uFlags )\
     ___internal_SetWindowPos( hWnd, hWndInsertAfter, X, Y, cx, cy, uFlags )
 
+#endif // if not headless
+
 // NOTE(alicia): Gdi32
+
+#if !defined(LD_HEADLESS)
 
 WIN32_DECLARE_FUNCTION( int, GetDeviceCaps, HDC hdc, int index );
 #define GetDeviceCaps( hdc, index ) ___internalGetDeviceCaps( hdc, index )
@@ -226,7 +240,11 @@ WIN32_DECLARE_FUNCTION(
 WIN32_DECLARE_FUNCTION( BOOL, SwapBuffers, HDC unnamedParam1 );
 #define SwapBuffers( unnamedParam1 ) ___internal_SwapBuffers( unnamedParam1 )
 
+#endif // if not headless
+
 // NOTE(alicia): Xinput
+
+#if !defined(LD_HEADLESS)
 
 WIN32_DECLARE_FUNCTION(
     DWORD, XInputGetState, DWORD dwUserIndex, XINPUT_STATE* pState );
@@ -243,7 +261,11 @@ void ___internal_XInputEnable_stub( BOOL enable ) {
     unused(enable);
 }
 
+#endif // if not headless
+
 // NOTE(alicia): DWM
+
+#if !defined(LD_HEADLESS)
 
 WIN32_DECLARE_FUNCTION(
     HRESULT, DwmSetWindowAttribute,
@@ -251,7 +273,11 @@ WIN32_DECLARE_FUNCTION(
 #define DwmSetWindowAttribute( hWnd, dwAttribute, pvAttribute, cbAttribute )\
     ___internal_DwmSetWindowAttribute( hWnd, dwAttribute, pvAttribute, cbAttribute )
 
+#endif // if not headless
+
 // NOTE(alicia): WGL
+
+#if !defined(LD_HEADLESS)
 
 WIN32_DECLARE_FUNCTION( HGLRC, wglGetCurrentContext, void );
 #define wglGetCurrentContext() ___internal_wglGetCurrentContext()
@@ -284,6 +310,10 @@ WIN32_DECLARE_FUNCTION( BOOL, wglSwapIntervalEXT, int interval );
 #define wglSwapIntervalEXT( interval )\
     ___internal_wglSwapIntervalEXT( interval )
 
+#endif // if not headless
+
+#if !defined(LD_HEADLESS)
+
 PlatformSurface* win32_surface_create(
     i32 width, i32 height, const char* name,
     b32 create_hidden, b32 resizeable,
@@ -315,14 +345,20 @@ void win32_surface_gl_swap_interval(
     PlatformSurface* surface, int interval );
 void win32_surface_pump_events(void);
 
+#endif // if not headless
+
 f64 win32_elapsed_milliseconds(void);
 f64 win32_elapsed_seconds(void);
 void win32_sleep_milliseconds( u32 ms );
+PlatformTime win32_query_system_time(void);
 
+#if !defined(LD_HEADLESS)
 void win32_read_gamepads( PlatformGamepad gamepads[4] );
 void win32_set_gamepad_rumble(
     u32 gamepad_index, u16 left_motor, u16 right_motor );
 void win32_set_mouse_visible( b32 is_visible );
+#endif // if not headless
+
 PlatformFile* win32_stdout_handle(void);
 PlatformFile* win32_stderr_handle(void);
 void win32_console_write(
@@ -331,7 +367,7 @@ PlatformFile* win32_file_open(
     const char* path, PlatformFileFlags flags );
 void win32_file_close( PlatformFile* file );
 b32 win32_file_read(
-    PlatformFile* file, usize read_size, usize buffer_size, void* buffer );
+    PlatformFile* file, usize buffer_size, void* buffer );
 b32 win32_file_write(
     PlatformFile* file, usize buffer_size, void* buffer );
 usize win32_file_query_size( PlatformFile* file );
@@ -357,17 +393,42 @@ PlatformMutex* win32_mutex_create(void);
 void win32_mutex_destroy( PlatformMutex* mutex );
 void win32_mutex_lock( PlatformMutex* mutex );
 void win32_mutex_unlock( PlatformMutex* mutex );
+i32 win32_interlocked_add( volatile i32* lhs, i32 rhs ) {
+    return InterlockedAdd( (volatile long*)lhs, rhs );
+}
+i32 win32_interlocked_sub( volatile i32* lhs, i32 rhs ) {
+    return InterlockedAdd( (volatile long*)lhs, -rhs );
+}
+i32 win32_interlocked_exchange( volatile i32* target, i32 value ) {
+    return InterlockedExchange( (volatile long*)target, value );
+}
+i32 win32_interlocked_compare_exchange(
+    volatile i32* dst, i32 exchange, i32 comperand
+) {
+    return InterlockedCompareExchange( (volatile long*)dst, exchange, comperand );
+}
+void* win32_interlocked_compare_exchange_pointer(
+    void* volatile* dst, void* exchange, void* comperand
+) {
+    return InterlockedCompareExchangePointer( dst, exchange, comperand );
+}
 
 void* win32_heap_alloc( usize size );
 void* win32_heap_realloc(
     void* memory, usize old_size, usize new_size );
-void win32_heap_free( usize size, void* memory );
+void win32_heap_free( void* memory, usize size );
 void* win32_page_alloc( usize size );
-void win32_page_free( usize size, void* memory );
+void win32_page_free( void* memory, usize size );
 
 PlatformInfo* win32_query_info(void);
+
+#if !defined(LD_HEADLESS)
+
 void* win32_gl_load_proc( const char* function_name );
 void win32_fatal_message_box( const char* title, const char* message );
+
+#endif // if not headless
+
 void win32_last_error( usize* out_error_len, const char** out_error );
 
 #define WIN32_SUCCESS              ( 0)
@@ -393,7 +454,9 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
     int argc    = 0;
     char** argv = CommandLineToArgvA( GetCommandLineA(), &argc );
 
+#if !defined(LD_HEADLESS)
     global_instance = GetModuleHandle( NULL );
+#endif // if not headless
 
     DWORD dwMode = 0;
     GetConsoleMode(
@@ -414,6 +477,22 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
 #endif
 
 #if defined(LD_DEVELOPER_MODE)
+
+#if defined(LD_HEADLESS)
+    #define WIN32_REPORT_FATAL_ERROR( error_code, message ) do {\
+        if( win32_report_last_error() != ERROR_SUCCESS ) {\
+            usize       last_error_len = 0;\
+            const char* last_error     = NULL;\
+            win32_last_error( &last_error_len, &last_error );\
+            win32_console_write(\
+                win32_stderr_handle(), sizeof( message ), message );\
+            win32_console_write(\
+                win32_stderr_handle(), last_error_len, last_error );\
+            win32_output_debug_string( message );\
+            win32_output_debug_string( last_error );\
+        }\
+    } while(0)
+#else
     #define WIN32_REPORT_FATAL_ERROR( error_code, message ) do {\
         if( win32_report_last_error() != ERROR_SUCCESS ) {\
             usize       last_error_len = 0;\
@@ -432,7 +511,19 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
                 message );\
         }\
     } while(0)
+#endif
+
 #else
+
+#if defined(LD_HEADLESS)
+
+    #define WIN32_REPORT_FATAL_ERROR( error_code, message ) do {\
+        win32_report_last_error();\
+        unused(message);\
+    } while(0)
+
+#else
+
     #define WIN32_REPORT_FATAL_ERROR( error_code, message ) do {\
         win32_report_last_error();\
         if( ___internal_MessageBoxA ) {\
@@ -441,6 +532,9 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
                 message );\
         }\
     } while(0)
+
+#endif // if headless
+
 #endif
 
     #define WIN32_LOAD_REQUIRED( module, fn ) do {\
@@ -453,6 +547,7 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
         }\
     } while(0)
 
+#if !defined(LD_HEADLESS)
     HMODULE user32 = LoadLibraryA( "USER32.DLL" );
     if( !user32 ) {
         WIN32_REPORT_FATAL_ERROR(
@@ -464,7 +559,9 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
             WIN32_ERROR_LOAD_FUNCTION, "Failed to load MessageBoxA!" );
         EXIT( WIN32_ERROR_LOAD_FUNCTION );
     }
+#endif // if not headless
 
+#if !defined(LD_CORE_STATIC_BUILD)
     HMODULE core = LoadLibraryA( LIQUID_ENGINE_CORE_LIBRARY_PATH );
     if( !core ) {
         WIN32_REPORT_FATAL_ERROR(
@@ -483,7 +580,9 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
             "Failed to load Engine Core library initalize function!");
         EXIT( WIN32_ERROR_LOAD_CORE_INIT );
     }
+#endif // if core is statically compiled
 
+#if !defined(LD_HEADLESS)
     HMODULE gdi32 = LoadLibraryA( "GDI32.DLL" );
     if( !gdi32 ) {
         WIN32_REPORT_FATAL_ERROR(
@@ -510,6 +609,10 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
         WIN32_REPORT_ERROR( "Failed to load DWMAPI.DLL :(" );
     }
 
+#endif // if not headless
+
+#if !defined(LD_HEADLESS)
+    WIN32_LOAD_REQUIRED( user32, SetFocus );
     WIN32_LOAD_REQUIRED( user32, RegisterRawInputDevices );
     WIN32_LOAD_REQUIRED( user32, GetRawInputData );
     WIN32_LOAD_REQUIRED( user32, SetWindowPlacement );
@@ -558,6 +661,8 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
     if( !WIN32_LOAD_FUNCTION( xinput, XInputEnable ) ) {
         ___internal_XInputEnable = ___internal_XInputEnable_stub;
     }
+
+#endif // if not headless
 
     SYSTEM_INFO win32_info = {};
     GetSystemInfo( &win32_info );
@@ -708,7 +813,8 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
 #endif // simd width >= 8
 
     PlatformAPI api = {};
-    
+ 
+#if !defined(LD_HEADLESS)
     api.surface.create           = win32_surface_create;
     api.surface.destroy          = win32_surface_destroy;
     api.surface.set_callbacks    = win32_surface_set_callbacks;
@@ -728,13 +834,21 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
     api.surface.gl_swap_interval = win32_surface_gl_swap_interval;
     api.surface.pump_events      = win32_surface_pump_events;
 
+#endif // if not headless
+
     api.time.elapsed_milliseconds = win32_elapsed_milliseconds;
     api.time.elapsed_seconds      = win32_elapsed_seconds;
     api.time.sleep_ms             = win32_sleep_milliseconds;
+    api.time.query_system_time    = win32_query_system_time;
+
+#if !defined(LD_HEADLESS)
 
     api.io.read_gamepads       = win32_read_gamepads;
     api.io.set_gamepad_rumble  = win32_set_gamepad_rumble;
     api.io.set_mouse_visible   = win32_set_mouse_visible;
+
+#endif // if not headless
+
     api.io.stdout_handle       = win32_stdout_handle;
     api.io.stderr_handle       = win32_stderr_handle;
     api.io.console_write       = win32_console_write;
@@ -743,6 +857,7 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
     api.io.file_read           = win32_file_read;
     api.io.file_write          = win32_file_write;
     api.io.file_query_size     = win32_file_query_size;
+    api.io.file_set_offset     = win32_file_set_offset;
     api.io.file_query_offset   = win32_file_query_offset;
     api.io.output_debug_string = win32_output_debug_string;
 
@@ -760,6 +875,11 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
     api.thread.mutex_destroy        = win32_mutex_destroy;
     api.thread.mutex_lock           = win32_mutex_lock;
     api.thread.mutex_unlock         = win32_mutex_unlock;
+    api.thread.interlocked_add                      = win32_interlocked_add;                     
+    api.thread.interlocked_sub                      = win32_interlocked_sub;                     
+    api.thread.interlocked_exchange                 = win32_interlocked_exchange;                
+    api.thread.interlocked_compare_exchange         = win32_interlocked_compare_exchange;        
+    api.thread.interlocked_compare_exchange_pointer = win32_interlocked_compare_exchange_pointer;
 
     api.memory.heap_alloc   = win32_heap_alloc;
     api.memory.heap_realloc = win32_heap_realloc;
@@ -768,9 +888,14 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
     api.memory.page_free    = win32_page_free;
 
     api.query_info        = win32_query_info;
+    api.last_error        = win32_last_error;
+
+#if !defined(LD_HEADLESS)
+
     api.gl_load_proc      = win32_gl_load_proc;
     api.fatal_message_box = win32_fatal_message_box;
-    api.last_error        = win32_last_error;
+
+#endif // if not headless
 
     QueryPerformanceCounter( &global_performance_counter );
     QueryPerformanceFrequency( &global_performance_frequency );
@@ -782,6 +907,8 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
 }
 
 // NOTE(alicia): Surface API
+
+#if !defined(LD_HEADLESS)
 
 struct Win32Surface {
     HWND            hWnd;
@@ -925,7 +1052,6 @@ PlatformSurface* win32_surface_create(
         ShowWindow( handle, SW_SHOW );
     }
 
-
     return win32_surface;
 }
 void win32_surface_destroy( PlatformSurface* surface ) {
@@ -943,7 +1069,7 @@ void win32_surface_destroy( PlatformSurface* surface ) {
     ReleaseDC( win32_surface->hWnd, win32_surface->hDc );
     DestroyWindow( win32_surface->hWnd );
 
-    win32_heap_free( sizeof(struct Win32Surface), win32_surface );
+    win32_heap_free( win32_surface, sizeof(struct Win32Surface) );
 }
 void win32_surface_set_callbacks(
     PlatformSurface* surface, PlatformSurfaceCallbacks* callbacks
@@ -968,6 +1094,7 @@ void win32_surface_set_visible(
     int nCmdShow = is_visible ? SW_SHOW : SW_HIDE;
     ShowWindow( win32_surface->hWnd, nCmdShow );
     win32_surface->is_visible = is_visible;
+    SetFocus( win32_surface->hWnd );
 }
 b32 win32_surface_query_visibility( PlatformSurface* surface ) {
     assert( surface );
@@ -1591,6 +1718,8 @@ LRESULT win32_winproc(
     }
 }
 
+#endif // if not headless
+
 // NOTE(alicia): Time API
 
 f64 win32_elapsed_milliseconds(void) {
@@ -1617,8 +1746,24 @@ void win32_sleep_milliseconds( u32 ms ) {
     DWORD dwMilliseconds = ms;
     Sleep( dwMilliseconds );
 }
+PlatformTime win32_query_system_time(void) {
+    PlatformTime result = {};
+    SYSTEMTIME system_time;
+    GetLocalTime( &system_time );
+
+    result.year   = (u32)system_time.wYear;
+    result.month  = (u32)system_time.wMonth;
+    result.day    = (u32)system_time.wDay;
+    result.hour   = (u32)system_time.wHour;
+    result.minute = (u32)system_time.wMinute;
+    result.second = (u32)system_time.wSecond;
+
+    return result;
+}
 
 // NOTE(alicia): IO API
+
+#if !defined(LD_HEADLESS)
 
 void win32_read_gamepads( PlatformGamepad gamepads[4] ) {
     // TODO(alicia): account for XInputGetState stall
@@ -1661,6 +1806,9 @@ void win32_set_gamepad_rumble(
 void win32_set_mouse_visible( b32 is_visible ) {
     ShowCursor( is_visible );
 }
+
+#endif // if not headless
+
 PlatformFile* win32_stdout_handle(void) {
     return GetStdHandle( STD_OUTPUT_HANDLE );
 }
@@ -1670,7 +1818,7 @@ PlatformFile* win32_stderr_handle(void) {
 void win32_console_write(
     PlatformFile* console, usize buffer_size, const char* buffer
 ) {
-    WriteConsole( console, buffer, buffer_size, NULL, NULL );
+    WriteConsoleA( console, buffer, buffer_size, NULL, NULL );
 }
 PlatformFile* win32_file_open(
     const char* path, PlatformFileFlags flags
@@ -1723,15 +1871,11 @@ void win32_file_close( PlatformFile* file ) {
     CloseHandle( (HANDLE)file );
 }
 b32 win32_file_read(
-    PlatformFile* file, usize read_size, usize buffer_size, void* buffer
+    PlatformFile* file, usize buffer_size, void* buffer
 ) {
-    if( read_size > buffer_size ) {
-        return false;
-    }
-
 #if defined(LD_ARCH_64_BIT)
     LARGE_INTEGER read = {};
-    read.QuadPart = read_size;
+    read.QuadPart = buffer_size;
 
     DWORD bytes_read = 0;
     if( !ReadFile(
@@ -1767,7 +1911,7 @@ b32 win32_file_read(
     }
 
 #else
-    DWORD bytes_to_read = read_size;
+    DWORD bytes_to_read = buffer_size;
     DWORD bytes_read    = 0;
     if( !ReadFile(
         file, buffer,
@@ -2043,7 +2187,7 @@ void* win32_heap_realloc(
     return (void*)HeapReAlloc(
         GetProcessHeap(), HEAP_ZERO_MEMORY, memory, new_size );
 }
-void win32_heap_free( usize size, void* memory ) {
+void win32_heap_free( void* memory, usize size ) {
     unused(size);
     HeapFree( GetProcessHeap(), 0, memory );
 }
@@ -2051,7 +2195,7 @@ void* win32_page_alloc( usize size ) {
     return (void*)VirtualAlloc(
         NULL, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE );
 }
-void win32_page_free( usize size, void* memory ) {
+void win32_page_free( void* memory, usize size ) {
     VirtualFree( memory, size, MEM_RELEASE | MEM_DECOMMIT );
 }
 
@@ -2091,13 +2235,16 @@ DWORD win32_report_last_error(void) {
 
     return error_code;
 }
-void win32_fatal_message_box( const char* title, const char* message ) {
-    MessageBoxA( NULL, message, title, MB_ICONERROR );
-}
 void win32_last_error( usize* out_error_len, const char** out_error ) {
     *out_error     = WIN32_ERROR_MESSAGE_BUFFER;
     *out_error_len = WIN32_ERROR_MESSAGE_LENGTH;
 }
+
+#if !defined(LD_HEADLESS)
+void win32_fatal_message_box( const char* title, const char* message ) {
+    MessageBoxA( NULL, message, title, MB_ICONERROR );
+}
+#endif // if not headless
 
 // NOTE(alicia): C Standard Library Alternatives
 
@@ -2368,5 +2515,4 @@ LPSTR* WINAPI CommandLineToArgvA(LPSTR lpCmdline, int* numargs) {
 
     return argv;
 }
-
 

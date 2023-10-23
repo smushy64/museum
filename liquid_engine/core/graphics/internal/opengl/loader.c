@@ -2,7 +2,7 @@
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: September 24, 2023
 #include "defines.h"
-#include "core/log.h"
+#include "core/logging.h"
 #include "core/internal.h"
 #include "core/graphics/internal/opengl/functions.h"
 #include "core/graphics/internal/opengl.h"
@@ -10,7 +10,7 @@
 #define LOAD_PROC_REQUIRED( fn ) do {\
 void* proc = get_proc_address( macro_name_to_string(fn) );\
 if( !proc ) {\
-    GL_LOG_FATAL( "Failed to load required function '" macro_name_to_string(fn) "'!" );\
+    fatal_log_gl( "Failed to load required function '" macro_name_to_string(fn) "'!" );\
     return false;\
 }\
 ___internal_##fn = ( ___internal_##fn##FN* )proc;\

@@ -5,11 +5,11 @@
 #include <core/strings.h>
 #include <core/mathf.h>
 #include <core/graphics.h>
-#include <core/timer.h>
 #include <core/input.h>
 #include <core/engine.h>
 #include <core/memoryf.h>
-#include <core/log.h>
+#include <core/logging.h>
+#include <core/time.h>
 
 struct GameMemory {
     Transform camera_transform;
@@ -29,15 +29,16 @@ struct GameMemory {
 };
 
 struct Vertex3D triangle_vertices[] = {
-    { { -0.5f, -0.5f, 0.0f }, { 0.0f, 0.0f }, { VEC3_FORWARD }, { RGB_RED }, { VEC3_RIGHT } },
-    { {  0.5f, -0.5f, 0.0f }, { 1.0f, 0.0f }, { VEC3_FORWARD }, { RGB_GREEN }, { VEC3_RIGHT } },
-    { {  0.0f,  0.5f, 0.0f }, { 0.5f, 1.0f }, { VEC3_FORWARD }, { RGB_BLUE }, { VEC3_RIGHT } },
+    { { -0.5f, -0.5f, 0.0f }, { VEC3_FORWARD }, { VEC3_RIGHT }, { RGB_RED },   { 0.0f, 0.0f } },
+    { {  0.5f, -0.5f, 0.0f }, { VEC3_FORWARD }, { VEC3_RIGHT }, { RGB_GREEN }, { 1.0f, 0.0f } },
+    { {  0.0f,  0.5f, 0.0f }, { VEC3_FORWARD }, { VEC3_RIGHT }, { RGB_BLUE },  { 0.5f, 1.0f } },
 };
 
 u32 triangle_indices[] = { 0, 1, 2 };
 u8  triangle_diffuse[] = { 255, 255, 255 };
 
 c_linkage usize application_query_memory_requirement() {
+    logging_set_level( LOGGING_LEVEL_ALL );
     return sizeof(GameMemory);
 }
 
@@ -88,8 +89,9 @@ c_linkage b32 application_initialize( void* in_memory ) {
     return true;
 }
 
-c_linkage b32 application_run( TimeStamp time, void* in_memory ) {
+c_linkage b32 application_run( void* in_memory ) {
     GameMemory* memory = (GameMemory*)in_memory;
+    f64 delta_time = time_delta();
 
     if( input_key_down( KEY_ESCAPE ) ) {
         engine_exit();
@@ -104,8 +106,9 @@ c_linkage b32 application_run( TimeStamp time, void* in_memory ) {
         f32 pitch_delta = input_mouse_relative_y();
         f32 yaw_delta   = input_mouse_relative_x();
 
-        memory->camera_pitch += pitch_delta * rotate_speed * time.delta_seconds;
-        memory->camera_yaw   += yaw_delta   * rotate_speed * time.delta_seconds;
+
+        memory->camera_pitch += pitch_delta * rotate_speed * delta_time;
+        memory->camera_yaw   += yaw_delta   * rotate_speed * delta_time;
 
         #define CAMERA_MAX_PITCH ( to_rad32(80.0f) )
         memory->camera_pitch = clamp(
@@ -119,33 +122,31 @@ c_linkage b32 application_run( TimeStamp time, void* in_memory ) {
 
         transform_rotate( memory->camera.transform, camera_pitch );
 
+        b32 key_a = input_key( KEY_A );
+        b32 key_d = input_key( KEY_D );
+        b32 key_w = input_key( KEY_W );
+        b32 key_s = input_key( KEY_S );
+        b32 key_shift = input_key( KEY_SHIFT_LEFT );
+        b32 key_space = input_key( KEY_SPACE );
+        if( key_a || key_d || key_w || key_s || key_shift || key_space ) {
+            vec3 camera_delta = {};
+            camera_delta.x = ((f32)key_d - (f32)key_a);
+            camera_delta.z = -((f32)key_w - (f32)key_s);
+
+            camera_delta =
+                v3_mul( camera_delta, delta_time * move_speed );
+            camera_delta =
+                q_mul_v3(
+                    transform_local_rotation( memory->camera.transform ),
+                    camera_delta );
+            transform_translate( memory->camera.transform, camera_delta );
+
+            f32 camera_delta_y = ((f32)key_space - (f32)key_shift) *
+                delta_time * move_speed;
+            transform_translate( memory->camera.transform,
+                v3( 0.0f, camera_delta_y, 0.0f ) );
+        }
     }
-
-    b32 key_a = input_key( KEY_A );
-    b32 key_d = input_key( KEY_D );
-    b32 key_w = input_key( KEY_W );
-    b32 key_s = input_key( KEY_S );
-    b32 key_shift = input_key( KEY_SHIFT_LEFT );
-    b32 key_space = input_key( KEY_SPACE );
-    if( key_a || key_d || key_w || key_s || key_shift || key_space ) {
-        vec3 camera_delta = {};
-        camera_delta.x = ((f32)key_d - (f32)key_a);
-        camera_delta.z = -((f32)key_w - (f32)key_s);
-
-        camera_delta =
-            v3_mul( camera_delta, time.delta_seconds * move_speed );
-        camera_delta =
-            q_mul_v3(
-                transform_local_rotation( memory->camera.transform ),
-                camera_delta );
-        transform_translate( memory->camera.transform, camera_delta );
-
-        f32 camera_delta_y = ((f32)key_space - (f32)key_shift) *
-            time.delta_seconds * move_speed;
-        transform_translate( memory->camera.transform,
-            v3( 0.0f, camera_delta_y, 0.0f ) );
-    }
-
 
     graphics_draw(
         transform_world_matrix( &memory->cube0 ),
@@ -170,8 +171,8 @@ c_linkage b32 application_run( TimeStamp time, void* in_memory ) {
         RGB_WHITE,
         false, false, true, false );
 
-    transform_rotate( &memory->cube0, q_angle_axis( time.delta_seconds, v3_normalize(VEC3_RIGHT + VEC3_UP) ) );
-    transform_rotate( &memory->cube1, q_angle_axis( time.delta_seconds, VEC3_UP ) );
+    transform_rotate( &memory->cube0, q_angle_axis( delta_time, v3_normalize(VEC3_RIGHT + VEC3_UP) ) );
+    transform_rotate( &memory->cube1, q_angle_axis( delta_time, VEC3_UP ) );
 
     return true;
 }

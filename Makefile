@@ -1,4 +1,4 @@
-# * Description:  Liquid Engine Platform Layer Makefile
+# * Description:  Makefile for Liquid Platform Layer
 # * Author:       Alicia Amarilla (smushyaa@gmail.com)
 # * File Created: September 21, 2023
 
@@ -128,7 +128,11 @@ INCLUDE := -Iliquid_engine -Iliquid_platform
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
-all: shaders $(if $(SHADER_ONLY),,$(TARGET) build_core)
+all: $(if $(DEPENDENCIES_ONLY),generate_dependencies,shaders $(if $(SHADER_ONLY),,$(TARGET) build_core build_package))
+
+generate_dependencies:
+	@$(MAKE) --directory=liquid_engine generate_dependencies
+	@$(MAKE) --directory=testbed generate_dependencies
 
 test: all
 	@$(MAKE) --directory=testbed --no-print-directory
@@ -136,6 +140,9 @@ test: all
 
 build_core: 
 	@$(MAKE) --directory=liquid_engine --no-print-directory
+
+build_package:
+	# @$(MAKE) --directory=liquid_package --no-print-directory
 
 shaders:
 	@$(MAKE) --directory=shaders --no-print-directory
@@ -168,7 +175,11 @@ spit:
 	@$(MAKE) --directory=shaders spit
 	@$(MAKE) --directory=testbed spit
 
-clean: $(if $(SHADER_ONLY),,clean_files) clean_shaders
+clean: $(if $(DEPENDENCIES_ONLY),clean_dependencies,$(if $(SHADER_ONLY),,clean_files) clean_shaders) 
+
+clean_dependencies:
+	@$(MAKE) --directory=liquid_engine clean_dependencies
+	@$(MAKE) --directory=testbed clean_dependencies
 
 clean_shaders:
 	@echo "Make: cleaning "$(if $(RELEASE),release,debug)" shaders . . ."
@@ -195,7 +206,10 @@ help:
 	@echo "  TARGET_PLATFORM=...   set target platform"
 	@echo "                            valid values: win32, linux, macos, wasm"
 	@echo "                            default: current platform"
-	@echo "  SHADER_ONLY=true      build/clean only shaders"
+	@echo "  SHADER_ONLY=          build/clean only shaders"
+	@echo "                            valid values: true"
+	@echo "                            default: "
+	@echo "  DEPENDENCIES_ONLY=    build/clean only dependencies"
 	@echo "                            valid values: true"
 	@echo "                            default: "
 
@@ -217,5 +231,5 @@ $(TARGET): $(if $(IS_WINDOWS),$(WIN32RESOURCES),) $(LDMAIN) ./liquid_engine/defi
 	@mkdir -p $(OBJ_PATH)
 	@$(CC) $(CSTD) $(LDMAIN) $(WIN32RESOURCES) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
 
-.PHONY: all test shaders run clean clean_shaders clean_files help build_core 
+.PHONY: all test shaders run clean clean_shaders clean_files help build_core clean_dependencies generate_dependencies
 

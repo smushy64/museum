@@ -8,10 +8,10 @@
 #include "lights.glsl"
 #include "transform.glsl"
 in layout(location = 0) vec3 v_position;
-in layout(location = 1) vec2 v_uv;
-in layout(location = 2) vec3 v_normal;
+in layout(location = 1) vec3 v_normal;
+in layout(location = 2) vec3 v_tangent;
 in layout(location = 3) vec3 v_color;
-in layout(location = 4) vec3 v_tangent;
+in layout(location = 4) vec2 v_uv;
 
 out layout(location = 0) struct Vert2Frag {
     vec3 local_position;

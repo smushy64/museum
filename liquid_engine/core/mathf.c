@@ -2041,36 +2041,57 @@ mat4 m4_scale_2d_v2( vec2 scale ) {
     return m4_scale_2d( scale.width, scale.height );
 }
 
+LD_API Transform transform_create( vec3 position, quat rotation, vec3 scale ) {
+    Transform result = {};
+
+    result.position = position;
+    result.rotation = rotation;
+    result.scale    = scale;
+
+    result.local_matrix_dirty = false;
+    result.world_matrix_dirty = true;
+    result.camera_dirty       = true;
+
+    result.local_matrix = m4_transform( position, rotation, scale );
+    result.world_matrix = MAT4_IDENTITY;
+
+    result.parent       = NULL;
+
+    return result;
+}
 LD_API mat4 transform_local_matrix( Transform* t ) {
-    if( t->matrix_dirty ) {
-        t->matrix = m4_transform( t->position, t->rotation, t->scale );
-        t->matrix_dirty = false;
+    if( t->local_matrix_dirty ) {
+        t->local_matrix = m4_transform( t->position, t->rotation, t->scale );
+        t->local_matrix_dirty = false;
     }
-    return t->matrix;
+    return t->local_matrix;
 }
 LD_API mat4 transform_world_matrix( Transform* t ) {
-    mat4 local_ = transform_local_matrix( t );
-    if( t->parent ) {
-        mat4 parent = transform_world_matrix( t->parent );
-        return m4_mul_m4( &parent, &local_ );
+    if( t->world_matrix_dirty ) {
+        mat4 local_matrix = transform_local_matrix( t );
+        if( t->parent ) {
+            mat4 parent_matrix = transform_world_matrix( t->parent );
+            t->world_matrix = m4_mul_m4( &parent_matrix, &local_matrix );
+        } else {
+            t->world_matrix = local_matrix;
+        }
+
+        t->world_matrix_dirty = false;
     }
-    return local_;
+    return t->world_matrix;
 }
 LD_API vec3 transform_local_position( Transform* t ) {
     return t->position;
 }
 LD_API vec3 transform_world_position( Transform* t ) {
-    vec3 local_ = transform_local_position( t );
-    if( t->parent ) {
-        mat4 parent = transform_world_matrix( t->parent );
-        return m4_mul_v3( &parent, local_ );
-    }
-    return local_;
+    mat4 world_matrix = transform_world_matrix( t );
+    return m4_transform_position( &world_matrix );
 }
 LD_API void transform_set_position( Transform* t, vec3 position ) {
-    t->position     = position;
-    t->camera_dirty = true;
-    t->matrix_dirty = true;
+    t->position           = position;
+    t->camera_dirty       = true;
+    t->local_matrix_dirty = true;
+    t->world_matrix_dirty = true;
 }
 LD_API void transform_translate( Transform* t, vec3 translation ) {
     transform_set_position( t, v3_add( t->position, translation ) );
@@ -2087,9 +2108,10 @@ LD_API quat transform_world_rotation( Transform* t ) {
     return local_;
 }
 LD_API void transform_set_rotation( Transform* t, quat rotation ) {
-    t->rotation     = rotation;
-    t->camera_dirty = true;
-    t->matrix_dirty = true;
+    t->rotation           = rotation;
+    t->camera_dirty       = true;
+    t->local_matrix_dirty = true;
+    t->world_matrix_dirty = true;
 }
 LD_API void transform_rotate( Transform* t, quat rotation ) {
     transform_set_rotation( t, q_mul_q( rotation, t->rotation ) );
@@ -2106,8 +2128,9 @@ LD_API vec3 transform_world_scale( Transform* t ) {
     return local_;
 }
 LD_API void transform_set_scale( Transform* t, vec3 scale ) {
-    t->scale        = scale;
-    t->matrix_dirty = true;
+    t->scale              = scale;
+    t->local_matrix_dirty = true;
+    t->world_matrix_dirty = true;
 }
 LD_API void transform_scale( Transform* t, vec3 scale ) {
     transform_set_scale( t, v3_hadamard( t->scale, scale ) );

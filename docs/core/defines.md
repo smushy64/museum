@@ -165,13 +165,12 @@ Includes:
 | global          | static - for global static variables                     |
 | hot             | always optimize following function                       |
 | no_optimize     | never optimize following function                        |
-| packedpad       | struct is packed (no C padding)                          |
+| no_padding      | struct is packed (no C padding)                          |
 | force_inline    | always inline following function                         |
 | no_inline       | never inline following function                          |
 | header_only     | mark header function (extern inline in C, inline in C++) |
 | extern_c        | mark function as extern "C" (C++ only)                   |
 | deprecate       | mark function/struct as deprecated                       |
-| transparent     | mark union as transparent                                |
 | maybe_unused    | mark function/type as possibly unused                    |
 | aligned(x)      | mark value to have x alignment, must be power of two     |
 | LD_API          | export/import function                                   |

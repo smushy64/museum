@@ -7,7 +7,7 @@
 #include "core/mathf.h"
 #include "core/memoryf.h"
 #include "core/internal.h"
-#include "core/log.h"
+#include "core/logging.h"
 
 struct GamepadState {
     GamepadCode buttons;
@@ -301,7 +301,7 @@ LD_API void input_gamepad_set_rumble(
     usize gamepad, f32 rumble_left, f32 rumble_right
 ) {
     if( !global_input->gamepad[gamepad].is_active ) {
-        LOG_WARN( "Attempted to rumble disconnected gamepad {usize}!", gamepad );
+        warn_log( "Attempted to rumble disconnected gamepad {usize}!", gamepad );
         return;
     }
     global_input->gamepad[gamepad].rumble_left  = normalize_range32_u16( rumble_left );

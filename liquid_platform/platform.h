@@ -6,21 +6,44 @@
 #include "defines.h"
 
 #if defined(LD_PLATFORM_INTERNAL) && !defined(LIQUID_ENGINE_CORE_LIBRARY_PATH)
-    #error "LIQUID_ENGINE_CORE_LIBRARY_PATH must be defined!"
+    #if !defined(LD_CORE_STATIC_BUILD)
+        #error "LIQUID_ENGINE_CORE_LIBRARY_PATH must be defined!"
+    #endif
 #endif
 
 // NOTE(alicia): Types
 
 struct PlatformAPI;
 
-/// Engine core init function prototype.
-typedef int CoreInitFN( int argc, char** argv, struct PlatformAPI* platform );
+#if defined(LD_CORE_STATIC_BUILD)
+    /// Engine core init function prototype.
+    c_linkage int core_init( int argc, char** argv, struct PlatformAPI* platform );
+#else
+    /// Engine core init function prototype.
+    typedef int CoreInitFN( int argc, char** argv, struct PlatformAPI* platform );
+#endif
 /// Thread procedure prototype.
 typedef b32 ThreadProcFN( void* user_params );
 
 /// Handle to surface.
 typedef void PlatformSurface;
 
+/// System time.
+typedef struct PlatformTime {
+    u32 year;
+    /// 1-12
+    u32 month;
+    /// 1-31
+    u32 day;
+    /// 0-23
+    u32 hour;
+    /// 0-59
+    u32 minute;
+    /// 0-59
+    u32 second;
+} PlatformTime;
+
+#if !defined(LD_HEADLESS)
 /// This keycode corresponds to Liquid Engine core keycodes.
 typedef u8 PlatformKeyboardCode;
 /// Mouse codes.
@@ -72,6 +95,8 @@ typedef struct {
     void* on_mouse_wheel_params;
 } PlatformSurfaceCallbacks;
 
+#endif // if not headless
+
 /// Handle to library.
 typedef void PlatformLibrary;
 /// Handle to file.
@@ -80,6 +105,8 @@ typedef void PlatformFile;
 typedef void PlatformSemaphore;
 /// Handle to mutex.
 typedef void PlatformMutex;
+
+#if !defined(LD_HEADLESS)
 
 typedef u16 PlatformGamepadButtons;
 #define PLATFORM_GAMEPAD_BUTTON_DPAD_UP           (1 << 0)
@@ -132,6 +159,8 @@ enum : u32 {
 };
 typedef u32 PlatformSurfaceMode;
 
+#endif // if not headless
+
 typedef u32 PlatformFileFlags;
 #define PLATFORM_FILE_READ          (1 << 0)
 #define PLATFORM_FILE_WRITE         (1 << 1)
@@ -158,6 +187,8 @@ typedef struct {
     u16                       logical_processor_count;
     PlatformProcessorFeatures features;
 } PlatformInfo;
+
+#if !defined(LD_HEADLESS)
 
 // NOTE(alicia): Surface API
 
@@ -213,24 +244,33 @@ typedef struct {
     PlatformSurfacePumpEventsFN*      pump_events;
 } PlatformSurfaceAPI;
 
+#endif // if not headless
+
 // NOTE(alicia): Time API
 
 typedef f64 PlatformElapsedMillisecondsFN(void);
 typedef f64 PlatformSecondsElapsedFN(void);
 typedef void PlatformSleepMillisecondsFN( u32 ms );
+typedef PlatformTime PlatformQuerySystemTimeFN(void);
 
 typedef struct {
     PlatformElapsedMillisecondsFN* elapsed_milliseconds;
     PlatformSecondsElapsedFN*      elapsed_seconds;
     PlatformSleepMillisecondsFN*   sleep_ms;
+    PlatformQuerySystemTimeFN*     query_system_time;
 } PlatformTimeAPI;
 
 // NOTE(alicia): IO API
+
+#if !defined(LD_HEADLESS)
 
 typedef void PlatformIOReadGamepadsFN( PlatformGamepad gamepads[4] );
 typedef void PlatformIOSetGamepadRumbleFN(
     u32 gamepad_index, u16 normalized_motor_left, u16 normalized_motor_right );
 typedef void PlatformIOSetMouseVisibleFN( b32 is_visible );
+
+#endif // if not headless
+
 typedef PlatformFile* PlatformIOGetStdOutFN(void);
 typedef PlatformFile* PlatformIOGetStdErrFN(void);
 typedef void PlatformConsoleWriteFN(
@@ -239,7 +279,7 @@ typedef PlatformFile* PlatformFileOpenFN(
     const char* path, PlatformFileFlags flags );
 typedef void PlatformFileCloseFN( PlatformFile* file );
 typedef b32 PlatformFileReadFN(
-    PlatformFile* file, usize read_size, usize buffer_size, void* buffer );
+    PlatformFile* file, usize buffer_size, void* buffer );
 typedef b32 PlatformFileWriteFN(
     PlatformFile* file, usize buffer_size, void* buffer );
 typedef usize PlatformFileQuerySizeFN( PlatformFile* file );
@@ -251,9 +291,12 @@ typedef void PlatformWin32OutputDebugStringFN( const char* cstr );
 #endif
 
 typedef struct {
+#if !defined(LD_HEADLESS)
     PlatformIOReadGamepadsFN*     read_gamepads;
     PlatformIOSetGamepadRumbleFN* set_gamepad_rumble;
     PlatformIOSetMouseVisibleFN*  set_mouse_visible;
+#endif // if not headless
+
     PlatformIOGetStdOutFN*        stdout_handle;
     PlatformIOGetStdErrFN*        stderr_handle;
     PlatformConsoleWriteFN*       console_write;
@@ -299,6 +342,13 @@ typedef PlatformMutex* PlatformMutexCreateFN(void);
 typedef void PlatformMutexDestroyFN( PlatformMutex* mutex );
 typedef void PlatformMutexLockFN( PlatformMutex* mutex );
 typedef void PlatformMutexUnlockFN( PlatformMutex* mutex );
+typedef i32 PlatformInterlockedAdd( volatile i32* lhs, i32 rhs );
+typedef i32 PlatformInterlockedSub( volatile i32* lhs, i32 rhs );
+typedef i32 PlatformInterlockedExchange( volatile i32* target, i32 value );
+typedef i32 PlatformInterlockedCompareExchange(
+    volatile i32* dst, i32 exchange, i32 comperand );
+typedef void* PlatformInterlockedCompareExchangePointer(
+    void* volatile* dst, void* exchange, void* comperand );
 
 typedef struct {
     PlatformThreadCreateFN*       create;
@@ -311,6 +361,11 @@ typedef struct {
     PlatformMutexDestroyFN*       mutex_destroy;
     PlatformMutexLockFN*          mutex_lock;
     PlatformMutexUnlockFN*        mutex_unlock;
+    PlatformInterlockedAdd*                    interlocked_add;
+    PlatformInterlockedSub*                    interlocked_sub;
+    PlatformInterlockedExchange*               interlocked_exchange;
+    PlatformInterlockedCompareExchange*        interlocked_compare_exchange;
+    PlatformInterlockedCompareExchangePointer* interlocked_compare_exchange_pointer;
 } PlatformThreadAPI;
 
 // NOTE(alicia): Memory API
@@ -318,9 +373,9 @@ typedef struct {
 typedef void* PlatformHeapAllocFN( usize size );
 typedef void* PlatformHeapReallocFN(
     void* memory, usize old_size, usize new_size );
-typedef void PlatformHeapFreeFN( usize size, void* memory );
+typedef void PlatformHeapFreeFN( void* memory, usize size );
 typedef void* PlatformPageAllocFN( usize size );
-typedef void PlatformPageFreeFN( usize size, void* memory );
+typedef void PlatformPageFreeFN( void* memory, usize size );
 
 typedef struct {
     PlatformHeapAllocFN*   heap_alloc;
@@ -333,23 +388,31 @@ typedef struct {
 // NOTE(alicia): Misc
 
 typedef PlatformInfo* PlatformQueryInfoFN(void);
+typedef void PlatformLastErrorFN( usize* out_error_len, const char** out_error );
+
+#if !defined(LD_HEADLESS)
 typedef void* PlatformGLLoadProcFN(const char* function_name);
 typedef void PlatformFatalMessageBoxFN(
     const char* title, const char* message );
-typedef void PlatformLastErrorFN( usize* out_error_len, const char** out_error );
+#endif // if not headless
 
 typedef struct PlatformAPI {
-    PlatformSurfaceAPI   surface;
+
+#if !defined(LD_HEADLESS)
+    PlatformSurfaceAPI         surface;
+    PlatformGLLoadProcFN*      gl_load_proc;
+    PlatformFatalMessageBoxFN* fatal_message_box;
+#endif // if not headless
+
     PlatformTimeAPI      time;
     PlatformIOAPI        io;
     PlatformLibraryAPI   library;
     PlatformThreadAPI    thread;
     PlatformMemoryAPI    memory;
 
-    PlatformQueryInfoFN*       query_info;
-    PlatformGLLoadProcFN*      gl_load_proc;
-    PlatformFatalMessageBoxFN* fatal_message_box;
-    PlatformLastErrorFN*       last_error;
+    PlatformQueryInfoFN* query_info;
+    PlatformLastErrorFN* last_error;
+
 } PlatformAPI;
 
 #endif // header guard
