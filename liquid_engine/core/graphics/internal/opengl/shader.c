@@ -3,7 +3,7 @@
 // * File Created: September 24, 2023
 #include "defines.h"
 #include "core/logging.h"
-#include "core/strings.h"
+#include "core/string.h"
 #include "core/graphics/internal/opengl.h"
 #include "core/graphics/internal/opengl/types.h"
 #include "core/graphics/internal/opengl/functions.h"
@@ -54,7 +54,7 @@ b32 gl_shader_compile_source(
     usize       error_message_len = 0;
     const char* error_message     = NULL;
     gl_shader_report_error( shader, false, &error_message_len, &error_message );
-    StringSlice error = ss_from_cstr( error_message_len, error_message );
+    StringSlice error = string_slice_from_cstr( error_message_len, error_message );
 
     error_log_gl(
         "Failed to compile shader stage {cc}!", gl_shader_stage_to_cstr( stage ) );
@@ -100,7 +100,7 @@ b32 gl_shader_compile_spirv(
     usize       error_message_len = 0;
     const char* error_message     = NULL;
     gl_shader_report_error( shader, false, &error_message_len, &error_message );
-    StringSlice error = ss_from_cstr( error_message_len, error_message );
+    StringSlice error = string_slice_from_cstr( error_message_len, error_message );
 
     error_log_gl(
         "Failed to compile shader stage {cc}!", gl_shader_stage_to_cstr( stage ) );
@@ -143,7 +143,7 @@ b32 gl_shader_program_link(
     usize       error_message_len = 0;
     const char* error_message     = NULL;
     gl_shader_report_error( program, true, &error_message_len, &error_message );
-    StringSlice error = ss_from_cstr( error_message_len, error_message );
+    StringSlice error = string_slice_from_cstr( error_message_len, error_message );
 
     error_log_gl( "Failed to link shaders!" );
     if( !error.len ) {

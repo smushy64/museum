@@ -4,7 +4,7 @@
 #include "constants.h"
 #include "core/thread.h"
 #include "core/logging.h"
-#include "core/strings.h"
+#include "core/string.h"
 #include "core/internal.h"
 
 typedef struct ThreadWorkEntry {
@@ -159,7 +159,7 @@ LD_API Semaphore* semaphore_create(void) {
     name.len      = 0;
     name.capacity = 255;
 
-    ss_mut_fmt( &name, "sem_{usize}", SEM_NAME_INDEX++ );
+    string_slice_fmt( &name, "sem_{usize}", SEM_NAME_INDEX++ );
 
     Semaphore* result =
         platform->thread.semaphore_create( SEM_NAME_BUFFER, 0 );

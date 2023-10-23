@@ -8,7 +8,7 @@
 #include "core/memoryf.h"
 #include "core/mathf.h"
 #include "core/time.h"
-#include "core/strings.h"
+#include "core/string.h"
 #include "core/collections.h"
 #include "core/graphics/primitives.h"
 #include "core/graphics/internal.h"

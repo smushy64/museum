@@ -2,7 +2,7 @@
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: August 09, 2023
 #include <defines.h>
-#include <core/strings.h>
+#include <core/string.h>
 #include <core/mathf.h>
 #include <core/graphics.h>
 #include <core/input.h>

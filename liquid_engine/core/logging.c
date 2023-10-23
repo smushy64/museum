@@ -8,7 +8,7 @@
 #include "core/time.h"
 #include "core/internal.h"
 #include "core/thread.h"
-#include "core/strings.h"
+#include "core/string.h"
 
 #define LOGGING_TIMESTAMP_BUFFER_SIZE (32)
 
@@ -46,7 +46,7 @@ void logging_subsystem_initialize( PlatformFile* output_file ) {
         usize file_size = platform->io.file_query_size( LOGGING_FILE );
         platform->io.file_set_offset( LOGGING_FILE, file_size - 1 );
 
-        ss_mut( logging_file_header, "\n\n[PROGRAM START] --------\n\n" );
+        string_slice_mut( logging_file_header, "\n\n[PROGRAM START] --------\n\n" );
         ___log_output_file( &logging_file_header );
     }
 
@@ -147,10 +147,10 @@ void ___log_output_console( LoggingType type, struct StringSlice* message ) {
     switch( type ) {
         case LOGGING_TYPE_FATAL:
         case LOGGING_TYPE_ERROR: {
-            ss_output_stderr( message );
+            string_slice_output_stderr( message );
         } break;
         default: {
-            ss_output_stdout( message );
+            string_slice_output_stdout( message );
         } break;
     }
 }
@@ -178,7 +178,7 @@ void ___log_generate_timestamp( StringSlice* slice ) {
     u32 minute = time_query_minute();
     u32 second = time_query_second();
 
-    ss_mut_fmt(
+    string_slice_fmt(
         slice, "[{u,02}/{u,02}/{u,04} {u,02}:{u,02}:{u,02} {cc}] ",
         month, day, year,
         hour, minute, second,
@@ -198,7 +198,7 @@ LD_API void logging_output(
 
     StringSlice console_color = {};
     if( opt_color_override ) {
-        console_color = ss_from_cstr( 0, opt_color_override );
+        console_color = string_slice_from_cstr( 0, opt_color_override );
     } else {
         console_color = ___logging_color( type );
     }
@@ -267,8 +267,8 @@ LD_API void logging_output_fmt_va(
     format_buffer.len      = 0;
     format_buffer.capacity = LOGGING_BUFFER_SIZE;
 
-    ss_mut_fmt_va( &format_buffer, format, va );
-    if( !ss_mut_push( &format_buffer, 0 ) ) {
+    string_slice_fmt_va( &format_buffer, format, va );
+    if( !string_slice_push( &format_buffer, 0 ) ) {
         format_buffer.buffer[format_buffer.len - 1] = 0;
     }
 

@@ -3,13 +3,56 @@
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: April 28, 2023
 */
-#include "core/strings.h"
+#include "defines.h"
+#include "core/string.h"
 #include "core/memoryf.h"
-#include "core/cstr.h"
-
 #include "core/mathf.h"
+#include "core/internal.h"
 
-#include "internal.h"
+LD_API usize cstr_len( const char* cstr ) {
+    if( !cstr ) {
+        return 0;
+    }
+    const char* start = cstr;
+    while( *cstr ) {
+        cstr++;
+    }
+    return cstr - start;
+}
+LD_API b32 cstr_cmp( const char* a, const char* b ) {
+    if( !a || !b ) {
+        return false;
+    }
+
+    while( *a && *b ) {
+        if( *a++ != *b++ ) {
+            return false;
+        }
+        if( (*a && !*b) || (!*a && *b) ) {
+            return false;
+        }
+    }
+
+    return true;
+}
+LD_API void cstr_copy(
+    char* restricted dst, const char* restricted src, usize opt_src_len
+) {
+    usize src_len = opt_src_len;
+    if( !src_len ) {
+        src_len = cstr_len( src );
+    }
+    mem_copy( dst, src, src_len );
+}
+LD_API void cstr_copy_overlapped(
+    char* dst, const char* src, usize opt_src_len
+) {
+    usize src_len = opt_src_len;
+    if( !src_len ) {
+        src_len = cstr_len( src );
+    }
+    mem_copy_overlapped( dst, src, src_len );
+}
 
 LD_API void char_output_stdout( char character ) {
     platform->io.console_write( platform->io.stdout_handle(), 1, &character );
@@ -17,13 +60,13 @@ LD_API void char_output_stdout( char character ) {
 LD_API void char_output_stderr( char character ) {
     platform->io.console_write( platform->io.stderr_handle(), 1, &character );
 }
-hot LD_API void ss_output_stdout( StringSlice* slice ) {
+hot LD_API void string_slice_output_stdout( StringSlice* slice ) {
     platform->io.console_write(
         platform->io.stdout_handle(),
         slice->len, slice->buffer
     );
 }
-hot LD_API void ss_output_stderr( StringSlice* slice ) {
+hot LD_API void string_slice_output_stderr( StringSlice* slice ) {
     platform->io.console_write(
         platform->io.stderr_handle(),
         slice->len, slice->buffer
@@ -37,7 +80,7 @@ internal b32 ___safe_increment( usize* val, usize max ) {
         return true;
     }
 }
-LD_API b32 ss_parse_int( StringSlice* slice, i64* out_integer ) {
+LD_API b32 string_slice_parse_int( StringSlice* slice, i64* out_integer ) {
     if( !slice->len ) {
         return false;
     }
@@ -46,7 +89,7 @@ LD_API b32 ss_parse_int( StringSlice* slice, i64* out_integer ) {
     i64 result = 0;
 
     usize at = 0;
-    StringSlice parse = ss_clone( slice );
+    StringSlice parse = string_slice_clone( slice );
     if( parse.buffer[at] == '-' ) {
         if( !___safe_increment( &at, parse.len ) ) {
             return false;
@@ -69,7 +112,7 @@ LD_API b32 ss_parse_int( StringSlice* slice, i64* out_integer ) {
     *out_integer = result * ( is_negative ? -1 : 1 );
     return true;
 }
-LD_API b32 ss_parse_uint( StringSlice* slice, u64* out_integer ) {
+LD_API b32 string_slice_parse_uint( StringSlice* slice, u64* out_integer ) {
     if( !slice->len ) {
         return false;
     }
@@ -77,7 +120,7 @@ LD_API b32 ss_parse_uint( StringSlice* slice, u64* out_integer ) {
     u64 result = 0;
 
     usize at = 0;
-    StringSlice parse = ss_clone( slice );
+    StringSlice parse = string_slice_clone( slice );
 
     do {
         if( !char_is_digit( parse.buffer[at] ) ) {
@@ -136,19 +179,19 @@ internal u64 ___places( u64 i ) {
     return 0;
 }
 
-LD_API b32 ss_parse_float( StringSlice* slice, f64* out_float ) {
+LD_API b32 string_slice_parse_float( StringSlice* slice, f64* out_float ) {
     // f64 result = 0.0;
     i64 whole_part      = 0;
     u64 fractional_part = 0;
 
     usize dot_position = 0;
     if(
-        ss_find_char( slice, '.', &dot_position ) &&
+        string_slice_find_char( slice, '.', &dot_position ) &&
         dot_position + 1 < slice->len
     ) {
         StringSlice first = {}, last = {};
-        ss_split_at( slice, dot_position, &first, &last );
-        if( !ss_parse_int( &first, &whole_part ) ) {
+        string_slice_split( slice, dot_position, &first, &last );
+        if( !string_slice_parse_int( &first, &whole_part ) ) {
             return false;
         }
 
@@ -163,7 +206,7 @@ LD_API b32 ss_parse_float( StringSlice* slice, f64* out_float ) {
         last.len    -= zero_count;
 
         if( last.len ) {
-            if( !ss_parse_uint( &last, &fractional_part ) ) {
+            if( !string_slice_parse_uint( &last, &fractional_part ) ) {
                 return false;
             }
         }
@@ -181,7 +224,7 @@ LD_API b32 ss_parse_float( StringSlice* slice, f64* out_float ) {
 
         return true;
     } else {
-        b32 success = ss_parse_int( slice, &whole_part );
+        b32 success = string_slice_parse_int( slice, &whole_part );
         if( success ) {
             *out_float = (f64)whole_part;
             return success;
@@ -190,7 +233,7 @@ LD_API b32 ss_parse_float( StringSlice* slice, f64* out_float ) {
         }
     }
 }
-LD_API StringSlice ss_from_cstr( usize opt_len, const char* cstr ) {
+LD_API StringSlice string_slice_from_cstr( usize opt_len, const char* cstr ) {
     StringSlice result;
     result.buffer = (char*)cstr;
     if( opt_len ) {
@@ -201,7 +244,7 @@ LD_API StringSlice ss_from_cstr( usize opt_len, const char* cstr ) {
     result.capacity = result.len + 1;
     return result;
 }
-LD_API b32 ss_cmp( StringSlice* a, StringSlice* b ) {
+LD_API b32 string_slice_cmp( StringSlice* a, StringSlice* b ) {
     if( a->len != b->len ) {
         return false;
     }
@@ -213,7 +256,7 @@ LD_API b32 ss_cmp( StringSlice* a, StringSlice* b ) {
 
     return true;
 }
-LD_API b32 ss_find(
+LD_API b32 string_slice_find(
     StringSlice* slice, StringSlice* phrase, usize* opt_out_index
 ) {
     if( slice->len < phrase->len ) {
@@ -230,7 +273,7 @@ LD_API b32 ss_find(
         remaining.len      = phrase->len;
         remaining.capacity = remaining.len;
 
-        if( ss_cmp( &remaining, phrase ) ) {
+        if( string_slice_cmp( &remaining, phrase ) ) {
             if( opt_out_index ) {
                 *opt_out_index = i;
             }
@@ -241,7 +284,45 @@ LD_API b32 ss_find(
     return false;
 
 }
-LD_API b32 ss_find_char(
+LD_API b32 string_slice_find_count(
+    StringSlice* slice, StringSlice* phrase,
+    usize* opt_out_first_index, usize* out_count
+) {
+    usize count = 0;
+    if( phrase->len > slice->len ) {
+        *out_count = count;
+        return false;
+    }
+
+    b32   found       = false;
+    usize first_index = 0;
+    for( usize i = 0; i < slice->len; ++i ) {
+        usize remaining_len = slice->len - i;
+        if( phrase->len > remaining_len ) {
+            break;
+        }
+
+        StringSlice current;
+        current.buffer = slice->buffer + i;
+        current.len    = phrase->len;
+
+        if( string_slice_cmp( &current, phrase ) ) {
+            if( !found ) {
+                first_index = i;
+            }
+            found = true;
+            count++;
+        }
+    }
+
+    if( found && opt_out_first_index ) {
+        *opt_out_first_index = first_index;
+    }
+
+    *out_count = count;
+    return found;
+}
+LD_API b32 string_slice_find_char(
     StringSlice* slice, char character, usize* opt_out_index
 ) {
     for( usize i = 0; i < slice->len; ++i ) {
@@ -254,86 +335,62 @@ LD_API b32 ss_find_char(
     }
     return false;
 }
-LD_API usize ss_phrase_count( StringSlice* slice, StringSlice* phrase ) {
-    usize count = 0;
-    if( slice->len < phrase->len ) {
-        return 0;
-    }
+LD_API b32 string_slice_find_char_count(
+    StringSlice* slice, char character,
+    usize* opt_out_first_index, usize* out_count
+) {
+    b32   found       = false;
+    usize first_index = 0;
+    usize count       = 0;
 
-    for( usize i = 0; i < slice->len; ++i ) {
-        usize remaining_len = slice->len - i;
-        if( remaining_len < phrase->len ) {
-            return count;
-        }
-
-        if( slice->buffer[i] == phrase->buffer[0] ) {
-            StringSlice remaining;
-            remaining.buffer = slice->buffer + i;
-            remaining.len    = phrase->len;
-            remaining.capacity = remaining.len;
-
-            if( ss_cmp( &remaining, phrase ) ) {
-                count++;
-            }
-        }
-    }
-
-    return count;
-}
-LD_API usize ss_char_count( StringSlice* slice, char character ) {
-    usize count = 0;
     for( usize i = 0; i < slice->len; ++i ) {
         if( slice->buffer[i] == character ) {
+            if( !found ) {
+                first_index = i;
+            }
+            found = true;
             count++;
         }
     }
-    return count;
+
+    if( found && opt_out_first_index ) {
+        *opt_out_first_index = first_index;
+    }
+
+    *out_count = count;
+    return found;
 }
-LD_API void ss_mut_copy( StringSlice* dst, StringSlice* src ) {
-    assert( dst->capacity );
+LD_API b32 string_slice_find_whitespace( StringSlice* slice, usize* opt_out_index ) {
+    for( usize i = 0; i < slice->len; ++i ) {
+        if( char_is_whitespace( slice->buffer[i] ) ) {
+            if( opt_out_index ) {
+                *opt_out_index = i;
+            }
 
-    usize max_copy = dst->capacity > src->len ?
-        src->len : dst->capacity;
+            return true;
+        }
+    }
+
+    return false;
+}
+LD_API void string_slice_copy_to_len( StringSlice* dst, StringSlice* src ) {
+    usize max_copy = dst->len;
+    if( max_copy > src->len ) {
+        max_copy = src->len;
+    }
     mem_copy( dst->buffer, src->buffer, max_copy );
-
+}
+LD_API void string_slice_copy_to_capacity( StringSlice* dst, StringSlice* src ) {
+    usize max_copy = dst->capacity;
+    if( max_copy > src->len ) {
+        max_copy = src->len;
+    }
+    mem_copy( dst->buffer, src->buffer, max_copy );
     if( max_copy > dst->len ) {
         dst->len = max_copy;
     }
 }
-LD_API void ss_mut_copy_to_len( StringSlice* dst, StringSlice* src ) {
-    usize max_copy = dst->len > src->len ?
-        src->len : dst->len;
-    mem_copy( dst->buffer, src->buffer, max_copy );
-}
-LD_API void ss_mut_copy_cstr(
-    StringSlice* dst, usize opt_len, const char* src
-) {
-    StringSlice cstr;
-    cstr.buffer = (char*)src;
-    if( opt_len ) {
-        cstr.len = opt_len;
-    } else {
-        cstr.len = cstr_len( src );
-    }
-    ss_mut_copy( dst, &cstr );
-}
-LD_API void ss_mut_copy_cstr_to_len(
-    StringSlice* dst, usize opt_len, const char* src
-) {
-    StringSlice cstr;
-    cstr.buffer = (char*)src;
-    if( opt_len ) {
-        cstr.len = opt_len;
-    } else {
-        cstr.len = cstr_len( src );
-    }
-    ss_mut_copy_to_len( dst, &cstr );
-}
-LD_API void ss_mut_reverse( StringSlice* slice ) {
-    if( !slice->buffer || !slice->len || slice->len == 1 ) {
-        return;
-    }
-
+LD_API void string_slice_reverse( StringSlice* slice ) {
     char* begin = slice->buffer;
     char* end   = begin + slice->len - 1;
 
@@ -348,7 +405,7 @@ LD_API void ss_mut_reverse( StringSlice* slice ) {
         }
     }
 }
-LD_API void ss_mut_trim_trailing_whitespace( StringSlice* slice ) {
+LD_API void string_slice_trim_trailing_whitespace( StringSlice* slice ) {
     for( usize i = slice->len; i-- > 0; ) {
         char current = slice->buffer[i];
         if( current != ' ' || current != '\t' || current != '\n' ) {
@@ -357,13 +414,14 @@ LD_API void ss_mut_trim_trailing_whitespace( StringSlice* slice ) {
         }
     }
 }
-LD_API void ss_mut_fill( StringSlice* slice, char character ) {
-    mem_set( slice->buffer, character, slice->len );
+LD_API void string_slice_fill_to_len( StringSlice* slice, char character ) {
+    mem_set( slice->buffer, *(u8*)&character, slice->len );
 }
-LD_API void ss_mut_fill_to_capacity( StringSlice* slice, char character ) {
-    mem_set( slice->buffer, character, slice->capacity );
+LD_API void string_slice_fill_to_capacity( StringSlice* slice, char character ) {
+    slice->len = slice->capacity;
+    mem_set( slice->buffer, *(u8*)&character, slice->len );
 }
-LD_API b32 ss_mut_push( StringSlice* slice, char character ) {
+LD_API b32 string_slice_push( StringSlice* slice, char character ) {
     if( slice->len == slice->capacity ) {
         return false;
     }
@@ -372,7 +430,7 @@ LD_API b32 ss_mut_push( StringSlice* slice, char character ) {
 
     return true;
 }
-LD_API b32 ss_mut_pop( StringSlice* slice, char* opt_out_char ) {
+LD_API b32 string_slice_pop( StringSlice* slice, char* opt_out_char ) {
     if( !slice->len ) {
         return false;
     }
@@ -385,46 +443,89 @@ LD_API b32 ss_mut_pop( StringSlice* slice, char* opt_out_char ) {
     
     return true;
 }
-LD_API b32 ss_mut_insert(
-    StringSlice* slice, char character, usize position
+LD_API b32 string_slice_insert_char(
+    StringSlice* slice, usize index, char character
 ) {
-    if( position == slice->len ) {
-        return ss_mut_push( slice, character );
+    if( index == slice->len ) {
+        return string_slice_push( slice, character );
     }
-    if( slice->len == slice->capacity ) {
+    if( slice->len == slice->capacity || index > slice->len ) {
         return false;
     }
 
-    usize remaining_len = slice->len - position;
+    usize remaining_len = slice->len++ - index;
     mem_copy_overlapped(
-        slice->buffer + position + 1,
-        slice->buffer + position,
-        remaining_len
-    );
-    slice->buffer[position] = character;
-    slice->len++;
+        slice->buffer + index + 1, slice->buffer + index, remaining_len );
+    slice->buffer[index] = character;
 
     return true;
-
 }
-LD_API b32 ss_mut_append( StringSlice* slice, StringSlice* append ) {
-    b32 full_append = slice->capacity >= append->len;
-
-    usize max_copy = append->len > slice->capacity ?
-        slice->capacity - append->len : append->len;
-    
-    if( !max_copy ) {
+LD_API b32 string_slice_prepend( StringSlice* slice, StringSlice* prepend ) {
+    usize len = slice->len + prepend->len;
+    if( len > slice->capacity ) {
         return false;
     }
 
-    mem_copy(
-        slice->buffer + slice->len,
-        append->buffer, max_copy );
+    mem_copy_overlapped( slice->buffer + prepend->len, slice->buffer, slice->len );
+    mem_copy( slice->buffer, prepend->buffer, prepend->len );
 
-    slice->len += max_copy;
-    return full_append;
+    slice->len = len;
+
+    return true;
 }
-LD_API void ss_split_at(
+LD_API b32 string_slice_insert(
+    StringSlice* slice, usize index, StringSlice* insert
+) {
+    if( !index ) {
+        return string_slice_prepend( slice, insert );
+    }
+    if( index == slice->len ) {
+        return string_slice_append( slice, insert );
+    }
+    if( index > slice->len ) {
+        return false;
+    }
+
+    usize required_capacity = slice->len + insert->len;
+    if( required_capacity > slice->capacity ) {
+        return false;
+    }
+
+    usize remaining_len = slice->len - index;
+    mem_copy_overlapped(
+        slice->buffer + index,
+        slice->buffer + index + insert->len, remaining_len );
+    mem_copy( slice->buffer + index, insert->buffer, insert->len );
+
+    slice->len = required_capacity;
+    return true;
+}
+LD_API b32 string_slice_append( StringSlice* slice, StringSlice* append ) {
+    usize required_capacity = slice->len + append->len;
+    if( required_capacity > slice->capacity ) {
+        return false;
+    }
+
+    mem_copy( slice->buffer + slice->len, append->buffer, append->len );
+    slice->len = required_capacity;
+
+    return true;
+}
+LD_API b32 string_slice_prepend_cstr( StringSlice* slice, const char* prepend ) {
+    StringSlice prepend_slice = string_slice_from_cstr( 0, prepend );
+    return string_slice_prepend( slice, &prepend_slice );
+}
+LD_API b32 string_slice_append_cstr( StringSlice* slice, const char* append ) {
+    StringSlice append_slice = string_slice_from_cstr( 0, append );
+    return string_slice_append( slice, &append_slice );
+}
+LD_API b32 string_slice_insert_cstr(
+    StringSlice* slice, usize index, const char* insert
+) {
+    StringSlice insert_slice = string_slice_from_cstr( 0, insert );
+    return string_slice_insert( slice, index, &insert_slice );
+}
+LD_API void string_slice_split(
     StringSlice* slice_to_split, usize index,
     StringSlice* out_first, StringSlice* out_last
 ) {
@@ -439,24 +540,40 @@ LD_API void ss_split_at(
     out_last->len       = slice_to_split->len - offset;
     out_last->capacity  = slice_to_split->capacity - offset;
 }
-LD_API b32 ss_split_at_whitespace(
-    StringSlice* slice_to_split,
-    StringSlice* out_first, StringSlice* out_last
+LD_API b32 string_slice_split_char(
+    StringSlice* slice, char character, StringSlice* out_first, StringSlice* out_last
 ) {
     usize index = 0;
-    if( !ss_find_char( slice_to_split, ' ', &index ) ) {
-        if( !ss_find_char( slice_to_split, '\t', &index ) ) {
-            if( !ss_find_char( slice_to_split, '\n', &index ) ) {
-                return false;
-            }
-        }
+    if( !string_slice_find_char( slice, character, &index ) ) {
+        return false;
     }
 
-    ss_split_at( slice_to_split, index, out_first, out_last );
+    string_slice_split( slice, index, out_first, out_last );
 
     return true;
 }
-LD_API u64 ss_hash( StringSlice* slice ) {
+LD_API b32 string_slice_split_whitespace(
+    StringSlice* slice, StringSlice* out_first, StringSlice* out_last
+) {
+    usize index = 0;
+    if( !string_slice_find_whitespace( slice, &index ) ) {
+        return false;
+    }
+
+    string_slice_split( slice, index, out_first, out_last );
+
+    for( usize i = 0; i < out_last->len; ++i ) {
+        if( !char_is_whitespace( out_last->buffer[i] ) ) {
+            out_last->buffer   += i;
+            out_last->len      -= i;
+            out_last->capacity -= i;
+            break;
+        }
+    }
+
+    return true;
+}
+LD_API u64 string_slice_hash( StringSlice* slice ) {
     local const u64 multiplier = 97;
 
     u64 result = 0;
@@ -490,554 +607,10 @@ global char HEX_DIGITS[16] = {
 #define HEX_BASE     16
 
 #define ___push_slice( c ) do {\
-    if( !slice || !ss_mut_push( slice, c ) ) {\
+    if( !slice || !string_slice_push( slice, c ) ) {\
         result++;\
     }\
 } while(0)
-
-LD_API usize ss_mut_fmt_i8(
-    StringSlice* slice, i8 value, FormatInteger fmt
-) {
-    usize result = 0;
-    if( !value ) {
-        ___push_slice( '0' );
-        return result;
-    }
-    u8 abs;
-    if( value < 0 ) {
-        abs = (u8)( value * -1 );
-    } else {
-        abs = (u8)(value);
-    }
-
-    u8 base;
-    char* digits;
-
-    switch( fmt ) {
-        case FMT_INT_BINARY: {
-            base = 2;
-            digits = BINARY_DIGITS;
-        } break;
-        case FMT_INT_HEX: {
-            base = 16;
-            digits = HEX_DIGITS;
-        } break;
-        case FMT_INT_DECIMAL: {
-            base = 10;
-            digits = DECIMAL_DIGITS;
-        } break;
-    }
-
-    while( abs ) {
-        u8 digit = abs % base;
-        ___push_slice( digits[digit] );
-        abs /= base;
-    }
-
-    switch( fmt ) {
-        case FMT_INT_BINARY: {
-            ___push_slice( 'b' );
-            ___push_slice( '0' );
-        } break;
-        case FMT_INT_HEX: {
-            ___push_slice( 'x' );
-            ___push_slice( '0' );
-        } break;
-        case FMT_INT_DECIMAL: {
-            if( value < 0 ) {
-                ___push_slice( '-' );
-            }
-        } break;
-    }
-
-    if( slice ) {
-        ss_mut_reverse( slice );
-    }
-
-    return result;
-}
-LD_API usize ss_mut_fmt_i16(
-    StringSlice* slice, i16 value, FormatInteger fmt
-) {
-    usize result = 0;
-    if( !value ) {
-        ___push_slice( '0' );
-        return result;
-    }
-    u16 abs;
-    if( value < 0 ) {
-        abs = (u16)( value * -1 );
-    } else {
-        abs = (u16)(value);
-    }
-
-    u16 base;
-    char* digits;
-
-    switch( fmt ) {
-        case FMT_INT_BINARY: {
-            base = 2;
-            digits = BINARY_DIGITS;
-        } break;
-        case FMT_INT_HEX: {
-            base = 16;
-            digits = HEX_DIGITS;
-        } break;
-        case FMT_INT_DECIMAL: {
-            base = 10;
-            digits = DECIMAL_DIGITS;
-        } break;
-    }
-
-    while( abs ) {
-        u16 digit = abs % base;
-        ___push_slice( digits[digit] );
-        abs /= base;
-    }
-
-    switch( fmt ) {
-        case FMT_INT_BINARY: {
-            ___push_slice( 'b' );
-            ___push_slice( '0' );
-        } break;
-        case FMT_INT_HEX: {
-            ___push_slice( 'x' );
-            ___push_slice( '0' );
-        } break;
-        case FMT_INT_DECIMAL: {
-            if( value < 0 ) {
-                ___push_slice( '-' );
-            }
-        } break;
-        default: break;
-    }
-
-    if( slice ) {
-        ss_mut_reverse( slice );
-    }
-
-    return result;
-}
-LD_API usize ss_mut_fmt_i32(
-    StringSlice* slice, i32 value, FormatInteger fmt
-) {
-    usize result = 0;
-    if( !value ) {
-        ___push_slice( '0' );
-        return result;
-    }
-    u32 abs;
-    if( value < 0 ) {
-        abs = (u32)( value * -1 );
-    } else {
-        abs = (u32)(value);
-    }
-
-    u32 base;
-    char* digits;
-
-    switch( fmt ) {
-        case FMT_INT_BINARY: {
-            base = 2;
-            digits = BINARY_DIGITS;
-        } break;
-        case FMT_INT_HEX: {
-            base = 16;
-            digits = HEX_DIGITS;
-        } break;
-        case FMT_INT_DECIMAL: {
-            base = 10;
-            digits = DECIMAL_DIGITS;
-        } break;
-    }
-
-    while( abs ) {
-        u32 digit = abs % base;
-        ___push_slice( digits[digit] );
-        abs /= base;
-    }
-
-    switch( fmt ) {
-        case FMT_INT_BINARY: {
-            ___push_slice( 'b' );
-            ___push_slice( '0' );
-        } break;
-        case FMT_INT_HEX: {
-            ___push_slice( 'x' );
-            ___push_slice( '0' );
-        } break;
-        case FMT_INT_DECIMAL: {
-            if( value < 0 ) {
-                ___push_slice( '-' );
-            }
-        } break;
-        default: break;
-    }
-
-    if( slice ) {
-        ss_mut_reverse( slice );
-    }
-
-    return result;
-
-}
-LD_API usize ss_mut_fmt_i64(
-    StringSlice* slice, i64 value, FormatInteger fmt
-) {
-    usize result = 0;
-    if( !value ) {
-        ___push_slice( '0' );
-        return result;
-    }
-    u64 abs;
-    if( value < 0 ) {
-        abs = (u64)( value * -1 );
-    } else {
-        abs = (u64)(value);
-    }
-
-    u64 base;
-    char* digits;
-
-    switch( fmt ) {
-        case FMT_INT_BINARY: {
-            base = 2;
-            digits = BINARY_DIGITS;
-        } break;
-        case FMT_INT_HEX: {
-            base = 16;
-            digits = HEX_DIGITS;
-        } break;
-        case FMT_INT_DECIMAL: {
-            base = 10;
-            digits = DECIMAL_DIGITS;
-        } break;
-    }
-
-    while( abs ) {
-        u64 digit = abs % base;
-        ___push_slice( digits[digit] );
-        abs /= base;
-    }
-
-    switch( fmt ) {
-        case FMT_INT_BINARY: {
-            ___push_slice( 'b' );
-            ___push_slice( '0' );
-        } break;
-        case FMT_INT_HEX: {
-            ___push_slice( 'x' );
-            ___push_slice( '0' );
-        } break;
-        case FMT_INT_DECIMAL: {
-            if( value < 0 ) {
-                ___push_slice( '-' );
-            }
-        } break;
-        default: break;
-    }
-
-    if( slice ) {
-        ss_mut_reverse( slice );
-    }
-
-    return result;
-}
-
-LD_API usize ss_mut_fmt_u8(
-    StringSlice* slice, u8 value, FormatInteger fmt
-) {
-    usize result = 0;
-    if( !value ) {
-        ___push_slice( '0' );
-        return result;
-    }
-    u8 base;
-    char* digits;
-
-    switch( fmt ) {
-        case FMT_INT_BINARY: {
-            base = 2;
-            digits = BINARY_DIGITS;
-        } break;
-        case FMT_INT_HEX: {
-            base = 16;
-            digits = HEX_DIGITS;
-        } break;
-        case FMT_INT_DECIMAL: {
-            base = 10;
-            digits = DECIMAL_DIGITS;
-        } break;
-    }
-
-    while( value ) {
-        u8 digit = value % base;
-        ___push_slice( digits[digit] );
-        value /= base;
-    }
-
-    switch( fmt ) {
-        case FMT_INT_BINARY: {
-            ___push_slice( 'b' );
-            ___push_slice( '0' );
-        } break;
-        case FMT_INT_HEX: {
-            ___push_slice( 'x' );
-            ___push_slice( '0' );
-        } break;
-        default: break;
-    }
-
-    if( slice ) {
-        ss_mut_reverse( slice );
-    }
-
-    return result;
-}
-LD_API usize ss_mut_fmt_u16(
-    StringSlice* slice, u16 value, FormatInteger fmt
-) {
-    usize result = 0;
-    if( !value ) {
-        ___push_slice( '0' );
-        return result;
-    }
-    u16 base;
-    char* digits;
-
-    switch( fmt ) {
-        case FMT_INT_BINARY: {
-            base = 2;
-            digits = BINARY_DIGITS;
-        } break;
-        case FMT_INT_HEX: {
-            base = 16;
-            digits = HEX_DIGITS;
-        } break;
-        case FMT_INT_DECIMAL: {
-            base = 10;
-            digits = DECIMAL_DIGITS;
-        } break;
-    }
-
-    while( value ) {
-        u16 digit = value % base;
-        ___push_slice( digits[digit] );
-        value /= base;
-    }
-
-    switch( fmt ) {
-        case FMT_INT_BINARY: {
-            ___push_slice( 'b' );
-            ___push_slice( '0' );
-        } break;
-        case FMT_INT_HEX: {
-            ___push_slice( 'x' );
-            ___push_slice( '0' );
-        } break;
-        default: break;
-    }
-
-    if( slice ) {
-        ss_mut_reverse( slice );
-    }
-
-    return result;
-}
-LD_API usize ss_mut_fmt_u32(
-    StringSlice* slice, u32 value, FormatInteger fmt
-) {
-    usize result = 0;
-    if( !value ) {
-        ___push_slice( '0' );
-        return result;
-    }
-    u32 base;
-    char* digits;
-
-    switch( fmt ) {
-        case FMT_INT_BINARY: {
-            base = 2;
-            digits = BINARY_DIGITS;
-        } break;
-        case FMT_INT_HEX: {
-            base = 16;
-            digits = HEX_DIGITS;
-        } break;
-        case FMT_INT_DECIMAL: {
-            base = 10;
-            digits = DECIMAL_DIGITS;
-        } break;
-    }
-
-    while( value ) {
-        u32 digit = value % base;
-        ___push_slice( digits[digit] );
-        value /= base;
-    }
-
-    switch( fmt ) {
-        case FMT_INT_BINARY: {
-            ___push_slice( 'b' );
-            ___push_slice( '0' );
-        } break;
-        case FMT_INT_HEX: {
-            ___push_slice( 'x' );
-            ___push_slice( '0' );
-        } break;
-        default: break;
-    }
-
-    if( slice ) {
-        ss_mut_reverse( slice );
-    }
-
-    return result;
-}
-LD_API usize ss_mut_fmt_u64(
-    StringSlice* slice, u64 value, FormatInteger fmt
-) {
-    usize result = 0;
-    if( !value ) {
-        ___push_slice( '0' );
-        return result;
-    }
-    u64 base;
-    char* digits;
-
-    switch( fmt ) {
-        case FMT_INT_BINARY: {
-            base = 2;
-            digits = BINARY_DIGITS;
-        } break;
-        case FMT_INT_HEX: {
-            base = 16;
-            digits = HEX_DIGITS;
-        } break;
-        case FMT_INT_DECIMAL: {
-            base = 10;
-            digits = DECIMAL_DIGITS;
-        } break;
-    }
-
-    while( value ) {
-        u64 digit = value % base;
-        ___push_slice( digits[digit] );
-        value /= base;
-    }
-
-    switch( fmt ) {
-        case FMT_INT_BINARY: {
-            ___push_slice( 'b' );
-            ___push_slice( '0' );
-        } break;
-        case FMT_INT_HEX: {
-            ___push_slice( 'x' );
-            ___push_slice( '0' );
-        } break;
-        default: break;
-    }
-
-    if( slice ) {
-        ss_mut_reverse( slice );
-    }
-
-    return result;
-}
-
-LD_API usize ss_mut_fmt_f32( StringSlice* slice, f32 value, u32 precision ) {
-    return ss_mut_fmt_f64( slice, (f64)value, precision );
-}
-LD_API usize ss_mut_fmt_f64(
-    StringSlice* slice, f64 value, u32 precision
-) {
-    usize result = 0;
-    if( is_nan64( value ) ) {
-        ___push_slice( 'N' );
-        ___push_slice( 'a' );
-        ___push_slice( 'N' );
-        return result;
-    } else if( value == F64_POS_INFINITY ) {
-        ___push_slice( 'I' );
-        ___push_slice( 'N' );
-        ___push_slice( 'F' );
-        return result;
-    } else if( value == F64_NEG_INFINITY ) {
-        ___push_slice( '-' );
-        ___push_slice( 'I' );
-        ___push_slice( 'N' );
-        ___push_slice( 'F' );
-        return result;
-    }
-
-    f64 abs;
-    if( value < 0 ) {
-        abs = value * -1.0;
-    } else {
-        abs = value;
-    }
-
-    u64   base   = 10;
-    char* digits = DECIMAL_DIGITS;
-
-    u64 whole_part = (u64)abs;
-    f64 fractional = abs - (f64)whole_part;
-
-    if( !whole_part ) {
-        ___push_slice( digits[0] );
-    } else while( whole_part ) {
-        u64 digit = whole_part % base;
-        ___push_slice( digits[digit] );
-        whole_part /= base;
-    }
-
-    u32 precision_left = min( precision, 10 );
-    fractional *= 10.0;
-    whole_part = (u64)(fractional);
-
-    if( value < 0 ) {
-        ___push_slice( '-' );
-    }
-    usize rev_end = 0;
-    if( slice ) {
-        rev_end = slice->len;
-    }
-
-    if( precision_left ) {
-        ___push_slice( '.' );
-    }
-
-    while( precision_left ) {
-        u64 digit = whole_part % base;
-        ___push_slice( digits[digit] );
-        fractional *= 10.0;
-        whole_part = (u64)(fractional);
-        precision_left--;
-    }
-
-    if( slice ) {
-        StringSlice rev;
-        rev.buffer = slice->buffer;
-        rev.len    = rev_end;
-        ss_mut_reverse( &rev );
-    }
-
-    return result;
-}
-LD_API usize ss_mut_fmt_b32( StringSlice* slice, b32 value ) {
-    ss_const( ss_true, "true" );
-    ss_const( ss_false, "false" );
-
-    StringSlice* value_slice = value ? &ss_true : &ss_false;
-
-    usize result = 0;
-
-    for( usize i = 0; i < value_slice->len; ++i ) {
-        ___push_slice( value_slice->buffer[i] );
-    }
-
-    return result;
-}
 
 typedef enum {
     FMT_STORAGE_BYTES,
@@ -1076,7 +649,7 @@ no_inline internal b32 ___put_slice( StringSlice* slice, char c ) {
     if( !slice ) {
         return false;
     }
-    return ss_mut_push( slice, c );
+    return string_slice_push( slice, c );
 }
 maybe_unused
 no_inline internal b32 ___put_stdout( StringSlice* _, char c ) {
@@ -1149,8 +722,8 @@ internal usize ___fmt(
     intermediate.buffer   = intermediate_buffer;
     intermediate.capacity = ___intermediate_buffer_size;
 
-    ss_const( ss_true, "true" );
-    ss_const( ss_false, "false" );
+    string_slice_const( ss_true, "true" );
+    string_slice_const( ss_false, "false" );
 
     usize result = 0;
     
@@ -1219,7 +792,7 @@ internal usize ___fmt(
                         number.buffer = (char*)at;
                         number.len    = end;
 
-                        if( !ss_parse_int( &number, &padding ) ) {
+                        if( !string_slice_parse_int( &number, &padding ) ) {
                             goto fmt_end;
                         }
 
@@ -1234,9 +807,9 @@ internal usize ___fmt(
                     StringSlice bin;
                     bin.buffer = val ? "1" : "0";
                     bin.len    = 1;
-                    ss_mut_copy( &intermediate, &bin );
+                    string_slice_copy_to_capacity( &intermediate, &bin );
                 } else {
-                    ss_mut_copy(
+                    string_slice_copy_to_capacity(
                         &intermediate, val ? &ss_true : &ss_false );
                 }
 
@@ -1282,7 +855,7 @@ internal usize ___fmt(
                         number.buffer = (char*)at;
                         number.len    = end;
 
-                        if( !ss_parse_int( &number, &padding ) ) {
+                        if( !string_slice_parse_int( &number, &padding ) ) {
                             goto fmt_end;
                         }
 
@@ -1361,7 +934,7 @@ internal usize ___fmt(
                         number.buffer = (char*)at;
                         number.len    = end;
 
-                        if( !ss_parse_int( &number, &padding ) ) {
+                        if( !string_slice_parse_int( &number, &padding ) ) {
                             goto fmt_end;
                         }
 
@@ -1524,7 +1097,7 @@ internal usize ___fmt(
                             padding_char = '0';
                         }
 
-                        if( !ss_parse_int( &number, &padding ) ) {
+                        if( !string_slice_parse_int( &number, &padding ) ) {
                             goto fmt_end;
                         }
 
@@ -1547,11 +1120,11 @@ internal usize ___fmt(
                             int val_ = va_arg( va, int );
                             if( is_signed ) {
                                 i8 val = (i8)val_;
-                                ss_mut_fmt_i8(
+                                string_slice_fmt_int(
                                     &intermediate, val, fmt );
                             } else {
                                 u8 val = (u8)reinterpret( u32, val_ );
-                                ss_mut_fmt_u8(
+                                string_slice_fmt_uint(
                                     &intermediate, val, fmt );
                             }
                         } break;
@@ -1559,11 +1132,11 @@ internal usize ___fmt(
                             int val_ = va_arg( va, int );
                             if( is_signed ) {
                                 i16 val = (i16)val_;
-                                ss_mut_fmt_i16(
+                                string_slice_fmt_int(
                                     &intermediate, val, fmt );
                             } else {
                                 u16 val = (u16)reinterpret( u32, val_ );
-                                ss_mut_fmt_u16(
+                                string_slice_fmt_uint(
                                     &intermediate, val, fmt );
                             }
                         } break;
@@ -1571,11 +1144,11 @@ internal usize ___fmt(
                             int val_ = va_arg( va, int );
                             if( is_signed ) {
                                 i32 val = (i32)val_;
-                                ss_mut_fmt_i32(
+                                string_slice_fmt_int(
                                     &intermediate, val, fmt );
                             } else {
                                 u32 val = (u32)reinterpret( u32, val_ );
-                                ss_mut_fmt_u32(
+                                string_slice_fmt_uint(
                                     &intermediate, val, fmt );
                             }
                         } break;
@@ -1583,11 +1156,11 @@ internal usize ___fmt(
                             long long val_ = va_arg( va, long long );
                             if( is_signed ) {
                                 i64 val = (i64)val_;
-                                ss_mut_fmt_i64(
+                                string_slice_fmt_int(
                                     &intermediate, val, fmt );
                             } else {
                                 u64 val = (u64)reinterpret( u64, val_ );
-                                ss_mut_fmt_u64(
+                                string_slice_fmt_uint(
                                     &intermediate, val, fmt );
                             }
                         } break;
@@ -1620,7 +1193,7 @@ internal usize ___fmt(
                     i32 padding_ = padding;
                     if( component_count > 1 ) {
                         intermediate.len = 0;
-                        ss_mut_fmt_i32(
+                        string_slice_fmt_int(
                             &intermediate, values._vector[i], fmt );
                     }
 
@@ -1712,7 +1285,7 @@ internal usize ___fmt(
                                 padding_char = '0';
                             }
 
-                            if( !ss_parse_int( &number, &padding ) ) {
+                            if( !string_slice_parse_int( &number, &padding ) ) {
                                 goto fmt_end;
                             }
 
@@ -1725,7 +1298,7 @@ internal usize ___fmt(
                             number.len    = precision_end;
 
                             if(
-                                !ss_parse_uint( &number, &precision )
+                                !string_slice_parse_uint( &number, &precision )
                             ) {
                                 goto fmt_end;
                             }
@@ -1744,7 +1317,7 @@ internal usize ___fmt(
                             padding_char = '0';
                         }
 
-                        if( !ss_parse_int( &number, &padding ) ) {
+                        if( !string_slice_parse_int( &number, &padding ) ) {
                             goto fmt_end;
                         }
 
@@ -1800,7 +1373,7 @@ internal usize ___fmt(
                 for( u32 i = 0; i < component_count; ++i ) {
                     intermediate.len = 0;
 
-                    ss_mut_fmt_f64(
+                    string_slice_fmt_float(
                         &intermediate,
                         values[i],
                         precision
@@ -1883,20 +1456,222 @@ fmt_end:
     return result;
 }
 
-LD_API usize ss_mut_fmt_va(
+LD_API usize string_slice_fmt_va(
     StringSlice* buffer,
     const char* format,
     va_list va
 ) {
     return ___fmt( buffer, format, ___put_slice, va );
 }
-LD_API usize ss_mut_fmt( StringSlice* buffer, const char* format, ... ) {
+LD_API usize string_slice_fmt( StringSlice* buffer, const char* format, ... ) {
     va_list va;
     va_start( va, format );
 
-    usize result = ss_mut_fmt_va( buffer, format, va );
+    usize result = string_slice_fmt_va( buffer, format, va );
 
     va_end( va );
+    return result;
+}
+LD_API usize string_slice_fmt_int(
+    StringSlice* slice, i64 value, FormatInteger fmt
+) {
+    usize result = 0;
+    if( !value ) {
+        ___push_slice( '0' );
+        return result;
+    }
+    u64 abs;
+    if( value < 0 ) {
+        abs = (u64)( value * -1 );
+    } else {
+        abs = (u64)(value);
+    }
+
+    u64 base;
+    char* digits;
+
+    switch( fmt ) {
+        case FMT_INT_BINARY: {
+            base = 2;
+            digits = BINARY_DIGITS;
+        } break;
+        case FMT_INT_HEX: {
+            base = 16;
+            digits = HEX_DIGITS;
+        } break;
+        case FMT_INT_DECIMAL: {
+            base = 10;
+            digits = DECIMAL_DIGITS;
+        } break;
+    }
+
+    while( abs ) {
+        u64 digit = abs % base;
+        ___push_slice( digits[digit] );
+        abs /= base;
+    }
+
+    switch( fmt ) {
+        case FMT_INT_BINARY: {
+            ___push_slice( 'b' );
+            ___push_slice( '0' );
+        } break;
+        case FMT_INT_HEX: {
+            ___push_slice( 'x' );
+            ___push_slice( '0' );
+        } break;
+        case FMT_INT_DECIMAL: {
+            if( value < 0 ) {
+                ___push_slice( '-' );
+            }
+        } break;
+        default: break;
+    }
+
+    if( slice ) {
+        string_slice_reverse( slice );
+    }
+
+    return result;
+}
+LD_API usize string_slice_fmt_uint(
+    StringSlice* slice, u64 value, FormatInteger fmt
+) {
+    usize result = 0;
+    if( !value ) {
+        ___push_slice( '0' );
+        return result;
+    }
+    u64 base;
+    char* digits;
+
+    switch( fmt ) {
+        case FMT_INT_BINARY: {
+            base = 2;
+            digits = BINARY_DIGITS;
+        } break;
+        case FMT_INT_HEX: {
+            base = 16;
+            digits = HEX_DIGITS;
+        } break;
+        case FMT_INT_DECIMAL: {
+            base = 10;
+            digits = DECIMAL_DIGITS;
+        } break;
+    }
+
+    while( value ) {
+        u64 digit = value % base;
+        ___push_slice( digits[digit] );
+        value /= base;
+    }
+
+    switch( fmt ) {
+        case FMT_INT_BINARY: {
+            ___push_slice( 'b' );
+            ___push_slice( '0' );
+        } break;
+        case FMT_INT_HEX: {
+            ___push_slice( 'x' );
+            ___push_slice( '0' );
+        } break;
+        default: break;
+    }
+
+    if( slice ) {
+        string_slice_reverse( slice );
+    }
+
+    return result;
+}
+LD_API usize string_slice_fmt_float(
+    StringSlice* slice, f64 value, u32 precision
+) {
+    usize result = 0;
+    if( is_nan64( value ) ) {
+        ___push_slice( 'N' );
+        ___push_slice( 'a' );
+        ___push_slice( 'N' );
+        return result;
+    } else if( value == F64_POS_INFINITY ) {
+        ___push_slice( 'I' );
+        ___push_slice( 'N' );
+        ___push_slice( 'F' );
+        return result;
+    } else if( value == F64_NEG_INFINITY ) {
+        ___push_slice( '-' );
+        ___push_slice( 'I' );
+        ___push_slice( 'N' );
+        ___push_slice( 'F' );
+        return result;
+    }
+
+    f64 abs;
+    if( value < 0 ) {
+        abs = value * -1.0;
+    } else {
+        abs = value;
+    }
+
+    u64   base   = 10;
+    char* digits = DECIMAL_DIGITS;
+
+    u64 whole_part = (u64)abs;
+    f64 fractional = abs - (f64)whole_part;
+
+    if( !whole_part ) {
+        ___push_slice( digits[0] );
+    } else while( whole_part ) {
+        u64 digit = whole_part % base;
+        ___push_slice( digits[digit] );
+        whole_part /= base;
+    }
+
+    u32 precision_left = min( precision, 10 );
+    fractional *= 10.0;
+    whole_part = (u64)(fractional);
+
+    if( value < 0 ) {
+        ___push_slice( '-' );
+    }
+    usize rev_end = 0;
+    if( slice ) {
+        rev_end = slice->len;
+    }
+
+    if( precision_left ) {
+        ___push_slice( '.' );
+    }
+
+    while( precision_left ) {
+        u64 digit = whole_part % base;
+        ___push_slice( digits[digit] );
+        fractional *= 10.0;
+        whole_part = (u64)(fractional);
+        precision_left--;
+    }
+
+    if( slice ) {
+        StringSlice rev;
+        rev.buffer = slice->buffer;
+        rev.len    = rev_end;
+        string_slice_reverse( &rev );
+    }
+
+    return result;
+}
+LD_API usize string_slice_fmt_bool( StringSlice* slice, b32 value ) {
+    string_slice_const( ss_true, "true" );
+    string_slice_const( ss_false, "false" );
+
+    StringSlice* value_slice = value ? &ss_true : &ss_false;
+
+    usize result = 0;
+
+    for( usize i = 0; i < value_slice->len; ++i ) {
+        ___push_slice( value_slice->buffer[i] );
+    }
+
     return result;
 }
 

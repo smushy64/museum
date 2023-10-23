@@ -4,7 +4,7 @@
 #include "defines.h"
 #include <platform.h>
 #include "core/graphics.h"
-#include "core/strings.h"
+#include "core/string.h"
 #include "core/logging.h"
 #include "core/memoryf.h"
 #include "core/thread.h"
@@ -156,9 +156,9 @@ LD_API int core_init(
     char fatal_error_title_buffer[255];
     char fatal_error_message_buffer[255];
     StringSlice fatal_error_title =
-        ss( 255, fatal_error_title_buffer );
+        string_slice( 255, fatal_error_title_buffer );
     StringSlice fatal_error_message =
-        ss( 255, fatal_error_message_buffer );
+        string_slice( 255, fatal_error_message_buffer );
 
 #if defined(LD_LOGGING)
 
@@ -184,44 +184,44 @@ LD_API int core_init(
     i32 height = settings.resolution_height;
     global_resolution_scale = settings.resolution_scale;
     RendererBackend backend = settings.backend;
-    ss_const( game_library_path, GAME_LIBRARY_PATH_DEFAULT );
+    string_slice_const( game_library_path, GAME_LIBRARY_PATH_DEFAULT );
 
     /* parse arguments */ {
 #if defined(LD_DEVELOPER_MODE)
-        ss_const( libload, "--libload=" );
+        string_slice_const( libload, "--libload=" );
 #endif
-        ss_const( set_width, "--width=" );
-        ss_const( set_height, "--height=" );
-        ss_const( set_resolution_scale, "--resolution_scale=" );
-        ss_const( help, "--help" );
-        ss_const( h, "-h" );
+        string_slice_const( set_width, "--width=" );
+        string_slice_const( set_height, "--height=" );
+        string_slice_const( set_resolution_scale, "--resolution_scale=" );
+        string_slice_const( help, "--help" );
+        string_slice_const( h, "-h" );
 #if defined(LD_PLATFORM_WINDOWS)
 
 #if defined(LD_DEVELOPER_MODE)
-        ss_const( output_debug_string, "--output-debug-string" );
+        string_slice_const( output_debug_string, "--output-debug-string" );
         b32 enable_output_debug_string = false;
 #endif
-        ss_const( dx11,   "--directx11" );
-        ss_const( dx12,   "--directx12" );
+        string_slice_const( dx11,   "--directx11" );
+        string_slice_const( dx12,   "--directx12" );
 #endif
-        ss_const( opengl, "--opengl" );
-        ss_const( vulkan, "--vulkan" );
+        string_slice_const( opengl, "--opengl" );
+        string_slice_const( vulkan, "--vulkan" );
 #if defined(LD_PLATFORM_MACOS) || defined(LD_PLATFORM_IOS)
-        ss_const( metal,  "--metal" );
+        string_slice_const( metal,  "--metal" );
 #endif
 #if defined(LD_PLATFORM_WASM)
-        ss_const( webgl,  "--webgl" );
+        string_slice_const( webgl,  "--webgl" );
 #endif
 
         b32 parse_error = false;
 
         for( int i = 1; i < argc; ++i ) {
-            StringSlice current = ss_from_cstr( 0, argv[i] );
+            StringSlice current = string_slice_from_cstr( 0, argv[i] );
 
 #if defined(LD_DEVELOPER_MODE)
-            if( ss_find( &current, &libload, NULL ) ) {
+            if( string_slice_find( &current, &libload, NULL ) ) {
                 if( current.len - libload.len < 1 ) {
-                    StringSlice path = ss_clone( &current );
+                    StringSlice path = string_slice_clone( &current );
                     path.buffer += libload.len;
                     path.len    -= libload.len;
                     println_err(
@@ -239,7 +239,7 @@ LD_API int core_init(
             }
 #endif
 
-            if( ss_find( &current, &set_width, NULL ) ) {
+            if( string_slice_find( &current, &set_width, NULL ) ) {
                 if( current.len - set_width.len < 1 ) {
                     println_err(
                         CONSOLE_COLOR_RED
@@ -252,7 +252,7 @@ LD_API int core_init(
                 current.buffer += set_width.len;
                 current.len    -= set_width.len;
                 u64 parse_result = 0;
-                if( !ss_parse_uint( &current, &parse_result ) ) {
+                if( !string_slice_parse_uint( &current, &parse_result ) ) {
                     println_err(
                         CONSOLE_COLOR_RED
                         "invalid width {s}!"
@@ -266,7 +266,7 @@ LD_API int core_init(
                 continue;
             }
 
-            if( ss_find( &current, &set_height, NULL ) ) {
+            if( string_slice_find( &current, &set_height, NULL ) ) {
                 if( current.len - set_height.len < 1 ) {
                     println_err(
                         CONSOLE_COLOR_RED
@@ -279,7 +279,7 @@ LD_API int core_init(
                 current.buffer += set_height.len;
                 current.len    -= set_height.len;
                 u64 parse_result = 0;
-                if( !ss_parse_uint( &current, &parse_result ) ) {
+                if( !string_slice_parse_uint( &current, &parse_result ) ) {
                     println_err(
                         CONSOLE_COLOR_RED
                         "invalid height {s}!"
@@ -293,7 +293,7 @@ LD_API int core_init(
                 continue;
             }
 
-            if( ss_find( &current, &set_resolution_scale, NULL ) ) {
+            if( string_slice_find( &current, &set_resolution_scale, NULL ) ) {
                 if( current.len - set_resolution_scale.len < 1 ) {
                     println_err(
                         CONSOLE_COLOR_RED
@@ -306,7 +306,7 @@ LD_API int core_init(
                 current.buffer += set_resolution_scale.len;
                 current.len    -= set_resolution_scale.len;
                 f64 parse_result = 0.0;
-                if( !ss_parse_float( &current, &parse_result ) ) {
+                if( !string_slice_parse_float( &current, &parse_result ) ) {
                     println_err(
                         CONSOLE_COLOR_RED
                         "invalid resolution scale {s}!"
@@ -320,12 +320,12 @@ LD_API int core_init(
                 continue;
             }
 
-            if( ss_cmp( &current, &opengl ) ) {
+            if( string_slice_cmp( &current, &opengl ) ) {
                 backend = RENDERER_BACKEND_OPENGL;
                 continue;
             }
 
-            if( ss_cmp( &current, &vulkan ) ) {
+            if( string_slice_cmp( &current, &vulkan ) ) {
                 backend = RENDERER_BACKEND_VULKAN;
                 continue;
             }
@@ -333,34 +333,34 @@ LD_API int core_init(
 #if defined(LD_PLATFORM_WINDOWS)
 
 #if defined(LD_DEVELOPER_MODE)
-            if( ss_cmp( &current, &output_debug_string ) ) {
+            if( string_slice_cmp( &current, &output_debug_string ) ) {
                 enable_output_debug_string = true;
                 continue;
             }
 #endif
 
-            if( ss_cmp( &current, &dx11 ) ) {
+            if( string_slice_cmp( &current, &dx11 ) ) {
                 backend = RENDERER_BACKEND_DX11;
                 continue;
             }
-            if( ss_cmp( &current, &dx12 ) ) {
+            if( string_slice_cmp( &current, &dx12 ) ) {
                 backend = RENDERER_BACKEND_DX12;
                 continue;
             }
 #endif
 #if defined(LD_PLATFORM_MACOS) || defined(LD_PLATFORM_IOS)
-            if( ss_cmp( &current, &metal ) ) {
+            if( string_slice_cmp( &current, &metal ) ) {
                 backend = RENDERER_BACKEND_METAL;
                 continue;
             }
 #endif
 #if defined(LD_PLATFORM_WASM)
-            if( ss_cmp( &current, &webgl ) ) {
+            if( string_slice_cmp( &current, &webgl ) ) {
                 backend = RENDERER_BACKEND_WEBGL;
                 continue;
             }
 #endif
-            if( ss_cmp( &current, &help ) || ss_cmp( &current, &h ) ) {
+            if( string_slice_cmp( &current, &help ) || string_slice_cmp( &current, &h ) ) {
                 print_help();
                 return 0;
             }
@@ -387,11 +387,11 @@ LD_API int core_init(
     }
 
     if( !renderer_backend_is_supported( backend ) ) {
-        ss_mut_fmt(
+        string_slice_fmt(
             &fatal_error_title,
             "Fatal Error ({u8}){c}",
             CORE_ERROR_RENDERER_BACKEND_NOT_SUPPORTED, 0 );
-        ss_mut_fmt(
+        string_slice_fmt(
             &fatal_error_message,
             "Renderer backend '{cc}' is not supported on current platform!{c}",
             renderer_backend_to_string( backend ), 0 );
@@ -404,53 +404,53 @@ LD_API int core_init(
     note_log( "Engine Configuration:" );
     note_log( "Version:           {i}.{i}", LIQUID_ENGINE_VERSION_MAJOR, LIQUID_ENGINE_VERSION_MINOR );
 #if defined(LD_PLATFORM_WINDOWS)
-    ss_const(os, "win32");
+    string_slice_const(os, "win32");
 #endif
 #if defined(LD_PLATFORM_MACOS)
-    ss_const(os, "macos");
+    string_slice_const(os, "macos");
 #endif
 #if defined(LD_PLATFORM_IOS)
-    ss_const(os, "ios");
+    string_slice_const(os, "ios");
 #endif
 #if defined(LD_PLATFORM_ANDROID)
-    ss_const(os, "android");
+    string_slice_const(os, "android");
 #endif
 #if defined(LD_PLATFORM_LINUX)
-    ss_const(os, "linux");
+    string_slice_const(os, "linux");
 #endif
 #if defined(LD_PLATFORM_WASM)
-    ss_const(os, "wasm");
+    string_slice_const(os, "wasm");
 #endif
 #if defined(LD_ARCH_32_BIT)
     #if defined(LD_ARCH_X86)
-        ss_const(arch, "x86");
+        string_slice_const(arch, "x86");
     #endif
     #if defined(LD_ARCH_ARM)
         #if defined(LD_ARCH_LITTLE_ENDIAN)
-            ss_const(arch, "arm little-endian 32-bit");
+            string_slice_const(arch, "arm little-endian 32-bit");
         #endif
         #if defined(LD_ARCH_BIG_ENDIAN)
-            ss_const(arch, "arm big-endian 32-bit");
+            string_slice_const(arch, "arm big-endian 32-bit");
         #endif
     #endif
     #if defined(LD_ARCH_WASM)
-        ss_const(arch, "wasm 32-bit");
+        string_slice_const(arch, "wasm 32-bit");
     #endif
 #endif
 #if defined(LD_ARCH_64_BIT)
     #if defined(LD_ARCH_X86)
-        ss_const(arch, "x86_64");
+        string_slice_const(arch, "x86_64");
     #endif
     #if defined(LD_ARCH_ARM)
         #if defined(LD_ARCH_LITTLE_ENDIAN)
-            ss_const(arch, "arm little-endian 64-bit");
+            string_slice_const(arch, "arm little-endian 64-bit");
         #endif
         #if defined(LD_ARCH_BIG_ENDIAN)
-            ss_const(arch, "arm big-endian 64-bit");
+            string_slice_const(arch, "arm big-endian 64-bit");
         #endif
     #endif
     #if defined(LD_ARCH_WASM)
-        ss_const(arch, "wasm 64-bit");
+        string_slice_const(arch, "wasm 64-bit");
     #endif
 #endif
     note_log( "Platform:          {s}, {s}", os, arch );
@@ -464,11 +464,11 @@ LD_API int core_init(
     PlatformLibrary* game =
         platform->library.open( game_library_path.buffer );
     if( !game ) {
-        ss_mut_fmt(
+        string_slice_fmt(
             &fatal_error_title,
             "Fatal Error ({u8}){c}",
             CORE_ERROR_OPEN_GAME_LIBRARY, 0 );
-        ss_mut_fmt(
+        string_slice_fmt(
             &fatal_error_message,
             "Failed to load game library! Game library path: {s}{c}",
             game_library_path, 0 );
@@ -490,11 +490,11 @@ LD_API int core_init(
             game, "application_run" );
 
     if( !application_query_memory_requirement ) {
-        ss_mut_fmt(
+        string_slice_fmt(
             &fatal_error_title,
             "Fatal Error ({u8}){c}",
             CORE_ERROR_LOAD_GAME_MEMORY_REQUIREMENT, 0 );
-        ss_mut_fmt(
+        string_slice_fmt(
             &fatal_error_message,
             "Failed to load game memory requirement!{c}",
             0 );
@@ -504,11 +504,11 @@ LD_API int core_init(
         return CORE_ERROR_LOAD_GAME_MEMORY_REQUIREMENT;
     }
     if( !application_initialize ) {
-        ss_mut_fmt(
+        string_slice_fmt(
             &fatal_error_title,
             "Fatal Error ({u8}){c}",
             CORE_ERROR_LOAD_GAME_INITIALIZE, 0 );
-        ss_mut_fmt(
+        string_slice_fmt(
             &fatal_error_message,
             "Failed to load game initialize function!{c}",
             0 );
@@ -518,11 +518,11 @@ LD_API int core_init(
         return CORE_ERROR_LOAD_GAME_INITIALIZE;
     }
     if( !application_run ) {
-        ss_mut_fmt(
+        string_slice_fmt(
             &fatal_error_title,
             "Fatal Error ({u8}){c}",
             CORE_ERROR_LOAD_GAME_RUN, 0 );
-        ss_mut_fmt(
+        string_slice_fmt(
             &fatal_error_message,
             "Failed to load game run function!{c}",
             0 );
@@ -564,11 +564,11 @@ LD_API int core_init(
             "Stack Size: {usize} Stack Pages: {usize}",
             stack_size, stack_page_count );
         if( !stack_buffer ) {
-            ss_mut_fmt(
+            string_slice_fmt(
                 &fatal_error_title,
                 "Fatal Error ({u8}){c}",
                 CORE_ERROR_ENGINE_MEMORY_ALLOCATION, 0 );
-            ss_mut_fmt(
+            string_slice_fmt(
                 &fatal_error_message,
                 "Out of Memory!{c}",
                 0 );
@@ -815,11 +815,11 @@ internal b32 parse_settings( struct SettingsParse* out_parse_result ) {
         default_settings.capacity = ENGINE_SETTINGS_BUFFER_CAPACITY;
         default_settings.len      = 0;
 
-        ss_mut_fmt( &default_settings, "[graphics] \n" );
-        ss_mut_fmt( &default_settings, "width            = {i} \n", DEFAULT_RESOLUTION_WIDTH );
-        ss_mut_fmt( &default_settings, "height           = {i} \n", DEFAULT_RESOLUTION_HEIGHT );
-        ss_mut_fmt( &default_settings, "resolution_scale = {f,.1} \n", DEFAULT_RESOLUTION_SCALE );
-        ss_mut_fmt( &default_settings, "backend          = opengl \n" );
+        string_slice_fmt( &default_settings, "[graphics] \n" );
+        string_slice_fmt( &default_settings, "width            = {i} \n", DEFAULT_RESOLUTION_WIDTH );
+        string_slice_fmt( &default_settings, "height           = {i} \n", DEFAULT_RESOLUTION_HEIGHT );
+        string_slice_fmt( &default_settings, "resolution_scale = {f,.1} \n", DEFAULT_RESOLUTION_SCALE );
+        string_slice_fmt( &default_settings, "backend          = opengl \n" );
 
         b32 write_result = platform->io.file_write(
             settings_file, default_settings.len, default_settings.buffer );
@@ -881,29 +881,29 @@ internal b32 parse_settings( struct SettingsParse* out_parse_result ) {
     };
     enum Section section = SECTION_UNKNOWN;
 
-    ss_const( token_section_resolution, "[graphics]" );
-    ss_const( token_width, "width" );
-    ss_const( token_height, "height" );
-    ss_const( token_resolution_scale, "resolution_scale" );
-    ss_const( token_backend, "backend" );
+    string_slice_const( token_section_resolution, "[graphics]" );
+    string_slice_const( token_width, "width" );
+    string_slice_const( token_height, "height" );
+    string_slice_const( token_resolution_scale, "resolution_scale" );
+    string_slice_const( token_backend, "backend" );
 
-    ss_const( token_opengl, "opengl" );
-    ss_const( token_vulkan, "vulkan" );
-    ss_const( token_metal, "metal" );
-    ss_const( token_webgl, "webgl" );
-    ss_const( token_directx11, "directx11" );
-    ss_const( token_directx12, "directx12" );
+    string_slice_const( token_opengl, "opengl" );
+    string_slice_const( token_vulkan, "vulkan" );
+    string_slice_const( token_metal, "metal" );
+    string_slice_const( token_webgl, "webgl" );
+    string_slice_const( token_directx11, "directx11" );
+    string_slice_const( token_directx12, "directx12" );
 
     usize eol = 0;
-    StringSlice line = ss_clone( &settings );
+    StringSlice line = string_slice_clone( &settings );
 
-    while( ss_find_char( &line, '\n', &eol ) ) {
-        StringSlice temp = ss_clone( &line );
+    while( string_slice_find_char( &line, '\n', &eol ) ) {
+        StringSlice temp = string_slice_clone( &line );
         temp.len = eol + 1;
 
         switch( temp.buffer[0] ) {
             case '[': {
-                if( ss_find( &temp, &token_section_resolution, NULL ) ) {
+                if( string_slice_find( &temp, &token_section_resolution, NULL ) ) {
                     section = SECTION_GRAPHICS;
                 }
             } break;
@@ -918,7 +918,7 @@ internal b32 parse_settings( struct SettingsParse* out_parse_result ) {
 
         switch( section ) {
             case SECTION_GRAPHICS: {
-                if( ss_find( &temp, &token_width, NULL ) ) {
+                if( string_slice_find( &temp, &token_width, NULL ) ) {
                     StringSlice number;
                     number.buffer = temp.buffer + token_width.len;
                     number.len    = temp.len    - token_width.len;
@@ -931,7 +931,7 @@ internal b32 parse_settings( struct SettingsParse* out_parse_result ) {
                             number.len    -= i;
 
                             u64 int_parse = 0;
-                            if( ss_parse_uint( &number, &int_parse ) ) {
+                            if( string_slice_parse_uint( &number, &int_parse ) ) {
                                 parse_result.resolution_width =
                                     max( int_parse, 1 );
                             }
@@ -939,7 +939,7 @@ internal b32 parse_settings( struct SettingsParse* out_parse_result ) {
                             break;
                         }
                     }
-                } else if( ss_find( &temp, &token_height, NULL ) ) {
+                } else if( string_slice_find( &temp, &token_height, NULL ) ) {
                     StringSlice number;
                     number.buffer = temp.buffer + token_height.len;
                     number.len    = temp.len    - token_height.len;
@@ -952,7 +952,7 @@ internal b32 parse_settings( struct SettingsParse* out_parse_result ) {
                             number.len    -= i;
 
                             u64 int_parse = 0;
-                            if( ss_parse_uint( &number, &int_parse ) ) {
+                            if( string_slice_parse_uint( &number, &int_parse ) ) {
                                 parse_result.resolution_height =
                                     max( int_parse, 1 );
                             }
@@ -960,7 +960,7 @@ internal b32 parse_settings( struct SettingsParse* out_parse_result ) {
                             break;
                         }
                     }
-                } else if( ss_find( &temp, &token_resolution_scale, NULL ) ) {
+                } else if( string_slice_find( &temp, &token_resolution_scale, NULL ) ) {
                     StringSlice number;
                     number.buffer = temp.buffer + token_resolution_scale.len;
                     number.len    = temp.len    - token_resolution_scale.len;
@@ -976,11 +976,11 @@ internal b32 parse_settings( struct SettingsParse* out_parse_result ) {
                                 number.len &&
                                 !char_is_digit(number.buffer[number.len - 1])
                             ) {
-                                ss_mut_pop( &number, NULL );
+                                string_slice_pop( &number, NULL );
                             }
 
                             f64 float_parse = 0.0;
-                            if( ss_parse_float( &number, &float_parse ) ) {
+                            if( string_slice_parse_float( &number, &float_parse ) ) {
                                 parse_result.resolution_scale =
                                     max( float_parse, 0.1 );
                             }
@@ -988,22 +988,22 @@ internal b32 parse_settings( struct SettingsParse* out_parse_result ) {
                             break;
                         }
                     }
-                } else if( ss_find( &temp, &token_backend, NULL ) ) {
+                } else if( string_slice_find( &temp, &token_backend, NULL ) ) {
                     StringSlice backend;
                     backend.buffer = temp.buffer + token_backend.len;
                     backend.len    = temp.len    - token_backend.len;
 
-                    if( ss_find( &backend, &token_opengl, NULL ) ) {
+                    if( string_slice_find( &backend, &token_opengl, NULL ) ) {
                         parse_result.backend = RENDERER_BACKEND_OPENGL;
-                    } else if( ss_find( &backend, &token_vulkan, NULL ) ) {
+                    } else if( string_slice_find( &backend, &token_vulkan, NULL ) ) {
                         parse_result.backend = RENDERER_BACKEND_VULKAN;
-                    } else if( ss_find( &backend, &token_metal, NULL ) ) {
+                    } else if( string_slice_find( &backend, &token_metal, NULL ) ) {
                         parse_result.backend = RENDERER_BACKEND_METAL;
-                    } else if( ss_find( &backend, &token_webgl, NULL ) ) {
+                    } else if( string_slice_find( &backend, &token_webgl, NULL ) ) {
                         parse_result.backend = RENDERER_BACKEND_WEBGL;
-                    } else if( ss_find( &backend, &token_directx11, NULL ) ) {
+                    } else if( string_slice_find( &backend, &token_directx11, NULL ) ) {
                         parse_result.backend = RENDERER_BACKEND_DX11;
-                    } else if( ss_find( &backend, &token_directx12, NULL ) ) {
+                    } else if( string_slice_find( &backend, &token_directx12, NULL ) ) {
                         parse_result.backend = RENDERER_BACKEND_DX12;
                     }
                 }

@@ -268,6 +268,12 @@ typedef void* pvoid;
 /// Alignment must be a power of two.
 #define aligned(alignment) __attribute__((aligned (alignment)))
 
+#if defined(__cplusplus)
+    #define restricted __restrict
+#else
+    #define restricted restrict
+#endif
+
 #if defined(LD_COMPILER_GCC)
     /// Do not optimize regardless of optimization level
     #define no_optimize __attribute__((optimize("O0")))
