@@ -38,6 +38,37 @@
 // NOTE(alicia): scalar SIMD abstractions go here
 #if LD_SIMD_WIDTH == 1 
 
+/// Floor float to i32.
+global force_inline hot
+i32 lane1f_floor_i32( f32 x ) {
+    return (((x) > 0.0f) ? (i32)(x) : (i32)( (x) - 0.99999f ));
+}
+/// Ceil float to i32.
+global force_inline hot
+i32 lane1f_ceil_i32( f32 x ) {
+    return (((x) > 0.0f) ? (i32)( (x) + 0.99999f ) : (i32)( (x) ) );
+}
+/// Round float to i32.
+global force_inline hot
+i32 lane1f_round_i32( f32 x ) {
+    return (((x) > 0.0f) ? (i32)( (x) + 0.5f ) : (i32)( (x) - 0.5f ));
+}
+/// Floor float to u32.
+global force_inline hot
+u32 lane1f_floor_u32( f32 x ) {
+    return (((x) > 0.0f) ? (u32)( x ) : 0 );
+}
+/// Ceil float to u32.
+global force_inline hot
+u32 lane1f_ceil_u32( f32 x ) {
+    return ( (u32)( (x) + 0.99999f ) );
+}
+/// Round float to u32.
+global force_inline hot
+u32 lane1f_round_u32( f32 x ) {
+    return ((u32)( (x) + 0.5f ));
+}
+
 /// Square root of scalar.
 global force_inline hot
 f32 lane1f_sqrt( f32 x ) {
@@ -182,6 +213,38 @@ Lane4f lane4f_rsqrt( Lane4f lane ) {
 // NOTE(alicia): 4/8 wide SIMD abstractions go here
 #if defined(LD_ARCH_X86) && LD_SIMD_WIDTH != 1
 
+/// Floor float to i32.
+global force_inline hot
+i32 lane1f_floor_i32( f32 x ) {
+    return _mm_cvtss_si32( _mm_floor_ps( _mm_set_ss( x ) ) );
+}
+/// Ceil float to i32.
+global force_inline hot
+i32 lane1f_ceil_i32( f32 x ) {
+    return _mm_cvtss_si32( _mm_ceil_ps( _mm_set_ss( x ) ) );
+}
+/// Round float to i32.
+global force_inline hot
+i32 lane1f_round_i32( f32 x ) {
+    return _mm_cvtss_si32( _mm_round_ps( _mm_set_ss( x ),
+        _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC ) );
+}
+/// Floor float to u32.
+global force_inline hot
+u32 lane1f_floor_u32( f32 x ) {
+    return (u32)_mm_cvtss_si32( _mm_floor_ps( _mm_set_ss( x ) ) );
+}
+/// Ceil float to u32.
+global force_inline hot
+u32 lane1f_ceil_u32( f32 x ) {
+    return (u32)_mm_cvtss_si32( _mm_ceil_ps( _mm_set_ss( x ) ) );
+}
+/// Round float to u32.
+global force_inline hot
+u32 lane1f_round_u32( f32 x ) {
+    return (u32)_mm_cvtss_si32( _mm_round_ps( _mm_set_ss( x ),
+        _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC ) );
+}
 /// Square root of scalar.
 global force_inline
 f32 lane1f_sqrt( f32 x ) {

@@ -6,7 +6,7 @@
 #include "defines.h"
 #include "core/logging.h"
 #include "core/memory.h"
-#include "core/mathf.h"
+#include "core/math.h"
 #include "core/time.h"
 #include "core/string.h"
 #include "core/collections.h"
@@ -167,7 +167,7 @@ internal no_inline b32 gl_begin_frame(void) {
                         command->point_light.is_active;
 
                     mat4 proj = m4_perspective(
-                        to_rad32( 90.0f ), 1.0f,
+                        to_radians( 90.0f ), 1.0f,
                         buffer_light.near_clip, buffer_light.far_clip );
 
                     mat4 views[GL_POINT_LIGHT_MATRIX_COUNT];
@@ -657,7 +657,7 @@ b32 gl_subsystem_init(void) {
             camera.near_clip = 0.001f;
             camera.far_clip  = 1000.0f;
             mat4 proj = m4_perspective(
-                to_deg32( 60.0f ), camera.aspect_ratio,
+                to_degrees( 60.0f ), camera.aspect_ratio,
                 camera.near_clip, camera.far_clip );
 
             camera.view_projection_3d = m4_mul_m4( &proj, &view );

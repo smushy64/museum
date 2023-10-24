@@ -4,7 +4,7 @@
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: August 18, 2023
 #include "defines.h"
-#include "core/mathf/types.h"
+#include "core/math.h"
 #include "core/graphics/types.h"
 
 /// Set the current camera.

@@ -6,7 +6,7 @@
 #include "defines.h"
 
 #if defined(LD_API_INTERNAL)
-#include "core/mathf/types.h"
+#include "core/math.h"
 
 typedef i8  GLbyte;
 typedef i16 GLshort;

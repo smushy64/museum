@@ -4,7 +4,7 @@
 #include "defines.h"
 #include "core/logging.h"
 #include "core/sort.h"
-#include "core/mathf.h"
+#include "core/math.h"
 #include "core/memory.h"
 #include "core/collections.h"
 #include "core/graphics.h"

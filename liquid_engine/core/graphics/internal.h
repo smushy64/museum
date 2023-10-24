@@ -8,7 +8,7 @@
 #if defined(LD_API_INTERNAL)
 #include "core/internal.h"
 #include "core/graphics/types.h"
-#include "core/mathf/types.h"
+#include "core/math.h"
 
 extern struct RendererSubsystem* global_renderer;
 extern struct RenderData*        global_render_data;

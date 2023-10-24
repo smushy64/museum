@@ -4,7 +4,7 @@
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: August 21, 2023
 #include "defines.h"
-#include "core/mathf/types.h"
+#include "core/math.h"
 
 typedef u32 RenderID;
 #define RENDER_ID_NULL (0)

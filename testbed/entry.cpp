@@ -3,7 +3,7 @@
 // * File Created: August 09, 2023
 #include <defines.h>
 #include <core/string.h>
-#include <core/mathf.h>
+#include <core/math.h>
 #include <core/graphics.h>
 #include <core/input.h>
 #include <core/engine.h>
@@ -52,7 +52,7 @@ c_linkage b32 application_initialize( void* in_memory ) {
     memory->camera.transform   = &memory->camera_transform;
     memory->camera.near_clip   = 0.01f;
     memory->camera.far_clip    = 1000.0f;
-    memory->camera.fov_radians = to_rad32( 90.0f );
+    memory->camera.fov_radians = to_radians( 90.0f );
 
     memory->floor = m4_transform(
         VEC3_DOWN, QUAT_IDENTITY, v3( 100.0f, 1.0f, 100.0f ) );
@@ -109,7 +109,7 @@ c_linkage b32 application_run( void* in_memory ) {
         memory->camera_pitch += pitch_delta * rotate_speed * delta_time;
         memory->camera_yaw   += yaw_delta   * rotate_speed * delta_time;
 
-        #define CAMERA_MAX_PITCH ( to_rad32(80.0f) )
+        #define CAMERA_MAX_PITCH ( to_radians(80.0f) )
         memory->camera_pitch = clamp(
             memory->camera_pitch, -CAMERA_MAX_PITCH, CAMERA_MAX_PITCH );
 

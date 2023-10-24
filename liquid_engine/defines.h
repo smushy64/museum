@@ -211,9 +211,11 @@ typedef void* pvoid;
 #define static_array_size( array ) \
     (sizeof(( array )))
 
-/// Reinterpret value as a different type
-#define reinterpret( type, value )\
-    (*(type*)&( value ))
+#if !defined(__cplusplus)
+    /// Reinterpret value as a different type
+    #define reinterpret_cast( type, pointer )\
+        (*(type*)( pointer ))
+#endif
 
 #if defined(__cplusplus)
     /// External C linkage

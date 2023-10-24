@@ -37,7 +37,7 @@ LD_API i32 rand_lcg_i32_state( RandState* state_ ) {
 }
 LD_API u32 rand_lcg_u32_state( RandState* state ) {
     i32 next = rand_lcg_i32_state( state );
-    return reinterpret( u32, next );
+    return reinterpret_cast( u32, &next );
 }
 LD_API f32 rand_lcg_f32_state( RandState* state ) {
     i32 next = rand_lcg_i32_state( state );

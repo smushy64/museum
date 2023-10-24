@@ -1,10 +1,581 @@
-#if !defined(LD_CORE_MATH_FUNCTIONS_H)
-#define LD_CORE_MATH_FUNCTIONS_H
-// * Description:  Math functions
-// * Author:       Alicia Amarilla (smushyaa@gmail.com)
-// * File Created: September 05, 2023
+#if !defined(LD_CORE_MATH_H)
+#define LD_CORE_MATH_H
+/**
+ * Description:  Math Library
+ * Author:       Alicia Amarilla (smushyaa@gmail.com)
+ * File Created: October 14, 2023
+*/
 #include "defines.h"
 #include "constants.h"
+
+/// 2-component 32-bit float vector
+typedef union vec2 vec2;
+/// 3-component 32-bit float vector
+typedef union vec3 vec3;
+/// RGB color.
+typedef union vec3 rgb;
+/// HSV color.
+typedef union vec3 hsv;
+/// 3D rotation expressed in euler angles.
+typedef union vec3 euler_angles;
+/// 4-component 32-bit float vector
+typedef union vec4 vec4;
+/// RGBA color.
+typedef union vec4 rgba;
+
+/// 2-component 32-bit integer vector
+typedef union ivec2 ivec2;
+/// 3-component 32-bit integer vector
+typedef union ivec3 ivec3;
+/// 4-component 32-bit integer vector
+typedef union ivec4 ivec4;
+
+/// Quaternion.
+typedef union quat quat;
+
+/// Column-major 2x2 32-bit float matrix.
+typedef union mat2 mat2;
+/// Column-major 3x3 32-bit float matrix.
+typedef union mat3 mat3;
+/// Column-major 4x4 32-bit float matrix.
+typedef union mat4 mat4;
+
+/// Transform.
+typedef struct Transform Transform;
+
+#define VEC2_COMPONENT_COUNT (2)
+/// 2-component 32-bit float vector
+union vec2 {
+    struct { f32 x, y; };
+    struct { f32 u, v; };
+    struct { f32 width, height; };
+    f32 c[VEC2_COMPONENT_COUNT];
+};
+#define VEC2_ZERO  (vec2){}
+#define VEC2_ONE   (vec2){  1.0f,  1.0f }
+#define VEC2_LEFT  (vec2){ -1.0f,  0.0f }
+#define VEC2_RIGHT (vec2){  1.0f,  0.0f }
+#define VEC2_UP    (vec2){  0.0f,  1.0f }
+#define VEC2_DOWN  (vec2){  0.0f, -1.0f }
+
+/// Create zero vector.
+header_only vec2 v2_zero(void) { return VEC2_ZERO; }
+/// Create vector with all components set to given scalar.
+header_only vec2 v2_scalar( f32 scalar ) {
+    vec2 result = {scalar, scalar};
+    return result;
+}
+/// Create vector with given components.
+header_only vec2 v2( f32 x, f32 y ) {
+    vec2 result = { x, y };
+    return result;
+}
+
+#define IVEC2_COMPONENT_COUNT (2)
+/// 2-component 32-bit signed integer vector
+union ivec2 {
+    struct { i32 x, y; };
+    struct { i32 u, v; };
+    struct { i32 width, height; };
+    i32 c[IVEC2_COMPONENT_COUNT];
+};
+#define IVEC2_ZERO  (ivec2){} 
+#define IVEC2_ONE   (ivec2){  1,  1 } 
+#define IVEC2_LEFT  (ivec2){ -1,  0 } 
+#define IVEC2_RIGHT (ivec2){  1,  0 } 
+#define IVEC2_UP    (ivec2){  0,  1 } 
+#define IVEC2_DOWN  (ivec2){  0, -1 } 
+
+/// Create zero vector.
+header_only ivec2 iv2_zero(void) { return IVEC2_ZERO; }
+/// Create vector with all components set to given scalar.
+header_only ivec2 iv2_scalar( i32 scalar ) {
+    ivec2 result = { scalar, scalar };
+    return result;
+}
+/// Create vector with given components.
+header_only ivec2 iv2( i32 x, i32 y ) {
+    ivec2 result = { x, y };
+    return result;
+}
+
+#define VEC3_COMPONENT_COUNT (3)
+/// 3-component 32-bit float vector
+union vec3 {
+    struct {
+        union {
+            struct { f32 x, y; };
+            struct { f32 r, g; };
+            struct { f32 hue, saturation; };
+            struct { f32 width, height; };
+            struct { f32 pitch, yaw; };
+            vec2 xy;
+            vec2 rg;
+        };
+        union {
+            f32 z;
+            f32 b;
+            f32 value;
+            f32 length;
+            f32 roll;
+        };
+    };
+    f32 c[VEC3_COMPONENT_COUNT];
+};
+
+#define VEC3_ZERO    (vec3){}
+#define VEC3_ONE     (vec3){  1.0f,  1.0f,  1.0f } 
+#define VEC3_LEFT    (vec3){ -1.0f,  0.0f,  0.0f } 
+#define VEC3_RIGHT   (vec3){  1.0f,  0.0f,  0.0f } 
+#define VEC3_UP      (vec3){  0.0f,  1.0f,  0.0f } 
+#define VEC3_DOWN    (vec3){  0.0f, -1.0f,  0.0f } 
+#define VEC3_FORWARD (vec3){  0.0f,  0.0f,  1.0f } 
+#define VEC3_BACK    (vec3){  0.0f,  0.0f, -1.0f } 
+
+#define RGB_RED     (rgb){ 1.0f, 0.0f, 0.0f } 
+#define RGB_GREEN   (rgb){ 0.0f, 1.0f, 0.0f } 
+#define RGB_BLUE    (rgb){ 0.0f, 0.0f, 1.0f } 
+#define RGB_MAGENTA (rgb){ 1.0f, 0.0f, 1.0f } 
+#define RGB_YELLOW  (rgb){ 1.0f, 1.0f, 0.0f } 
+#define RGB_CYAN    (rgb){ 0.0f, 1.0f, 1.0f } 
+#define RGB_BLACK   (rgb){ 0.0f, 0.0f, 0.0f } 
+#define RGB_WHITE   (rgb){ 1.0f, 1.0f, 1.0f } 
+#define RGB_GRAY    (rgb){ 0.5f, 0.5f, 0.5f } 
+#define RGB_GREY    (rgb){ 0.5f, 0.5f, 0.5f } 
+
+/// Create zero vector.
+header_only vec3 v3_zero(void) { return VEC3_ZERO; }
+/// Create vector with given components.
+header_only vec3 v3( f32 x, f32 y, f32 z ) {
+    vec3 result = { x, y, z };
+    return result;
+}
+/// Create vector with all components set to given scalar.
+header_only vec3 v3_scalar( f32 scalar ) {
+    vec3 result = { scalar, scalar, scalar };
+    return result;
+}
+
+#define IVEC3_COMPONENT_COUNT (3)
+/// 3-component 32-bit signed integer vector
+union ivec3 {
+    struct {
+        union {
+            struct { i32 x, y; };
+            struct { i32 width, height; };
+            ivec2 xy;
+        };
+        union {
+            i32 z;
+            i32 depth;
+        };
+    };
+    i32 c[IVEC3_COMPONENT_COUNT];
+};
+
+#define IVEC3_ZERO    (ivec3){  0,  0,  0 } 
+#define IVEC3_ONE     (ivec3){  1,  1,  1 } 
+#define IVEC3_LEFT    (ivec3){ -1,  0,  0 } 
+#define IVEC3_RIGHT   (ivec3){  1,  0,  0 } 
+#define IVEC3_UP      (ivec3){  0,  1,  0 } 
+#define IVEC3_DOWN    (ivec3){  0, -1,  0 } 
+#define IVEC3_FORWARD (ivec3){  0,  0,  1 } 
+#define IVEC3_BACK    (ivec3){  0,  0, -1 } 
+
+/// Create zero vector.
+header_only ivec3 iv3_zero(void) { return IVEC3_ZERO; }
+/// Create vector with all components set to given scalar.
+header_only ivec3 iv3_scalar( i32 scalar ) {
+    ivec3 result = { scalar, scalar, scalar };
+    return result;
+}
+/// Create vector with given components.
+header_only ivec3 iv3( i32 x, i32 y, i32 z ) {
+    ivec3 result = { x, y, z };
+    return result;
+}
+
+#define VEC4_COMPONENT_COUNT (4)
+/// 4-component 32-bit float vector
+union vec4 {
+    struct {
+        union {
+            struct {
+                union {
+                    struct { f32 x, y; };
+                    struct { f32 r, g; };
+                    vec2 xy;
+                    vec2 rg;
+                };
+                union { f32 z; f32 b; };
+            };
+            vec3 xyz;
+            vec3 rgb;
+        };
+        union { f32 w; f32 a; };
+    };
+    f32 c[VEC4_COMPONENT_COUNT];
+};
+
+#define VEC4_ZERO (vec4){}
+#define VEC4_ONE  (vec4){ 1.0f, 1.0f, 1.0f, 1.0f }
+
+#define RGBA_RED     (rgba){ 1.0f, 0.0f, 0.0f, 1.0f } 
+#define RGBA_GREEN   (rgba){ 0.0f, 1.0f, 0.0f, 1.0f } 
+#define RGBA_BLUE    (rgba){ 0.0f, 0.0f, 1.0f, 1.0f } 
+#define RGBA_MAGENTA (rgba){ 1.0f, 0.0f, 1.0f, 1.0f } 
+#define RGBA_YELLOW  (rgba){ 1.0f, 1.0f, 0.0f, 1.0f } 
+#define RGBA_CYAN    (rgba){ 0.0f, 1.0f, 1.0f, 1.0f } 
+#define RGBA_BLACK   (rgba){ 0.0f, 0.0f, 0.0f, 1.0f } 
+#define RGBA_WHITE   (rgba){ 1.0f, 1.0f, 1.0f, 1.0f } 
+#define RGBA_GRAY    (rgba){ 0.5f, 0.5f, 0.5f, 1.0f } 
+#define RGBA_GREY    (rgba){ 0.5f, 0.5f, 0.5f, 1.0f } 
+#define RGBA_CLEAR   (rgba){ 0.0f, 0.0f, 0.0f, 0.0f } 
+
+/// Create zero vector.
+header_only vec4 v4_zero(void) { return VEC4_ZERO; }
+/// Create vector with given components.
+header_only vec4 v4( f32 x, f32 y, f32 z, f32 w ) {
+    vec4 result = { x, y, z, w };
+    return result;
+}
+/// Create vector with all components set to given scalar.
+header_only vec4 v4_scalar( f32 scalar ) {
+    vec4 result = { scalar, scalar, scalar, scalar };
+    return result;
+}
+
+#define IVEC4_COMPONENT_COUNT (4)
+/// 4-component 32-bit signed integer vector
+union ivec4 {
+    struct {
+        union {
+            struct {
+                union {
+                    struct { i32 x, y; };
+                    ivec2 xy;
+                };
+                i32 z;
+            };
+            ivec3 xyz;
+        };
+        i32 w;
+    };
+    i32 c[IVEC4_COMPONENT_COUNT];
+};
+
+#define IVEC4_ZERO (ivec4){} 
+#define IVEC4_ONE  (ivec4){ 1, 1, 1, 1 } 
+
+/// Create vector with given components.
+header_only ivec4 iv4( i32 x, i32 y, i32 z, i32 w ) {
+    ivec4 result = { x, y, z, w };
+    return result;
+}
+/// Create zero vector.
+header_only ivec4 iv4_zero(void) { return IVEC4_ZERO; }
+/// Create vector with all components set to given scalar.
+header_only ivec4 iv4_scalar( i32 scalar ) {
+    ivec4 result = { scalar, scalar, scalar, scalar };
+    return result;
+}
+
+#define QUAT_COMPONENT_COUNT (4)
+/// Quaternion.
+union quat {
+    struct {
+        union { f32 w; f32 a; };
+        union {
+            struct { f32 x, y, z; };
+            struct { f32 b, c, d; };
+            vec3 xyz;
+            vec3 bcd;
+        };
+    };
+    f32 q[QUAT_COMPONENT_COUNT];
+};
+
+#define QUAT_ZERO     (quat){ 0.0f, 0.0f, 0.0f, 0.0f } 
+#define QUAT_IDENTITY (quat){ 1.0f, 0.0f, 0.0f, 0.0f } 
+
+/// Create zero quaternion.
+header_only quat q_zero(void) { return QUAT_ZERO; }
+/// Create quaternion with set to given scalars.
+header_only quat q( f32 w, f32 x, f32 y, f32 z ) {
+    quat result = { w, x, y, z };
+    return result;
+}
+
+#define MAT2_CELL_COUNT   (4)
+#define MAT2_COLUMN_COUNT (2)
+#define MAT2_ROW_COUNT    (2)
+/// Column-major 2x2 32-bit float matrix.
+union mat2 {
+    struct {
+        union {
+            struct { f32 m00, m01; };
+            vec2 col0;
+        };
+        union {
+            struct { f32 m10, m11; };
+            vec2 col1;
+        };
+    };
+    vec2 v[MAT2_COLUMN_COUNT];
+    f32  c[MAT2_CELL_COUNT];
+    f32  m[MAT2_COLUMN_COUNT][MAT2_ROW_COUNT];
+};
+
+#define MAT2_ZERO (mat2){\
+    0.0f, 0.0f,\
+    0.0f, 0.0f\
+}
+#define MAT2_IDENTITY (mat2){\
+    1.0f, 0.0f,\
+    0.0f, 1.0f\
+}
+
+/// Create zero matrix.
+header_only mat2 m2_zero(void) { return MAT2_ZERO; }
+/// Create matrix with given values.
+header_only mat2 m2(
+    f32 m00, f32 m01,
+    f32 m10, f32 m11
+) {
+    mat2 result = { m00, m01, m10, m11 };
+    return result;
+}
+
+#define MAT3_CELL_COUNT   (9)
+#define MAT3_COLUMN_COUNT (3)
+#define MAT3_ROW_COUNT    (3)
+/// Column-major 3x3 32-bit float matrix.
+union mat3 {
+    struct {
+        union {
+            struct { f32 m00, m01, m02; };
+            vec3 col0;
+        };
+        union {
+            struct { f32 m10, m11, m12; };
+            vec3 col1;
+        };
+        union {
+            struct { f32 m20, m21, m22; };
+            vec3 col2;
+        };
+    };
+    vec3 v[MAT3_COLUMN_COUNT];
+    f32  c[MAT3_CELL_COUNT];
+    f32  m[MAT3_COLUMN_COUNT][MAT3_ROW_COUNT];
+};
+
+#define MAT3_ZERO (mat3){\
+    0.0f, 0.0f, 0.0f,\
+    0.0f, 0.0f, 0.0f,\
+    0.0f, 0.0f, 0.0f\
+}
+#define MAT3_IDENTITY (mat3){\
+    1.0f, 0.0f, 0.0f,\
+    0.0f, 1.0f, 0.0f,\
+    0.0f, 0.0f, 1.0f\
+}
+
+/// Create zero matrix.
+header_only mat3 m3_zero(void) { return MAT3_ZERO; }
+/// Create matrix from given values.
+header_only mat3 m3(
+    f32 m00, f32 m01, f32 m02,
+    f32 m10, f32 m11, f32 m12,
+    f32 m20, f32 m21, f32 m22
+) {
+    mat3 result = {
+        m00, m01, m02,
+        m10, m11, m12,
+        m20, m21, m22
+    };
+    return result;
+}
+
+#define MAT4_CELL_COUNT   (16)
+#define MAT4_COLUMN_COUNT (4)
+#define MAT4_ROW_COUNT    (4)
+/// Column-major 4x4 32-bit float matrix.
+union mat4 {
+    struct {
+        union {
+            struct { f32 m00, m01, m02, m03; };
+            vec4 col0;
+        };
+        union {
+            struct { f32 m10, m11, m12, m13; };
+            vec4 col1;
+        };
+        union {
+            struct { f32 m20, m21, m22, m23; };
+            vec4 col2;
+        };
+        union {
+            struct { f32 m30, m31, m32, m33; };
+            vec4 col3;
+        };
+    };
+    vec4 v[MAT4_COLUMN_COUNT];
+    f32  c[MAT4_CELL_COUNT];
+    f32  m[MAT4_COLUMN_COUNT][MAT4_ROW_COUNT];
+};
+
+#define MAT4_ZERO (mat4){\
+    0.0f, 0.0f, 0.0f, 0.0f,\
+    0.0f, 0.0f, 0.0f, 0.0f,\
+    0.0f, 0.0f, 0.0f, 0.0f,\
+    0.0f, 0.0f, 0.0f, 0.0f\
+}
+#define MAT4_IDENTITY (mat4){\
+    1.0f, 0.0f, 0.0f, 0.0f,\
+    0.0f, 1.0f, 0.0f, 0.0f,\
+    0.0f, 0.0f, 1.0f, 0.0f,\
+    0.0f, 0.0f, 0.0f, 1.0f\
+}
+
+/// Create a zero matrix.
+header_only mat4 m4_zero(void) { return MAT4_ZERO; }
+/// Create a matrix from given values.
+header_only mat4 m4(
+    f32 m00, f32 m01, f32 m02, f32 m03,
+    f32 m10, f32 m11, f32 m12, f32 m13,
+    f32 m20, f32 m21, f32 m22, f32 m23,
+    f32 m30, f32 m31, f32 m32, f32 m33
+) {
+    mat4 result = {
+        m00, m01, m02, m03,
+        m10, m11, m12, m13,
+        m20, m21, m22, m23,
+        m30, m31, m32, m33
+    };
+    return result;
+}
+
+/// Create vec2 from vec3.
+header_only vec2 v2_v3( vec3 v ) {
+    return v2( v.x, v.y );
+}
+/// Create vec2 from vec4.
+header_only vec2 v2_v4( vec4 v ) {
+    return v2( v.x, v.y );
+}
+/// Create vec2 from ivec2.
+header_only vec2 v2_iv2( ivec2 v ) {
+    return v2( (f32)v.x, (f32)v.y );
+}
+
+/// Create ivec2 from ivec3.
+header_only ivec2 iv2_iv3( ivec3 v ) {
+    return iv2( v.x, v.y );
+}
+/// Create ivec2 from ivec4.
+header_only ivec2 iv2_iv4( ivec4 v ) {
+    return iv2( v.x, v.y );
+}
+/// Create ivec2 from vec2.
+header_only ivec2 iv2_v2( vec2 v ) {
+    return iv2( (i32)v.x, (i32)v.y );
+}
+
+/// Create vec3 from vec2.
+header_only vec3 v3_v2( vec2 v ) {
+    return v3( v.x, v.y, 0.0f );
+}
+/// Create vec3 from vec4.
+header_only vec3 v3_v4( vec4 v ) {
+    return v3( v.x, v.y, v.z );
+}
+/// Create vec3 from ivec3.
+header_only vec3 v3_iv3( ivec3 v ) {
+    return v3( (f32)v.x, (f32)v.y, (f32)v.z );
+}
+/// Create rgb from rgba.
+header_only rgb rgb_rgba( rgba col ) {
+    return v3( col.r, col.g, col.b );
+}
+
+/// Create ivec3 from ivec2.
+header_only ivec3 iv3_iv2( ivec2 v ) {
+    return iv3( v.x, v.y, 0 );
+}
+/// Create ivec3 from ivec4.
+header_only ivec3 iv3_iv4( ivec4 v ) {
+    return iv3( v.x, v.y, v.z );
+}
+/// Create ivec3 from vec3.
+header_only ivec3 iv3_v3( vec3 v ) {
+    return iv3( (i32)v.x, (i32)v.y, (i32)v.z );
+}
+
+/// Create vec4 from vec2.
+header_only vec4 v4_v2( vec2 v ) {
+    return v4( v.x, v.y, 0.0f, 0.0f );
+}
+/// Create vec4 from vec3.
+header_only vec4 v4_v3( vec3 v ) {
+    return v4( v.x, v.y, v.z, 0.0f );
+}
+/// Create vec4 from quat.
+header_only vec4 v4_q( quat q ) {
+    return v4( q.a, q.b, q.c, q.d );
+}
+/// Create RGBA from RGB. Alpha set to 1
+header_only rgba rgba_rgb( rgb col ) {
+    return v4( col.r, col.g, col.b, 1.0f );
+}
+/// Create vec4 from ivec4.
+header_only vec4 v4_iv4( ivec4 v ) {
+    return v4( (f32)v.x, (f32)v.y, (f32)v.z, (f32)v.w );
+}
+
+/// Create ivec4 from ivec2.
+header_only ivec4 iv4_iv2( ivec2 v ) {
+    return iv4( v.x, v.y, 0, 0 );
+}
+/// Create ivec4 from ivec3.
+header_only ivec4 iv4_iv3( ivec3 v ) {
+    return iv4( v.x, v.y, v.z, 0 );
+}
+/// Create ivec4 from vec4.
+header_only ivec4 iv4_v4( vec4 v ) {
+    return iv4( (i32)v.x, (i32)v.y, (i32)v.z, (i32)v.w );
+}
+
+/// Create euler angles from quaternion.
+LD_API euler_angles euler_q( quat q );
+
+/// Create mat2 from mat3.
+LD_API mat2 m2_m3( const mat3* m );
+/// Create mat2 from mat4.
+LD_API mat2 m2_m4( const mat4* m );
+
+/// Create mat3 from mat2.
+header_only mat3 m3_m2( mat2 m ) {
+    return (mat3){
+        m.c[0], m.c[1], 0.0f,
+        m.c[2], m.c[3], 0.0f,
+          0.0f,   0.0f, 0.0f
+    };
+}
+/// Create mat3 from mat4.
+LD_API mat3 m3_m4( const mat4* m );
+
+/// Create mat4 from mat2.
+header_only mat4 m4_m2( mat2 m ) {
+    return (mat4){
+        m.c[0], m.c[1], 0.0f, 0.0f,
+        m.c[2], m.c[3], 0.0f, 0.0f,
+          0.0f,   0.0f, 0.0f, 0.0f,
+          0.0f,   0.0f, 0.0f, 0.0f,
+    };
+}
+/// Create mat4 from mat3.
+LD_API mat4 m4_m3( const mat3* m );
 
 /// Sign of number.
 #define signum( x ) (( (x) > 0 ) - ( (x) < 0 ))
@@ -21,346 +592,111 @@
 #define clamp( value, min, max )\
     ( (value) < (min) ? (min) : ( (value) > (max) ? (max) : (value) ) )
 /// Clamp a 32-bit float to 0-1
-#define clamp32_01( value )\
+#define clamp01( value )\
     clamp( (value), 0.0f, 1.0f )
-/// Clamp a 64-bit float to 0-1
-#define clamp64_01( value )\
-    clamp( (value), 0.0, 1.0 )
 
 /// Convert radians to degrees.
-#define to_rad32( theta )\
+#define to_radians( theta )\
     ( theta * F32_TO_RAD )
 /// Convert degrees to radians.
-#define to_deg32( theta )\
+#define to_degrees( theta )\
     ( theta * F32_TO_DEG )
-/// Convert radians to degrees.
-#define to_rad64( theta )\
-    ( theta * F64_TO_RAD )
-/// Convert degrees to radians.
-#define to_deg64( theta )\
-    ( theta * F64_TO_DEG )
 
 /// Check if float is NaN.
-LD_API b32 is_nan32( f32 x );
-/// Check if float is NaN.
-LD_API b32 is_nan64( f64 x );
+LD_API b32 is_nan( f32 x );
 
 /// Square root of x.
-LD_API f32 sqrt32( f32 x );
-/// Square root of x.
-LD_API f64 sqrt64( f64 x );
+LD_API f32 square_root( f32 x );
 
 /// Reciprical of square root of x.
-LD_API f32 rsqrt32( f32 x );
-/// Reciprical of square root of x.
-LD_API f64 rsqrt64( f64 x );
+LD_API f32 inv_square_root( f32 x );
 
 /// Raise base to integer exponent.
-LD_API f32 powi32( f32 base, i32 exp );
-/// Raise base to integer exponent.
-LD_API f64 powi64( f64 base, i64 exp );
+LD_API f32 poweri( f32 base, i32 exp );
 
 /// Raise base to float exponent.
-LD_API f32 pow32( f32 base, f32 exp );
-/// Raise base to float exponent.
-LD_API f64 pow64( f64 base, f64 exp );
+LD_API f32 power( f32 base, f32 exp );
 
 /// Float modulus.
-LD_API f32 mod32( f32 lhs, f32 rhs );
-/// Float modulus.
-LD_API f64 mod64( f64 lhs, f64 rhs );
+LD_API f32 modulus( f32 lhs, f32 rhs );
 
 /// Sine of x.
-LD_API f32 sin32( f32 x );
-/// Sine of x.
-LD_API f64 sin64( f64 x );
+LD_API f32 sine( f32 x );
 /// Cosine of x.
-LD_API f32 cos32( f32 x );
-/// Cosine of x.
-LD_API f64 cos64( f64 x );
+LD_API f32 cosine( f32 x );
 /// Tangent of x.
-LD_API f32 tan32( f32 x );
-/// Tangent of x.
-LD_API f64 tan64( f64 x );
+LD_API f32 tangent( f32 x );
 
 /// Sine and Cos of x.
 /// If you need both values,
 /// this is faster than calling each function individually.
-LD_API void sincos32( f32 x, f32* out_sin, f32* out_cos );
-/// Sine and Cos of x.
-/// If you need both values,
-/// this is faster than calling each function individually.
-LD_API void sincos64( f64 x, f64* out_sin, f64* out_cos );
+LD_API void sine_cosine( f32 x, f32* out_sin, f32* out_cos );
 
 /// Arc-Sine of x.
-LD_API f32 asin32( f32 x );
-/// Arc-Sine of x.
-LD_API f64 asin64( f64 x );
+LD_API f32 arc_sine( f32 x );
 /// Arc-Cosine of x.
-LD_API f32 acos32( f32 x );
-/// Arc-Cosine of x.
-LD_API f64 acos64( f64 x );
+LD_API f32 arc_cosine( f32 x );
 /// Arc-Tangent of x.
-LD_API f32 atan32( f32 x );
-/// Arc-Tangent of x.
-LD_API f64 atan64( f64 x );
+LD_API f32 arc_tangent( f32 x );
 /// Two argument arc-tangent.
-LD_API f32 atan2_32( f32 y, f32 x );
-/// Two argument arc-tangent.
-LD_API f64 atan2_64( f64 y, f64 x );
+LD_API f32 arc_tangent2( f32 y, f32 x );
 
 /// Natural logarithm.
-LD_API f32 ln32( f32 x );
-/// Natural logarithm.
-LD_API f64 ln64( f64 x );
+LD_API f32 natural_logarithm( f32 x );
 
 /// Log2.
-LD_API f32 log2_32( f32 x );
-/// Log2.
-LD_API f64 log2_64( f64 x );
+LD_API f32 logarithm2( f32 x );
 
 /// Log10.
-LD_API f32 log10_32( f32 x );
-/// Log10.
-LD_API f64 log10_64( f64 x );
+LD_API f32 logarithm10( f32 x );
 
 /// e^x
-LD_API f32 exp32( f32 x );
-/// e^x
-LD_API f64 exp64( f64 x );
+LD_API f32 e_power( f32 x );
 
 /// Linearly interpolate a to b.
-LD_API f32 lerp32( f32 a, f32 b, f32 t );
-/// Linearly interpolate a to b.
-LD_API f64 lerp64( f64 a, f64 b, f64 t );
+LD_API f32 lerp( f32 a, f32 b, f32 t );
 /// Get t value from value v.
-LD_API f32 inv_lerp32( f32 a, f32 b, f32 v );
-/// Get t value from value v.
-LD_API f64 inv_lerp64( f64 a, f64 b, f64 v );
+LD_API f32 inv_lerp( f32 a, f32 b, f32 v );
 /// Remap value v from range imin-imax to range omin-omax.
-LD_API f32 remap32( f32 imin, f32 imax, f32 omin, f32 omax, f32 v );
-/// Remap value v from range imin-imax to range omin-omax.
-LD_API f64 remap64( f64 imin, f64 imax, f64 omin, f64 omax, f64 v );
-
+LD_API f32 remap( f32 imin, f32 imax, f32 omin, f32 omax, f32 v );
 /// Smooth step interpolate a to b.
-LD_API f32 smooth_step32( f32 a, f32 b, f32 t );
-/// Smooth step interpolate a to b.
-LD_API f64 smooth_step64( f64 a, f64 b, f64 t );
+LD_API f32 smooth_step( f32 a, f32 b, f32 t );
 /// Smoother step interpolate a to b.
-LD_API f32 smoother_step32( f32 a, f32 b, f32 t );
-/// Smoother step interpolate a to b.
-LD_API f64 smoother_step64( f64 a, f64 b, f64 t );
+LD_API f32 smoother_step( f32 a, f32 b, f32 t );
 
 /// Arc-Sine of x. Does not return NaN.
-header_only f32 asin32_no_nan( f32 x ) {
+header_only f32 arc_sine_no_nan( f32 x ) {
     return absolute( x ) >= 1.0f ?
-        F32_HALF_PI * signum( x ) : asin32( x );
-}
-/// Arc-Sine of x. Does not return NaN.
-header_only f64 asin64_no_nan( f64 x ) {
-    return absolute( x ) >= 1.0f ?
-        F64_HALF_PI * signum( x ) : asin64( x );
+        F32_HALF_PI * signum( x ) : arc_sine( x );
 }
 
 /// Wrap value to 0.0 -> 360.0 range.
-header_only f32 wrap_deg32( f32 degrees ) {
-    f32 result = mod32( degrees, 360.0f );
+header_only f32 wrap_degrees( f32 degrees ) {
+    f32 result = modulus( degrees, 360.0f );
     if( result < 0.0f ) {
         result += 360.0f;
     }
     return result;
 }
-/// Wrap value to 0.0 -> 360.0 range.
-header_only f64 wrap_deg64( f64 degrees ) {
-    f64 result = mod64( degrees, 360.0 );
-    if( result < 0.0 ) {
-        result += 360.0;
-    }
-    return result;
-}
 
 /// Wrap value to -PI -> PI range.
-header_only f32 wrap_rad32( f32 radians ) {
-    return mod32( radians + F32_PI, F32_TAU ) - F32_PI;
-}
-/// Wrap value to -PI -> PI range.
-header_only f64 wrap_rad64( f64 radians ) {
-    return mod64( radians + F64_PI, F64_TAU ) - F64_PI;
+header_only f32 wrap_radians( f32 radians ) {
+    return modulus( radians + F32_PI, F32_TAU ) - F32_PI;
 }
 
-/// Truncate float to signed integer.
-#define truncate_i8( f )  ((i8)(f))
-/// Truncate float to signed integer.
-#define truncate_i16( f ) ((i16)(f))
-/// Truncate float to signed integer.
-#define truncate_i32( f ) ((i32)(f))
-/// Truncate float to signed integer.
-#define truncate_i64( f ) ((i64)(f))
+/// Round float to u32
+LD_API u32 round_u32( f32 x );
+/// Floor float to u32
+LD_API u32 floor_u32( f32 x );
+/// Ceil float to u32
+LD_API u32 ceil_u32( f32 x );
 
-/// Truncate float to integer.
-#define truncate_u8( f )  ((u8)(f))
-/// Truncate float to integer.
-#define truncate_u16( f ) ((u16)(f))
-/// Truncate float to integer.
-#define truncate_u32( f ) ((u32)(f))
-/// Truncate float to integer.
-#define truncate_u64( f ) ((u64)(f))
-
-/// Floor 32-bit float to signed integer.
-#define floor32_i8( f )\
-    (((f) > 0.0f) ? truncate_i8(f) : truncate_i8( (f) - 0.99999f ))
-/// Floor 32-bit float to signed integer.
-#define floor32_i16( f )\
-    (((f) > 0.0f) ? truncate_i16(f) : truncate_i16( (f) - 0.99999f ))
-/// Floor 32-bit float to signed integer.
-#define floor32_i32( f )\
-    (((f) > 0.0f) ? truncate_i32(f) : truncate_i32( (f) - 0.99999f ))
-/// Floor 32-bit float to signed integer.
-#define floor32_i64( f )\
-    (((f) > 0.0f) ? truncate_i64(f) : truncate_i64( (f) - 0.99999f ))
-
-/// Floor 32-bit float to integer.
-#define floor32_u8( f )\
-    (((f) > 0.0f) ? truncate_u8(f) : 0 )
-/// Floor 32-bit float to integer.
-#define floor32_u16( f )\
-    (((f) > 0.0f) ? truncate_u16(f) : 0 )
-/// Floor 32-bit float to integer.
-#define floor32_u32( f )\
-    (((f) > 0.0f) ? truncate_u32(f) : 0 )
-/// Floor 32-bit float to integer.
-#define floor32_u64( f )\
-    (((f) > 0.0f) ? truncate_u64(f) : 0 )
-
-/// Floor 64-bit float to signed integer.
-#define floor64_i8( f )\
-    (((f) > 0.0) ? truncate_i8(f) : truncate_i8( (f) - 0.9999999 ))
-/// Floor 64-bit float to signed integer.
-#define floor64_i16( f )\
-    (((f) > 0.0) ? truncate_i16(f) : truncate_i16( (f) - 0.9999999 ))
-/// Floor 64-bit float to signed integer.
-#define floor64_i32( f )\
-    (((f) > 0.0) ? truncate_i32(f) : truncate_i32( (f) - 0.9999999 ))
-/// Floor 64-bit float to signed integer.
-#define floor64_i64( f )\
-    (((f) > 0.0) ? truncate_i64(f) : truncate_i64( (f) - 0.9999999 ))
-
-/// Floor 64-bit float to integer.
-#define floor64_u8( f )\
-    (((f) > 0.0) ? truncate_u8(f) : 0 )
-/// Floor 64-bit float to integer.
-#define floor64_u16( f )\
-    (((f) > 0.0) ? truncate_u16(f) : 0 )
-/// Floor 64-bit float to integer.
-#define floor64_u32( f )\
-    (((f) > 0.0) ? truncate_u32(f) : 0 )
-/// Floor 64-bit float to integer.
-#define floor64_u64( f )\
-    (((f) > 0.0) ? truncate_u64(f) : 0 )
-
-/// Ceil 32-bit float to signed integer.
-#define ceil32_i8( f )\
-    (((f) > 0.0f) ? truncate_i8( (f) + 0.99999f ) : truncate_i8( (f) ) )
-/// Ceil 32-bit float to signed integer.
-#define ceil32_i16( f )\
-    (((f) > 0.0f) ? truncate_i16( (f) + 0.99999f ) : truncate_i16( (f) ) )
-/// Ceil 32-bit float to signed integer.
-#define ceil32_i32( f )\
-    (((f) > 0.0f) ? truncate_i32( (f) + 0.99999f ) : truncate_i32( (f) ) )
-/// Ceil 32-bit float to signed integer.
-#define ceil32_i64( f )\
-    (((f) > 0.0f) ? truncate_i64( (f) + 0.99999f ) : truncate_i64( (f) ) )
-
-/// Ceil 32-bit float to integer.
-#define ceil32_u8( f )\
-    ( truncate_u8( (f) + 0.99999f ) )
-/// Ceil 32-bit float to integer.
-#define ceil32_u16( f )\
-    ( truncate_u16( (f) + 0.99999f ) )
-/// Ceil 32-bit float to integer.
-#define ceil32_u32( f )\
-    ( truncate_u32( (f) + 0.99999f ) )
-/// Ceil 32-bit float to integer.
-#define ceil32_u64( f )\
-    ( truncate_u64( (f) + 0.99999f ) )
-
-/// Ceil 64-bit float to signed integer.
-#define ceil64_i8( f )\
-    (((f) > 0.0) ? truncate_i8( (f) + 0.9999999 ) : truncate_i8( (f) ) )
-/// Ceil 64-bit float to signed integer.
-#define ceil64_i16( f )\
-    (((f) > 0.0) ? truncate_i16( (f) + 0.9999999 ) : truncate_i16( (f) ) )
-/// Ceil 64-bit float to signed integer.
-#define ceil64_i32( f )\
-    (((f) > 0.0) ? truncate_i32( (f) + 0.9999999 ) : truncate_i32( (f) ) )
-/// Ceil 64-bit float to signed integer.
-#define ceil64_i64( f )\
-    (((f) > 0.0) ? truncate_i64( (f) + 0.9999999 ) : truncate_i64( (f) ) )
-
-/// Ceil 64-bit float to integer.
-#define ceil64_u8( f )\
-    ( truncate_u8( (f) + 0.9999999 ) )
-/// Ceil 64-bit float to integer.
-#define ceil64_u16( f )\
-    ( truncate_u16( (f) + 0.9999999 ) )
-/// Ceil 64-bit float to integer.
-#define ceil64_u32( f )\
-    ( truncate_u32( (f) + 0.9999999 ) )
-/// Ceil 64-bit float to integer.
-#define ceil64_u64( f )\
-    ( truncate_u64( (f) + 0.9999999 ) )
-
-/// Round 32-bit float to integer
-#define round32_u8(f)\
-    (truncate_u8( (f) + 0.5f ))
-/// Round 32-bit float to integer
-#define round32_u16(f)\
-    (truncate_u16( (f) + 0.5f ))
-/// Round 32-bit float to integer
-#define round32_u32(f)\
-    (truncate_u32( (f) + 0.5f ))
-/// Round 32-bit float to integer
-#define round32_u64(f)\
-    (truncate_u64( (f) + 0.5f ))
-
-/// Round 32-bit float to signed integer
-#define round32_i8(f)\
-    (((f) > 0.0f) ? truncate_i8( (f) + 0.5f ) : truncate_i8( (f) - 0.5f ))
-/// Round 32-bit float to signed integer
-#define round32_i16(f)\
-    (((f) > 0.0f) ? truncate_i16( (f) + 0.5f ) : truncate_i16( (f) - 0.5f ))
-/// Round 32-bit float to signed integer
-#define round32_i32(f)\
-    (((f) > 0.0f) ? truncate_i32( (f) + 0.5f ) : truncate_i32( (f) - 0.5f ))
-/// Round 32-bit float to signed integer
-#define round32_i64(f)\
-    (((f) > 0.0f) ? truncate_i64( (f) + 0.5f ) : truncate_i64( (f) - 0.5f ))
-
-/// Round 64-bit float to integer
-#define round64_u8(f)\
-    (truncate_u8( (f) + 0.5 ))
-/// Round 64-bit float to integer
-#define round64_u16(f)\
-    (truncate_u16( (f) + 0.5 ))
-/// Round 64-bit float to integer
-#define round64_u32(f)\
-    (truncate_u32( (f) + 0.5 ))
-/// Round 64-bit float to integer
-#define round64_u64(f)\
-    (truncate_u64( (f) + 0.5 ))
-
-/// Round 64-bit float to signed integer
-#define round64_i8(f)\
-    (((f) > 0.0) ? truncate_i8( (f) + 0.5 ) : truncate_i8( (f) - 0.5 ))
-/// Round 64-bit float to signed integer
-#define round64_i16(f)\
-    (((f) > 0.0) ? truncate_i16( (f) + 0.5 ) : truncate_i16( (f) - 0.5 ))
-/// Round 64-bit float to signed integer
-#define round64_i32(f)\
-    (((f) > 0.0) ? truncate_i32( (f) + 0.5 ) : truncate_i32( (f) - 0.5 ))
-/// Round 64-bit float to signed integer
-#define round64_i64(f)\
-    (((f) > 0.0) ? truncate_i64( (f) + 0.5 ) : truncate_i64( (f) - 0.5 ))
+/// Round float to i32
+LD_API i32 round_i32( f32 x );
+/// Floor float to i32
+LD_API i32 floor_i32( f32 x );
+/// Ceil float to i32
+LD_API i32 ceil_i32( f32 x );
 
 /// Normalize integer -1 to 1 range
 #define normalize_range_i8_f32( x ) \
@@ -387,32 +723,6 @@ header_only f64 wrap_rad64( f64 radians ) {
 /// Normalize integer 0 to 1 range
 #define normalize_range_u64_f32( x )\
     ((f32)(x) / (f32)(U64_MAX))
-
-/// Normalize integer -1 to 1 range
-#define normalize_range_i8_f64( x ) \
-    ((f64)(x) / ((x) > 0 ? (f64)I8_MAX : -((f64)I8_MIN)))
-/// Normalize integer -1 to 1 range
-#define normalize_range_i16_f64( x )\
-    ((f64)(x) / ((x) > 0 ? (f64)I16_MAX : -((f64)I16_MIN)))
-/// Normalize integer -1 to 1 range
-#define normalize_range_i32_f64( x )\
-    ((f64)(x) / ((x) > 0 ? (f64)I32_MAX : -((f64)I32_MIN)))
-/// Normalize integer -1 to 1 range
-#define normalize_range_i64_f64( x )\
-    ((f64)(x) / ((x) > 0 ? (f64)I64_MAX : -((f64)I64_MIN)))
-
-/// Normalize integer 0 to 1 range
-#define normalize_range_u8_f64( x ) \
-    ((f64)(x) / (f64)(U8_MAX))
-/// Normalize integer 0 to 1 range
-#define normalize_range_u16_f64( x )\
-    ((f64)(x) / (f64)(U16_MAX))
-/// Normalize integer 0 to 1 range
-#define normalize_range_u32_f64( x )\
-    ((f64)(x) / (f64)(U32_MAX))
-/// Normalize integer 0 to 1 range
-#define normalize_range_u64_f64( x )\
-    ((f64)(x) / (f64)(U64_MAX))
 
 /// Normalize 32-bit float to integer min-max.
 /// Float must be in 0.0-1.0 range
@@ -506,44 +816,6 @@ header_only f64 wrap_rad64( f64 radians ) {
 /// Rotate right 64-bit integer.
 #define rotate_right64( bitpattern, rotation )\
     (bitpattern >> rotation) | (bitpattern << (64ull - rotation))
-
-#if !defined(LD_CORE_MATH_TYPES_TYPEDEF)
-#define LD_CORE_MATH_TYPES_TYPEDEF
-/// 2-component 32-bit float vector
-typedef union vec2 vec2;
-/// 3-component 32-bit float vector
-typedef union vec3 vec3;
-/// RGB color.
-typedef union vec3 rgb;
-/// HSV color.
-typedef union vec3 hsv;
-/// 3D rotation expressed in euler angles.
-typedef union vec3 euler_angles;
-/// 4-component 32-bit float vector
-typedef union vec4 vec4;
-/// RGBA color.
-typedef union vec4 rgba;
-
-/// 2-component 32-bit integer vector
-typedef union ivec2 ivec2;
-/// 3-component 32-bit integer vector
-typedef union ivec3 ivec3;
-/// 4-component 32-bit integer vector
-typedef union ivec4 ivec4;
-
-/// Quaternion.
-typedef union quat quat;
-
-/// Column-major 2x2 32-bit float matrix.
-typedef union mat2 mat2;
-/// Column-major 3x3 32-bit float matrix.
-typedef union mat3 mat3;
-/// Column-major 4x4 32-bit float matrix.
-typedef union mat4 mat4;
-
-/// Transform.
-typedef struct Transform Transform;
-#endif
 
 /// Negate vector.
 LD_API vec2 v2_neg( vec2 v );
@@ -963,54 +1235,58 @@ LD_API mat3 m4_normal_matrix_unchecked( const mat4* m );
 /// Extract position from transform matrix.
 LD_API vec3 m4_transform_position( const mat4* m );
 
-/// Get transform's local space matrix.
+/// Transform.
+/// You should never directly modify any
+/// of the transform's components!
+struct Transform {
+    vec3 position;
+    quat rotation;
+    vec3 scale;
+    struct { b8 local_matrix_dirty, world_matrix_dirty, camera_dirty; };
+
+    mat4 local_matrix;
+    mat4 world_matrix;
+    struct Transform* parent;
+};
+
+/// Create a transform.
+LD_API Transform transform_create( vec3 position, quat rotation, vec3 scale );
+/// Create a default transform.
+header_only Transform transform_zero(void) {
+    return transform_create( v3_zero(), QUAT_IDENTITY, VEC3_ONE );
+}
+/// Create a transform with defaults except for position.
+header_only Transform transform_with_position( vec3 position ) {
+    return transform_create( position, QUAT_IDENTITY, VEC3_ONE );
+}
+/// Create a transform with defaults except for rotation.
+header_only Transform transform_with_rotation( quat rotation ) {
+    return transform_create( VEC3_ZERO, rotation, VEC3_ONE );
+}
+/// Create a transform with defaults except for scale.
+header_only Transform transform_with_scale( vec3 scale ) {
+    return transform_create( VEC3_ZERO, QUAT_IDENTITY, scale );
+}
 LD_API mat4 transform_local_matrix( Transform* t );
-/// Get transform's world space matrix.
-/// This value should be cached for performance.
 LD_API mat4 transform_world_matrix( Transform* t );
-/// Get transform's local space position.
 LD_API vec3 transform_local_position( Transform* t );
-/// Get transform's world space position.
-/// This value should be chached for performance.
 LD_API vec3 transform_world_position( Transform* t );
-/// Set transform's position.
 LD_API void transform_set_position( Transform* t, vec3 position );
-/// Translate a transform.
 LD_API void transform_translate( Transform* t, vec3 translation );
-/// Get transform's local space rotation.
 LD_API quat transform_local_rotation( Transform* t );
-/// Get transform's world space rotation.
-/// This value should be cached for performance.
 LD_API quat transform_world_rotation( Transform* t );
-/// Set transform's rotation.
 LD_API void transform_set_rotation( Transform* t, quat rotation );
-/// Rotate a transform.
 LD_API void transform_rotate( Transform* t, quat rotation );
-/// Get transform's local space scale.
 LD_API vec3 transform_local_scale( Transform* t );
-/// Get transform's world space scale.
-/// This value should be cached for performance.
 LD_API vec3 transform_world_scale( Transform* t );
-/// Set transform's scale.
 LD_API void transform_set_scale( Transform* t, vec3 scale );
-/// Scale a transform.
 LD_API void transform_scale( Transform* t, vec3 scale );
-
-/// Calculate transform's local space forward basis vector.
 LD_API vec3 transform_local_forward( Transform* t );
-/// Calculate transform's local space right basis vector.
 LD_API vec3 transform_local_right( Transform* t );
-/// Calculate transform's local space up basis vector.
 LD_API vec3 transform_local_up( Transform* t );
-
-/// Calculate transform's world space forward basis vector.
 LD_API vec3 transform_world_forward( Transform* t );
-/// Calculate transform's world space right basis vector.
 LD_API vec3 transform_world_right( Transform* t );
-/// Calculate transform's world space up basis vector.
 LD_API vec3 transform_world_up( Transform* t );
-
-// NOTE(alicia): C++ operator overloading
 
 #if defined(__cplusplus)
 
@@ -1258,7 +1534,6 @@ inline mat4 operator/( const mat4& lhs, f32 rhs ) {
     return m4_div( &lhs, rhs );
 }
 
-#endif
+#endif /* C++ operator overloads */
 
-
-#endif // header guard
+#endif /* header guard */

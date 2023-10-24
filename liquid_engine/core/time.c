@@ -5,7 +5,7 @@
 */
 #include "defines.h"
 #include "core/time.h"
-#include "core/mathf.h"
+#include "core/math.h"
 #include "core/internal.h"
 
 struct FrameTimestamp {

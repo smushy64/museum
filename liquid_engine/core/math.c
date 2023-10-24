@@ -1,45 +1,49 @@
-// * Description:  Math functions implementation.
-// * Author:       Alicia Amarilla (smushyaa@gmail.com)
-// * File Created: September 06, 2023
+/**
+ * Description:  Math library implementation
+ * Author:       Alicia Amarilla (smushyaa@gmail.com)
+ * File Created: October 14, 2023
+*/
 #include "defines.h"
 #include "constants.h"
 #include "core/simd.h"
-#include "core/mathf.h"
+#include "core/math.h"
 
-b32 is_nan32( f32 x ) {
-    u32 bitpattern = reinterpret( u32, x );
+LD_API u32 round_u32( f32 x ) {
+    return lane1f_round_u32( x );
+}
+LD_API u32 floor_u32( f32 x ) {
+    return lane1f_floor_u32( x );
+}
+LD_API u32 ceil_u32( f32 x ) {
+    return lane1f_ceil_u32( x );
+}
+LD_API i32 round_i32( f32 x ) {
+    return lane1f_round_i32( x );
+}
+LD_API i32 floor_i32( f32 x ) {
+    return lane1f_floor_i32( x );
+}
+LD_API i32 ceil_i32( f32 x ) {
+    return lane1f_ceil_i32( x );
+}
+
+LD_API b32 is_nan( f32 x ) {
+    u32 bitpattern = reinterpret_cast( u32, &x );
 
     u32 exp = bitpattern & F32_EXPONENT_MASK;
     u32 man = bitpattern & F32_MANTISSA_MASK;
 
     return exp == F32_EXPONENT_MASK && man != 0;
 }
-b32 is_nan64( f64 x ) {
-    u64 bitpattern = reinterpret( u64, x );
 
-    u64 exp = bitpattern & F64_EXPONENT_MASK;
-    u64 man = bitpattern & F64_MANTISSA_MASK;
-
-    return exp == F64_EXPONENT_MASK && man != 0;
-}
-
-f32 sqrt32( f32 x ) {
+LD_API f32 square_root( f32 x ) {
     return lane1f_sqrt( x );
 }
-f64 sqrt64( f64 x ) {
-    // TODO(alicia):
-    return (f64)lane1f_sqrt( (f32)x );
-}
-
-f32 rsqrt32( f32 x ) {
+LD_API f32 inv_square_root( f32 x ) {
     return lane1f_rsqrt( x );
 }
-f64 rsqrt64( f64 x ) {
-    // TODO(alicia): 
-    return (f64)lane1f_rsqrt( (f32)x );
-}
 
-f32 powi32( f32 base, i32 exp ) {
+LD_API f32 poweri( f32 base, i32 exp ) {
     u32 exp_abs = absolute( exp );
     f32 result       = base;
     for( u32 i = 1; i < exp_abs; ++i ) {
@@ -51,32 +55,17 @@ f32 powi32( f32 base, i32 exp ) {
         return result;
     }
 }
-f64 powi64( f64 base, i64 exp ) {
-    u64 exp_abs = absolute( exp );
-    f64 result       = base;
-    for( u64 i = 1; i < exp_abs; ++i ) {
-        result *= base;
-    }
-    if( exp < 0 ) {
-        return 1.0 / result;
-    } else {
-        return result;
-    }
+
+LD_API f32 power( f32 base, f32 exp ) {
+    return e_power( base * natural_logarithm( exp ) );
 }
 
-f32 pow32( f32 base, f32 exp ) {
-    return exp32( base * ln32( exp ) );
-}
-f64 pow64( f64 base, f64 exp ) {
-    return exp64( base * ln64( exp ) );
-}
-
-f32 mod32( f32 lhs, f32 rhs ) {
+LD_API f32 modulus( f32 lhs, f32 rhs ) {
     if( rhs == 0.0f ) {
         return lhs;
     }
 
-    f32 m = lhs - ( rhs * (f32)floor32_i32( lhs / rhs ) );
+    f32 m = lhs - ( rhs * (f32)floor_i32( lhs / rhs ) );
 
     if( rhs > 0.0f ) {
         if( m >= rhs ) {
@@ -105,43 +94,9 @@ f32 mod32( f32 lhs, f32 rhs ) {
 
     return m;
 }
-f64 mod64( f64 lhs, f64 rhs ) {
-    if( rhs == 0.0 ) {
-        return lhs;
-    }
 
-    f64 m = lhs - ( rhs * (f64)floor64_i64( lhs / rhs ) );
-
-    if( rhs > 0.0 ) {
-        if( m >= rhs ) {
-            return 0.0;
-        }
-
-        if( m < 0.0 ) {
-            if( (rhs + m) == rhs ) {
-                return 0.0;
-            } else {
-                return rhs + m;
-            }
-        }
-    } else {
-        if( m <= rhs ) {
-            return 0.0;
-        }
-        if( m > 0.0 ) {
-            if( ( rhs + m ) == rhs ) {
-                return 0.0;
-            } else {
-                return rhs + m;
-            }
-        }
-    }
-
-    return m;
-}
-
-f32 sin32( f32 x ) {
-    x = wrap_rad32(x);
+LD_API f32 sine( f32 x ) {
+    x = wrap_radians(x);
 
     f32 pow3  = x * x * x;
     f32 pow5  = pow3 * x * x;
@@ -156,24 +111,8 @@ f32 sin32( f32 x ) {
         ( pow9  / F32_NINE_FACTORIAL  ) -
         ( pow11 / F32_ELEVEN_FACTORIAL );
 }
-f64 sin64( f64 x ) {
-    x = wrap_rad64(x);
-
-    f64 pow3  = x * x * x;
-    f64 pow5  = pow3 * x * x;
-    f64 pow7  = pow5 * x * x;
-    f64 pow9  = pow7 * x * x;
-    f64 pow11 = pow9 * x * x;
-
-    return x -
-        ( pow3  / F64_THREE_FACTORIAL ) +
-        ( pow5  / F64_FIVE_FACTORIAL  ) -
-        ( pow7  / F64_SEVEN_FACTORIAL ) +
-        ( pow9  / F64_NINE_FACTORIAL  ) -
-        ( pow11 / F64_ELEVEN_FACTORIAL );
-}
-f32 cos32( f32 x ) {
-    x = wrap_rad32(x);
+LD_API f32 cosine( f32 x ) {
+    x = wrap_radians(x);
 
     f32 pow2  = x * x;
     f32 pow4  = pow2 * x * x;
@@ -188,45 +127,19 @@ f32 cos32( f32 x ) {
         ( pow8  / F32_EIGHT_FACTORIAL ) -
         ( pow10 / F32_TEN_FACTORIAL );
 }
-f64 cos64( f64 x ) {
-    x = wrap_rad64(x);
-
-    f64 pow2  = x * x;
-    f64 pow4  = pow2 * x * x;
-    f64 pow6  = pow4 * x * x;
-    f64 pow8  = pow6 * x * x;
-    f64 pow10 = pow8 * x * x;
-
-    return 1.0 -
-        ( pow2  / F64_TWO_FACTORIAL ) +
-        ( pow4  / F64_FOUR_FACTORIAL )  -
-        ( pow6  / F64_SIX_FACTORIAL ) +
-        ( pow8  / F64_EIGHT_FACTORIAL ) -
-        ( pow10 / F64_TEN_FACTORIAL );
-}
-f32 tan32( f32 x ) {
+LD_API f32 tangent( f32 x ) {
     f32 sin, cos;
-    sincos32( x, &sin, &cos );
+    sine_cosine( x, &sin, &cos );
     return cos == 0.0f ? F32_NAN : sin / cos;
 }
-f64 tan64( f64 x ) {
-    f64 sin, cos;
-    sincos64( x, &sin, &cos );
-    return cos == 0.0 ? F64_NAN : sin / cos;
+
+LD_API void sine_cosine( f32 x, f32* out_sin, f32* out_cos ) {
+    // TODO(alicia): 
+    *out_sin = sine( x );
+    *out_cos = cosine( x );
 }
 
-void sincos32( f32 x, f32* out_sin, f32* out_cos ) {
-    // TODO(alicia): 
-    *out_sin = sin32( x );
-    *out_cos = cos32( x );
-}
-void sincos64( f64 x, f64* out_sin, f64* out_cos ) {
-    // TODO(alicia): 
-    *out_sin = sin64( x );
-    *out_cos = cos64( x );
-}
-
-f32 asin32( f32 x ) {
+LD_API f32 arc_sine( f32 x ) {
     // NOTE(alicia): don't ask me how i figured this shit out
     // i don't even know
     f32 sign_of_x = signum( x );
@@ -238,7 +151,7 @@ f32 asin32( f32 x ) {
     const f32 magic_2 =  0.0742610f;
     const f32 magic_3 = -0.0187293f;
 
-    f32 result = F32_HALF_PI - sqrt32( 1.0f - x_abs ) * (
+    f32 result = F32_HALF_PI - square_root( 1.0f - x_abs ) * (
         magic_0 +
         ( magic_1 * x_abs ) +
         ( magic_2 * x_sqr ) +
@@ -248,33 +161,10 @@ f32 asin32( f32 x ) {
     return result * sign_of_x;
 
 }
-f64 asin64( f64 x ) {
-    f64 sign_of_x = signum( x );
-    f64 x_abs = x * sign_of_x;
-    f64 x_sqr = x_abs * x_abs;
-
-    const f64 magic_0 =  1.5707288;
-    const f64 magic_1 = -0.2121144;
-    const f64 magic_2 =  0.0742610;
-    const f64 magic_3 = -0.0187293;
-
-    f64 result = F64_HALF_PI - sqrt64( 1.0 - x_abs ) * (
-        magic_0 +
-        ( magic_1 * x_abs ) +
-        ( magic_2 * x_sqr ) +
-        ( magic_3 * ( x_sqr * x_abs ) )
-    );
-
-    return result * sign_of_x;
-
+LD_API f32 arc_cosine( f32 x ) {
+    return -arc_sine( x ) + F32_HALF_PI;
 }
-f32 acos32( f32 x ) {
-    return -asin32( x ) + F32_HALF_PI;
-}
-f64 acos64( f64 x ) {
-    return -asin64( x ) + F64_HALF_PI;
-}
-f32 atan32( f32 x ) {
+LD_API f32 arc_tangent( f32 x ) {
     f32 pow3  = x * x * x;
     f32 pow5  = pow3 * x * x;
     f32 pow7  = pow5 * x * x;
@@ -289,22 +179,7 @@ f32 atan32( f32 x ) {
         ( pow11 / 11.0f ) +
         ( pow13 / 13.0f );
 }
-f64 atan64( f64 x ) {
-    f64 pow3  = x * x * x;
-    f64 pow5  = pow3 * x * x;
-    f64 pow7  = pow5 * x * x;
-    f64 pow9  = pow7 * x * x;
-    f64 pow11 = pow9 * x * x;
-    f64 pow13 = pow11 * x * x;
-    return x -
-        ( pow3  / 3.0 ) +
-        ( pow5  / 5.0 ) -
-        ( pow7  / 7.0 ) +
-        ( pow9  / 9.0 ) -
-        ( pow11 / 11.0 ) +
-        ( pow13 / 13.0 );
-}
-f32 atan2_32( f32 y, f32 x ) {
+LD_API f32 arc_tangent2( f32 y, f32 x ) {
     if( y == 0.0f ) {
         if( x < 0.0f ) {
             return F32_PI;
@@ -315,23 +190,10 @@ f32 atan2_32( f32 y, f32 x ) {
 
     f32 x_sqr = x * x;
     f32 y_sqr = y * y;
-    return 2.0f * atan32( y / ( sqrt32( x_sqr + y_sqr ) + x ) );
-}
-f64 atan2_64( f64 y, f64 x ) {
-    if( y == 0.0 ) {
-        if( x < 0.0 ) {
-            return F64_PI;
-        } else if( x == 0.0 ) {
-            return F64_NAN;
-        }
-    }
-
-    f64 x_sqr = x * x;
-    f64 y_sqr = y * y;
-    return 2.0 * atan64( y / ( sqrt64( x_sqr + y_sqr ) + x ) );
+    return 2.0f * arc_tangent( y / ( square_root( x_sqr + y_sqr ) + x ) );
 }
 
-f32 exp32( f32 x ) {
+LD_API f32 e_power( f32 x ) {
     if( x < -4.0f ) {
         return 0.0f;
     }
@@ -360,36 +222,7 @@ f32 exp32( f32 x ) {
 
     return r;
 }
-f64 exp64( f64 x ) {
-    if( x < -4.0 ) {
-        return 0.0;
-    }
-    f64 p2  = x * x;
-    f64 p3  = x * x * x;
-    f64 p4  = x * x * x * x;
-    f64 p5  = x * x * x * x * x;
-    f64 p6  = x * x * x * x * x * x;
-    f64 p7  = x * x * x * x * x * x * x;
-    f64 p8  = x * x * x * x * x * x * x * x;
-    f64 p9  = x * x * x * x * x * x * x * x * x;
-    f64 p10 = x * x * x * x * x * x * x * x * x * x;
-    f64 p11 = x * x * x * x * x * x * x * x * x * x * x;
-
-    f64 r = 1 + x +
-        p2  / (F64_TWO_FACTORIAL)   +
-        p3  / (F64_THREE_FACTORIAL) +
-        p4  / (F64_FOUR_FACTORIAL)  +
-        p5  / (F64_FIVE_FACTORIAL)  +
-        p6  / (F64_SIX_FACTORIAL)   +
-        p7  / (F64_SEVEN_FACTORIAL) +
-        p8  / (F64_EIGHT_FACTORIAL) +
-        p9  / (F64_NINE_FACTORIAL)  +
-        p10 / (F64_TEN_FACTORIAL)  +
-        p11 / (F64_ELEVEN_FACTORIAL);
-
-    return r;
-}
-f32 ln32( f32 x ) {
+LD_API f32 natural_logarithm( f32 x ) {
     if( x < 0.0f ) {
         return F32_NAN;
     }
@@ -408,149 +241,94 @@ f32 ln32( f32 x ) {
     
     return 2.0f * (div + r3 + r5 + r7 + r9);
 }
-f64 ln64( f64 x ) {
-    if( x < 0.0 ) {
-        return F64_NAN;
-    }
-
-    f64 div = ( x - 1.0 ) / ( x + 1.0 );
-
-    f64 p3 = div * div * div;
-    f64 p5 = div * div * div * div * div;
-    f64 p7 = div * div * div * div * div * div * div;
-    f64 p9 = div * div * div * div * div * div * div * div * div;
-
-    f64 r3 = ( 1.0 / 3.0 ) * p3;
-    f64 r5 = ( 1.0 / 5.0 ) * p5;
-    f64 r7 = ( 1.0 / 7.0 ) * p7;
-    f64 r9 = ( 1.0 / 9.0 ) * p9;
-    
-    return 2.0 * (div + r3 + r5 + r7 + r9);
-}
-f32 log2_32( f32 x ) {
+LD_API f32 logarithm2( f32 x ) {
     if( x < 0.0f ) {
         return F32_NAN;
     }
     if( x == 2.0f ) {
         return 1.0f;
     }
-    return ln32( x ) * 1.49f;
+    return natural_logarithm( x ) * 1.49f;
 }
-f64 log2_64( f64 x ) {
-    if( x < 0.0 ) {
-        return F64_NAN;
-    }
-    if( x == 2.0 ) {
-        return 1.0;
-    }
-    return ln64( x ) * 1.49;
-}
-f32 log10_32( f32 x ) {
+LD_API f32 logarithm10( f32 x ) {
     if( x < 0.0f ) {
         return F32_NAN;
     }
     if( x == 10.0f ) {
         return 1.0f;
     }
-    return ln32( x ) / 2.3f;
-}
-f64 log10_64( f64 x ) {
-    if( x < 0.0f ) {
-        return F64_NAN;
-    }
-    if( x == 10.0 ) {
-        return 1.0f;
-    }
-    return ln64( x ) / 2.3f;
+    return natural_logarithm( x ) / 2.3f;
 }
 
-f32 lerp32( f32 a, f32 b, f32 t ) {
+LD_API f32 lerp( f32 a, f32 b, f32 t ) {
     return ( 1.0f - t ) * a + b * t;
 }
-f64 lerp64( f64 a, f64 b, f64 t ) {
-    return ( 1.0 - t ) * a + b * t;
-}
-f32 inv_lerp32( f32 a, f32 b, f32 v ) {
+LD_API f32 inv_lerp( f32 a, f32 b, f32 v ) {
     return ( v - a ) / ( b - a );
 }
-f64 inv_lerp64( f64 a, f64 b, f64 v ) {
-    return ( v - a ) / ( b - a );
+LD_API f32 remap( f32 imin, f32 imax, f32 omin, f32 omax, f32 v ) {
+    f32 t = inv_lerp( imin, imax, v );
+    return lerp( omin, omax, t );
 }
-f32 remap32( f32 imin, f32 imax, f32 omin, f32 omax, f32 v ) {
-    f32 t = inv_lerp32( imin, imax, v );
-    return lerp32( omin, omax, t );
-}
-f64 remap64( f64 imin, f64 imax, f64 omin, f64 omax, f64 v ) {
-    f64 t = inv_lerp64( imin, imax, v );
-    return lerp64( omin, omax, t );
-}
-
-f32 smooth_step32( f32 a, f32 b, f32 t ) {
+LD_API f32 smooth_step( f32 a, f32 b, f32 t ) {
     return ( b - a ) * ( 3.0f - t * 2.0f ) * t * t + a;
 }
-f64 smooth_step64( f64 a, f64 b, f64 t ) {
-    return ( b - a ) * ( 3.0 - t * 2.0 ) * t * t + a;
-}
-f32 smoother_step32( f32 a, f32 b, f32 t ) {
+LD_API f32 smoother_step( f32 a, f32 b, f32 t ) {
     return ( b - a ) *
         ( ( t * ( t * 6.0f - 15.0f ) + 10.0f ) * t * t * t ) + a;
 }
-f64 smoother_step64( f64 a, f64 b, f64 t ) {
-    return ( b - a ) *
-        ( ( t * ( t * 6.0 - 15.0 ) + 10.0 ) * t * t * t ) + a;
-}
 
-vec2 v2_neg( vec2 v ) {
+LD_API vec2 v2_neg( vec2 v ) {
     vec2 result;
     result.x = -v.x;
     result.y = -v.y;
     return result;
 }
-vec2 v2_add( vec2 lhs, vec2 rhs ) {
+LD_API vec2 v2_add( vec2 lhs, vec2 rhs ) {
     vec2 result;
     result.x = lhs.x + rhs.x;
     result.y = lhs.y + rhs.y;
     return result;
 }
-vec2 v2_sub( vec2 lhs, vec2 rhs ) {
+LD_API vec2 v2_sub( vec2 lhs, vec2 rhs ) {
     vec2 result;
     result.x = lhs.x - rhs.x;
     result.y = lhs.y - rhs.y;
     return result;
 }
-vec2 v2_mul( vec2 lhs, f32 rhs ) {
+LD_API vec2 v2_mul( vec2 lhs, f32 rhs ) {
     vec2 result;
     result.x = lhs.x * rhs;
     result.y = lhs.y * rhs;
     return result;
 }
-vec2 v2_div( vec2 lhs, f32 rhs ) {
+LD_API vec2 v2_div( vec2 lhs, f32 rhs ) {
     vec2 result;
     result.x = lhs.x / rhs;
     result.y = lhs.y / rhs;
     return result;
 }
-f32 v2_hadd( vec2 v ) {
+LD_API f32 v2_hadd( vec2 v ) {
     return v.x + v.y;
 }
-f32 v2_hmul( vec2 v ) {
+LD_API f32 v2_hmul( vec2 v ) {
     return v.x * v.y;
 }
-vec2 v2_hadamard( vec2 lhs, vec2 rhs ) {
+LD_API vec2 v2_hadamard( vec2 lhs, vec2 rhs ) {
     vec2 result;
     result.x = lhs.x * rhs.x;
     result.y = lhs.y * rhs.y;
     return result;
 }
-f32 v2_aspect_ratio( vec2 v ) {
+LD_API f32 v2_aspect_ratio( vec2 v ) {
     return v.x / v.y;
 }
-f32 v2_dot( vec2 lhs, vec2 rhs ) {
+LD_API f32 v2_dot( vec2 lhs, vec2 rhs ) {
     return v2_hadd( v2_hadamard( lhs, rhs ) );
 }
-vec2 v2_rotate( vec2 v, f32 theta_radians ) {
+LD_API vec2 v2_rotate( vec2 v, f32 theta_radians ) {
     f32 sin, cos;
-    sincos32( theta_radians, &sin, &cos );
+    sine_cosine( theta_radians, &sin, &cos );
     vec2 a = {  cos, sin };
     vec2 b = { -sin, cos };
 
@@ -582,31 +360,31 @@ f32 v2_sqrmag( vec2 v ) {
     return v2_dot( v, v );
 }
 f32 v2_mag( vec2 v ) {
-    return sqrt32( v2_sqrmag( v ) );
+    return square_root( v2_sqrmag( v ) );
 }
 vec2 v2_normalize( vec2 v ) {
     f32 mag = v2_mag( v );
     return mag == 0.0f ? VEC2_ZERO : v2_div( v, mag );
 }
 f32 v2_angle( vec2 lhs, vec2 rhs ) {
-    return acos32( v2_dot( lhs, rhs ) );
+    return arc_cosine( v2_dot( lhs, rhs ) );
 }
 vec2 v2_lerp( vec2 a, vec2 b, f32 t ) {
     vec2 result;
-    result.x = lerp32( a.x, b.x, t );
-    result.y = lerp32( a.y, b.y, t );
+    result.x = lerp( a.x, b.x, t );
+    result.y = lerp( a.y, b.y, t );
     return result;
 }
 vec2 v2_smooth_step( vec2 a, vec2 b, f32 t ) {
     vec2 result;
-    result.x = smooth_step32( a.x, b.x, t );
-    result.y = smooth_step32( a.y, b.y, t );
+    result.x = smooth_step( a.x, b.x, t );
+    result.y = smooth_step( a.y, b.y, t );
     return result;
 }
 vec2 v2_smoother_step( vec2 a, vec2 b, f32 t ) {
     vec2 result;
-    result.x = smoother_step32( a.x, b.x, t );
-    result.y = smoother_step32( a.y, b.y, t );
+    result.x = smoother_step( a.x, b.x, t );
+    result.y = smoother_step( a.y, b.y, t );
     return result;
 }
 
@@ -671,17 +449,17 @@ f32 iv2_sqrmag( ivec2 v ) {
     return iv2_dot( v, v );
 }
 f32 iv2_mag( ivec2 v ) {
-    return sqrt32( iv2_sqrmag( v ) );
+    return square_root( iv2_sqrmag( v ) );
 }
 f32 iv2_angle( ivec2 lhs, ivec2 rhs ) {
-    return acos32( iv2_dot( lhs, rhs ) );
+    return arc_cosine( iv2_dot( lhs, rhs ) );
 }
 
 hsv v3_hsv( f32 hue, f32 saturation, f32 value ) {
     hsv result;
-    result.hue        = wrap_deg32( hue );
-    result.saturation = clamp32_01( saturation );
-    result.value      = clamp32_01( value );
+    result.hue        = wrap_degrees( hue );
+    result.saturation = clamp01( saturation );
+    result.value      = clamp01( value );
     return result;
 }
 hsv rgb_to_hsv( rgb col ) {
@@ -711,9 +489,9 @@ hsv rgb_to_hsv( rgb col ) {
 rgb hsv_to_rgb( hsv col ) {
     f32 chroma    = col.value * col.saturation;
     f32 hue       = col.hue / 60.0f;
-    i32 hue_index = floor32_i32( hue );
+    i32 hue_index = floor_i32( hue );
 
-    f32 x = chroma * ( 1.0f - absolute( mod32( hue, 2.0f ) - 1.0f ) );
+    f32 x = chroma * ( 1.0f - absolute( modulus( hue, 2.0f ) - 1.0f ) );
 
     rgb result = {};
 
@@ -748,17 +526,17 @@ rgb hsv_to_rgb( hsv col ) {
 rgb linear_to_srgb( rgb linear ) {
     #define LINEAR_TO_SRGB_POW ( 1.0f / 2.2f )
     rgb result;
-    result.r = pow32( linear.r, LINEAR_TO_SRGB_POW );
-    result.g = pow32( linear.g, LINEAR_TO_SRGB_POW );
-    result.b = pow32( linear.b, LINEAR_TO_SRGB_POW );
+    result.r = power( linear.r, LINEAR_TO_SRGB_POW );
+    result.g = power( linear.g, LINEAR_TO_SRGB_POW );
+    result.b = power( linear.b, LINEAR_TO_SRGB_POW );
     return result;
 }
 rgb srgb_to_linear( rgb srgb ) {
     #define SRGB_TO_LINEAR_POW ( 2.2f )
     rgb result;
-    result.r = pow32( srgb.r, SRGB_TO_LINEAR_POW );
-    result.g = pow32( srgb.g, SRGB_TO_LINEAR_POW );
-    result.b = pow32( srgb.b, SRGB_TO_LINEAR_POW );
+    result.r = power( srgb.r, SRGB_TO_LINEAR_POW );
+    result.g = power( srgb.g, SRGB_TO_LINEAR_POW );
+    result.b = power( srgb.b, SRGB_TO_LINEAR_POW );
     return result;
 }
 vec3 v3_neg( vec3 v ) {
@@ -855,34 +633,34 @@ f32 v3_sqrmag( vec3 v ) {
     return v3_hadd( v3_hadamard( v, v ) );
 }
 f32 v3_mag( vec3 v ) {
-    return sqrt32( v3_sqrmag( v ) );
+    return square_root( v3_sqrmag( v ) );
 }
 vec3 v3_normalize( vec3 v ) {
     f32 mag = v3_mag( v );
     return mag == 0.0f ? VEC3_ZERO : v3_div( v, mag );
 }
 f32 v3_angle( vec3 lhs, vec3 rhs ) {
-    return acos32( v3_dot( lhs, rhs ) );
+    return arc_cosine( v3_dot( lhs, rhs ) );
 }
 vec3 v3_lerp( vec3 a, vec3 b, f32 t ) {
     vec3 result;
-    result.x = lerp32( a.x, b.x, t );
-    result.y = lerp32( a.y, b.y, t );
-    result.z = lerp32( a.z, b.z, t );
+    result.x = lerp( a.x, b.x, t );
+    result.y = lerp( a.y, b.y, t );
+    result.z = lerp( a.z, b.z, t );
     return result;
 }
 vec3 v3_smooth_step( vec3 a, vec3 b, f32 t ) {
     vec3 result;
-    result.x = smooth_step32( a.x, b.x, t );
-    result.y = smooth_step32( a.y, b.y, t );
-    result.z = smooth_step32( a.z, b.z, t );
+    result.x = smooth_step( a.x, b.x, t );
+    result.y = smooth_step( a.y, b.y, t );
+    result.z = smooth_step( a.z, b.z, t );
     return result;
 }
 vec3 v3_smoother_step( vec3 a, vec3 b, f32 t ) {
     vec3 result;
-    result.x = smoother_step32( a.x, b.x, t );
-    result.y = smoother_step32( a.y, b.y, t );
-    result.z = smoother_step32( a.z, b.z, t );
+    result.x = smoother_step( a.x, b.x, t );
+    result.y = smoother_step( a.y, b.y, t );
+    result.z = smoother_step( a.z, b.z, t );
     return result;
 }
 
@@ -958,10 +736,10 @@ f32 iv3_sqrmag( ivec3 v ) {
     return iv3_hadd( iv3_hadamard( v, v ) );
 }
 f32 iv3_mag( ivec3 v ) {
-    return sqrt32( iv3_sqrmag( v ) );
+    return square_root( iv3_sqrmag( v ) );
 }
 f32 iv3_angle( ivec3 lhs, ivec3 rhs ) {
-    return acos32( iv3_dot( lhs, rhs ) );
+    return arc_cosine( iv3_dot( lhs, rhs ) );
 }
 
 vec4 v4_neg( vec4 v ) {
@@ -1054,44 +832,44 @@ f32 v4_sqrmag( vec4 v ) {
     return v4_hadd( v4_hadamard( v, v ) );
 }
 f32 v4_mag( vec4 v ) {
-    return sqrt32( v4_sqrmag( v ) );
+    return square_root( v4_sqrmag( v ) );
 }
 vec4 v4_normalize( vec4 v ) {
     f32 mag = v4_mag( v );
     return mag == 0.0f ? VEC4_ZERO : v4_div( v, mag );
 }
 f32 v4_angle( vec4 lhs, vec4 rhs ) {
-    return acos32( v4_dot( lhs, rhs ) );
+    return arc_cosine( v4_dot( lhs, rhs ) );
 }
 vec4 v4_lerp( vec4 a, vec4 b, f32 t ) {
     vec4 result;
-    result.x = lerp32( a.x, b.x, t );
-    result.y = lerp32( a.y, b.y, t );
-    result.z = lerp32( a.z, b.z, t );
-    result.w = lerp32( a.w, b.w, t );
+    result.x = lerp( a.x, b.x, t );
+    result.y = lerp( a.y, b.y, t );
+    result.z = lerp( a.z, b.z, t );
+    result.w = lerp( a.w, b.w, t );
     return result;
 }
 vec4 v4_smooth_step( vec4 a, vec4 b, f32 t ) {
     vec4 result;
-    result.x = smooth_step32( a.x, b.x, t );
-    result.y = smooth_step32( a.y, b.y, t );
-    result.z = smooth_step32( a.z, b.z, t );
-    result.w = smooth_step32( a.w, b.w, t );
+    result.x = smooth_step( a.x, b.x, t );
+    result.y = smooth_step( a.y, b.y, t );
+    result.z = smooth_step( a.z, b.z, t );
+    result.w = smooth_step( a.w, b.w, t );
     return result;
 }
 vec4 v4_smoother_step( vec4 a, vec4 b, f32 t ) {
     vec4 result;
-    result.x = smoother_step32( a.x, b.x, t );
-    result.y = smoother_step32( a.y, b.y, t );
-    result.z = smoother_step32( a.z, b.z, t );
-    result.w = smoother_step32( a.w, b.w, t );
+    result.x = smoother_step( a.x, b.x, t );
+    result.y = smoother_step( a.y, b.y, t );
+    result.z = smoother_step( a.z, b.z, t );
+    result.w = smoother_step( a.w, b.w, t );
     return result;
 }
 
-LD_API ivec4 iv4_neg( ivec4 v ) {
+ivec4 iv4_neg( ivec4 v ) {
     return (ivec4){ -v.x, -v.y, -v.z, -v.w };
 }
-LD_API ivec4 iv4_add( ivec4 lhs, ivec4 rhs ) {
+ivec4 iv4_add( ivec4 lhs, ivec4 rhs ) {
     ivec4 result;
     result.x = lhs.x + rhs.x;
     result.y = lhs.y + rhs.y;
@@ -1099,7 +877,7 @@ LD_API ivec4 iv4_add( ivec4 lhs, ivec4 rhs ) {
     result.w = lhs.w + rhs.w;
     return result;
 }
-LD_API ivec4 iv4_sub( ivec4 lhs, ivec4 rhs ) {
+ivec4 iv4_sub( ivec4 lhs, ivec4 rhs ) {
     ivec4 result;
     result.x = lhs.x - rhs.x;
     result.y = lhs.y - rhs.y;
@@ -1107,7 +885,7 @@ LD_API ivec4 iv4_sub( ivec4 lhs, ivec4 rhs ) {
     result.w = lhs.w - rhs.w;
     return result;
 }
-LD_API ivec4 iv4_mul( ivec4 lhs, i32 rhs ) {
+ivec4 iv4_mul( ivec4 lhs, i32 rhs ) {
     ivec4 result;
     result.x = lhs.x * rhs;
     result.y = lhs.y * rhs;
@@ -1115,7 +893,7 @@ LD_API ivec4 iv4_mul( ivec4 lhs, i32 rhs ) {
     result.w = lhs.w * rhs;
     return result;
 }
-LD_API ivec4 iv4_div( ivec4 lhs, i32 rhs ) {
+ivec4 iv4_div( ivec4 lhs, i32 rhs ) {
     ivec4 result;
     result.x = lhs.x / rhs;
     result.y = lhs.y / rhs;
@@ -1123,13 +901,13 @@ LD_API ivec4 iv4_div( ivec4 lhs, i32 rhs ) {
     result.w = lhs.w / rhs;
     return result;
 }
-LD_API i32 iv4_hadd( ivec4 v ) {
+i32 iv4_hadd( ivec4 v ) {
     return v.x + v.y + v.z + v.w;
 }
-LD_API i32 iv4_hmul( ivec4 v ) {
+i32 iv4_hmul( ivec4 v ) {
     return v.x * v.y * v.z * v.w;
 }
-LD_API ivec4 iv4_hadamard( ivec4 lhs, ivec4 rhs ) {
+ivec4 iv4_hadamard( ivec4 lhs, ivec4 rhs ) {
     ivec4 result;
     result.x = lhs.x * rhs.x;
     result.y = lhs.y * rhs.y;
@@ -1137,17 +915,17 @@ LD_API ivec4 iv4_hadamard( ivec4 lhs, ivec4 rhs ) {
     result.w = lhs.w * rhs.w;
     return result;   
 }
-LD_API f32 iv4_dot( ivec4 lhs, ivec4 rhs ) {
+f32 iv4_dot( ivec4 lhs, ivec4 rhs ) {
     return iv4_hadd( iv4_hadamard( lhs, rhs ) );
 }
-LD_API b32 iv4_cmp( ivec4 a, ivec4 b ) {
+b32 iv4_cmp( ivec4 a, ivec4 b ) {
     return
         a.x == b.x &&
         a.y == b.y &&
         a.z == b.z &&
         a.w == b.w;
 }
-LD_API ivec4 iv4_shift_left( ivec4 v ) {
+ivec4 iv4_shift_left( ivec4 v ) {
     ivec4 result;
     result.x = v.y;
     result.y = v.z;
@@ -1155,7 +933,7 @@ LD_API ivec4 iv4_shift_left( ivec4 v ) {
     result.w = v.x;
     return result;
 }
-LD_API ivec4 iv4_shift_right( ivec4 v ) {
+ivec4 iv4_shift_right( ivec4 v ) {
     ivec4 result;
     result.x = v.w;
     result.y = v.x;
@@ -1163,17 +941,17 @@ LD_API ivec4 iv4_shift_right( ivec4 v ) {
     result.w = v.z;
     return result;
 }
-LD_API f32 iv4_sqrmag( ivec4 v ) {
+f32 iv4_sqrmag( ivec4 v ) {
     return iv4_hadd( iv4_hadamard( v, v ) );
 }
-LD_API f32 iv4_mag( ivec4 v ) {
-    return sqrt32( iv4_sqrmag( v ) );
+f32 iv4_mag( ivec4 v ) {
+    return square_root( iv4_sqrmag( v ) );
 }
 
 quat q_angle_axis( f32 angle, vec3 axis ) {
     f32 half_angle = angle / 2.0f;
     f32 sin, cos;
-    sincos32( half_angle, &sin, &cos );
+    sine_cosine( half_angle, &sin, &cos );
     quat result;
     result.w = cos;
     result.x = axis.x * sin;
@@ -1189,9 +967,9 @@ quat q_euler( f32 pitch, f32 yaw, f32 roll ) {
     f32 x_sin, y_sin, z_sin;
     f32 x_cos, y_cos, z_cos;
 
-    sincos32( half_x, &x_sin, &x_cos );
-    sincos32( half_y, &y_sin, &y_cos );
-    sincos32( half_z, &z_sin, &z_cos );
+    sine_cosine( half_x, &x_sin, &x_cos );
+    sine_cosine( half_y, &y_sin, &y_cos );
+    sine_cosine( half_z, &z_sin, &z_cos );
 
     f32 xyz_cos = x_cos * y_cos * z_cos;
     f32 xyz_sin = x_sin * y_sin * z_sin;
@@ -1290,7 +1068,7 @@ f32 q_sqrmag( quat q ) {
     return v4_hadd( v4_hadamard( result, result ) );
 }
 f32 q_mag( quat q ) {
-    return sqrt32( q_sqrmag( q ) );
+    return square_root( q_sqrmag( q ) );
 }
 quat q_normalize( quat q ) {
     f32 mag = q_mag( q );
@@ -1309,7 +1087,7 @@ quat q_inverse( quat q ) {
 }
 f32 q_angle( quat lhs, quat rhs ) {
     quat lmulr = q_mul_q( q_inverse( lhs ), rhs );
-    return 2.0f * atan2_32( v3_mag( lmulr.xyz ), lmulr.w );
+    return 2.0f * arc_tangent2( v3_mag( lmulr.xyz ), lmulr.w );
 }
 f32 q_dot( quat lhs, quat rhs ) {
     vec4 l = { lhs.w, lhs.x, lhs.y, lhs.z };
@@ -1318,16 +1096,16 @@ f32 q_dot( quat lhs, quat rhs ) {
 }
 quat q_lerp( quat a, quat b, f32 t ) {
     quat result;
-    result.w = lerp32( a.w, b.w, t );
-    result.x = lerp32( a.x, b.x, t );
-    result.y = lerp32( a.y, b.y, t );
-    result.z = lerp32( a.z, b.z, t );
+    result.w = lerp( a.w, b.w, t );
+    result.x = lerp( a.x, b.x, t );
+    result.y = lerp( a.y, b.y, t );
+    result.z = lerp( a.z, b.z, t );
     return q_normalize( result );
 }
 quat q_slerp( quat a, quat b, f32 t ) {
     quat _b = b;
     f32 theta = q_dot(a, b);
-    f32 cos_theta = cos32( theta );
+    f32 cos_theta = cosine( theta );
     if( cos_theta < 0.0f ) {
         _b = q_neg( _b );
         cos_theta = -cos_theta;
@@ -1338,10 +1116,10 @@ quat q_slerp( quat a, quat b, f32 t ) {
         return q_normalize(
             q_div(
                 q_add(
-                    q_mul( a, sin32( (1.0f - t) * theta ) ),
-                    q_mul( _b, sin32( t * theta ) )
+                    q_mul( a, sine( (1.0f - t) * theta ) ),
+                    q_mul( _b, sine( t * theta ) )
                 ),
-                sin32( theta )
+                sine( theta )
             )
         );
     }
@@ -1509,7 +1287,7 @@ mat4 m4_perspective(
 ) {
     mat4 result = MAT4_ZERO;
     
-    f32 half_fov_tan = tan32( fov_radians / 2.0f );
+    f32 half_fov_tan = tangent( fov_radians / 2.0f );
 
     result.c[ 0] = 1.0f / ( aspect_ratio * half_fov_tan );
     result.c[ 5] = 1.0f / half_fov_tan;
@@ -1530,7 +1308,7 @@ mat4 m4_translation( f32 x, f32 y, f32 z ) {
 }
 mat4 m4_rotation_pitch( f32 pitch_radians ) {
     f32 sin, cos;
-    sincos32( pitch_radians, &sin, &cos );
+    sine_cosine( pitch_radians, &sin, &cos );
 
     return (mat4){
         1.0f, 0.0f, 0.0f, 0.0f,
@@ -1541,7 +1319,7 @@ mat4 m4_rotation_pitch( f32 pitch_radians ) {
 }
 mat4 m4_rotation_yaw( f32 yaw_radians ) {
     f32 sin, cos;
-    sincos32( yaw_radians, &sin, &cos );
+    sine_cosine( yaw_radians, &sin, &cos );
 
     return (mat4){
          cos, 0.0f, -sin, 0.0f,
@@ -1552,7 +1330,7 @@ mat4 m4_rotation_yaw( f32 yaw_radians ) {
 }
 mat4 m4_rotation_roll( f32 roll_radians ) {
     f32 sin, cos;
-    sincos32( roll_radians, &sin, &cos );
+    sine_cosine( roll_radians, &sin, &cos );
 
     return (mat4){
          cos,  sin, 0.0f, 0.0f,
@@ -1895,7 +1673,7 @@ f32 m4_minor( const mat4* m, usize row, usize column ) {
 f32 m4_cofactor( const mat4* m, usize row, usize column ) {
     f32 minor = m4_minor( m, row, column );
     i32 exp   = ( row + 1 ) + ( column + 1 );
-    return minor * powi32( -1.0f, exp );
+    return minor * poweri( -1.0f, exp );
 }
 mat4 m4_cofactor_matrix( const mat4* m ) {
     mat4 result = (mat4){
@@ -1965,18 +1743,18 @@ mat3 m4_normal_matrix_unchecked( const mat4* m ) {
     mat4 inv_transpose = m4_transpose( &inv );
     return m3_m4( &inv_transpose );
 }
-LD_API vec3 m4_transform_position( const mat4* m ) {
+vec3 m4_transform_position( const mat4* m ) {
     return v3( m->m30, m->m31, m->m32 );
 }
 
 euler_angles euler_q( quat q ) {
     return (euler_angles){
-        atan2_32(
+        arc_tangent2(
             2.0f * (( q.w * q.x ) + ( q.y * q.z )),
             1.0f - 2.0f * ( ( q.x * q.x ) + ( q.y * q.y ) )
         ),
-        asin32_no_nan( 2.0f * (( q.w * q.y ) - ( q.z * q.x )) ),
-        atan2_32(
+        arc_sine_no_nan( 2.0f * (( q.w * q.y ) - ( q.z * q.x )) ),
+        arc_tangent2(
             2.0f * (( q.w * q.z ) + ( q.x * q.y )),
             1.0f - 2.0f * ( ( q.y * q.y ) + ( q.z * q.z ) )
         ),

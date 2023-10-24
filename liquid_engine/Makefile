@@ -23,7 +23,7 @@ else
 endif
 
 ifeq ($(TARGET_ARCH), x86_64)
-	CFLAGS += -masm=intel -mcpu=x86-64
+	CFLAGS += -masm=intel -msse4.2
 else
 	CFLAGS += -mcpu=$(TARGET_ARCH)
 endif

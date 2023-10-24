@@ -6,7 +6,7 @@
 #include "defines.h"
 #include "core/string.h"
 #include "core/memory.h"
-#include "core/mathf.h"
+#include "core/math.h"
 #include "core/internal.h"
 
 LD_API usize cstr_len( const char* cstr ) {
@@ -215,9 +215,9 @@ LD_API b32 string_slice_parse_float( StringSlice* slice, f64* out_float ) {
         f64 fractional_part_f64 = (f64)fractional_part;
         u64 places = ___places( fractional_part );
 
-        u64 power = places + zero_count;
-        if( power ) {
-            fractional_part_f64 /= powi64( 10.0, power );
+        u64 pow = places + zero_count;
+        if( pow ) {
+            fractional_part_f64 /= power( 10.0, pow );
         }
 
         *out_float += fractional_part_f64;
@@ -1123,7 +1123,7 @@ internal usize ___fmt(
                                 string_slice_fmt_int(
                                     &intermediate, val, fmt );
                             } else {
-                                u8 val = (u8)reinterpret( u32, val_ );
+                                u8 val = (u8)reinterpret_cast( u32, &val_ );
                                 string_slice_fmt_uint(
                                     &intermediate, val, fmt );
                             }
@@ -1135,7 +1135,7 @@ internal usize ___fmt(
                                 string_slice_fmt_int(
                                     &intermediate, val, fmt );
                             } else {
-                                u16 val = (u16)reinterpret( u32, val_ );
+                                u16 val = (u16)reinterpret_cast( u32, &val_ );
                                 string_slice_fmt_uint(
                                     &intermediate, val, fmt );
                             }
@@ -1147,7 +1147,7 @@ internal usize ___fmt(
                                 string_slice_fmt_int(
                                     &intermediate, val, fmt );
                             } else {
-                                u32 val = (u32)reinterpret( u32, val_ );
+                                u32 val = (u32)reinterpret_cast( u32, &val_ );
                                 string_slice_fmt_uint(
                                     &intermediate, val, fmt );
                             }
@@ -1159,7 +1159,7 @@ internal usize ___fmt(
                                 string_slice_fmt_int(
                                     &intermediate, val, fmt );
                             } else {
-                                u64 val = (u64)reinterpret( u64, val_ );
+                                u64 val = (u64)reinterpret_cast( u64, &val_ );
                                 string_slice_fmt_uint(
                                     &intermediate, val, fmt );
                             }
@@ -1584,11 +1584,19 @@ LD_API usize string_slice_fmt_uint(
 
     return result;
 }
+b32 ___is_nan64( f32 x ) {
+    u64 bitpattern = reinterpret_cast( u64, &x );
+
+    u64 exp = bitpattern & F64_EXPONENT_MASK;
+    u64 man = bitpattern & F64_MANTISSA_MASK;
+
+    return exp == F64_EXPONENT_MASK && man != 0;
+}
 LD_API usize string_slice_fmt_float(
     StringSlice* slice, f64 value, u32 precision
 ) {
     usize result = 0;
-    if( is_nan64( value ) ) {
+    if( ___is_nan64( value ) ) {
         ___push_slice( 'N' );
         ___push_slice( 'a' );
         ___push_slice( 'N' );

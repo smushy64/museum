@@ -9,7 +9,7 @@
 #include "core/memory.h"
 #include "core/thread.h"
 #include "core/input.h"
-#include "core/mathf.h"
+#include "core/math.h"
 #include "core/time.h"
 #include "core/engine.h"
 #include "core/collections.h"

@@ -6,7 +6,7 @@
 #include "defines.h"
 #include "constants.h"
 #include "core/input.h"
-#include "core/mathf.h"
+#include "core/math.h"
 #include "core/memory.h"
 #include "core/internal.h"
 #include "core/logging.h"
