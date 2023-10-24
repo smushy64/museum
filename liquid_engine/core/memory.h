@@ -67,16 +67,18 @@ LD_API b32 stack_allocator_pop_aligned(
 LD_API void stack_allocator_clear( StackAllocator* allocator );
 
 /// Copy from source buffer to destination buffer.
-LD_API void mem_copy( void* dst, const void* src, usize size );
+LD_API void memory_copy( void* restricted dst, const void* restricted src, usize size );
 /// Copy from source buffer to destination buffer.
 /// Only use this if source and destination overlap.
-LD_API void mem_copy_overlapped( void* dst, const void* src, usize size );
+LD_API void memory_copy_overlapped( void* dst, const void* src, usize size );
 /// Set bytes in destination to given value.
-LD_API void mem_set( void* dst, u8 value, usize size );
+LD_API void memory_set( void* dst, u8 value, usize size );
 /// Set all bytes in destination to zero.
-LD_API void mem_zero( void* dst, usize size );
+header_only void memory_zero( void* dst, usize size ) {
+    memory_set( dst, 0, size );
+}
 /// Compare two equally sized buffers.
-LD_API b32 mem_cmp( const void* a, const void* b, usize size );
+LD_API b32 memory_cmp( const void* a, const void* b, usize size );
 
 /// Query how many bytes have been allocated from system heap.
 LD_API usize memory_query_heap_usage(void);

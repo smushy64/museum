@@ -5,7 +5,7 @@
 */
 #include "defines.h"
 #include "core/string.h"
-#include "core/memoryf.h"
+#include "core/memory.h"
 #include "core/mathf.h"
 #include "core/internal.h"
 
@@ -42,7 +42,7 @@ LD_API void cstr_copy(
     if( !src_len ) {
         src_len = cstr_len( src );
     }
-    mem_copy( dst, src, src_len );
+    memory_copy( dst, src, src_len );
 }
 LD_API void cstr_copy_overlapped(
     char* dst, const char* src, usize opt_src_len
@@ -51,7 +51,7 @@ LD_API void cstr_copy_overlapped(
     if( !src_len ) {
         src_len = cstr_len( src );
     }
-    mem_copy_overlapped( dst, src, src_len );
+    memory_copy_overlapped( dst, src, src_len );
 }
 
 LD_API void char_output_stdout( char character ) {
@@ -378,14 +378,14 @@ LD_API void string_slice_copy_to_len( StringSlice* dst, StringSlice* src ) {
     if( max_copy > src->len ) {
         max_copy = src->len;
     }
-    mem_copy( dst->buffer, src->buffer, max_copy );
+    memory_copy( dst->buffer, src->buffer, max_copy );
 }
 LD_API void string_slice_copy_to_capacity( StringSlice* dst, StringSlice* src ) {
     usize max_copy = dst->capacity;
     if( max_copy > src->len ) {
         max_copy = src->len;
     }
-    mem_copy( dst->buffer, src->buffer, max_copy );
+    memory_copy( dst->buffer, src->buffer, max_copy );
     if( max_copy > dst->len ) {
         dst->len = max_copy;
     }
@@ -415,11 +415,11 @@ LD_API void string_slice_trim_trailing_whitespace( StringSlice* slice ) {
     }
 }
 LD_API void string_slice_fill_to_len( StringSlice* slice, char character ) {
-    mem_set( slice->buffer, *(u8*)&character, slice->len );
+    memory_set( slice->buffer, *(u8*)&character, slice->len );
 }
 LD_API void string_slice_fill_to_capacity( StringSlice* slice, char character ) {
     slice->len = slice->capacity;
-    mem_set( slice->buffer, *(u8*)&character, slice->len );
+    memory_set( slice->buffer, *(u8*)&character, slice->len );
 }
 LD_API b32 string_slice_push( StringSlice* slice, char character ) {
     if( slice->len == slice->capacity ) {
@@ -454,7 +454,7 @@ LD_API b32 string_slice_insert_char(
     }
 
     usize remaining_len = slice->len++ - index;
-    mem_copy_overlapped(
+    memory_copy_overlapped(
         slice->buffer + index + 1, slice->buffer + index, remaining_len );
     slice->buffer[index] = character;
 
@@ -466,8 +466,8 @@ LD_API b32 string_slice_prepend( StringSlice* slice, StringSlice* prepend ) {
         return false;
     }
 
-    mem_copy_overlapped( slice->buffer + prepend->len, slice->buffer, slice->len );
-    mem_copy( slice->buffer, prepend->buffer, prepend->len );
+    memory_copy_overlapped( slice->buffer + prepend->len, slice->buffer, slice->len );
+    memory_copy( slice->buffer, prepend->buffer, prepend->len );
 
     slice->len = len;
 
@@ -492,10 +492,10 @@ LD_API b32 string_slice_insert(
     }
 
     usize remaining_len = slice->len - index;
-    mem_copy_overlapped(
+    memory_copy_overlapped(
         slice->buffer + index,
         slice->buffer + index + insert->len, remaining_len );
-    mem_copy( slice->buffer + index, insert->buffer, insert->len );
+    memory_copy( slice->buffer + index, insert->buffer, insert->len );
 
     slice->len = required_capacity;
     return true;
@@ -506,7 +506,7 @@ LD_API b32 string_slice_append( StringSlice* slice, StringSlice* append ) {
         return false;
     }
 
-    mem_copy( slice->buffer + slice->len, append->buffer, append->len );
+    memory_copy( slice->buffer + slice->len, append->buffer, append->len );
     slice->len = required_capacity;
 
     return true;

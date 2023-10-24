@@ -4,7 +4,7 @@
  * File Created: September 27, 2023
 */
 #include "defines.h"
-#include "core/memoryf.h"
+#include "core/memory.h"
 #include "core/logging.h"
 #include "core/internal.h"
 
@@ -99,7 +99,7 @@ LD_API void* block_allocator_alloc( BlockAllocator* allocator, usize size ) {
 
     usize head = 0;
     if( block_allocator_find_free_blocks( allocator, block_count, &head ) ) {
-        mem_set( allocator->free_list + head, 1, block_count );
+        memory_set( allocator->free_list + head, 1, block_count );
         return (u8*)allocator->buffer + ( head * allocator->block_size );
     }
 
@@ -150,7 +150,7 @@ LD_API void* block_allocator_realloc(
 
     if( adjacent_blocks_are_free ) {
         // set adjacent blocks to be freed
-        mem_set(
+        memory_set(
             allocator->free_list + head + old_block_count,
             1, additional_blocks_required );
         return memory;
@@ -163,7 +163,7 @@ LD_API void* block_allocator_realloc(
     }
 
     // allocate new space, copy data to new space and free old space
-    mem_copy( new_pointer, memory, old_size );
+    memory_copy( new_pointer, memory, old_size );
     block_allocator_free( allocator, memory, old_size );
     return new_pointer;
 }
@@ -175,8 +175,8 @@ LD_API void block_allocator_free(
 
     usize head = ((usize)allocator->buffer - (usize)memory) / allocator->block_size;
 
-    mem_zero( memory, size );
-    mem_zero( allocator->free_list + head, block_count );
+    memory_zero( memory, size );
+    memory_zero( allocator->free_list + head, block_count );
 }
 LD_API void block_allocator_free_aligned(
     BlockAllocator* allocator, void* memory, usize size, usize alignment
@@ -185,8 +185,8 @@ LD_API void block_allocator_free_aligned(
     block_allocator_free( allocator, ___get_aligned_pointer( memory ), aligned_size );
 }
 LD_API void block_allocator_clear( BlockAllocator* allocator ) {
-    mem_zero( allocator->free_list, allocator->block_count );
-    mem_zero( allocator->buffer, allocator->block_size * allocator->block_count );
+    memory_zero( allocator->free_list, allocator->block_count );
+    memory_zero( allocator->buffer, allocator->block_size * allocator->block_count );
 }
 
 LD_API StackAllocator stack_allocator_create( usize buffer_size, void* buffer ) {
@@ -221,7 +221,7 @@ LD_API b32 stack_allocator_pop( StackAllocator* allocator, usize size ) {
         return false;
     }
     allocator->current -= size;
-    mem_zero( (u8*)allocator->buffer + allocator->current, size );
+    memory_zero( (u8*)allocator->buffer + allocator->current, size );
     return true;
 }
 LD_API b32 stack_allocator_pop_aligned(
@@ -232,10 +232,12 @@ LD_API b32 stack_allocator_pop_aligned(
 }
 LD_API void stack_allocator_clear( StackAllocator* allocator ) {
     allocator->current = 0;
-    mem_zero( allocator->buffer, allocator->buffer_size );
+    memory_zero( allocator->buffer, allocator->buffer_size );
 }
 
-LD_API void mem_copy( void* dst, const void* src, usize size ) {
+LD_API void memory_copy(
+    void* restricted dst, const void* restricted src, usize size
+) {
     usize count64 = size / sizeof(u64);
     for( usize i = 0; i < count64; ++i ) {
         *((u64*)dst + i) = *((u64*)src + i);
@@ -248,14 +250,14 @@ LD_API void mem_copy( void* dst, const void* src, usize size ) {
         *(dst_remainder + i) = *(src_remainder + i);
     }
 }
-LD_API void mem_copy_overlapped( void* dst, const void* src, usize size ) {
+LD_API void memory_copy_overlapped( void* dst, const void* src, usize size ) {
     #define INTERMEDIATE_BUFFER_SIZE (256ULL)
     u8 buf[INTERMEDIATE_BUFFER_SIZE];
     void* intermediate_buffer = buf;
 
     if( size <= INTERMEDIATE_BUFFER_SIZE ) {
-        mem_copy( intermediate_buffer, src, size );
-        mem_copy( dst, intermediate_buffer, size );
+        memory_copy( intermediate_buffer, src, size );
+        memory_copy( dst, intermediate_buffer, size );
         return;
     }
 
@@ -264,12 +266,12 @@ LD_API void mem_copy_overlapped( void* dst, const void* src, usize size ) {
 
     for( usize i = 0; i < iteration_count; ++i ) {
         usize offset = i * INTERMEDIATE_BUFFER_SIZE;
-        mem_copy(
+        memory_copy(
             intermediate_buffer,
             (u8*)src + offset,
             INTERMEDIATE_BUFFER_SIZE
         );
-        mem_copy(
+        memory_copy(
             (u8*)dst + offset,
             intermediate_buffer,
             INTERMEDIATE_BUFFER_SIZE
@@ -278,11 +280,11 @@ LD_API void mem_copy_overlapped( void* dst, const void* src, usize size ) {
 
     if( remaining_bytes ) {
         usize offset = (iteration_count * INTERMEDIATE_BUFFER_SIZE);
-        mem_copy( intermediate_buffer, (u8*)src + offset, remaining_bytes );
-        mem_copy( (u8*)dst + offset, intermediate_buffer, remaining_bytes );
+        memory_copy( intermediate_buffer, (u8*)src + offset, remaining_bytes );
+        memory_copy( (u8*)dst + offset, intermediate_buffer, remaining_bytes );
     }
 }
-LD_API void mem_set( void* dst, u8 value, usize size ) {
+LD_API void memory_set( void* dst, u8 value, usize size ) {
     usize size64 = size / sizeof(u64);
     union { u8 bytes[sizeof(u64)]; u64 longlong; } value64 = {
         .bytes = { value, value, value, value, value, value, value, value } };
@@ -296,19 +298,7 @@ LD_API void mem_set( void* dst, u8 value, usize size ) {
         *(dst_remainder + i) = value;
     }
 }
-LD_API void mem_zero( void* dst, usize size ) {
-    usize size64 = size / sizeof(u64);
-    for( usize i = 0; i < size64; ++i ) {
-        *((u64*)dst + i) = 0ULL;
-    }
-
-    usize remainder     = size % sizeof(u64);
-    u8*   dst_remainder = (u8*)((u64*)dst + size64);
-    for( usize i = 0; i < remainder; ++i ) {
-        *(dst_remainder + i) = 0;
-    }
-}
-LD_API b32 mem_cmp( const void* a, const void* b, usize size ) {
+LD_API b32 memory_cmp( const void* a, const void* b, usize size ) {
     usize size64 = size / sizeof(u64);
     for( usize i = 0; i < size64; ++i ) {
         if( *((u64*)a + i) != *((u64*)b + i) ) {

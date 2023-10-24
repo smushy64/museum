@@ -4,7 +4,7 @@
  * File Created: May 01, 2023
 */
 #include "core/collections.h"
-#include "core/memoryf.h"
+#include "core/memory.h"
 
 struct ListHeader {
     usize capacity;
@@ -37,7 +37,7 @@ LD_API b32 list_push( List* list, void* item ) {
         return false;
     }
 
-    mem_copy(
+    memory_copy(
         (u8*)list + (header->item_size * header->count),
         item, header->item_size );
 
@@ -51,7 +51,7 @@ LD_API b32 list_append( List* list, usize append_count, void* append_items ) {
         return false;
     }
 
-    mem_copy(
+    memory_copy(
         (u8*)list + (header->item_size * header->count),
         append_items, header->item_size * append_count );
     header->count += append_count;
@@ -85,11 +85,11 @@ LD_API b32 list_insert( List* list, usize index, void* item ) {
     }
 
     usize right_count = header->count - index;
-    mem_copy_overlapped(
+    memory_copy_overlapped(
         (u8*)list + ( header->item_size * (index + 1) ),
         (u8*)list + ( header->item_size * index ),
         header->item_size * right_count );
-    mem_copy(
+    memory_copy(
         (u8*)list + ( header->item_size * index ),
         item, header->item_size );
 
@@ -104,19 +104,19 @@ LD_API void list_remove( List* list, usize index, void* opt_out_item ) {
     if( index == header->count - 1 ) {
         void* popped_item = list_pop( list );
         if( opt_out_item && popped_item ) {
-            mem_copy( opt_out_item, popped_item, header->item_size );
+            memory_copy( opt_out_item, popped_item, header->item_size );
         }
         return;
     }
 
     if( opt_out_item ) {
-        mem_copy(
+        memory_copy(
             opt_out_item, list_index( list, index ),
             header->item_size );
     }
 
     usize right_count = header->count - index;
-    mem_copy_overlapped(
+    memory_copy_overlapped(
         (u8*)list + ( header->item_size * index ),
         (u8*)list + ( header->item_size * (index + 1) ),
         header->item_size * right_count );
@@ -133,14 +133,14 @@ LD_API void* list_index( List* list, usize index ) {
 LD_API void list_set( List* list, usize index, void* item ) {
     struct ListHeader* header = list_head( list );
     assert( index < header->count );
-    mem_copy(
+    memory_copy(
         (u8*)list + ( header->item_size * index ),
         item, header->item_size );
 }
 LD_API void list_fill( List* list, void* item ) {
     struct ListHeader* header = list_head( list );
     for( usize i = 0; i < header->count; ++i ) {
-        mem_copy(
+        memory_copy(
             (u8*)list + ( header->item_size * i ),
             item, header->item_size );
     }
@@ -148,7 +148,7 @@ LD_API void list_fill( List* list, void* item ) {
 LD_API void list_fill_to_capacity( List* list, void* item ) {
     struct ListHeader* header = list_head( list );
     for( usize i = 0; i < header->capacity; ++i ) {
-        mem_copy(
+        memory_copy(
             (u8*)list + ( header->item_size * i ),
             item, header->item_size );
     }

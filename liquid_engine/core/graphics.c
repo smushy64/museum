@@ -5,7 +5,7 @@
 #include "core/logging.h"
 #include "core/sort.h"
 #include "core/mathf.h"
-#include "core/memoryf.h"
+#include "core/memory.h"
 #include "core/collections.h"
 #include "core/graphics.h"
 #include "core/graphics/internal.h"
@@ -33,7 +33,7 @@ b32 renderer_subsystem_init(
     void* buffer
 ) {
     usize subsystem_size = renderer_subsystem_query_size( backend );
-    mem_zero( buffer, subsystem_size );
+    memory_zero( buffer, subsystem_size );
 
     global_renderer    = buffer;
     global_render_data = render_data;

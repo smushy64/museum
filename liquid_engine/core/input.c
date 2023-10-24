@@ -3,9 +3,11 @@
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: May 03, 2023
 */
+#include "defines.h"
+#include "constants.h"
 #include "core/input.h"
 #include "core/mathf.h"
-#include "core/memoryf.h"
+#include "core/memory.h"
 #include "core/internal.h"
 #include "core/logging.h"
 
@@ -71,7 +73,7 @@ void input_subsystem_initialize( void* buffer ) {
     global_input   = buffer;
 }
 void input_subsystem_swap_state(void) {
-    mem_copy(
+    memory_copy(
         global_input->keyboard.last_buttons,
         global_input->keyboard.buttons,
         sizeof( global_input->keyboard.buttons ) );
@@ -101,7 +103,7 @@ void input_subsystem_update_gamepads(void) {
 
         if( !platform_current->is_active ) {
             if( current->is_active ) {
-                mem_zero( current, sizeof(struct GamepadState) );
+                memory_zero( current, sizeof(struct GamepadState) );
             }
             current->is_active = false;
         }

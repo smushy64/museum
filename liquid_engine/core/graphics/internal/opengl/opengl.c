@@ -5,7 +5,7 @@
 */
 #include "defines.h"
 #include "core/logging.h"
-#include "core/memoryf.h"
+#include "core/memory.h"
 #include "core/mathf.h"
 #include "core/time.h"
 #include "core/string.h"
@@ -549,7 +549,7 @@ internal no_inline void gl_shutdown(void) {
     glDeleteTextures( GL_FRAMEBUFFER_COUNT, global_gl->fbo_texture_0 );
     glDeleteTextures( GL_FRAMEBUFFER_COUNT, global_gl->fbo_texture_1 );
 
-    mem_zero( global_gl, sizeof( struct OpenGLSubsystem ) );
+    memory_zero( global_gl, sizeof( struct OpenGLSubsystem ) );
     global_gl = NULL;
 }
 internal void gl_draw_framebuffer( ivec2 viewport ) {
@@ -1450,7 +1450,7 @@ void gl_vertex_arrays_delete_range( usize from_inclusive, usize to_exclusive ) {
 
     glDeleteVertexArrays( count, global_gl->vertex_arrays + from_inclusive );
     glDeleteBuffers( count * 2, (GLuint*)(global_gl->vao_buffers + from_inclusive) );
-    mem_zero(
+    memory_zero(
         global_gl->vertex_arrays + from_inclusive, count * sizeof(GLVertexArrayID) );
 }
 void gl_vertex_arrays_delete( usize count, RenderID* indices ) {
