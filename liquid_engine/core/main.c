@@ -143,6 +143,8 @@ internal b32 parse_settings( struct SettingsParse* out_parse_result );
 
 global PlatformSurface* ENGINE_SURFACE = NULL;
 
+#define DEFAULT_LOGGING_FILE_PATH "./museum-logging.txt"
+
 internal void print_help(void);
 LD_API int core_init(
     int argc, char** argv,
@@ -163,7 +165,7 @@ LD_API int core_init(
 #if defined(LD_LOGGING)
 
     PlatformFile* logging_file = platform->io.file_open(
-        "./museum-logging.txt", PLATFORM_FILE_WRITE | PLATFORM_FILE_SHARE_READ );
+        DEFAULT_LOGGING_FILE_PATH, PLATFORM_FILE_WRITE | PLATFORM_FILE_SHARE_READ );
 
     if( !logging_file ) {
         println_err( "[FATAL] Failed to open logging file!" );
@@ -189,6 +191,7 @@ LD_API int core_init(
     /* parse arguments */ {
 #if defined(LD_DEVELOPER_MODE)
         string_slice_const( libload, "--libload=" );
+        string_slice_const( clear_log, "--clear-log" );
 #endif
         string_slice_const( set_width, "--width=" );
         string_slice_const( set_height, "--height=" );
@@ -235,6 +238,24 @@ LD_API int core_init(
                 }
                 game_library_path.buffer = current.buffer + libload.len;
                 game_library_path.len    = current.len - libload.len;
+                continue;
+            }
+            if( string_slice_cmp( &current, &clear_log ) ) {
+                logging_subsystem_detach_file();
+                platform->io.file_close( logging_file );
+
+                if( !platform->io.file_delete_by_path( DEFAULT_LOGGING_FILE_PATH ) ) {
+                    warn_log( "Unable to delete logging file!" );
+                }
+
+                logging_file = platform->io.file_open(
+                    DEFAULT_LOGGING_FILE_PATH,
+                    PLATFORM_FILE_WRITE | PLATFORM_FILE_SHARE_READ );
+
+                read_write_fence();
+                logging_subsystem_attach_file( logging_file );
+
+                note_log( "Logging file cleared!" );
                 continue;
             }
 #endif
@@ -767,8 +788,8 @@ internal void print_help(void) {
     println( "OPTIONS:" );
 #if defined(LD_DEVELOPER_MODE)
     println( "--libload=[string]         use a different game dll from default (developer mode only, default='" GAME_LIBRARY_PATH_DEFAULT "')"  );
-    println( "--output-debug-string      enable output debug string (developer mode only, win32 only, default=false)" );
-#endif
+    println( "--clear-log                clear museum-logging.txt (developer mode only)" );
+#endif /* developer mode */
     println( "--width=[integer]          overwrite screen width (default=settings.ini)" );
     println( "--height=[integer]         overwrite screen height (default=settings.ini)" );
     println( "--resolution_scale=[float] overwrite resolution scale (default=settings.ini)" );
@@ -776,14 +797,19 @@ internal void print_help(void) {
     println( "--vulkan                   use Vulkan renderer backend" );
 #if defined(LD_PLATFORM_MACOS) || defined(LD_PLATFORM_IOS)
     println( "--metal                    use Metal renderer backend (macos/ios only)" );
-#endif
+#endif /* macos or ios */
 #if defined(LD_PLATFORM_WASM)
     println( "--webgl                    use WebGL renderer backend (wasm only)" );
-#endif
+#endif /* wasm */
 #if defined(LD_PLATFORM_WINDOWS)
+
+    #if defined(LD_DEVELOPER_MODE)
+        println( "--output-debug-string      enable output debug string (developer mode only, win32 only, default=false)" );
+    #endif /* win32 developer mode */
+
     println( "--directx11                use DirectX11 renderer backend (win32 only)" );
     println( "--directx12                use DirectX12 renderer backend (win32 only)" );
-#endif
+#endif /* win32 */
     println( "--help,-h                  print this message" );
 }
 

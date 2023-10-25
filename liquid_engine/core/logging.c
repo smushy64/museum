@@ -53,6 +53,15 @@ void logging_subsystem_initialize( PlatformFile* output_file ) {
     LOGGING_MUTEX = mutex_create();
     assert( LOGGING_MUTEX );
 }
+void logging_subsystem_attach_file( PlatformFile* file ) {
+    ___log_lock();
+    read_write_fence();
+
+    LOGGING_FILE = file;
+
+    read_write_fence();
+    ___log_unlock();
+}
 void logging_subsystem_detach_file(void) {
     ___log_lock();
     read_write_fence();

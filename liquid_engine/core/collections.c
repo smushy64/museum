@@ -3,8 +3,70 @@
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: May 01, 2023
 */
+#include "defines.h"
 #include "core/collections.h"
 #include "core/memory.h"
+#include "core/math.h"
+
+LD_API void* iterator_next_enumerate( Iterator* iter, usize* out_enumerator ) {
+    if( iter->current == iter->count ) {
+        return NULL;
+    }
+    *out_enumerator = iter->current;
+    void* result = (u8*)iter->buffer + ( iter->item_size * iter->current++ );
+    return result;
+}
+LD_API void* iterator_reverse_next_enumerate( Iterator* iter, usize* out_enumerator ) {
+    if( iter->current == iter->count ) {
+        return NULL;
+    }
+
+    usize index = (iter->count - iter->current) - 1;
+    *out_enumerator = iter->current++;
+
+    void* result = (u8*)iter->buffer + ( iter->item_size * index );
+
+    return result;
+}
+LD_API b32 iterator_next_value_enumerate( Iterator* iter, void* out_item, usize* out_index ) {
+    if( iter->current == iter->count ) {
+        return false;
+    }
+
+    *out_index = iter->current;
+    void* src = (u8*)iter->buffer + ( iter->item_size * iter->current++ );
+    memory_copy( out_item, src, iter->item_size );
+
+    return true;
+}
+LD_API b32 iterator_reverse_next_value_enumerate(
+    Iterator* iter, void* out_item, usize* out_index
+) {
+    if( iter->current == iter->count ) {
+        return false;
+    }
+
+    usize index = (iter->count - iter->current) - 1;
+    *out_index  = iter->current++;
+
+    void* src = (u8*)iter->buffer + ( iter->item_size * index );
+    memory_copy( out_item, src, iter->item_size );
+
+    return true;
+}
+LD_API void iterator_split(
+    Iterator* iter, usize index, Iterator* out_first, Iterator* out_last
+) {
+    out_first->buffer    = iter->buffer;
+    out_first->item_size = iter->item_size;
+    out_first->count     = index;
+    out_first->current   = 0;
+
+    out_last->buffer    = ((u8*)iter->buffer) + (index * iter->item_size);
+    out_last->item_size = iter->item_size;
+    out_last->count     = iter->count - index;
+    out_last->current   = 0;
+}
 
 struct ListHeader {
     usize capacity;
@@ -172,5 +234,15 @@ LD_API usize list_capacity( List* list ) {
 LD_API usize list_item_size( List* list ) {
     struct ListHeader* header = list_head( list );
     return header->item_size;
+}
+LD_API Iterator list_iterator( List* list ) {
+    struct ListHeader* header = list_head( list );
+    Iterator result = {};
+
+    result.buffer    = list;
+    result.item_size = header->item_size;
+    result.count     = header->count;
+
+    return result;
 }
 

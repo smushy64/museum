@@ -373,6 +373,7 @@ b32 win32_file_write(
 usize win32_file_query_size( PlatformFile* file );
 void win32_file_set_offset( PlatformFile* file, usize offset );
 usize win32_file_query_offset( PlatformFile* file );
+b32 win32_file_delete_by_path( const char* path );
 void win32_output_debug_string( const char* cstr );
 
 PlatformLibrary* win32_platform_library_open( const char* library_path );
@@ -859,6 +860,7 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
     api.io.file_query_size     = win32_file_query_size;
     api.io.file_set_offset     = win32_file_set_offset;
     api.io.file_query_offset   = win32_file_query_offset;
+    api.io.file_delete_by_path = win32_file_delete_by_path;
     api.io.output_debug_string = win32_output_debug_string;
 
     api.library.open          = win32_platform_library_open;
@@ -2043,6 +2045,9 @@ usize win32_file_query_offset( PlatformFile* file ) {
 
     return result;
 #endif
+}
+b32 win32_file_delete_by_path( const char* path ) {
+    return DeleteFileA( path );
 }
 void win32_output_debug_string( const char* cstr ) {
     OutputDebugStringA( cstr );

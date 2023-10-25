@@ -60,6 +60,8 @@ struct StringSlice;
 void logging_subsystem_initialize( void* opt_output_file );
 /// Detach output file handle.
 void logging_subsystem_detach_file(void);
+/// Attach output file handle.
+void logging_subsystem_attach_file( void* output_file );
 
 #if defined(LD_PLATFORM_WINDOWS)
 

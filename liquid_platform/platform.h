@@ -285,6 +285,7 @@ typedef b32 PlatformFileWriteFN(
 typedef usize PlatformFileQuerySizeFN( PlatformFile* file );
 typedef void PlatformFileSetOffsetFN( PlatformFile* file, usize offset );
 typedef usize PlatformFileQueryOffsetFN( PlatformFile* file );
+typedef b32 PlatformFileDeleteByPathFN( const char* path );
 
 #if defined(LD_PLATFORM_WINDOWS)
 typedef void PlatformWin32OutputDebugStringFN( const char* cstr );
@@ -307,6 +308,7 @@ typedef struct {
     PlatformFileQuerySizeFN*      file_query_size;
     PlatformFileSetOffsetFN*      file_set_offset;
     PlatformFileQueryOffsetFN*    file_query_offset;
+    PlatformFileDeleteByPathFN*   file_delete_by_path;
 
 #if defined(LD_PLATFORM_WINDOWS)
     PlatformWin32OutputDebugStringFN* output_debug_string;

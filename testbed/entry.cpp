@@ -10,6 +10,7 @@
 #include <core/memory.h>
 #include <core/logging.h>
 #include <core/time.h>
+#include <core/collections.h>
 
 struct GameMemory {
     Transform camera_transform;
