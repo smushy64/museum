@@ -9,6 +9,5 @@
 ## Sections
 - [defines.h](./defines.md)
 - [constants.h](./constants.md)
-- [strings.h](./strings.md)
-- [cstr.h](./cstr.md)
+- [string.h](./string.md)
 
