@@ -9,12 +9,25 @@
 #include "core/logging.h"
 #include "core/memory.h"
 #include "core/thread.h"
+#include "core/math.h"
 #include "core/internal.h"
+
+global f32 global_master_volume = 0.05f;
+
+LD_API void audio_set_master_volume( f32 volume ) {
+    // f32 volume01 = clamp01( volume );
+    // f32 logarithmic = logarithm10( volume01 ) * 20.0f;
+    // global_master_volume = logarithmic;
+    //
+    global_master_volume = clamp01( volume );
+}
+LD_API f32 audio_query_master_volume(void) {
+    return global_master_volume;
+}
 
 // TODO(alicia): this is currently temporary code!
 // Platform-specific functions should be used only in liquid_platform!
 
-#include <windows.h>
 #include <initguid.h>
 #include <mmdeviceapi.h>
 #include <dshow.h>
@@ -30,6 +43,8 @@ global WAVEFORMATEX global_format;
 
 global UINT32 global_buffer_frame_count = 0;
 global usize  global_buffer_size  = 0;
+
+/// Defining required win32 functions.
 
 #define AUDIO_DEFINE_FUNCTION( ret, name, ... )\
     typedef ret ___internal_##name##FN( __VA_ARGS__ );\
@@ -47,6 +62,8 @@ AUDIO_DEFINE_FUNCTION( void, CoUninitialize, void );
 AUDIO_DEFINE_FUNCTION( void, CoTaskMemFree, LPVOID pv );
 #define CoTaskMemFree ___internal_CoTaskMemFree
 
+/// For converting actually useful
+/// time lengths to microsoft's bs.
 #define REFTIMES_PER_SEC 10000000
 #define REFTIMES_PER_MS  10000
 
@@ -71,18 +88,18 @@ UINT32 ___audio_buffer_bytes_to_frame_count( usize buffer_bytes ) {
 /// out_frames_available returns how many frames are free in the buffer.
 /// out_data returns a pointer to the buffer.
 internal maybe_unused
-b32 ___audio_lock_buffer( usize* out_total_buffer_size, UINT32* out_frames_available, usize* out_bytes_available, BYTE** out_buffer ) {
+b32 ___audio_lock_buffer( UINT32* out_frames_available, usize* out_bytes_available, BYTE** out_buffer ) {
 
     UINT32 buffer_frame_padding_count = 0;
     HRESULT hresult = global_audio_client->lpVtbl->GetCurrentPadding(
         global_audio_client, &buffer_frame_padding_count );
     if( FAILED( hresult ) ) {
-        warn_log( "failed to get current padding?" );
+        warn_log( "Audio -> failed to get current padding?" );
         return false;
     }
 
     if( buffer_frame_padding_count > global_buffer_frame_count ) {
-        warn_log( "buffer frame padding count was greater than buffer frame count?" );
+        warn_log( "Audio -> buffer frame padding count was greater than buffer frame count?" );
         return false;
     }
 
@@ -92,14 +109,16 @@ b32 ___audio_lock_buffer( usize* out_total_buffer_size, UINT32* out_frames_avail
     BYTE* buffer = NULL;
     hresult = global_audio_render_client->lpVtbl->GetBuffer(
         global_audio_render_client, buffer_frames_to_request, &buffer );
-    if( FAILED( hresult ) || !buffer ) {
-        warn_log( "failed to retrieve buffer?" );
+    if( hresult != S_OK ) {
+        warn_log( "Audio -> failed to retrieve buffer?" );
+        return false;
+    }
+    if( !buffer ) {
         return false;
     }
 
-    *out_total_buffer_size = ___audio_buffer_frame_count_to_bytes( global_buffer_frame_count );
-    *out_bytes_available   = ___audio_buffer_frame_count_to_bytes( buffer_frames_to_request );
-    *out_frames_available  = buffer_frames_to_request;
+    *out_bytes_available  = ___audio_buffer_frame_count_to_bytes( buffer_frames_to_request );
+    *out_frames_available = buffer_frames_to_request;
     *out_buffer = buffer;
 
     return true;
@@ -115,6 +134,7 @@ void ___audio_unlock_buffer( UINT32 frames_locked ) {
 }
 
 b32 audio_subsystem_initialize(void) {
+    /// Load required functions.
 
     PlatformLibrary* ole32_lib = platform->library.open( "OLE32.DLL" );
     if( !ole32_lib ) {
@@ -146,6 +166,8 @@ b32 audio_subsystem_initialize(void) {
 
     HRESULT result = 0;
 
+    /// Initialize COM.
+
     result = CoInitialize( NULL );
     AUDIO_CHECK_ERROR( CoInitialize );
 
@@ -155,15 +177,20 @@ b32 audio_subsystem_initialize(void) {
         (void**)&global_device_enumerator );
     AUDIO_CHECK_ERROR( CoCreateInstance );
 
+    /// Get default device.
+
     result = global_device_enumerator->lpVtbl->GetDefaultAudioEndpoint(
         global_device_enumerator, eRender, eConsole, &global_device );
-
     AUDIO_CHECK_ERROR( global_device_enumerator->GetDefaultAudioEndpoint );
+
+    /// Activate audio client on device.
 
     result = global_device->lpVtbl->Activate(
         global_device, &IID_IAudioClient,
         CLSCTX_ALL, NULL, (void**)&global_audio_client );
     AUDIO_CHECK_ERROR( global_device->Activate );
+
+    /// Define audio buffer format.
 
     global_format.nChannels       = 2;
     global_format.wFormatTag      = WAVE_FORMAT_PCM;
@@ -175,6 +202,8 @@ b32 audio_subsystem_initialize(void) {
         global_format.nSamplesPerSec * global_format.nBlockAlign;
     global_format.cbSize = 0;
 
+#if defined(LD_LOGGING)
+
     const char* wave_format_cstr =
         ___audio_wave_format_to_cstr( global_format.wFormatTag );
 
@@ -184,10 +213,16 @@ b32 audio_subsystem_initialize(void) {
     info_log( "Audio -> nSamplesPerSec: {u}", global_format.nSamplesPerSec );
     info_log( "Audio -> wBitsPerSample: {u}", global_format.wBitsPerSample );
 
+#endif /* Logging enabled. */
+
+    /// Specify buffer length in milliseconds.
+
     u64 buffer_length_ms = 500;
     REFTIME buffer_length_reftime = buffer_length_ms * REFTIMES_PER_MS;
 
     info_log( "Audio -> Audio buffer length ms: {u64}", buffer_length_ms );
+
+    /// Create audio buffer.
 
     // NOTE(alicia): eventually I might implement resampling but for
     // now, just let wasapi resample the buffer for me
@@ -201,7 +236,7 @@ b32 audio_subsystem_initialize(void) {
         &global_format, NULL );
     AUDIO_CHECK_ERROR( global_audio_client->Initialize );
 
-    /// Calculate audio buffer size.
+    /// Calculate actual audio buffer size.
 
     result = global_audio_client->lpVtbl->GetBufferSize(
         global_audio_client, &global_buffer_frame_count );
@@ -232,7 +267,7 @@ b32 audio_subsystem_initialize(void) {
         global_audio_render_client, global_buffer_frame_count, 0 );
     AUDIO_CHECK_ERROR( global_audio_render_client->ReleaseBuffer );
 
-    /// Start audio buffer.
+    /// Start playing audio buffer.
 
     result = global_audio_client->lpVtbl->Start( global_audio_client );
     AUDIO_CHECK_ERROR( global_audio_client->Start );
@@ -241,7 +276,32 @@ b32 audio_subsystem_initialize(void) {
     return true;
 }
 
+global f32 t_sine = 0.0f;
+#define AUDIO_VOLUME 3000
 void audio_subsystem_fill_buffer(void) {
+    UINT32 frames_available = 0;
+    usize  bytes_available  = 0;
+    BYTE*  buffer = NULL;
+    if( ___audio_lock_buffer( &frames_available, &bytes_available, &buffer ) ) {
+
+        i32 wave_period = global_format.nSamplesPerSec / 256;
+        i16* sample_out = (i16*)buffer;
+
+        f32 volume = global_master_volume * (f32)I16_MAX;
+
+        for( usize i = 0; i < frames_available; ++i ) {
+            f32 sine_value = sine( t_sine );
+
+            i16 sample_value = (i16)( sine_value * volume );
+
+            *sample_out++ = sample_value;
+            *sample_out++ = sample_value;
+
+            t_sine += 2.0f * F32_TAU / (f32)wave_period;
+        }
+
+        ___audio_unlock_buffer( frames_available );
+    }
 }
 
 void audio_subsystem_shutdown(void) {
@@ -251,6 +311,8 @@ void audio_subsystem_shutdown(void) {
             (punk) = NULL;\
         }\
     } while(0)
+
+    global_audio_client->lpVtbl->Stop( global_audio_client );
 
     COM_RELEASE( global_device_enumerator );
     COM_RELEASE( global_device );
@@ -268,11 +330,11 @@ const char* ___audio_wave_format_to_cstr( DWORD format_tag ) {
         case WAVE_FORMAT_PCM:        return "WAVE_FORMAT_PCM";
         case WAVE_FORMAT_EXTENSIBLE: return "WAVE_FORMAT_EXTENSIBLE";
         case WAVE_FORMAT_IEEE_FLOAT: return "WAVE_FORMAT_IEEE_FLOAT";
-        case WAVE_FORMAT_DRM: return "WAVE_FORMAT_DRM";
-        case WAVE_FORMAT_ALAW: return "WAVE_FORMAT_ALAW";
-        case WAVE_FORMAT_MULAW: return "WAVE_FORMAT_MULAW";
-        case WAVE_FORMAT_ADPCM: return "WAVE_FORMAT_ADPCM";
-        default: return "UNKNOWN";
+        case WAVE_FORMAT_DRM:        return "WAVE_FORMAT_DRM";
+        case WAVE_FORMAT_ALAW:       return "WAVE_FORMAT_ALAW";
+        case WAVE_FORMAT_MULAW:      return "WAVE_FORMAT_MULAW";
+        case WAVE_FORMAT_ADPCM:      return "WAVE_FORMAT_ADPCM";
+        default:                     return "UNKNOWN";
     }
 }
 

@@ -7,6 +7,9 @@
 */
 #include "defines.h"
 
+LD_API void audio_set_master_volume( f32 volume );
+LD_API f32  audio_query_master_volume(void);
+
 b32 audio_subsystem_initialize(void);
 
 void audio_subsystem_fill_buffer(void);
