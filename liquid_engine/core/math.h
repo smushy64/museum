@@ -43,6 +43,248 @@ typedef union mat4 mat4;
 /// Transform.
 typedef struct Transform Transform;
 
+/// Sign of number.
+#define signum( x ) (( (x) > 0 ) - ( (x) < 0 ))
+/// Absolute value of number.
+#define absolute( x ) ((x) * signum(x)) 
+
+/// Smallest of two values
+#define min( a, b ) ( (a) < (b) ? (a) : (b) )
+
+/// Largest of two values
+#define max( a, b ) ( (a) < (b) ? (b) : (a) )
+
+/// Clamp a number between min and max, inclusive-inclusive
+#define clamp( value, min, max )\
+    ( (value) < (min) ? (min) : ( (value) > (max) ? (max) : (value) ) )
+/// Clamp a 32-bit float to 0-1
+#define clamp01( value )\
+    clamp( (value), 0.0f, 1.0f )
+
+/// Convert radians to degrees.
+#define to_radians( theta )\
+    ( theta * F32_TO_RAD )
+/// Convert degrees to radians.
+#define to_degrees( theta )\
+    ( theta * F32_TO_DEG )
+
+/// Check if float is NaN.
+LD_API b32 is_nan( f32 x );
+
+/// Square root of x.
+LD_API f32 square_root( f32 x );
+
+/// Reciprical of square root of x.
+LD_API f32 inv_square_root( f32 x );
+
+/// Raise base to integer exponent.
+LD_API f32 poweri( f32 base, i32 exp );
+
+/// Raise base to float exponent.
+LD_API f32 power( f32 base, f32 exp );
+
+/// Float modulus.
+LD_API f32 modulus( f32 lhs, f32 rhs );
+
+/// Sine of x.
+LD_API f32 sine( f32 x );
+/// Cosine of x.
+LD_API f32 cosine( f32 x );
+/// Tangent of x.
+LD_API f32 tangent( f32 x );
+
+/// Sine and Cos of x.
+/// If you need both values,
+/// this is faster than calling each function individually.
+LD_API void sine_cosine( f32 x, f32* out_sin, f32* out_cos );
+
+/// Arc-Sine of x.
+LD_API f32 arc_sine( f32 x );
+/// Arc-Cosine of x.
+LD_API f32 arc_cosine( f32 x );
+/// Arc-Tangent of x.
+LD_API f32 arc_tangent( f32 x );
+/// Two argument arc-tangent.
+LD_API f32 arc_tangent2( f32 y, f32 x );
+
+/// Natural logarithm.
+LD_API f32 natural_logarithm( f32 x );
+
+/// Log2.
+LD_API f32 logarithm2( f32 x );
+
+/// Log10.
+LD_API f32 logarithm10( f32 x );
+
+/// e^x
+LD_API f32 e_power( f32 x );
+
+/// Linearly interpolate a to b.
+LD_API f32 lerp( f32 a, f32 b, f32 t );
+/// Get t value from value v.
+LD_API f32 inv_lerp( f32 a, f32 b, f32 v );
+/// Remap value v from range imin-imax to range omin-omax.
+LD_API f32 remap( f32 imin, f32 imax, f32 omin, f32 omax, f32 v );
+/// Smooth step interpolate a to b.
+LD_API f32 smooth_step( f32 a, f32 b, f32 t );
+/// Smoother step interpolate a to b.
+LD_API f32 smoother_step( f32 a, f32 b, f32 t );
+
+/// Arc-Sine of x. Does not return NaN.
+header_only f32 arc_sine_no_nan( f32 x ) {
+    return absolute( x ) >= 1.0f ?
+        F32_HALF_PI * signum( x ) : arc_sine( x );
+}
+
+/// Wrap value to 0.0 -> 360.0 range.
+header_only f32 wrap_degrees( f32 degrees ) {
+    f32 result = modulus( degrees, 360.0f );
+    if( result < 0.0f ) {
+        result += 360.0f;
+    }
+    return result;
+}
+
+/// Wrap value to -PI -> PI range.
+header_only f32 wrap_radians( f32 radians ) {
+    return modulus( radians + F32_PI, F32_TAU ) - F32_PI;
+}
+
+/// Round float to u32
+LD_API u32 round_u32( f32 x );
+/// Floor float to u32
+LD_API u32 floor_u32( f32 x );
+/// Ceil float to u32
+LD_API u32 ceil_u32( f32 x );
+
+/// Round float to i32
+LD_API i32 round_i32( f32 x );
+/// Floor float to i32
+LD_API i32 floor_i32( f32 x );
+/// Ceil float to i32
+LD_API i32 ceil_i32( f32 x );
+
+/// Normalize integer -1 to 1 range
+#define normalize_range_i8_f32( x ) \
+    ((f32)(x) / ((x) > 0 ? (f32)I8_MAX : -((f32)I8_MIN)))
+/// Normalize integer -1 to 1 range
+#define normalize_range_i16_f32( x )\
+    ((f32)(x) / ((x) > 0 ? (f32)I16_MAX : -((f32)I16_MIN)))
+/// Normalize integer -1 to 1 range
+#define normalize_range_i32_f32( x )\
+    ((f32)(x) / ((x) > 0 ? (f32)I32_MAX : -((f32)I32_MIN)))
+/// Normalize integer -1 to 1 range
+#define normalize_range_i64_f32( x )\
+    ((f32)(x) / ((x) > 0 ? (f32)I64_MAX : -((f32)I64_MIN)))
+
+/// Normalize integer 0 to 1 range
+#define normalize_range_u8_f32( x ) \
+    ((f32)(x) / (f32)(U8_MAX))
+/// Normalize integer 0 to 1 range
+#define normalize_range_u16_f32( x )\
+    ((f32)(x) / (f32)(U16_MAX))
+/// Normalize integer 0 to 1 range
+#define normalize_range_u32_f32( x )\
+    ((f32)(x) / (f32)(U32_MAX))
+/// Normalize integer 0 to 1 range
+#define normalize_range_u64_f32( x )\
+    ((f32)(x) / (f32)(U64_MAX))
+
+/// Normalize 32-bit float to integer min-max.
+/// Float must be in 0.0-1.0 range
+#define normalize_range32_u8( f )\
+    ((u8)(absolute((f)) * (f32)U8_MAX))
+/// Normalize 32-bit float to integer min-max.
+/// Float must be in 0.0-1.0 range
+#define normalize_range32_u16( f )\
+    ((u16)(absolute((f)) * (f32)U16_MAX))
+/// Normalize 32-bit float to integer min-max.
+/// Float must be in 0.0-1.0 range
+#define normalize_range32_u32( f )\
+    ((u32)(absolute((f)) * (f32)U32_MAX))
+/// Normalize 32-bit float to integer min-max.
+/// Float must be in 0.0-1.0 range
+#define normalize_range32_u64( f )\
+    ((u64)(absolute((f)) * (f32)U64_MAX))
+
+/// Normalize 32-bit float to integer min-max.
+/// Float must be in -1.0-1.0 range
+#define normalize_range32_i8( f )\
+    ((i8)( absolute( (f) ) * (f32)I8_MAX ) * (i8)(signum((f))))
+/// Normalize 32-bit float to integer min-max.
+/// Float must be in -1.0-1.0 range
+#define normalize_range32_i16( f )\
+    ((i16)( absolute( (f) ) * (f32)I16_MAX ) * (i16)(signum((f))))
+/// Normalize 32-bit float to integer min-max.
+/// Float must be in -1.0-1.0 range
+#define normalize_range32_i32( f )\
+    ((i32)( absolute( (f) ) * (f32)I32_MAX ) * (i32)(signum((f))))
+/// Normalize 32-bit float to integer min-max.
+/// Float must be in -1.0-1.0 range
+#define normalize_range32_i64( f )\
+    ((i64)( absolute( (f) ) * (f32)I64_MAX ) * (i64)(signum((f))))
+
+/// Normalize 64-bit float to integer min-max.
+/// Float must be in 0.0-1.0 range
+#define normalize_range64_u8( f )\
+    ((u8)(absolute((f)) * (f64)U8_MAX))
+/// Normalize 64-bit float to integer min-max.
+/// Float must be in 0.0-1.0 range
+#define normalize_range64_u16( f )\
+    ((u16)(absolute((f)) * (f64)U16_MAX))
+/// Normalize 64-bit float to integer min-max.
+/// Float must be in 0.0-1.0 range
+#define normalize_range64_u32( f )\
+    ((u32)(absolute((f)) * (f64)U32_MAX))
+/// Normalize 64-bit float to integer min-max.
+/// Float must be in 0.0-1.0 range
+#define normalize_range64_u64( f )\
+    ((u64)(absolute((f)) * (f64)U64_MAX))
+
+/// Normalize 64-bit float to integer min-max.
+/// Float must be in -1.0-1.0 range
+#define normalize_range64_i8( f )\
+    ((i8)( absolute( (f) ) * (f64)I8_MAX ) * (i8)(signum((f))))
+/// Normalize 64-bit float to integer min-max.
+/// Float must be in -1.0-1.0 range
+#define normalize_range64_i16( f )\
+    ((i16)( absolute( (f) ) * (f64)I16_MAX ) * (i16)(signum((f))))
+/// Normalize 64-bit float to integer min-max.
+/// Float must be in -1.0-1.0 range
+#define normalize_range64_i32( f )\
+    ((i32)( absolute( (f) ) * (f64)I32_MAX ) * (i32)(signum((f))))
+/// Normalize 64-bit float to integer min-max.
+/// Float must be in -1.0-1.0 range
+#define normalize_range64_i64( f )\
+    ((i64)( absolute( (f) ) * (f64)I64_MAX ) * (i64)(signum((f))))
+
+/// Rotate left 8-bit integer.
+#define rotate_left8( bitpattern, rotation )\
+    (bitpattern << rotation) | (bitpattern >> (-rotation & 7))
+/// Rotate right 8-bit integer.
+#define rotate_right8( bitpattern, rotation )\
+    (bitpattern >> rotation) | (bitpattern << (8 - rotation))
+/// Rotate left 16-bit integer.
+#define rotate_left16( bitpattern, rotation )\
+    (bitpattern << rotation) | (bitpattern >> (-rotation & 15))
+/// Rotate right 16-bit integer.
+#define rotate_right16( bitpattern, rotation )\
+    (bitpattern >> rotation) | (bitpattern << (16 - rotation))
+/// Rotate left 32-bit integer.
+#define rotate_left32( bitpattern, rotation )\
+    (bitpattern << rotation) | (bitpattern >> (-rotation & 31ul))
+/// Rotate right 32-bit integer.
+#define rotate_right32( bitpattern, rotation )\
+    (bitpattern >> rotation) | (bitpattern << (32ul - rotation))
+/// Rotate left 64-bit integer.
+#define rotate_left64( bitpattern, rotation )\
+    (bitpattern << rotation) | (bitpattern >> (-rotation & 63ull))
+/// Rotate right 64-bit integer.
+#define rotate_right64( bitpattern, rotation )\
+    (bitpattern >> rotation) | (bitpattern << (64ull - rotation))
+
+
+
 #define VEC2_COMPONENT_COUNT (2)
 /// 2-component 32-bit float vector
 union vec2 {
@@ -576,246 +818,6 @@ header_only mat4 m4_m2( mat2 m ) {
 }
 /// Create mat4 from mat3.
 LD_API mat4 m4_m3( const mat3* m );
-
-/// Sign of number.
-#define signum( x ) (( (x) > 0 ) - ( (x) < 0 ))
-/// Absolute value of number.
-#define absolute( x ) ((x) * signum(x)) 
-
-/// Smallest of two values
-#define min( a, b ) ( (a) < (b) ? (a) : (b) )
-
-/// Largest of two values
-#define max( a, b ) ( (a) < (b) ? (b) : (a) )
-
-/// Clamp a number between min and max, inclusive-inclusive
-#define clamp( value, min, max )\
-    ( (value) < (min) ? (min) : ( (value) > (max) ? (max) : (value) ) )
-/// Clamp a 32-bit float to 0-1
-#define clamp01( value )\
-    clamp( (value), 0.0f, 1.0f )
-
-/// Convert radians to degrees.
-#define to_radians( theta )\
-    ( theta * F32_TO_RAD )
-/// Convert degrees to radians.
-#define to_degrees( theta )\
-    ( theta * F32_TO_DEG )
-
-/// Check if float is NaN.
-LD_API b32 is_nan( f32 x );
-
-/// Square root of x.
-LD_API f32 square_root( f32 x );
-
-/// Reciprical of square root of x.
-LD_API f32 inv_square_root( f32 x );
-
-/// Raise base to integer exponent.
-LD_API f32 poweri( f32 base, i32 exp );
-
-/// Raise base to float exponent.
-LD_API f32 power( f32 base, f32 exp );
-
-/// Float modulus.
-LD_API f32 modulus( f32 lhs, f32 rhs );
-
-/// Sine of x.
-LD_API f32 sine( f32 x );
-/// Cosine of x.
-LD_API f32 cosine( f32 x );
-/// Tangent of x.
-LD_API f32 tangent( f32 x );
-
-/// Sine and Cos of x.
-/// If you need both values,
-/// this is faster than calling each function individually.
-LD_API void sine_cosine( f32 x, f32* out_sin, f32* out_cos );
-
-/// Arc-Sine of x.
-LD_API f32 arc_sine( f32 x );
-/// Arc-Cosine of x.
-LD_API f32 arc_cosine( f32 x );
-/// Arc-Tangent of x.
-LD_API f32 arc_tangent( f32 x );
-/// Two argument arc-tangent.
-LD_API f32 arc_tangent2( f32 y, f32 x );
-
-/// Natural logarithm.
-LD_API f32 natural_logarithm( f32 x );
-
-/// Log2.
-LD_API f32 logarithm2( f32 x );
-
-/// Log10.
-LD_API f32 logarithm10( f32 x );
-
-/// e^x
-LD_API f32 e_power( f32 x );
-
-/// Linearly interpolate a to b.
-LD_API f32 lerp( f32 a, f32 b, f32 t );
-/// Get t value from value v.
-LD_API f32 inv_lerp( f32 a, f32 b, f32 v );
-/// Remap value v from range imin-imax to range omin-omax.
-LD_API f32 remap( f32 imin, f32 imax, f32 omin, f32 omax, f32 v );
-/// Smooth step interpolate a to b.
-LD_API f32 smooth_step( f32 a, f32 b, f32 t );
-/// Smoother step interpolate a to b.
-LD_API f32 smoother_step( f32 a, f32 b, f32 t );
-
-/// Arc-Sine of x. Does not return NaN.
-header_only f32 arc_sine_no_nan( f32 x ) {
-    return absolute( x ) >= 1.0f ?
-        F32_HALF_PI * signum( x ) : arc_sine( x );
-}
-
-/// Wrap value to 0.0 -> 360.0 range.
-header_only f32 wrap_degrees( f32 degrees ) {
-    f32 result = modulus( degrees, 360.0f );
-    if( result < 0.0f ) {
-        result += 360.0f;
-    }
-    return result;
-}
-
-/// Wrap value to -PI -> PI range.
-header_only f32 wrap_radians( f32 radians ) {
-    return modulus( radians + F32_PI, F32_TAU ) - F32_PI;
-}
-
-/// Round float to u32
-LD_API u32 round_u32( f32 x );
-/// Floor float to u32
-LD_API u32 floor_u32( f32 x );
-/// Ceil float to u32
-LD_API u32 ceil_u32( f32 x );
-
-/// Round float to i32
-LD_API i32 round_i32( f32 x );
-/// Floor float to i32
-LD_API i32 floor_i32( f32 x );
-/// Ceil float to i32
-LD_API i32 ceil_i32( f32 x );
-
-/// Normalize integer -1 to 1 range
-#define normalize_range_i8_f32( x ) \
-    ((f32)(x) / ((x) > 0 ? (f32)I8_MAX : -((f32)I8_MIN)))
-/// Normalize integer -1 to 1 range
-#define normalize_range_i16_f32( x )\
-    ((f32)(x) / ((x) > 0 ? (f32)I16_MAX : -((f32)I16_MIN)))
-/// Normalize integer -1 to 1 range
-#define normalize_range_i32_f32( x )\
-    ((f32)(x) / ((x) > 0 ? (f32)I32_MAX : -((f32)I32_MIN)))
-/// Normalize integer -1 to 1 range
-#define normalize_range_i64_f32( x )\
-    ((f32)(x) / ((x) > 0 ? (f32)I64_MAX : -((f32)I64_MIN)))
-
-/// Normalize integer 0 to 1 range
-#define normalize_range_u8_f32( x ) \
-    ((f32)(x) / (f32)(U8_MAX))
-/// Normalize integer 0 to 1 range
-#define normalize_range_u16_f32( x )\
-    ((f32)(x) / (f32)(U16_MAX))
-/// Normalize integer 0 to 1 range
-#define normalize_range_u32_f32( x )\
-    ((f32)(x) / (f32)(U32_MAX))
-/// Normalize integer 0 to 1 range
-#define normalize_range_u64_f32( x )\
-    ((f32)(x) / (f32)(U64_MAX))
-
-/// Normalize 32-bit float to integer min-max.
-/// Float must be in 0.0-1.0 range
-#define normalize_range32_u8( f )\
-    ((u8)(absolute((f)) * (f32)U8_MAX))
-/// Normalize 32-bit float to integer min-max.
-/// Float must be in 0.0-1.0 range
-#define normalize_range32_u16( f )\
-    ((u16)(absolute((f)) * (f32)U16_MAX))
-/// Normalize 32-bit float to integer min-max.
-/// Float must be in 0.0-1.0 range
-#define normalize_range32_u32( f )\
-    ((u32)(absolute((f)) * (f32)U32_MAX))
-/// Normalize 32-bit float to integer min-max.
-/// Float must be in 0.0-1.0 range
-#define normalize_range32_u64( f )\
-    ((u64)(absolute((f)) * (f32)U64_MAX))
-
-/// Normalize 32-bit float to integer min-max.
-/// Float must be in -1.0-1.0 range
-#define normalize_range32_i8( f )\
-    ((i8)( absolute( (f) ) * (f32)I8_MAX ) * (i8)(signum((f))))
-/// Normalize 32-bit float to integer min-max.
-/// Float must be in -1.0-1.0 range
-#define normalize_range32_i16( f )\
-    ((i16)( absolute( (f) ) * (f32)I16_MAX ) * (i16)(signum((f))))
-/// Normalize 32-bit float to integer min-max.
-/// Float must be in -1.0-1.0 range
-#define normalize_range32_i32( f )\
-    ((i32)( absolute( (f) ) * (f32)I32_MAX ) * (i32)(signum((f))))
-/// Normalize 32-bit float to integer min-max.
-/// Float must be in -1.0-1.0 range
-#define normalize_range32_i64( f )\
-    ((i64)( absolute( (f) ) * (f32)I64_MAX ) * (i64)(signum((f))))
-
-/// Normalize 64-bit float to integer min-max.
-/// Float must be in 0.0-1.0 range
-#define normalize_range64_u8( f )\
-    ((u8)(absolute((f)) * (f64)U8_MAX))
-/// Normalize 64-bit float to integer min-max.
-/// Float must be in 0.0-1.0 range
-#define normalize_range64_u16( f )\
-    ((u16)(absolute((f)) * (f64)U16_MAX))
-/// Normalize 64-bit float to integer min-max.
-/// Float must be in 0.0-1.0 range
-#define normalize_range64_u32( f )\
-    ((u32)(absolute((f)) * (f64)U32_MAX))
-/// Normalize 64-bit float to integer min-max.
-/// Float must be in 0.0-1.0 range
-#define normalize_range64_u64( f )\
-    ((u64)(absolute((f)) * (f64)U64_MAX))
-
-/// Normalize 64-bit float to integer min-max.
-/// Float must be in -1.0-1.0 range
-#define normalize_range64_i8( f )\
-    ((i8)( absolute( (f) ) * (f64)I8_MAX ) * (i8)(signum((f))))
-/// Normalize 64-bit float to integer min-max.
-/// Float must be in -1.0-1.0 range
-#define normalize_range64_i16( f )\
-    ((i16)( absolute( (f) ) * (f64)I16_MAX ) * (i16)(signum((f))))
-/// Normalize 64-bit float to integer min-max.
-/// Float must be in -1.0-1.0 range
-#define normalize_range64_i32( f )\
-    ((i32)( absolute( (f) ) * (f64)I32_MAX ) * (i32)(signum((f))))
-/// Normalize 64-bit float to integer min-max.
-/// Float must be in -1.0-1.0 range
-#define normalize_range64_i64( f )\
-    ((i64)( absolute( (f) ) * (f64)I64_MAX ) * (i64)(signum((f))))
-
-/// Rotate left 8-bit integer.
-#define rotate_left8( bitpattern, rotation )\
-    (bitpattern << rotation) | (bitpattern >> (-rotation & 7))
-/// Rotate right 8-bit integer.
-#define rotate_right8( bitpattern, rotation )\
-    (bitpattern >> rotation) | (bitpattern << (8 - rotation))
-/// Rotate left 16-bit integer.
-#define rotate_left16( bitpattern, rotation )\
-    (bitpattern << rotation) | (bitpattern >> (-rotation & 15))
-/// Rotate right 16-bit integer.
-#define rotate_right16( bitpattern, rotation )\
-    (bitpattern >> rotation) | (bitpattern << (16 - rotation))
-/// Rotate left 32-bit integer.
-#define rotate_left32( bitpattern, rotation )\
-    (bitpattern << rotation) | (bitpattern >> (-rotation & 31ul))
-/// Rotate right 32-bit integer.
-#define rotate_right32( bitpattern, rotation )\
-    (bitpattern >> rotation) | (bitpattern << (32ul - rotation))
-/// Rotate left 64-bit integer.
-#define rotate_left64( bitpattern, rotation )\
-    (bitpattern << rotation) | (bitpattern >> (-rotation & 63ull))
-/// Rotate right 64-bit integer.
-#define rotate_right64( bitpattern, rotation )\
-    (bitpattern >> rotation) | (bitpattern << (64ull - rotation))
 
 /// Negate vector.
 LD_API vec2 v2_neg( vec2 v );

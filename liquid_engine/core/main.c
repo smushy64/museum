@@ -4,6 +4,7 @@
 #include "defines.h"
 #include <platform.h>
 #include "core/graphics.h"
+#include "core/audio.h"
 #include "core/string.h"
 #include "core/logging.h"
 #include "core/memory.h"
@@ -712,6 +713,9 @@ LD_API int core_init(
         return CORE_ERROR_APPLICATION_INITIALIZE;
     }
 
+    if( !audio_subsystem_initialize() ) {
+        return -1;
+    }
 
     while( global_application_is_running ) {
         input_subsystem_swap_state();
@@ -741,6 +745,8 @@ LD_API int core_init(
             return CORE_ERROR_APPLICATION_RUN;
         }
 
+        audio_subsystem_fill_buffer();
+
         if( !renderer_subsystem_draw() ) {
             fatal_log( "Renderer failed!" );
             platform->fatal_message_box(
@@ -758,6 +764,8 @@ LD_API int core_init(
 
         time_subsystem_update();
     }
+
+    audio_subsystem_shutdown();
 
     platform->surface.clear_callbacks( surface );
 

@@ -15,6 +15,10 @@
 
 // NOTE(alicia): globals
 
+#define WIN32_ERROR_MESSAGE_BUFFER_SIZE (512)
+global char  WIN32_ERROR_MESSAGE_BUFFER[WIN32_ERROR_MESSAGE_BUFFER_SIZE] = {};
+global usize WIN32_ERROR_MESSAGE_LENGTH = 0;
+
 global LARGE_INTEGER global_performance_counter;
 global LARGE_INTEGER global_performance_frequency;
 
@@ -344,7 +348,6 @@ b32  win32_surface_gl_init( PlatformSurface* surface );
 void win32_surface_gl_swap_interval(
     PlatformSurface* surface, int interval );
 void win32_surface_pump_events(void);
-
 #endif // if not headless
 
 f64 win32_elapsed_milliseconds(void);
@@ -439,7 +442,7 @@ void win32_last_error( usize* out_error_len, const char** out_error );
 #define WIN32_ERROR_OPEN_GDI32     ( 4)
 #define WIN32_ERROR_OPEN_XINPUT    ( 5)
 #define WIN32_ERROR_OPEN_DWM       ( 6)
-#define WIN32_ERROR_OPEN_DSOUND    ( 7)
+#define WIN32_ERROR_OPEN_XAUDIO2   ( 7)
 #define WIN32_ERROR_OPEN_OPENGL    ( 8)
 #define WIN32_ERROR_LOAD_FUNCTION  ( 9)
 #define WIN32_MISSING_INSTRUCTIONS (10)
@@ -2210,9 +2213,6 @@ PlatformInfo* win32_query_info(void) {
     return &global_win32_info;
 }
 
-#define WIN32_ERROR_MESSAGE_BUFFER_SIZE (512)
-global char  WIN32_ERROR_MESSAGE_BUFFER[WIN32_ERROR_MESSAGE_BUFFER_SIZE] = {};
-global usize WIN32_ERROR_MESSAGE_LENGTH = 0;
 DWORD win32_report_last_error(void) {
     DWORD error_code = GetLastError();
     if( error_code == ERROR_SUCCESS ) {
@@ -2254,6 +2254,9 @@ void win32_fatal_message_box( const char* title, const char* message ) {
 // NOTE(alicia): C Standard Library Alternatives
 
 size_t strlen( const char* str ) {
+    if( !str ) {
+        return 0;
+    }
     const char* start = str;
     while( *str ) {
         str++;
@@ -2320,9 +2323,10 @@ void* memset( void* ptr, int value, size_t num ) {
     return ptr;
 }
 char* strcpy( char* dest, const char* src ) {
-    *dest++ = *src;
+    char* dst = dest;
+    *dst++ = *src;
     while( *src++ ) {
-        *dest++ = *src;
+        *dst++ = *src;
     }
     return dest;
 }
