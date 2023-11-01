@@ -12,8 +12,28 @@
 /// Volume is a linear value that gets transformed into a logarithmic value.
 LD_API void audio_set_master_volume( f32 volume );
 /// Query the current value of master volume.
-/// The value returned is a linear value from 0.0-1.0.
 LD_API f32 audio_query_master_volume(void);
+/// Query the current value of master volume.
+/// The value returned is a linear value from 0.0-1.0.
+LD_API f32 audio_query_master_volume_linear(void);
+/// Set music volume.
+/// Volume must be a value from 0.0-1.0.
+/// Volume is a linear value that gets transformed into a logarithmic value.
+LD_API void audio_set_music_volume( f32 volume );
+/// Query the current value of music volume.
+LD_API f32 audio_query_music_volume(void);
+/// Query the current value of music volume.
+/// The value returned is a linear value from 0.0-1.0.
+LD_API f32 audio_query_music_volume_linear(void);
+/// Set sfx volume.
+/// Volume must be a value from 0.0-1.0.
+/// Volume is a linear value that gets transformed into a logarithmic value.
+LD_API void audio_set_sfx_volume( f32 volume );
+/// Query the current value of sfx volume.
+LD_API f32 audio_query_sfx_volume(void);
+/// Query the current value of sfx volume.
+/// The value returned is a linear value from 0.0-1.0.
+LD_API f32 audio_query_sfx_volume_linear(void);
 
 #if defined(LD_API_INTERNAL)
 

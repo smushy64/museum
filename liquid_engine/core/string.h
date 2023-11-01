@@ -72,6 +72,14 @@ LD_API void cstr_copy_overlapped(
     char variable_name##_buffer[] = literal;\
     StringSlice variable_name = string_slice_from_cstr(\
         sizeof( variable_name##_buffer ) - 1, variable_name##_buffer )
+/// Create a mutable string slice with given capacity.
+/// Buffer is stack allocated so string slice is only valid in the current scope.
+#define string_slice_mut_capacity( variable_name, cap )\
+    char variable_name##_buffer[cap] = {};\
+    StringSlice variable_name;\
+    variable_name.buffer   = variable_name##_buffer;\
+    variable_name.len      = 0;\
+    variable_name.capacity = cap
 
 /// Create a string slice.
 /// The lifetime of the string slice is the lifetime

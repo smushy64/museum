@@ -36,15 +36,45 @@ struct AudioBuffer {
 global struct AudioBuffer global_audio_buffer = {};
 global struct AudioMixer  global_audio_mixer  = {};
 
-LD_API void audio_set_master_volume( f32 volume ) {
+f32 ___audio_01_to_log( f32 in_volume ) {
     // f32 volume01 = clamp01( volume );
     // f32 logarithmic = logarithm10( volume01 ) * 20.0f;
     // global_master_volume = logarithmic;
-    global_audio_mixer.master_volume = clamp01( volume );
+    f32 volume = clamp01( in_volume );
+    return volume;
+}
+f32 ___audio_log_to_01( f32 in_volume ) {
+    return in_volume;
+}
+
+LD_API void audio_set_master_volume( f32 volume ) {
+    global_audio_mixer.master_volume = ___audio_01_to_log( volume );
 }
 LD_API f32 audio_query_master_volume(void) {
     return global_audio_mixer.master_volume;
 }
+LD_API f32 audio_query_master_volume_linear(void) {
+    return ___audio_log_to_01( global_audio_mixer.master_volume );
+}
+LD_API void audio_set_music_volume( f32 volume ) {
+    global_audio_mixer.music_volume = ___audio_01_to_log( volume );
+}
+LD_API f32 audio_query_music_volume(void) {
+    return global_audio_mixer.music_volume;
+}
+LD_API f32 audio_query_music_volume_linear(void) {
+    return ___audio_log_to_01( global_audio_mixer.music_volume );
+}
+LD_API void audio_set_sfx_volume( f32 volume ) {
+    global_audio_mixer.sfx_volume = ___audio_01_to_log( volume );
+}
+LD_API f32 audio_query_sfx_volume(void) {
+    return global_audio_mixer.sfx_volume;
+}
+LD_API f32 audio_query_sfx_volume_linear(void) {
+    return ___audio_log_to_01( global_audio_mixer.sfx_volume );
+}
+
 
 b32 audio_subsystem_initialize(void) {
     global_audio_ctx = platform->audio.initialize( AUDIO_BUFFER_LENGTH_MS );

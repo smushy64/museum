@@ -16,6 +16,39 @@
 #include "core/collections.h"
 #include "core/graphics/internal.h"
 
+#define DEFAULT_RESOLUTION_WIDTH    (800)
+#define DEFAULT_RESOLUTION_HEIGHT   (600)
+#define DEFAULT_RESOLUTION_SCALE    (1.0f)
+#define DEFAULT_AUDIO_VOLUME_MASTER (0.5f)
+#define DEFAULT_AUDIO_VOLUME_MUSIC  (1.0f)
+#define DEFAULT_AUDIO_VOLUME_SFX    (1.0f)
+
+// TODO(alicia): defaults for other platforms :)
+#define DEFAULT_RENDERER_BACKEND (RENDERER_BACKEND_OPENGL)
+
+struct SettingsParse {
+    i32 resolution_width;
+    i32 resolution_height;
+    f32 resolution_scale;
+    f32 audio_volume_master;
+    f32 audio_volume_music;
+    f32 audio_volume_sfx;
+    enum RendererBackend backend;
+};
+internal force_inline
+struct SettingsParse ___settings_parse_default(void) {
+    struct SettingsParse result = {};
+    result.resolution_width  = DEFAULT_RESOLUTION_WIDTH;
+    result.resolution_height = DEFAULT_RESOLUTION_HEIGHT;
+    result.resolution_scale  = DEFAULT_RESOLUTION_SCALE;
+    result.audio_volume_master = DEFAULT_AUDIO_VOLUME_MASTER;
+    result.audio_volume_music  = DEFAULT_AUDIO_VOLUME_MUSIC;
+    result.audio_volume_sfx    = DEFAULT_AUDIO_VOLUME_SFX;
+
+    result.backend = DEFAULT_RENDERER_BACKEND;
+    return result;
+}
+
 global b32 global_application_is_running = true;
 global f32 global_resolution_scale       = 1.0f;
 
@@ -138,15 +171,6 @@ internal no_inline void on_mouse_wheel(
     }
 }
 
-#define DEFAULT_RESOLUTION_WIDTH  (800)
-#define DEFAULT_RESOLUTION_HEIGHT (600)
-#define DEFAULT_RESOLUTION_SCALE  (1.0f)
-struct SettingsParse {
-    i32 resolution_width;
-    i32 resolution_height;
-    f32 resolution_scale;
-    enum RendererBackend backend;
-};
 internal b32 parse_settings( struct SettingsParse* out_parse_result );
 
 global PlatformSurface* ENGINE_SURFACE = NULL;
@@ -185,11 +209,14 @@ LD_API int core_init(
 
 #endif
 
-    struct SettingsParse settings = {};
+    struct SettingsParse settings = ___settings_parse_default();
     if( !parse_settings( &settings ) ) {
         return CORE_ERROR_PARSE;
     }
 
+    f32 audio_volume_master = settings.audio_volume_master;
+    f32 audio_volume_music  = settings.audio_volume_music;
+    f32 audio_volume_sfx    = settings.audio_volume_sfx;
     i32 width  = settings.resolution_width;
     i32 height = settings.resolution_height;
     global_resolution_scale = settings.resolution_scale;
@@ -197,15 +224,19 @@ LD_API int core_init(
     string_slice_const( game_library_path, GAME_LIBRARY_PATH_DEFAULT );
 
     /* parse arguments */ {
-#if defined(LD_DEVELOPER_MODE)
-        string_slice_const( libload, "--libload=" );
-        string_slice_const( clear_log, "--clear-log" );
-#endif
+        string_slice_const( set_master_volume, "--master-volume=" );
+        string_slice_const( set_music_volume, "--music-volume=" );
+        string_slice_const( set_sfx_volume, "--sfx-volume=" );
         string_slice_const( set_width, "--width=" );
         string_slice_const( set_height, "--height=" );
         string_slice_const( set_resolution_scale, "--resolution_scale=" );
         string_slice_const( help, "--help" );
         string_slice_const( h, "-h" );
+
+#if defined(LD_DEVELOPER_MODE)
+        string_slice_const( libload, "--libload=" );
+        string_slice_const( clear_log, "--clear-log" );
+#endif
 #if defined(LD_PLATFORM_WINDOWS)
 
 #if defined(LD_DEVELOPER_MODE)
@@ -338,7 +369,7 @@ LD_API int core_init(
                 if( !string_slice_parse_float( &current, &parse_result ) ) {
                     println_err(
                         CONSOLE_COLOR_RED
-                        "invalid resolution scale {s}!"
+                        "invalid resolution scale '{s}'!"
                         CONSOLE_COLOR_RESET,
                         current
                     );
@@ -346,6 +377,78 @@ LD_API int core_init(
                     break;
                 }
                 global_resolution_scale = max( parse_result, 0.1 );
+                continue;
+            }
+
+            if( string_slice_find( &current, &set_master_volume, NULL ) ) {
+                if( current.len - set_master_volume.len < 1 ) {
+                    println_err(
+                        CONSOLE_COLOR_RED
+                        "invalid master volume!"
+                        CONSOLE_COLOR_RESET );
+                    parse_error = true;
+                    break;
+                }
+                current.buffer += set_master_volume.len;
+                current.len    -= set_master_volume.len;
+                f64 parse_result = 0.0;
+                if( !string_slice_parse_float( &current, &parse_result ) ) {
+                    println_err(
+                        CONSOLE_COLOR_RED
+                        "invalid master volume '{s}'!"
+                        CONSOLE_COLOR_RESET, current );
+                    parse_error = true;
+                    break;
+                }
+                audio_volume_master = clamp01( parse_result );
+                continue;
+            }
+
+            if( string_slice_find( &current, &set_music_volume, NULL ) ) {
+                if( current.len - set_music_volume.len < 1 ) {
+                    println_err(
+                        CONSOLE_COLOR_RED
+                        "invalid music volume!"
+                        CONSOLE_COLOR_RESET );
+                    parse_error = true;
+                    break;
+                }
+                current.buffer += set_music_volume.len;
+                current.len    -= set_music_volume.len;
+                f64 parse_result = 0.0;
+                if( !string_slice_parse_float( &current, &parse_result ) ) {
+                    println_err(
+                        CONSOLE_COLOR_RED
+                        "invalid music volume '{s}'!"
+                        CONSOLE_COLOR_RESET, current );
+                    parse_error = true;
+                    break;
+                }
+                audio_volume_music = clamp01( parse_result );
+                continue;
+            }
+
+            if( string_slice_find( &current, &set_sfx_volume, NULL ) ) {
+                if( current.len - set_sfx_volume.len < 1 ) {
+                    println_err(
+                        CONSOLE_COLOR_RED
+                        "invalid sfx volume!"
+                        CONSOLE_COLOR_RESET );
+                    parse_error = true;
+                    break;
+                }
+                current.buffer += set_sfx_volume.len;
+                current.len    -= set_sfx_volume.len;
+                f64 parse_result = 0.0;
+                if( !string_slice_parse_float( &current, &parse_result ) ) {
+                    println_err(
+                        CONSOLE_COLOR_RED
+                        "invalid sfx volume '{s}'!"
+                        CONSOLE_COLOR_RESET, current );
+                    parse_error = true;
+                    break;
+                }
+                audio_volume_sfx = clamp01( parse_result );
                 continue;
             }
 
@@ -629,6 +732,9 @@ LD_API int core_init(
     void* audio_subsystem_buffer =
         stack_allocator_push( &stack, audio_subsystem_memory_requirement );
     audio_subsystem_submit_buffer_memory( audio_subsystem_buffer );
+    audio_set_master_volume( audio_volume_master );
+    audio_set_music_volume( audio_volume_music );
+    audio_set_sfx_volume( audio_volume_sfx );
 
     /* initialize input subsystem */ {
         void* input_subsytem_buffer =
@@ -821,6 +927,9 @@ internal void print_help(void) {
     println( "--width=[integer]          overwrite screen width (default=settings.ini)" );
     println( "--height=[integer]         overwrite screen height (default=settings.ini)" );
     println( "--resolution_scale=[float] overwrite resolution scale (default=settings.ini)" );
+    println( "--master-volume=[float]    overwrite master volume (default=settings.ini)" );
+    println( "--music-volume=[float]     overwrite music volume (default=settings.ini)" );
+    println( "--sfx-volume=[float]       overwrite sfx volume (default=settings.ini)" );
     println( "--opengl                   use OpenGL renderer backend (default)" );
     println( "--vulkan                   use Vulkan renderer backend" );
 #if defined(LD_PLATFORM_MACOS) || defined(LD_PLATFORM_IOS)
@@ -841,10 +950,70 @@ internal void print_help(void) {
     println( "--help,-h                  print this message" );
 }
 
-#define ENGINE_SETTINGS_BUFFER_CAPACITY (kilobytes(1))
-global char ENGINE_SETTINGS_BUFFER[ENGINE_SETTINGS_BUFFER_CAPACITY] = {};
+internal b32 ___settings_parse_uint(
+    StringSlice* line, StringSlice* token, u64* out_result
+) {
+    StringSlice number = {};
+    number.buffer = line->buffer + token->len;
+    number.len    = line->len    - token->len;
 
-internal b32 parse_settings( struct SettingsParse* out_parse_result ) {
+    for( usize i = 0; i < number.len; ++i ) {
+        char current = number.buffer[i];
+
+        if( char_is_digit( current ) ) {
+            number.buffer += i;
+            number.len    -= i;
+
+            u64 int_parse = 0;
+            if( !string_slice_parse_uint( &number, &int_parse ) ) {
+                return false;
+            }
+
+            *out_result = int_parse;
+            break;
+        }
+    }
+
+    return true;
+}
+internal b32 ___settings_parse_float(
+    StringSlice* line, StringSlice* token, f64* out_result
+) {
+    StringSlice number = {};
+    number.buffer = line->buffer + token->len;
+    number.len    = line->len    - token->len;
+
+    for( usize i = 0; i < number.len; ++i ) {
+        char current = number.buffer[i];
+
+        if( char_is_digit( current ) ) {
+            number.buffer += i;
+            number.len    -= i;
+
+            while( number.len && !char_is_digit( number.buffer[number.len - 1] ) ) {
+                string_slice_pop( &number, NULL );
+            }
+
+            f64 float_parse = 0.0;
+            if( !string_slice_parse_float( &number, &float_parse ) ) {
+                return false;
+            }
+
+            *out_result = float_parse;
+            break;
+        }
+    }
+
+    return true;
+}
+enum Section : u32 {
+    SECTION_UNKNOWN,
+    SECTION_GRAPHICS,
+    SECTION_AUDIO
+};
+
+internal
+b32 parse_settings( struct SettingsParse* out_parse_result ) {
     struct SettingsParse parse_result = {};
 
     PlatformFileFlags flags =
@@ -864,24 +1033,24 @@ internal b32 parse_settings( struct SettingsParse* out_parse_result ) {
             return false;
         }
 
-        StringSlice default_settings;
-        default_settings.buffer   = ENGINE_SETTINGS_BUFFER;
-        default_settings.capacity = ENGINE_SETTINGS_BUFFER_CAPACITY;
-        default_settings.len      = 0;
+        string_slice_mut_capacity( default_settings, 128 );
 
-        string_slice_fmt( &default_settings, "[graphics] \n" );
-        string_slice_fmt( &default_settings, "width            = {i} \n", DEFAULT_RESOLUTION_WIDTH );
-        string_slice_fmt( &default_settings, "height           = {i} \n", DEFAULT_RESOLUTION_HEIGHT );
-        string_slice_fmt( &default_settings, "resolution_scale = {f,.1} \n", DEFAULT_RESOLUTION_SCALE );
-        string_slice_fmt( &default_settings, "backend          = opengl \n" );
+        #define settings_output_string( format, ... )\
+            default_settings.len = 0;\
+            string_slice_fmt( &default_settings, format, ##__VA_ARGS__ );\
+            platform->io.file_write(\
+                settings_file, default_settings.len, default_settings.buffer )
 
-        b32 write_result = platform->io.file_write(
-            settings_file, default_settings.len, default_settings.buffer );
+        settings_output_string( "[graphics] \n" );
+        settings_output_string( "width            = {i} \n", DEFAULT_RESOLUTION_WIDTH );
+        settings_output_string( "height           = {i} \n", DEFAULT_RESOLUTION_HEIGHT );
+        settings_output_string( "resolution_scale = {f,.1} \n", DEFAULT_RESOLUTION_SCALE );
+        settings_output_string( "backend          = opengl \n" );
 
-        if( !write_result ) {
-            fatal_log( "Failed to write to settings file!" );
-            return false;
-        }
+        settings_output_string( "[audio] \n" );
+        settings_output_string( "master = {f,.1} \n", DEFAULT_AUDIO_VOLUME_MASTER );
+        settings_output_string( "music  = {f,.1} \n", DEFAULT_AUDIO_VOLUME_MUSIC );
+        settings_output_string( "sfx    = {f,.1} \n", DEFAULT_AUDIO_VOLUME_SFX );
 
         platform->io.file_close( settings_file );
 
@@ -913,7 +1082,6 @@ internal b32 parse_settings( struct SettingsParse* out_parse_result ) {
         return false;
     }
 
-    // TODO(alicia): logging
     b32 read_result = platform->io.file_read(
         settings_file,
         settings_file_size,
@@ -925,14 +1093,11 @@ internal b32 parse_settings( struct SettingsParse* out_parse_result ) {
         return false;
     }
 
-    StringSlice settings = {
-        settings_file_buffer, settings_file_size, settings_file_size
-    };
+    StringSlice settings;
+    settings.buffer   = settings_file_buffer;
+    settings.len      = settings_file_size;
+    settings.capacity = settings_file_size;
 
-    enum Section : u32 {
-        SECTION_UNKNOWN,
-        SECTION_GRAPHICS
-    };
     enum Section section = SECTION_UNKNOWN;
 
     string_slice_const( token_section_resolution, "[graphics]" );
@@ -940,6 +1105,11 @@ internal b32 parse_settings( struct SettingsParse* out_parse_result ) {
     string_slice_const( token_height, "height" );
     string_slice_const( token_resolution_scale, "resolution_scale" );
     string_slice_const( token_backend, "backend" );
+
+    string_slice_const( token_section_audio, "[audio]" );
+    string_slice_const( token_audio_volume_master, "master" );
+    string_slice_const( token_audio_volume_music, "music" );
+    string_slice_const( token_audio_volume_sfx, "sfx" );
 
     string_slice_const( token_opengl, "opengl" );
     string_slice_const( token_vulkan, "vulkan" );
@@ -959,8 +1129,11 @@ internal b32 parse_settings( struct SettingsParse* out_parse_result ) {
             case '[': {
                 if( string_slice_find( &temp, &token_section_resolution, NULL ) ) {
                     section = SECTION_GRAPHICS;
+                } else if( string_slice_find( &temp, &token_section_audio, NULL ) ) {
+                    section = SECTION_AUDIO;
                 }
             } break;
+            case ' ':
             case ';': {
                 section = SECTION_UNKNOWN;
             } break;
@@ -970,77 +1143,24 @@ internal b32 parse_settings( struct SettingsParse* out_parse_result ) {
             goto skip;
         }
 
+        u64 int_parse   = 0;
+        f64 float_parse = 0.0;
+
         switch( section ) {
             case SECTION_GRAPHICS: {
                 if( string_slice_find( &temp, &token_width, NULL ) ) {
-                    StringSlice number;
-                    number.buffer = temp.buffer + token_width.len;
-                    number.len    = temp.len    - token_width.len;
-
-                    for( usize i = 0; i < number.len; ++i ) {
-                        char current = number.buffer[i];
-
-                        if( char_is_digit( current ) ) {
-                            number.buffer += i;
-                            number.len    -= i;
-
-                            u64 int_parse = 0;
-                            if( string_slice_parse_uint( &number, &int_parse ) ) {
-                                parse_result.resolution_width =
-                                    max( int_parse, 1 );
-                            }
-
-                            break;
-                        }
+                    if( ___settings_parse_uint( &temp, &token_width, &int_parse ) ) {
+                        parse_result.resolution_width = max( int_parse, 1 );
                     }
                 } else if( string_slice_find( &temp, &token_height, NULL ) ) {
-                    StringSlice number;
-                    number.buffer = temp.buffer + token_height.len;
-                    number.len    = temp.len    - token_height.len;
-
-                    for( usize i = 0; i < number.len; ++i ) {
-                        char current = number.buffer[i];
-
-                        if( char_is_digit( current ) ) {
-                            number.buffer += i;
-                            number.len    -= i;
-
-                            u64 int_parse = 0;
-                            if( string_slice_parse_uint( &number, &int_parse ) ) {
-                                parse_result.resolution_height =
-                                    max( int_parse, 1 );
-                            }
-
-                            break;
-                        }
+                    if( ___settings_parse_uint( &temp, &token_height, &int_parse ) ) {
+                        parse_result.resolution_height = max( int_parse, 1 );
                     }
                 } else if( string_slice_find( &temp, &token_resolution_scale, NULL ) ) {
-                    StringSlice number;
-                    number.buffer = temp.buffer + token_resolution_scale.len;
-                    number.len    = temp.len    - token_resolution_scale.len;
-
-                    for( usize i = 0; i < number.len; ++i ) {
-                        char current = number.buffer[i];
-
-                        if( char_is_digit( current ) ) {
-                            number.buffer += i;
-                            number.len    -= i;
-
-                            while(
-                                number.len &&
-                                !char_is_digit(number.buffer[number.len - 1])
-                            ) {
-                                string_slice_pop( &number, NULL );
-                            }
-
-                            f64 float_parse = 0.0;
-                            if( string_slice_parse_float( &number, &float_parse ) ) {
-                                parse_result.resolution_scale =
-                                    max( float_parse, 0.1 );
-                            }
-
-                            break;
-                        }
+                    if( ___settings_parse_float(
+                        &temp, &token_resolution_scale, &float_parse
+                    ) ) {
+                        parse_result.resolution_scale = max( float_parse, 0.1 );
                     }
                 } else if( string_slice_find( &temp, &token_backend, NULL ) ) {
                     StringSlice backend;
@@ -1062,6 +1182,26 @@ internal b32 parse_settings( struct SettingsParse* out_parse_result ) {
                     }
                 }
             } break;
+            case SECTION_AUDIO: {
+                if( string_slice_find( &temp, &token_audio_volume_master, NULL ) ) {
+                    if( ___settings_parse_float(
+                        &temp, &token_audio_volume_master, &float_parse
+                    ) ) {
+                        parse_result.audio_volume_master = clamp01( float_parse );
+                    }
+                } else if( string_slice_find( &temp, &token_audio_volume_music, NULL ) ) {
+                    if( ___settings_parse_float( &temp, &token_audio_volume_music, &float_parse ) ) {
+                        parse_result.audio_volume_music = clamp01( float_parse );
+                    }
+                } else if( string_slice_find( &temp, &token_audio_volume_sfx, NULL ) ) {
+                    if( ___settings_parse_float(
+                        &temp, &token_audio_volume_sfx, &float_parse
+                    ) ) {
+                        parse_result.audio_volume_sfx = clamp01( float_parse );
+                    }
+                }
+
+            } break;
             default: break;
         }
 
@@ -1071,8 +1211,10 @@ internal b32 parse_settings( struct SettingsParse* out_parse_result ) {
     }
 
     if( !renderer_backend_is_supported( parse_result.backend ) ) {
-        // TODO(alicia): replace with default backend for platform.
-        parse_result.backend = RENDERER_BACKEND_OPENGL;
+        warn_log(
+            "Backend '{cc}' is not supported on current platform!",
+            renderer_backend_to_string( parse_result.backend ) );
+        parse_result.backend = DEFAULT_RENDERER_BACKEND;
     }
 
     system_free( settings_file_buffer, settings_file_size );
