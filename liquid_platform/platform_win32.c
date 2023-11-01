@@ -12,6 +12,11 @@
 #include <xinput.h>
 #include <intrin.h>
 #include <hidusage.h>
+#include <initguid.h>
+#include <mmdeviceapi.h>
+#include <dshow.h>
+#include <audioclient.h>
+#include <mmreg.h>
 
 // NOTE(alicia): globals
 
@@ -318,6 +323,22 @@ WIN32_DECLARE_FUNCTION( BOOL, wglSwapIntervalEXT, int interval );
 
 #if !defined(LD_HEADLESS)
 
+WIN32_DECLARE_FUNCTION( HRESULT, CoCreateInstance, REFCLSID rclsid, LPUNKNOWN pUnkOuter, DWORD dwClsContext, REFIID riid, LPVOID* ppv );
+#define CoCreateInstance ___internal_CoCreateInstance
+
+WIN32_DECLARE_FUNCTION( HRESULT, CoInitialize, LPVOID pvReserved );
+#define CoInitialize ___internal_CoInitialize
+
+WIN32_DECLARE_FUNCTION( void, CoUninitialize, void );
+#define CoUninitialize ___internal_CoUninitialize
+
+WIN32_DECLARE_FUNCTION( void, CoTaskMemFree, LPVOID pv );
+#define CoTaskMemFree ___internal_CoTaskMemFree
+
+#endif /* if not headless */
+
+#if !defined(LD_HEADLESS)
+
 PlatformSurface* win32_surface_create(
     i32 width, i32 height, const char* name,
     b32 create_hidden, b32 resizeable,
@@ -348,6 +369,18 @@ b32  win32_surface_gl_init( PlatformSurface* surface );
 void win32_surface_gl_swap_interval(
     PlatformSurface* surface, int interval );
 void win32_surface_pump_events(void);
+
+PlatformAudioContext* win32_audio_initialize( u64 buffer_length_ms );
+void win32_audio_shutdown( PlatformAudioContext* ctx );
+PlatformAudioBufferFormat win32_audio_query_buffer_format(
+    PlatformAudioContext* ctx );
+b32 win32_audio_lock_buffer(
+    PlatformAudioContext* ctx, usize* out_sample_count,
+    usize* out_buffer_size, void** out_buffer );
+void win32_audio_unlock_buffer( PlatformAudioContext* ctx, usize sample_count );
+void win32_audio_start( PlatformAudioContext* ctx );
+void win32_audio_stop( PlatformAudioContext* ctx );
+
 #endif // if not headless
 
 f64 win32_elapsed_milliseconds(void);
@@ -838,6 +871,14 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
     api.surface.gl_swap_interval = win32_surface_gl_swap_interval;
     api.surface.pump_events      = win32_surface_pump_events;
 
+    api.audio.initialize          = win32_audio_initialize;
+    api.audio.shutdown            = win32_audio_shutdown;
+    api.audio.query_buffer_format = win32_audio_query_buffer_format;
+    api.audio.lock_buffer         = win32_audio_lock_buffer;
+    api.audio.unlock_buffer       = win32_audio_unlock_buffer;
+    api.audio.start               = win32_audio_start;
+    api.audio.stop                = win32_audio_stop;
+
 #endif // if not headless
 
     api.time.elapsed_milliseconds = win32_elapsed_milliseconds;
@@ -1261,7 +1302,6 @@ void win32_surface_set_name(
 void win32_surface_query_name(
     PlatformSurface* surface, usize* buffer_size, char* buffer
 ) {
-    assert( surface );
     struct Win32Surface* win32_surface = surface;
 
     usize text_length = (usize)GetWindowTextLengthA( win32_surface->hWnd );
@@ -1335,6 +1375,222 @@ void win32_surface_pump_events(void) {
         TranslateMessage( &message );
         DispatchMessageA( &message );
     }
+}
+
+struct Win32AudioContext {
+    IAudioClient*        client;
+    IAudioRenderClient*  render_client;
+    IMMDeviceEnumerator* device_enumerator;
+    IMMDevice*           device;
+
+    WAVEFORMATEX format;
+
+    UINT32 buffer_frame_count;
+    usize  buffer_size;
+
+    HMODULE ole32;
+};
+
+PlatformAudioContext* win32_audio_initialize( u64 buffer_length_ms ) {
+
+    struct Win32AudioContext* ctx =
+        win32_heap_alloc( sizeof( struct Win32AudioContext ) );
+    if( !ctx ) {
+        return NULL;
+    }
+
+    ctx->ole32 = LoadLibraryA( "OLE32.DLL" );
+    if( !ctx->ole32 ) {
+        win32_report_last_error();
+        return NULL;
+    }
+
+    #define WIN32_AUDIO_LOAD( function ) do {\
+        ___internal_##function = (___internal_##function##FN*)GetProcAddress( ctx->ole32, #function );\
+        if( !___internal_##function ) {\
+            win32_heap_free( ctx, sizeof( struct Win32AudioContext ) );\
+            return NULL;\
+        }\
+    } while(0)
+    
+    WIN32_AUDIO_LOAD( CoInitialize );
+    WIN32_AUDIO_LOAD( CoUninitialize );
+    WIN32_AUDIO_LOAD( CoCreateInstance );
+    WIN32_AUDIO_LOAD( CoTaskMemFree );
+
+    // TODO(alicia): logging!
+    #define AUDFN( function_call ) do {\
+        HRESULT hresult = function_call;\
+        if( FAILED( hresult ) ) {\
+            win32_heap_free( ctx, sizeof( struct Win32AudioContext ) );\
+            return NULL;\
+        }\
+    } while(0)
+
+    /// Initialize COM.
+    AUDFN( CoInitialize( NULL ) );
+    AUDFN( CoCreateInstance(
+        &CLSID_MMDeviceEnumerator, NULL,
+        CLSCTX_ALL, &IID_IMMDeviceEnumerator,
+        (void**)&ctx->device_enumerator ) );
+
+    /// Get default device.
+    AUDFN( ctx->device_enumerator->lpVtbl->GetDefaultAudioEndpoint(
+        ctx->device_enumerator, eRender, eConsole, &ctx->device ) );
+
+    /// Activate audio client.
+    AUDFN( ctx->device->lpVtbl->Activate(
+        ctx->device, &IID_IAudioClient,
+        CLSCTX_ALL, NULL, (void**)&ctx->client ) );
+
+    /// Define audio buffer format.
+    ctx->format.nChannels       = 2;
+    ctx->format.wFormatTag      = WAVE_FORMAT_PCM;
+    ctx->format.nSamplesPerSec  = 44100;
+    ctx->format.wBitsPerSample  = 16;
+    ctx->format.nBlockAlign     =
+        ( ctx->format.nChannels * ctx->format.wBitsPerSample ) / 8;
+    ctx->format.nAvgBytesPerSec =
+        ctx->format.nSamplesPerSec * ctx->format.nBlockAlign;
+    ctx->format.cbSize          = 0;
+
+    /// Create audio buffer.
+    #define REFTIMES_PER_MS 10000
+    REFTIME buffer_length_reftime = buffer_length_ms * REFTIMES_PER_MS;
+    DWORD initialize_stream_flags = 
+        AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM |
+        AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY;
+
+    AUDFN( ctx->client->lpVtbl->Initialize(
+        ctx->client,
+        AUDCLNT_SHAREMODE_SHARED, initialize_stream_flags,
+        buffer_length_reftime, 0,
+        &ctx->format, NULL ) );
+
+    /// Calculate buffer size.
+    AUDFN( ctx->client->lpVtbl->GetBufferSize(
+        ctx->client, &ctx->buffer_frame_count ) );
+
+    ctx->buffer_size = ctx->buffer_frame_count *
+        ( ctx->format.nChannels * ( ctx->format.wBitsPerSample / 8 ) );
+
+    /// Get render client.
+    AUDFN( ctx->client->lpVtbl->GetService(
+        ctx->client, &IID_IAudioRenderClient, (void**)&ctx->render_client ) );
+
+    /// Clear audio buffer.
+    BYTE* buffer = NULL;
+    AUDFN( ctx->render_client->lpVtbl->GetBuffer(
+        ctx->render_client, ctx->buffer_frame_count, &buffer ) );
+
+    memset( buffer, 0, ctx->buffer_size );
+
+    AUDFN( ctx->render_client->lpVtbl->ReleaseBuffer(
+        ctx->render_client, ctx->buffer_frame_count, 0 ) );
+
+    /// Start playing buffer.
+    AUDFN( ctx->client->lpVtbl->Start( ctx->client ) );
+
+    return ctx;
+}
+void win32_audio_shutdown( PlatformAudioContext* context ) {
+    struct Win32AudioContext* ctx = context;
+
+    #define COM_RELEASE( punk ) do {\
+        if( (punk) != NULL ) {\
+            (punk)->lpVtbl->Release( (punk) );\
+            (punk) = NULL;\
+        }\
+    } while(0)
+
+    ctx->client->lpVtbl->Stop( ctx->client );
+
+    COM_RELEASE( ctx->device_enumerator );
+    COM_RELEASE( ctx->device );
+    COM_RELEASE( ctx->client );
+    COM_RELEASE( ctx->render_client );
+
+    CoUninitialize();
+
+    FreeLibrary( ctx->ole32 );
+
+    win32_heap_free( ctx, sizeof( struct Win32AudioContext ) );
+}
+PlatformAudioBufferFormat win32_audio_query_buffer_format(
+    PlatformAudioContext* context
+) {
+    struct Win32AudioContext* ctx = context;
+    PlatformAudioBufferFormat format = {};
+
+    format.number_of_channels  = ctx->format.nChannels;
+    format.bits_per_sample     = ctx->format.wBitsPerSample;
+    format.bytes_per_sample    = format.bits_per_sample / 8;
+    format.samples_per_second  = ctx->format.nSamplesPerSec;
+    format.buffer_sample_count = ctx->buffer_frame_count;
+    format.buffer_size         = ctx->buffer_size;
+
+    return format;
+}
+b32 win32_audio_lock_buffer(
+    PlatformAudioContext* context, usize* out_sample_count,
+    usize* out_buffer_size, void** out_buffer
+) {
+    struct Win32AudioContext* ctx = context;
+
+    UINT32 buffer_frame_padding_count = 0;
+    HRESULT hresult = ctx->client->lpVtbl->GetCurrentPadding(
+        ctx->client, &buffer_frame_padding_count );
+
+    if( FAILED( hresult ) ) {
+        // TODO(alicia): logging!
+        return false;
+    }
+
+    if( buffer_frame_padding_count > ctx->buffer_frame_count ) {
+        // TODO(alicia): logging!
+        return false;
+    }
+
+    UINT32 buffer_frames_to_request =
+        ctx->buffer_frame_count - buffer_frame_padding_count;
+
+    if( !buffer_frames_to_request ) {
+        return false;
+    }
+
+    BYTE* buffer = NULL;
+    hresult = ctx->render_client->lpVtbl->GetBuffer(
+        ctx->render_client, buffer_frames_to_request, &buffer );
+    if( hresult != S_OK ) {
+        // TODO(alicia): logging!
+        return false;
+    }
+
+    if( !buffer ) {
+        return false;
+    }
+
+    *out_sample_count = buffer_frames_to_request;
+    *out_buffer_size  = *out_sample_count * ctx->format.nBlockAlign;
+    // *out_buffer_size  = buffer_frames_to_request *
+    //     ( ctx->format.nChannels * ( ctx->format.wBitsPerSample / 8 ) );
+    *out_buffer       = buffer;
+
+    return true;
+}
+void win32_audio_unlock_buffer( PlatformAudioContext* context, usize sample_count ) {
+    struct Win32AudioContext* ctx = context;
+
+    ctx->render_client->lpVtbl->ReleaseBuffer(
+        ctx->render_client, (UINT32)sample_count, 0 );
+}
+void win32_audio_start( PlatformAudioContext* context ) {
+    struct Win32AudioContext* ctx = context;
+    ctx->client->lpVtbl->Start( ctx->client );
+}
+void win32_audio_stop( PlatformAudioContext* context ) {
+    struct Win32AudioContext* ctx = context;
+    ctx->client->lpVtbl->Stop( ctx->client );
 }
 
 #define WGL_CONTEXT_MAJOR_VERSION_ARB             0x2091
@@ -2322,6 +2578,9 @@ void* memset( void* ptr, int value, size_t num ) {
     }
     return ptr;
 }
+#if defined(strcpy)
+    #undef strcpy
+#endif
 char* strcpy( char* dest, const char* src ) {
     char* dst = dest;
     *dst++ = *src;

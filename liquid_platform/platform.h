@@ -28,6 +28,18 @@ typedef b32 ThreadProcFN( void* user_params );
 /// Handle to surface.
 typedef void PlatformSurface;
 
+/// Handle to platform audio context.
+typedef void PlatformAudioContext;
+
+typedef struct PlatformAudioBufferFormat {
+    u8    number_of_channels;
+    u8    bits_per_sample;
+    u8    bytes_per_sample;
+    u32   samples_per_second;
+    u32   buffer_sample_count;
+    usize buffer_size;
+} PlatformAudioBufferFormat;
+
 /// System time.
 typedef struct PlatformTime {
     u32 year;
@@ -244,7 +256,31 @@ typedef struct {
     PlatformSurfacePumpEventsFN*      pump_events;
 } PlatformSurfaceAPI;
 
-#endif // if not headless
+// NOTE(alicia): Audio API
+
+typedef PlatformAudioContext* PlatformAudioInitializeFN( u64 buffer_length_ms );
+typedef void PlatformAudioShutdownFN( PlatformAudioContext* ctx );
+typedef PlatformAudioBufferFormat
+    PlatformAudioQueryBufferFormatFN( PlatformAudioContext* ctx );
+typedef b32 PlatformAudioLockBufferFN(
+    PlatformAudioContext* ctx, usize* out_sample_count,
+    usize* out_buffer_size, void** out_buffer );
+typedef void PlatformAudioUnlockBufferFN(
+    PlatformAudioContext* ctx, usize sample_count );
+typedef void PlatformAudioStartFN( PlatformAudioContext* ctx );
+typedef void PlatformAudioStopFN( PlatformAudioContext* ctx );
+
+typedef struct {
+    PlatformAudioInitializeFN*        initialize;
+    PlatformAudioShutdownFN*          shutdown;
+    PlatformAudioQueryBufferFormatFN* query_buffer_format;
+    PlatformAudioLockBufferFN*        lock_buffer;
+    PlatformAudioUnlockBufferFN*      unlock_buffer;
+    PlatformAudioStartFN*             start;
+    PlatformAudioStopFN*              stop;
+} PlatformAudioAPI;
+
+#endif /* if not headless */
 
 // NOTE(alicia): Time API
 
@@ -402,6 +438,7 @@ typedef struct PlatformAPI {
 
 #if !defined(LD_HEADLESS)
     PlatformSurfaceAPI         surface;
+    PlatformAudioAPI           audio;
     PlatformGLLoadProcFN*      gl_load_proc;
     PlatformFatalMessageBoxFN* fatal_message_box;
 #endif // if not headless

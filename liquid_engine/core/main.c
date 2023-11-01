@@ -44,10 +44,11 @@ struct PlatformAPI* platform = NULL;
 #define CORE_ERROR_LOGGING_SUBSYSTEM_INITIALIZE   (135)
 #define CORE_ERROR_THREAD_SUBSYSTEM_INITIALIZE    (136)
 #define CORE_ERROR_RENDERER_SUBSYSTEM_INITIALIZE  (137)
-#define CORE_ERROR_APPLICATION_INITIALIZE         (138)
-#define CORE_ERROR_CREATE_SURFACE                 (139)
-#define CORE_ERROR_APPLICATION_RUN                (140)
-#define CORE_ERROR_RENDERER_DRAW                  (141)
+#define CORE_ERROR_AUDIO_SUBSYSTEM_INITIALIZE     (138)
+#define CORE_ERROR_APPLICATION_INITIALIZE         (139)
+#define CORE_ERROR_CREATE_SURFACE                 (140)
+#define CORE_ERROR_APPLICATION_RUN                (141)
+#define CORE_ERROR_RENDERER_DRAW                  (142)
 
 internal no_inline void on_resolution_change(
     PlatformSurface* surface,
@@ -79,6 +80,12 @@ internal no_inline void on_activate(
     b32* surface_is_active = user_params;
     *surface_is_active     = is_active;
     note_log( "Surface {cc}", is_active ? "is active." : "is inactive." );
+
+    if( is_active ) {
+        audio_subsystem_start();
+    } else {
+        audio_subsystem_stop();
+    }
 }
 internal no_inline void on_key(
     PlatformSurface* surface, b32 is_down,
@@ -554,6 +561,18 @@ LD_API int core_init(
         return CORE_ERROR_LOAD_GAME_RUN;
     }
 
+    if( !audio_subsystem_initialize() ) {
+        fatal_log( "Failed to initialize audio subsystem!" );
+        platform->fatal_message_box(
+            "Fatal Error "
+            macro_value_to_string( CORE_ERROR_AUDIO_SUBSYSTEM_INITIALIZE ),
+            "Failed to initialize audio subsystem!" );
+        return CORE_ERROR_AUDIO_SUBSYSTEM_INITIALIZE;
+    }
+
+    usize audio_subsystem_memory_requirement =
+        audio_subsystem_query_memory_requirement();
+
     usize stack_size                       = 0;
     void* stack_buffer                     = NULL;
     usize renderer_subsystem_size          = 0;
@@ -568,6 +587,7 @@ LD_API int core_init(
 
         stack_size += THREAD_SUBSYSTEM_SIZE;
         stack_size += input_subsystem_query_size();
+        stack_size += audio_subsystem_memory_requirement;
 
         renderer_subsystem_size = renderer_subsystem_query_size( backend );
         stack_size += renderer_subsystem_size;
@@ -583,8 +603,8 @@ LD_API int core_init(
         stack_size   = page_count_to_memory_size( stack_page_count );
 
         info_log(
-            "Stack Size: {usize} Stack Pages: {usize}",
-            stack_size, stack_page_count );
+            "Stack Size: {usize}({f,.2,b}) Stack Pages: {usize}",
+            stack_size, (f64)stack_size, stack_page_count );
         if( !stack_buffer ) {
             string_slice_fmt(
                 &fatal_error_title,
@@ -605,6 +625,10 @@ LD_API int core_init(
     StackAllocator stack = {};
     stack.buffer      = stack_buffer;
     stack.buffer_size = stack_size;
+
+    void* audio_subsystem_buffer =
+        stack_allocator_push( &stack, audio_subsystem_memory_requirement );
+    audio_subsystem_submit_buffer_memory( audio_subsystem_buffer );
 
     /* initialize input subsystem */ {
         void* input_subsytem_buffer =
@@ -713,10 +737,6 @@ LD_API int core_init(
         return CORE_ERROR_APPLICATION_INITIALIZE;
     }
 
-    if( !audio_subsystem_initialize() ) {
-        return -1;
-    }
-
     while( global_application_is_running ) {
         input_subsystem_swap_state();
         input_subsystem_update_gamepads();
@@ -745,7 +765,7 @@ LD_API int core_init(
             return CORE_ERROR_APPLICATION_RUN;
         }
 
-        audio_subsystem_fill_buffer();
+        audio_subsystem_output();
 
         if( !renderer_subsystem_draw() ) {
             fatal_log( "Renderer failed!" );

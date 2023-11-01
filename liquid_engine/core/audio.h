@@ -7,13 +7,35 @@
 */
 #include "defines.h"
 
+/// Set master volume.
+/// Volume must be a value from 0.0-1.0.
+/// Volume is a linear value that gets transformed into a logarithmic value.
 LD_API void audio_set_master_volume( f32 volume );
-LD_API f32  audio_query_master_volume(void);
+/// Query the current value of master volume.
+/// The value returned is a linear value from 0.0-1.0.
+LD_API f32 audio_query_master_volume(void);
 
+#if defined(LD_API_INTERNAL)
+
+/// Initialize the audio subsystem.
 b32 audio_subsystem_initialize(void);
-
-void audio_subsystem_fill_buffer(void);
-
+/// Query the memory requirement for the audio subsystem.
+/// This function must be called after the subsystem has been initialized.
+usize audio_subsystem_query_memory_requirement(void);
+/// Submit buffer for audio subsystem.
+/// This buffer must be large enough to hold
+/// the result of audio_subsystem_query_memory_requirement.
+void audio_subsystem_submit_buffer_memory( void* buffer );
+/// Mixes all in-game audio and fills output audio buffer.
+void audio_subsystem_output(void);
+/// Shutdown audio subsystem.
 void audio_subsystem_shutdown(void);
+/// Start playing audio buffer.
+/// Only call this after calling audio_subsystem_stop.
+void audio_subsystem_start(void);
+/// Stop playing audio buffer.
+void audio_subsystem_stop(void);
+
+#endif /* API internal */
 
 #endif /* header guard */
