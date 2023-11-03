@@ -165,98 +165,122 @@ LD_API i32 floor_i32( f32 x );
 LD_API i32 ceil_i32( f32 x );
 
 /// Normalize integer -1 to 1 range
-#define normalize_range_i8_f32( x ) \
-    ((f32)(x) / ((x) > 0 ? (f32)I8_MAX : -((f32)I8_MIN)))
+header_only f32 normalize_range_i8_f32( i8 x ) {
+    return ((f32)(x) / ((x) > 0 ? (f32)I8_MAX : -((f32)I8_MIN)));
+}
 /// Normalize integer -1 to 1 range
-#define normalize_range_i16_f32( x )\
-    ((f32)(x) / ((x) > 0 ? (f32)I16_MAX : -((f32)I16_MIN)))
+header_only f32 normalize_range_i16_f32( i16 x ) {
+    return ((f32)(x) / ((x) > 0 ? (f32)I16_MAX : -((f32)I16_MIN)));
+}
 /// Normalize integer -1 to 1 range
-#define normalize_range_i32_f32( x )\
-    ((f32)(x) / ((x) > 0 ? (f32)I32_MAX : -((f32)I32_MIN)))
+header_only f32 normalize_range_i32_f32( i32 x ) {
+    return ((f32)(x) / ((x) > 0 ? (f32)I32_MAX : -((f32)I32_MIN)));
+}
 /// Normalize integer -1 to 1 range
-#define normalize_range_i64_f32( x )\
-    ((f32)(x) / ((x) > 0 ? (f32)I64_MAX : -((f32)I64_MIN)))
+header_only f32 normalize_range_i64_f32( i64 x ) {
+    return ((f32)(x) / ((x) > 0 ? (f32)I64_MAX : -((f32)I64_MIN)));
+}
 
 /// Normalize integer 0 to 1 range
-#define normalize_range_u8_f32( x ) \
-    ((f32)(x) / (f32)(U8_MAX))
+header_only f32 normalize_range_u8_f32( u8 x ) {
+    return ((f32)(x) / (f32)(U8_MAX));
+}
 /// Normalize integer 0 to 1 range
-#define normalize_range_u16_f32( x )\
-    ((f32)(x) / (f32)(U16_MAX))
+header_only f32 normalize_range_u16_f32( u16 x ) {
+    return ((f32)(x) / (f32)(U16_MAX));
+}
 /// Normalize integer 0 to 1 range
-#define normalize_range_u32_f32( x )\
-    ((f32)(x) / (f32)(U32_MAX))
+header_only f32 normalize_range_u32_f32( u32 x ) {
+    return ((f32)(x) / (f32)(U32_MAX));
+}
 /// Normalize integer 0 to 1 range
-#define normalize_range_u64_f32( x )\
-    ((f32)(x) / (f32)(U64_MAX))
+header_only f32 normalize_range_u64_f32( u64 x ) {
+    return ((f32)(x) / (f32)(U64_MAX));
+}
 
 /// Normalize 32-bit float to integer min-max.
 /// Float must be in 0.0-1.0 range
-#define normalize_range32_u8( f )\
-    ((u8)(absolute((f)) * (f32)U8_MAX))
+header_only u8 normalize_range_f32_u8( f32 f ) {
+    return ((u8)(absolute((f)) * (f32)U8_MAX));
+}
 /// Normalize 32-bit float to integer min-max.
 /// Float must be in 0.0-1.0 range
-#define normalize_range32_u16( f )\
-    ((u16)(absolute((f)) * (f32)U16_MAX))
+header_only u16 normalize_range_f32_u16( f32 f ) {
+    return ((u16)(absolute((f)) * (f32)U16_MAX));
+}
 /// Normalize 32-bit float to integer min-max.
 /// Float must be in 0.0-1.0 range
-#define normalize_range32_u32( f )\
-    ((u32)(absolute((f)) * (f32)U32_MAX))
+header_only u32 normalize_range_f32_u32( f32 f ) {
+    return ((u32)(absolute((f)) * (f32)U32_MAX));
+}
 /// Normalize 32-bit float to integer min-max.
 /// Float must be in 0.0-1.0 range
-#define normalize_range32_u64( f )\
-    ((u64)(absolute((f)) * (f32)U64_MAX))
+header_only u64 normalize_range_f32_u64( f32 f ) {
+    return ((u64)(absolute((f)) * (f32)U64_MAX));
+}
 
 /// Normalize 32-bit float to integer min-max.
 /// Float must be in -1.0-1.0 range
-#define normalize_range32_i8( f )\
-    ((i8)( absolute( (f) ) * (f32)I8_MAX ) * (i8)(signum((f))))
+header_only i8 normalize_range_f32_i8( f32 f ) {
+    return ((i8)( absolute( (f) ) * (f32)I8_MAX ) * (i8)(signum((f))));
+}
 /// Normalize 32-bit float to integer min-max.
 /// Float must be in -1.0-1.0 range
-#define normalize_range32_i16( f )\
-    ((i16)( absolute( (f) ) * (f32)I16_MAX ) * (i16)(signum((f))))
+header_only i16 normalize_range_f32_i16( f32 f ) {
+    return ((i16)( absolute( (f) ) * (f32)I16_MAX ) * (i16)(signum((f))));
+}
 /// Normalize 32-bit float to integer min-max.
 /// Float must be in -1.0-1.0 range
-#define normalize_range32_i32( f )\
-    ((i32)( absolute( (f) ) * (f32)I32_MAX ) * (i32)(signum((f))))
+header_only i32 normalize_range_f32_i32( f32 f ) {
+    return ((i32)( absolute( (f) ) * (f32)I32_MAX ) * (i32)(signum((f))));
+}
 /// Normalize 32-bit float to integer min-max.
 /// Float must be in -1.0-1.0 range
-#define normalize_range32_i64( f )\
-    ((i64)( absolute( (f) ) * (f32)I64_MAX ) * (i64)(signum((f))))
+header_only i64 normalize_range_f32_i64( f32 f ) {
+    return ((i64)( absolute( (f) ) * (f32)I64_MAX ) * (i64)(signum((f))));
+}
 
 /// Normalize 64-bit float to integer min-max.
 /// Float must be in 0.0-1.0 range
-#define normalize_range64_u8( f )\
-    ((u8)(absolute((f)) * (f64)U8_MAX))
+header_only u8 normalize_range_f64_u8( f64 f ) {
+    return ((u8)(absolute((f)) * (f64)U8_MAX));
+}
 /// Normalize 64-bit float to integer min-max.
 /// Float must be in 0.0-1.0 range
-#define normalize_range64_u16( f )\
-    ((u16)(absolute((f)) * (f64)U16_MAX))
+header_only u16 normalize_range_f64_u16( f64 f ) {
+    return ((u16)(absolute((f)) * (f64)U16_MAX));
+}
 /// Normalize 64-bit float to integer min-max.
 /// Float must be in 0.0-1.0 range
-#define normalize_range64_u32( f )\
-    ((u32)(absolute((f)) * (f64)U32_MAX))
+header_only u32 normalize_range_f64_u32( f64 f ) {
+    return ((u32)(absolute((f)) * (f64)U32_MAX));
+}
 /// Normalize 64-bit float to integer min-max.
 /// Float must be in 0.0-1.0 range
-#define normalize_range64_u64( f )\
-    ((u64)(absolute((f)) * (f64)U64_MAX))
+header_only u64 normalize_range_f64_u64( f64 f ) {
+    return ((u64)(absolute((f)) * (f64)U64_MAX));
+}
 
 /// Normalize 64-bit float to integer min-max.
 /// Float must be in -1.0-1.0 range
-#define normalize_range64_i8( f )\
-    ((i8)( absolute( (f) ) * (f64)I8_MAX ) * (i8)(signum((f))))
+header_only i8 normalize_range_f64_i8( f64 f ) {
+    return ((i8)( absolute( (f) ) * (f64)I8_MAX ) * (i8)(signum((f))));
+}
 /// Normalize 64-bit float to integer min-max.
 /// Float must be in -1.0-1.0 range
-#define normalize_range64_i16( f )\
-    ((i16)( absolute( (f) ) * (f64)I16_MAX ) * (i16)(signum((f))))
+header_only i16 normalize_range_f64_i16( f64 f ) {
+    return ((i16)( absolute( (f) ) * (f64)I16_MAX ) * (i16)(signum((f))));
+}
 /// Normalize 64-bit float to integer min-max.
 /// Float must be in -1.0-1.0 range
-#define normalize_range64_i32( f )\
-    ((i32)( absolute( (f) ) * (f64)I32_MAX ) * (i32)(signum((f))))
+header_only i32 normalize_range_f64_i32( f64 f ) {
+    return ((i32)( absolute( (f) ) * (f64)I32_MAX ) * (i32)(signum((f))));
+}
 /// Normalize 64-bit float to integer min-max.
 /// Float must be in -1.0-1.0 range
-#define normalize_range64_i64( f )\
-    ((i64)( absolute( (f) ) * (f64)I64_MAX ) * (i64)(signum((f))))
+header_only i64 normalize_range_f64_i64( f64 f ) {
+    return ((i64)( absolute( (f) ) * (f64)I64_MAX ) * (i64)(signum((f))));
+}
 
 /// Rotate left 8-bit integer.
 #define rotate_left8( bitpattern, rotation )\
@@ -282,8 +306,6 @@ LD_API i32 ceil_i32( f32 x );
 /// Rotate right 64-bit integer.
 #define rotate_right64( bitpattern, rotation )\
     (bitpattern >> rotation) | (bitpattern << (64ull - rotation))
-
-
 
 #define VEC2_COMPONENT_COUNT (2)
 /// 2-component 32-bit float vector
