@@ -217,7 +217,7 @@ LD_API b32 string_slice_parse_float( StringSlice* slice, f64* out_float ) {
 
         u64 pow = places + zero_count;
         if( pow ) {
-            fractional_part_f64 /= power( 10.0, pow );
+            fractional_part_f64 /= (f64)poweri( 10.0f, pow );
         }
 
         *out_float += fractional_part_f64;
