@@ -66,7 +66,7 @@ struct InputState {
 
 global struct InputState* global_input = NULL;
 
-usize input_subsystem_query_size(void) {
+usize input_subsystem_query_memory_requirement(void) {
     return sizeof( struct InputState );
 }
 void input_subsystem_initialize( void* buffer ) {
@@ -306,8 +306,10 @@ LD_API void input_gamepad_set_rumble(
         warn_log( "Attempted to rumble disconnected gamepad {usize}!", gamepad );
         return;
     }
-    global_input->gamepad[gamepad].rumble_left  = normalize_range32_u16( rumble_left );
-    global_input->gamepad[gamepad].rumble_right = normalize_range32_u16( rumble_right );
+    global_input->gamepad[gamepad].rumble_left  =
+        normalize_range_f32_u16( rumble_left );
+    global_input->gamepad[gamepad].rumble_right =
+        normalize_range_f32_u16( rumble_right );
 
     platform->io.set_gamepad_rumble(
         gamepad,

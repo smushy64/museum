@@ -113,12 +113,6 @@ internal no_inline void on_activate(
     b32* surface_is_active = user_params;
     *surface_is_active     = is_active;
     note_log( "Surface {cc}", is_active ? "is active." : "is inactive." );
-
-    if( is_active ) {
-        audio_subsystem_start();
-    } else {
-        audio_subsystem_stop();
-    }
 }
 internal no_inline void on_key(
     PlatformSurface* surface, b32 is_down,
@@ -689,7 +683,7 @@ LD_API int core_init(
         stack_size += application_memory_requirement;
 
         stack_size += THREAD_SUBSYSTEM_SIZE;
-        stack_size += input_subsystem_query_size();
+        stack_size += input_subsystem_query_memory_requirement();
         stack_size += audio_subsystem_memory_requirement;
 
         renderer_subsystem_size = renderer_subsystem_query_size( backend );
@@ -737,8 +731,8 @@ LD_API int core_init(
     audio_set_sfx_volume( audio_volume_sfx );
 
     /* initialize input subsystem */ {
-        void* input_subsytem_buffer =
-            stack_allocator_push( &stack, input_subsystem_query_size() );
+        void* input_subsytem_buffer = stack_allocator_push(
+            &stack, input_subsystem_query_memory_requirement() );
         input_subsystem_initialize( input_subsytem_buffer );
     }
 
@@ -849,7 +843,10 @@ LD_API int core_init(
         platform->surface.pump_events();
 
         if( !surface_is_active ) {
+            audio_subsystem_pause();
             continue;
+        } else {
+            audio_subsystem_resume();
         }
 
         if( input_key( KEY_ALT_LEFT ) || input_key( KEY_ALT_RIGHT ) ) {

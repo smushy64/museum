@@ -141,8 +141,7 @@ typedef enum KeyCode : u8 {
     KEY_UNKNOWN = U8_MAX,
 } KeyCode;
 
-maybe_unused
-header_only const char* keyboard_code_to_string( KeyCode keycode ) {
+header_only const char* keyboard_code_to_cstr( KeyCode keycode ) {
     switch( keycode ) {
         case KEY_SPACE:          return "Space";
         case KEY_A:              return "A";
@@ -282,60 +281,103 @@ typedef u16 GamepadCode;
 #define GAMEPAD_CODE_FACE_LEFT     (1 << 14)
 #define GAMEPAD_CODE_FACE_UP       (1 << 15)
 
+/// Check if key went down this frame.
 LD_API b32 input_key_down( KeyCode code );
+/// Check if key went up this frame.
 LD_API b32 input_key_up( KeyCode code );
+/// Check if key is down.
 LD_API b32 input_key( KeyCode code );
 
+/// Check if mouse button went down this frame.
 LD_API b32 input_mouse_down( MouseCode code );
+/// Check if mouse button went up this frame.
 LD_API b32 input_mouse_up( MouseCode code );
+/// Check if mouse button is down.
 LD_API b32 input_mouse_button( MouseCode code );
 
+/// Get mouse absolute position (0 to resolution x).
 LD_API i32 input_mouse_absolute_position_x(void);
+/// Get mouse absolute position (0 to resolution y).
 LD_API i32 input_mouse_absolute_position_y(void);
 
+/// Get mouse position (0 to 1, 1 being right-most position).
 LD_API f32 input_mouse_position_x(void);
+/// Get mouse position (0 to 1, 1 being top-most position).
 LD_API f32 input_mouse_position_y(void);
 
+/// Get mouse position relative to last frame's mouse position in x.
 LD_API f32 input_mouse_relative_x(void);
+/// Get mouse position relative to last frame's mouse position in y.
 LD_API f32 input_mouse_relative_y(void);
 
+/// Get mouse wheel (-1, 0 or 1).
 LD_API i32 input_mouse_wheel(void);
+/// Get horizontal mouse wheel (-1, 0 or 1).
 LD_API i32 input_mouse_wheel_horizontal(void);
 
+/// Lock or unlock mouse from screen.
 LD_API void input_mouse_set_locked( b32 is_locked );
+/// Check if mouse is currently locked to screen.
 LD_API b32 input_is_mouse_locked(void);
 
+/// Check if gamepad button went down this frame.
+/// Multiple buttons can be checked simultaneously by OR'ing gamepad codes.
 LD_API b32 input_gamepad_down( usize gamepad, GamepadCode code );
+/// Check if gamepad button went up this frame.
+/// Multiple buttons can be checked simultaneously by OR'ing gamepad codes.
 LD_API b32 input_gamepad_up( usize gamepad, GamepadCode code );
+/// Check if gamepad button is down.
+/// Multiple buttons can be checked simultaneously by OR'ing gamepad codes.
 LD_API b32 input_gamepad_button( usize gamepad, GamepadCode code );
 
+/// Get gamepad left stick x (-1 to 1).
 LD_API f32 input_gamepad_stick_left_x( usize gamepad );
+/// Get gamepad left stick y (-1 to 1).
 LD_API f32 input_gamepad_stick_left_y( usize gamepad );
+/// Get gamepad right stick x (-1 to 1).
 LD_API f32 input_gamepad_stick_right_x( usize gamepad );
+/// Get gamepad right stick y (-1 to 1).
 LD_API f32 input_gamepad_stick_right_y( usize gamepad );
 
+/// Get gamepad left trigger (0 to 1).
 LD_API f32 input_gamepad_trigger_left( usize gamepad );
+/// Get gamepad right trigger (0 to 1).
 LD_API f32 input_gamepad_trigger_right( usize gamepad );
 
+/// Set rumble values for gamepad.
 LD_API void input_gamepad_set_rumble(
     usize gamepad, f32 rumble_left, f32 rumble_right );
+/// Query what the rumble values are for gamepad.
 LD_API void input_gamepad_query_rumble(
     usize gamepad, f32* out_rumble_left, f32* out_rumble_right );
 
+/// Check if gamepad is active.
 LD_API b32 input_gamepad_is_active( usize gamepad );
 
 #if defined(LD_API_INTERNAL)
     #include "core/internal.h"
 
-    usize input_subsystem_query_size(void);
+    /// Query input subsystem memory requirement.
+    usize input_subsystem_query_memory_requirement(void);
+    /// Initialize input subsystem.
+    /// Provided buffer must be large enough to hold the result of
+    /// input_subsystem_query_memory_requirement().
     void input_subsystem_initialize( void* buffer );
+    /// Swap input states.
     void input_subsystem_swap_state(void);
+    /// Update gamepads.
     void input_subsystem_update_gamepads(void);
+    /// Set key state.
     void input_subsystem_set_key( KeyCode code, b32 is_down );
+    /// Set mouse button state.
     void input_subsystem_set_mouse_button( PlatformMouseCode code, b32 is_down );
+    /// Set mouse wheel.
     void input_subsystem_set_mouse_wheel( i32 wheel );
+    /// Set horizontal mouse wheel.
     void input_subsystem_set_mouse_wheel_horizontal( i32 wheel );
+    /// Set mouse position.
     void input_subsystem_set_mouse_position( i32 x, i32 y, f32 x01, f32 y01 );
+    /// Set mouse relative positions.
     void input_subsystem_set_mouse_relative( f32 x_rel, f32 y_rel );
 #endif
 
