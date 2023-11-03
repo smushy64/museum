@@ -57,7 +57,7 @@ LD_API f32 poweri( f32 base, i32 exp ) {
 }
 
 LD_API f32 power( f32 base, f32 exp ) {
-    return e_power( base * natural_logarithm( exp ) );
+    return e_power( natural_logarithm( base ) * exp );
 }
 
 LD_API f32 modulus( f32 lhs, f32 rhs ) {
