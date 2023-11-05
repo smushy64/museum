@@ -10,6 +10,7 @@
 #include <core/memory.h>
 #include <core/logging.h>
 #include <core/time.h>
+#include <core/audio.h>
 #include <core/collections.h>
 
 struct GameMemory {
@@ -146,6 +147,10 @@ c_linkage b32 application_run( void* in_memory ) {
             transform_translate( memory->camera.transform,
                 v3( 0.0f, camera_delta_y, 0.0f ) );
         }
+    }
+
+    if( input_key_down( KEY_E ) ) {
+        audio_debug_play_sound();
     }
 
     graphics_draw(
