@@ -18,10 +18,9 @@ typedef struct ThreadWorkQueue {
 
     Semaphore* wake_semaphore;
 
-    volatile i32 push_entry;
-    volatile i32 read_entry;
-    volatile i32 entry_completion_count;
-    volatile i32 pending_work_count;
+    volatile usize push_entry;
+    volatile usize read_entry;
+    volatile usize pending_work_count;
 } ThreadWorkQueue;
 
 global ThreadWorkQueue* WORK_QUEUE = NULL;
@@ -29,39 +28,32 @@ global ThreadWorkQueue* WORK_QUEUE = NULL;
 LD_API void thread_work_queue_push(
     ThreadWorkProcFN* work_proc, void* params
 ) {
+    // TODO(alicia): what if we're already at max work entry count?
+    
     ThreadWorkEntry entry = { work_proc, params };
-    WORK_QUEUE->work_entries[WORK_QUEUE->push_entry] = entry;
 
+    usize entry_index = interlocked_increment( &WORK_QUEUE->push_entry );
+    interlocked_increment( &WORK_QUEUE->pending_work_count );
     read_write_fence();
 
-    WORK_QUEUE->push_entry = interlocked_increment_i32(
-        &WORK_QUEUE->push_entry ) % MAX_WORK_ENTRY_COUNT;
+    entry_index %= MAX_WORK_ENTRY_COUNT;
 
-    WORK_QUEUE->pending_work_count = interlocked_increment_i32(
-        &WORK_QUEUE->pending_work_count );
-
-    assert_log(
-        WORK_QUEUE->pending_work_count < MAX_WORK_ENTRY_COUNT,
-        "Exceeded thread work entry count!!" );
+    WORK_QUEUE->work_entries[entry_index] = entry;
 
     read_write_fence();
     semaphore_signal( WORK_QUEUE->wake_semaphore );
 }
 internal b32 thread_work_queue_pop( ThreadWorkEntry* out_work_entry ) {
-    if(
-        WORK_QUEUE->push_entry ==
-        WORK_QUEUE->read_entry
-    ) {
+    if( WORK_QUEUE->push_entry == WORK_QUEUE->read_entry ) {
         return false;
     }
 
-    *out_work_entry = WORK_QUEUE->work_entries[WORK_QUEUE->read_entry];
-
+    usize read_index = interlocked_increment( &WORK_QUEUE->read_entry );
     read_write_fence();
 
-    WORK_QUEUE->read_entry = interlocked_increment_i32(
-        &WORK_QUEUE->read_entry
-    ) % MAX_WORK_ENTRY_COUNT;
+    read_index %= MAX_WORK_ENTRY_COUNT;
+
+    *out_work_entry = WORK_QUEUE->work_entries[read_index];
 
     return true;
 }
@@ -77,10 +69,8 @@ internal b32 thread_proc( void* params ) {
             
             read_write_fence();
 
-            WORK_QUEUE->entry_completion_count =
-                interlocked_increment_i32( &WORK_QUEUE->entry_completion_count );
             WORK_QUEUE->pending_work_count =
-                interlocked_decrement_i32( &WORK_QUEUE->pending_work_count );
+                interlocked_decrement( &WORK_QUEUE->pending_work_count );
         }
     }
 
@@ -123,32 +113,11 @@ b32 thread_subsystem_init( u32 logical_processor_count, void* buffer ) {
 
     read_write_fence();
 
+#if !defined(LD_THREAD_SUBSYSTEM_SILENT)
     info_log( "Threading subsystem successfully initialized." );
     note_log( "Instantiated {u} threads.", thread_handle_count );
+#endif
     return true;
-}
-
-LD_API i32 interlocked_increment_i32( volatile i32* addend ) {
-    return platform->thread.interlocked_add( addend, 1 );
-}
-LD_API i32 interlocked_decrement_i32( volatile i32* addend ) {
-    return platform->thread.interlocked_sub( addend, 1 );
-}
-LD_API i32 interlocked_exchange_i32( volatile i32* target, i32 value ) {
-    return platform->thread.interlocked_exchange( target, value );
-}
-LD_API i32 interlocked_compare_exchange_i32(
-    volatile i32* dst,
-    i32 exchange, i32 comperand
-) {
-    return platform->thread.interlocked_compare_exchange( dst, exchange, comperand );
-}
-LD_API void* interlocked_compare_exchange_pointer(
-    void* volatile* dst,
-    void* exchange, void* comperand
-) {
-    return __sync_val_compare_and_swap(
-        dst, exchange, comperand );
 }
 
 char SEM_NAME_BUFFER[255] = {};

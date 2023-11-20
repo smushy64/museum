@@ -5,7 +5,8 @@
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: April 28, 2023
 */
-#include "defines.h"
+#include <defines.h>
+#include "core/collections.h"
 
 /// Options for formatting integers.
 typedef enum : u32 {
@@ -99,6 +100,8 @@ header_only StringSlice string_slice_clone( StringSlice* slice ) {
     result.len      = slice->len;
     return result;
 }
+/// Create an iterator for a string slice.
+LD_API Iterator string_slice_iterator( StringSlice* slice );
 /// Create a string slice from null-terminated string buffer.
 /// Optionally takes in length of the string buffer.
 LD_API StringSlice string_slice_from_cstr( usize opt_len, const char* cstr );
@@ -150,10 +153,14 @@ LD_API void string_slice_copy_to_len( StringSlice* dst, StringSlice* src );
 LD_API void string_slice_copy_to_capacity( StringSlice* dst, StringSlice* src );
 /// Reverse contents of string slice.
 LD_API void string_slice_reverse( StringSlice* slice );
+/// Trim leading whitespace.
+/// Returns a string slice that starts after the first trailing whitespace character.
+LD_API void string_slice_trim_leading_whitespace(
+    StringSlice* slice, StringSlice* out_trimmed );
 /// Trim trailing whitespace.
-/// Note: this does not change the buffer contents,
-/// it just changes the slice's length.
-LD_API void string_slice_trim_trailing_whitespace( StringSlice* slice );
+/// Returns a string slice that stops before the first trailing whitespace character.
+LD_API void string_slice_trim_trailing_whitespace(
+    StringSlice* slice, StringSlice* out_trimmed );
 /// Set all characters in string slice to given character up to slice length.
 LD_API void string_slice_fill_to_len( StringSlice* slice, char character );
 /// Set all characters in string slice to given character up to slice capacity.

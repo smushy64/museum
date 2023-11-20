@@ -14,8 +14,13 @@ typedef struct Iterator {
     usize count;
     usize current;
 } Iterator;
-/// Opaque pointer to a list.
-typedef void List;
+/// Dynamic list.
+typedef struct List {
+    void* buffer;
+    usize item_size;
+    usize count;
+    usize capacity;
+} List;
 
 /// Create an iterator for a buffer.
 header_only Iterator iterator_create( usize item_size, usize count, void* buffer ) {
@@ -76,16 +81,25 @@ header_only b32 iterator_reverse_next_value( Iterator* iter, void* out_item ) {
 LD_API void iterator_split(
     Iterator* iter, usize index, Iterator* out_first, Iterator* out_last );
 
-/// Calculate the memory required for a list.
-LD_API usize list_calculate_memory_requirement( usize capacity, usize item_size );
 /// Create a new list with the given buffer.
-/// Buffer must be able to hold the result of list_calculate_memory_requirement.
-/// Returns a pointer to the start of the list.
-/// Use list_head() to get a pointer to the list buffer.
-LD_API List* list_create( usize capacity, usize item_size, void* buffer );
-/// Set list capacity and head.
-/// Only use this when list buffer is reallocated.
-LD_API List* list_resize( void* head, usize new_capacity );
+header_only List list_create( usize capacity, usize item_size, void* buffer ) {
+    List result = {};
+    result.buffer    = buffer;
+    result.count     = 0;
+    result.capacity  = capacity;
+    result.item_size = item_size;
+    return result;
+}
+/// Use this function after reallocating list buffer
+/// to change capacity and buffer pointer.
+header_only void list_resize( List* list, usize new_capacity, void* new_buffer ) {
+    list->buffer   = new_buffer;
+    list->capacity = new_capacity;
+}
+/// Set list count to zero.
+header_only void list_clear( List* list ) {
+    list->count = 0;
+}
 /// Push an item into list.
 /// Returns true if there was enough space to push.
 LD_API b32 list_push( List* list, void* item );
@@ -95,7 +109,12 @@ LD_API b32 list_append( List* list, usize append_count, void* append_items );
 /// Pop the last item from list.
 /// Returns a pointer to the popped item or NULL if list was already empty.
 LD_API void* list_pop( List* list );
+/// Pop the last item from list.
+/// Copies value to pointer out_item.
+/// Returns false if list was empty.
+LD_API b32 list_pop_value( List* list, void* out_item );
 /// Get a pointer to the last item of the list.
+/// Returns NULL if list is empty.
 /// Does not remove the item.
 LD_API void* list_peek( List* list );
 /// Insert an item into list.
@@ -108,6 +127,10 @@ LD_API void list_remove( List* list, usize index, void* opt_out_item );
 /// Get a pointer to item at given index.
 /// Returns NULL if index is outside the bounds of the list.
 LD_API void* list_index( List* list, usize index );
+/// Get item at given index.
+/// Copies value to pointer out_item.
+/// Returns false if index is outside the bounds of the list.
+LD_API b32 list_index_value( List* list, usize index, void* out_item );
 /// Set item at given index to the value provided.
 /// Index MUST be within the bounds of the list.
 LD_API void list_set( List* list, usize index, void* item );
@@ -117,17 +140,6 @@ LD_API void list_fill( List* list, void* item );
 /// Does so until it reaches list capacity instead of list count.
 /// This function also sets list count equal to list capacity.
 LD_API void list_fill_to_capacity( List* list, void* item );
-/// Set list count to zero.
-LD_API void list_clear( List* list );
-/// Get a pointer to the start of the list's buffer.
-/// This pointer must be used when reallocating/freeing list buffer.
-LD_API void* list_head( List* list );
-/// Get how many items are in a list.
-LD_API usize list_count( List* list );
-/// Get how many items a list can hold.
-LD_API usize list_capacity( List* list );
-/// Get how large each item is in a list.
-LD_API usize list_item_size( List* list );
 /// Create an iterator for a list.
 LD_API Iterator list_iterator( List* list );
 

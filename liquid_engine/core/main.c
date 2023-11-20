@@ -690,14 +690,14 @@ LD_API int core_init(
         stack_size += renderer_subsystem_size;
 
         renderer_command_buffer_capacity = 1024;
-        renderer_command_buffer_size = list_calculate_memory_requirement(
-            renderer_command_buffer_capacity, sizeof(struct RenderCommand) );
+        renderer_command_buffer_size =
+            sizeof(struct RenderCommand) * renderer_command_buffer_capacity;
 
         stack_size += renderer_command_buffer_size;
 
         usize stack_page_count = memory_size_to_page_count( stack_size );
-        stack_buffer = system_page_alloc( stack_page_count );
-        stack_size   = page_count_to_memory_size( stack_page_count );
+        stack_buffer           = system_page_alloc( stack_page_count );
+        stack_size             = page_count_to_memory_size( stack_page_count );
 
         info_log(
             "Stack Size: {usize}({f,.2,b}) Stack Pages: {usize}",
@@ -808,8 +808,7 @@ LD_API int core_init(
 
         render_data.list_commands = list_create(
             renderer_command_buffer_capacity,
-            sizeof(struct RenderCommand),
-            renderer_command_buffer );
+            sizeof(struct RenderCommand), renderer_command_buffer );
 
         if( !renderer_subsystem_init(
             surface, backend,
@@ -879,7 +878,7 @@ LD_API int core_init(
             return CORE_ERROR_RENDERER_DRAW;
         }
 
-        list_clear( render_data.list_commands );
+        list_clear( &render_data.list_commands );
 
         if( input_is_mouse_locked() ) {
             platform->surface.center_cursor( surface );

@@ -9,6 +9,7 @@
 #include "core/internal.h"
 #include "core/graphics/types.h"
 #include "core/math.h"
+#include "core/collections.h"
 
 extern struct RendererSubsystem* global_renderer;
 extern struct RenderData*        global_render_data;
@@ -56,7 +57,7 @@ typedef u32 Draw3DFlags;
 typedef struct RenderData {
     struct Camera* camera;
 
-    struct RenderCommand* list_commands;
+    List list_commands;
 } RenderData;
 
 struct CommandPointLight {

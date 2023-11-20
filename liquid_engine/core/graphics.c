@@ -125,9 +125,9 @@ internal b32 renderer_subsystem_begin_frame(void) {
     }
 
     sorting_quicksort(
-        0, list_count( global_render_data->list_commands ) - 1,
+        0, global_render_data->list_commands.count - 1,
         sizeof(struct RenderCommand),
-        global_render_data->list_commands,
+        global_render_data->list_commands.buffer,
         render_command_sort_lt, &camera_position,
         render_command_sort_swap );
 
@@ -217,7 +217,7 @@ LD_API void graphics_draw(
         command.draw_3d.flags |= DRAW_3D_WIREFRAME;
     }
 
-    assert( list_push( global_render_data->list_commands, &command ) );
+    assert( list_push( &global_render_data->list_commands, &command ) );
 }
 LD_API RenderID graphics_generate_mesh(
     usize vertex_count, struct Vertex3D* vertices,
@@ -231,7 +231,7 @@ LD_API RenderID graphics_generate_mesh(
     command.generate_mesh.index_count  = index_count;
     command.generate_mesh.indices      = indices;
 
-    assert( list_push( global_render_data->list_commands, &command ) );
+    assert( list_push( &global_render_data->list_commands, &command ) );
 
     return global_running_mesh_id++;
 }
@@ -241,7 +241,7 @@ LD_API void graphics_retire_meshes( usize count, RenderID* meshes ) {
     command.retire_meshes.count = count;
     command.retire_meshes.ids   = meshes;
 
-    assert( list_push( global_render_data->list_commands, &command ) );
+    assert( list_push( &global_render_data->list_commands, &command ) );
 }
 LD_API RenderID graphics_generate_texture(
     GraphicsTextureType     type,
@@ -273,7 +273,7 @@ LD_API RenderID graphics_generate_texture(
     command.generate_texture.id         = global_running_texture_id;
 
     unused(buffer_size);
-    assert( list_push( global_render_data->list_commands, &command ) );
+    assert( list_push( &global_render_data->list_commands, &command ) );
 
     return global_running_texture_id++;
 }
@@ -283,7 +283,7 @@ LD_API void graphics_retire_textures( usize count, RenderID* textures ) {
     command.retire_textures.count = count;
     command.retire_textures.ids   = textures;
 
-    assert( list_push( global_render_data->list_commands, &command ) );
+    assert( list_push( &global_render_data->list_commands, &command ) );
 }
 LD_API void graphics_set_directional_light(
     vec3 direction, vec3 color, b32 is_active
@@ -294,7 +294,7 @@ LD_API void graphics_set_directional_light(
     command.directional_light.color     = color;
     command.directional_light.is_active = is_active;
 
-    assert( list_push( global_render_data->list_commands, &command ) );
+    assert( list_push( &global_render_data->list_commands, &command ) );
 }
 
 LD_API void graphics_set_point_light(
@@ -307,6 +307,6 @@ LD_API void graphics_set_point_light(
     command.point_light.index     = index;
     command.point_light.is_active = is_active;
 
-    assert( list_push( global_render_data->list_commands, &command ) );
+    assert( list_push( &global_render_data->list_commands, &command ) );
 }
 

@@ -4,6 +4,7 @@
  * Description:  Memory Functions
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: September 27, 2023
+ * Notes:        define LD_MEMORY_NO_LOG before including to disable logging allocations
 */
 #include "defines.h"
 
@@ -65,6 +66,10 @@ LD_API b32 stack_allocator_pop_aligned(
     StackAllocator* allocator, usize size, usize alignment );
 /// Resets current pointer and zeroes out entire buffer.
 LD_API void stack_allocator_clear( StackAllocator* allocator );
+/// Calculate remaining space in stack allocator.
+header_only usize stack_allocator_remaining_memory( StackAllocator* allocator ) {
+    return allocator->buffer_size - allocator->current;
+}
 
 /// Copy from source buffer to destination buffer.
 LD_API void memory_copy( void* restricted dst, const void* restricted src, usize size );
@@ -139,7 +144,7 @@ LD_API void ___internal_system_free_aligned_trace(
     void* memory, usize size, usize alignment,
     const char* function, const char* file, int line );
 
-#if defined(LD_LOGGING)
+#if defined(LD_LOGGING) && !defined( LD_MEMORY_NO_LOG )
     #define system_alloc( size )\
         ___internal_system_alloc_trace( size, __FUNCTION__, __FILE__, __LINE__ )
     #define system_alloc_aligned( size, alignment )\

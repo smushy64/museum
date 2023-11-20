@@ -9,6 +9,16 @@
 #include "core/math.h"
 #include "core/internal.h"
 
+LD_API Iterator string_slice_iterator( StringSlice* slice ) {
+    Iterator result = {};
+    result.buffer    = slice->buffer;
+    result.current   = 0;
+    result.count     = slice->len;
+    result.item_size = sizeof(char);
+
+    return result;
+}
+
 LD_API usize cstr_len( const char* cstr ) {
     if( !cstr ) {
         return 0;
@@ -405,14 +415,35 @@ LD_API void string_slice_reverse( StringSlice* slice ) {
         }
     }
 }
-LD_API void string_slice_trim_trailing_whitespace( StringSlice* slice ) {
-    for( usize i = slice->len; i-- > 0; ) {
-        char current = slice->buffer[i];
-        if( current != ' ' || current != '\t' || current != '\n' ) {
-            slice->len = i;
-            return;
+LD_API void string_slice_trim_leading_whitespace(
+    StringSlice* slice, StringSlice* out_trimmed
+) {
+    StringSlice result = string_slice_clone( slice );
+    for( usize i = 0; i < result.len; ++i ) {
+        char current = result.buffer[i];
+        if( char_is_whitespace( current ) ) {
+            continue;
+        }
+
+        result.buffer += i;
+        result.len    -= i;
+        break;
+    }
+
+    *out_trimmed = result;
+}
+LD_API void string_slice_trim_trailing_whitespace(
+    StringSlice* slice, StringSlice* out_trimmed
+) {
+    StringSlice result = string_slice_clone( slice );
+    for( usize i = result.len; i-- > 0; ) {
+        char current = result.buffer[i];
+        if( char_is_whitespace( current ) ) {
+            result.len = i;
+            break;
         }
     }
+    *out_trimmed = result;
 }
 LD_API void string_slice_fill_to_len( StringSlice* slice, char character ) {
     memory_set( slice->buffer, *(u8*)&character, slice->len );

@@ -17,6 +17,7 @@ clang++
 -fdeclspec
 -I.
 -I../liquid_engine
+-I../shared
 -Werror=vla
 -Wall
 -Wextra

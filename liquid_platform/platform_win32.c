@@ -406,10 +406,14 @@ b32 win32_file_read(
     PlatformFile* file, usize buffer_size, void* buffer );
 b32 win32_file_write(
     PlatformFile* file, usize buffer_size, void* buffer );
+b32 win32_file_write_offset(
+    PlatformFile* file, usize buffer_size, void* buffer, usize offset_from_start );
 usize win32_file_query_size( PlatformFile* file );
 void win32_file_set_offset( PlatformFile* file, usize offset );
 usize win32_file_query_offset( PlatformFile* file );
 b32 win32_file_delete_by_path( const char* path );
+b32 win32_file_copy_by_path(
+    const char* dst, const char* src, b32 fail_if_dest_exists );
 void win32_output_debug_string( const char* cstr );
 
 PlatformLibrary* win32_platform_library_open( const char* library_path );
@@ -424,31 +428,12 @@ PlatformSemaphore* win32_semaphore_create(
 void win32_semaphore_destroy( PlatformSemaphore* semaphore );
 void win32_semaphore_signal( PlatformSemaphore* semaphore );
 void win32_semaphore_wait( PlatformSemaphore* semaphore );
-void win32_semaphore_wait_timed(
+b32 win32_semaphore_wait_timed(
     PlatformSemaphore* semaphore, u32 timeout_ms );
 PlatformMutex* win32_mutex_create(void);
 void win32_mutex_destroy( PlatformMutex* mutex );
 void win32_mutex_lock( PlatformMutex* mutex );
 void win32_mutex_unlock( PlatformMutex* mutex );
-i32 win32_interlocked_add( volatile i32* lhs, i32 rhs ) {
-    return InterlockedAdd( (volatile long*)lhs, rhs );
-}
-i32 win32_interlocked_sub( volatile i32* lhs, i32 rhs ) {
-    return InterlockedAdd( (volatile long*)lhs, -rhs );
-}
-i32 win32_interlocked_exchange( volatile i32* target, i32 value ) {
-    return InterlockedExchange( (volatile long*)target, value );
-}
-i32 win32_interlocked_compare_exchange(
-    volatile i32* dst, i32 exchange, i32 comperand
-) {
-    return InterlockedCompareExchange( (volatile long*)dst, exchange, comperand );
-}
-void* win32_interlocked_compare_exchange_pointer(
-    void* volatile* dst, void* exchange, void* comperand
-) {
-    return InterlockedCompareExchangePointer( dst, exchange, comperand );
-}
 
 void* win32_heap_alloc( usize size );
 void* win32_heap_realloc(
@@ -901,31 +886,28 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
     api.io.file_close          = win32_file_close;
     api.io.file_read           = win32_file_read;
     api.io.file_write          = win32_file_write;
+    api.io.file_write_offset   = win32_file_write_offset;
     api.io.file_query_size     = win32_file_query_size;
     api.io.file_set_offset     = win32_file_set_offset;
     api.io.file_query_offset   = win32_file_query_offset;
     api.io.file_delete_by_path = win32_file_delete_by_path;
+    api.io.file_copy_by_path   = win32_file_copy_by_path;
     api.io.output_debug_string = win32_output_debug_string;
 
     api.library.open          = win32_platform_library_open;
     api.library.close         = win32_library_close;
     api.library.load_function = win32_library_load_function;
 
-    api.thread.create               = win32_thread_create;
+    api.thread.create = win32_thread_create;
     api.thread.semaphore_create     = win32_semaphore_create;
     api.thread.semaphore_destroy    = win32_semaphore_destroy;
     api.thread.semaphore_signal     = win32_semaphore_signal;
     api.thread.semaphore_wait       = win32_semaphore_wait;
     api.thread.semaphore_wait_timed = win32_semaphore_wait_timed;
-    api.thread.mutex_create         = win32_mutex_create;
-    api.thread.mutex_destroy        = win32_mutex_destroy;
-    api.thread.mutex_lock           = win32_mutex_lock;
-    api.thread.mutex_unlock         = win32_mutex_unlock;
-    api.thread.interlocked_add                      = win32_interlocked_add;                     
-    api.thread.interlocked_sub                      = win32_interlocked_sub;                     
-    api.thread.interlocked_exchange                 = win32_interlocked_exchange;                
-    api.thread.interlocked_compare_exchange         = win32_interlocked_compare_exchange;        
-    api.thread.interlocked_compare_exchange_pointer = win32_interlocked_compare_exchange_pointer;
+    api.thread.mutex_create  = win32_mutex_create;
+    api.thread.mutex_destroy = win32_mutex_destroy;
+    api.thread.mutex_lock    = win32_mutex_lock;
+    api.thread.mutex_unlock  = win32_mutex_unlock;
 
     api.memory.heap_alloc   = win32_heap_alloc;
     api.memory.heap_realloc = win32_heap_realloc;
@@ -2081,6 +2063,7 @@ void win32_console_write(
 ) {
     WriteConsoleA( console, buffer, buffer_size, NULL, NULL );
 }
+
 PlatformFile* win32_file_open(
     const char* path, PlatformFileFlags flags
 ) {
@@ -2123,7 +2106,7 @@ PlatformFile* win32_file_open(
         hTemplateFile );
     if( handle == INVALID_HANDLE_VALUE ) {
         win32_report_last_error();
-        return false;
+        return NULL;
     }
 
     return handle;
@@ -2252,6 +2235,38 @@ b32 win32_file_write(
 #endif
 
 }
+b32 win32_file_write_offset(
+    PlatformFile* file, usize buffer_size, void* buffer, usize offset_from_start
+) {
+    LARGE_INTEGER offset = {};
+    offset.QuadPart = offset_from_start;
+
+    OVERLAPPED overlapped = {};
+    overlapped.Offset     = offset.LowPart;
+    overlapped.OffsetHigh = offset.HighPart;
+
+    LARGE_INTEGER write = {};
+    write.QuadPart      = buffer_size;
+    DWORD bytes_written = 0;
+
+    if( WriteFile(
+        file, buffer,
+        write.LowPart,
+        &bytes_written,
+        &overlapped
+    ) != TRUE ) {
+        if( GetLastError() != ERROR_IO_PENDING ) {
+            return false;
+        }
+    }
+
+    if( bytes_written != write.LowPart ) {
+        return false;
+    }
+
+    return true;
+}
+
 usize win32_file_query_size( PlatformFile* file ) {
 #if defined(LD_ARCH_64_BIT)
     LARGE_INTEGER result = {};
@@ -2306,7 +2321,12 @@ usize win32_file_query_offset( PlatformFile* file ) {
 #endif
 }
 b32 win32_file_delete_by_path( const char* path ) {
-    return DeleteFileA( path );
+    return DeleteFileA( path ) > 0;
+}
+b32 win32_file_copy_by_path(
+    const char* dst, const char* src, b32 fail_if_dest_exists
+) {
+    return CopyFile( src, dst, fail_if_dest_exists ) > 0;
 }
 void win32_output_debug_string( const char* cstr ) {
     OutputDebugStringA( cstr );
@@ -2421,10 +2441,11 @@ void win32_semaphore_signal( PlatformSemaphore* semaphore ) {
 void win32_semaphore_wait( PlatformSemaphore* semaphore ) {
     WaitForSingleObjectEx( (HANDLE)semaphore, INFINITE, false );
 }
-void win32_semaphore_wait_timed(
+b32 win32_semaphore_wait_timed(
     PlatformSemaphore* semaphore, u32 timeout_ms
 ) {
-    WaitForSingleObjectEx( (HANDLE)semaphore, timeout_ms, false );
+    return WaitForSingleObjectEx( (HANDLE)semaphore, timeout_ms, false )
+        != WAIT_TIMEOUT;
 }
 PlatformMutex* win32_mutex_create(void) {
     return (PlatformMutex*)CreateMutexA( NULL, false, NULL );

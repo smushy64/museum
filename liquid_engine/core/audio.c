@@ -14,12 +14,16 @@
 
 // TODO(alicia): start debug code!!!!
 
+#include "liquid_package.h"
+#include "resource.h"
+
 struct AudioBuffer {
     u8    number_of_channels;
     u8    bytes_per_sample;
     u32   samples_per_second;
     usize sample_count;
     usize buffer_size;
+    usize right_channel_offset;
     void* buffer;
 };
 
@@ -93,7 +97,49 @@ internal
 b32 ___debug_load_audio(
     const char* audio_test_path, struct AudioBuffer* out_buffer
 ) {
+    PlatformFile* file = platform->io.file_open(
+        audio_test_path,
+        PLATFORM_FILE_READ |
+        PLATFORM_FILE_SHARE_READ |
+        PLATFORM_FILE_ONLY_EXISTING );
+    if( !file ) {
+        return false;
+    }
+    struct AudioBuffer buffer = {};
 
+    struct LiquidPackageHeader header = {};
+    assert( platform->io.file_read( file, sizeof(header), &header ) );
+
+    usize offset =
+        liquid_package_calculate_resource_file_offset( RESOURCE_AUDIO_MUSIC_TEST );
+    struct LiquidPackageResource resource = {};
+    platform->io.file_set_offset( file, offset );
+    assert( platform->io.file_read( file, sizeof(resource), &resource ) );
+    assert( resource.type == LIQUID_PACKAGE_RESOURCE_TYPE_AUDIO );
+
+    offset = (header.resource_count * sizeof(resource)) + sizeof(header);
+    offset += resource.buffer_offset;
+
+    platform->io.file_set_offset( file, offset );
+
+    buffer.buffer_size = liquid_package_resource_audio_buffer_size( &resource.audio );
+    assert( buffer.right_channel_offset < buffer.buffer_size );
+    buffer.buffer = system_alloc( buffer.buffer_size );
+    assert( buffer.buffer );
+
+    buffer.number_of_channels = 2;
+    buffer.bytes_per_sample   = LIQUID_PACKAGE_RESOURCE_AUDIO_BYTES_PER_CHANNEL_SAMPLE;
+    buffer.samples_per_second = LIQUID_PACKAGE_RESOURCE_AUDIO_SAMPLES_PER_SECOND;
+    buffer.sample_count       = resource.audio.sample_count;
+    buffer.right_channel_offset = resource.audio.right_channel_buffer_offset;
+
+    assert( platform->io.file_read( file, buffer.buffer_size, buffer.buffer ) );
+
+    *out_buffer = buffer;
+
+    platform->io.file_close( file );
+    return true;
+#if 0
     PlatformFile* file = platform->io.file_open(
         audio_test_path,
         PLATFORM_FILE_READ |
@@ -168,6 +214,7 @@ load_audio_fail:
     system_free( audio_buffer.buffer, audio_buffer.buffer_size );
     platform->io.file_close( file );
     return false;
+#endif /* if 0 */
 }
 
 // TODO(alicia): end debug code!!!!
@@ -258,7 +305,7 @@ void ___audio_fill_buffer( usize samples_to_fill ) {
         f32 left_sample  = 0;
         f32 right_sample = 0;
 
-        for( usize j = 0; j < 2; ++j ) {
+        for( usize j = 0; j < 1; ++j ) {
             struct AudioVoice* voice = voices + j;
             if( !voice->is_playing ) {
                 continue;
@@ -277,12 +324,18 @@ void ___audio_fill_buffer( usize samples_to_fill ) {
 
             volume *= voice->volume;
 
-            i16* current_sample =
-                (i16*)voice->buffer->buffer +
-                (voice->running_sample_index * voice->buffer->number_of_channels);
+            u8* right_channel =
+                (u8*)voice->buffer->buffer + voice->buffer->right_channel_offset;
 
-            f32 voice_left_sample  = normalize_range_i16_f32( *(current_sample + 0) );
-            f32 voice_right_sample = normalize_range_i16_f32( *(current_sample + 1) );
+            i16* left_sample_i16 =
+                (i16*)voice->buffer->buffer +
+                voice->running_sample_index;
+            i16* right_sample_i16 =
+                (i16*)right_channel +
+                voice->running_sample_index;
+
+            f32 voice_left_sample  = normalize_range_i16_f32( *left_sample_i16 );
+            f32 voice_right_sample = normalize_range_i16_f32( *right_sample_i16 );
 
             left_sample  += voice_left_sample  * volume;
             right_sample += voice_right_sample * volume;
@@ -377,17 +430,17 @@ b32 audio_subsystem_initialize(void) {
         platform->audio.query_buffer_format( global_audio_ctx );
 
     if( !___debug_load_audio(
-        "./resources/music_test.wav",
+        "./resources.lpkg",
         &global_tmp_music_buffer
     ) ) {
         return false;
     }
-    if( !___debug_load_audio(
-        "./resources/sfx_test.wav",
-        &global_tmp_sfx_buffer
-    ) ) {
-        return false;
-    }
+    // if( !___debug_load_audio(
+    //     "./resources/sfx_test.wav",
+    //     &global_tmp_sfx_buffer
+    // ) ) {
+    //     return false;
+    // }
 
     global_voices[0].type       = AUDIO_VOICE_TYPE_MUSIC;
     global_voices[0].is_playing = true;

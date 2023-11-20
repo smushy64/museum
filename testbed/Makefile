@@ -59,14 +59,17 @@ endif
 DLLMAIN     := ../liquid_platform/platform_dllmain.c
 TESTBEDMAIN := entry.cpp
 
-INCLUDE := -I. -I../liquid_engine
+INCLUDE := -I. -I../liquid_engine -I../shared
 
 TARGET := $(LOCAL_BUILD_PATH)/$(LIB_TESTBED)
 
 CPP := $(call recurse,,*.c)
 CPP := $(filter-out $(COREMAIN),$(CPP))
 
-H := $(call recurse,../liquid_engine,*.h)
+LOCAL_SHARED_HEADERS := $(addprefix ../shared/,$(SHARED_HEADERS))
+
+H := $(call recurse,../liquid_engine,*.h) $(LOCAL_SHARED_HEADERS)
+H := $(H) $(call recurse,,*.h)
 
 GENERATED_DEPENDENCIES := $(CPP)
 GENERATED_DEPENDENCIES := $(addsuffix \",$(GENERATED_DEPENDENCIES))

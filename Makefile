@@ -42,7 +42,7 @@ ifeq ($(TARGET_PLATFORM), win32)
 	export EXE_EXT := exe
 	export SO_EXT  := dll
 
-	LDMAIN := liquid_platform/platform_win32.c
+	export LD_PLATFORM_MAIN := liquid_platform/platform_win32.c
 endif
 
 export BUILD_PATH := build/$(if $(RELEASE),release,debug)
@@ -83,13 +83,15 @@ export VK_MINOR := 2
 export GL_MAJOR := 4
 export GL_MINOR := 5
 
-export LD_EXE_NAME      := liquid-engine$(if $(RELEASE),,-debug)
-export LD_EXE           := $(LD_EXE_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)
-export TARGET           := $(BUILD_PATH)/$(LD_EXE)
-export LIB_CORE_NAME    := liquid-core$(if $(RELEASE),,-debug)
-export LIB_CORE         := $(LIB_CORE_NAME).$(SO_EXT)
-export LIB_TESTBED_NAME := testbed$(if $(RELEASE),,-debug)
-export LIB_TESTBED      := $(LIB_TESTBED_NAME).$(SO_EXT)
+export LD_EXE_NAME       := liquid-engine$(if $(RELEASE),,-debug)
+export LD_EXE            := $(LD_EXE_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)
+export TARGET            := $(BUILD_PATH)/$(LD_EXE)
+export LIB_CORE_NAME     := liquid-core$(if $(RELEASE),,-debug)
+export LIB_CORE          := $(LIB_CORE_NAME).$(SO_EXT)
+export LIB_PACKAGER_NAME := liquid-packager
+export LIB_PACKAGER      := $(LIB_PACKAGER_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)
+export LIB_TESTBED_NAME  := testbed$(if $(RELEASE),,-debug)
+export LIB_TESTBED       := $(LIB_TESTBED_NAME).$(SO_EXT)
 
 CPPFLAGS := -DLD_SIMD_WIDTH=4
 CPPFLAGS += -DLIQUID_ENGINE_VERSION=\""$(LD_NAME) $(LD_VERSION)"\"
@@ -124,9 +126,12 @@ ifeq ($(TARGET_PLATFORM), win32)
 	endif
 endif
 
-INCLUDE := -Iliquid_engine -Iliquid_platform
+INCLUDE := -Ishared -Iliquid_platform
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
+
+export SHARED_HEADERS := $(notdir $(call recurse,./shared,*.h) )
+LOCAL_SHARED_HEADERS  := $(addprefix ./shared/,$(SHARED_HEADERS))
 
 all: $(if $(DEPENDENCIES_ONLY),generate_dependencies,shaders $(if $(SHADER_ONLY),,$(TARGET) build_core build_package))
 
@@ -142,7 +147,7 @@ build_core:
 	@$(MAKE) --directory=liquid_engine --no-print-directory
 
 build_package:
-	# @$(MAKE) --directory=liquid_package --no-print-directory
+	@$(MAKE) --directory=liquid_package --no-print-directory
 
 shaders:
 	@$(MAKE) --directory=shaders --no-print-directory
@@ -159,6 +164,10 @@ spit:
 	@echo "c++ compiler: "$(CXX)
 	@echo "c++ standard: "$(CXXSTD)
 	@echo
+	@echo "-------- shared --------------"
+	@echo
+	@echo "headers:    "$(SHARED_HEADERS)
+	@echo
 	@echo "-------- platform ------------"
 	@echo "target:     "$(TARGET)
 	@echo
@@ -170,10 +179,11 @@ spit:
 	@echo
 	@echo "ldflags:    "$(LDFLAGS)
 	@echo
-	@echo "main:       "$(LDMAIN)
+	@echo "main:       "$(LD_PLATFORM_MAIN)
 	@$(MAKE) --directory=liquid_engine spit
 	@$(MAKE) --directory=shaders spit
 	@$(MAKE) --directory=testbed spit
+	@$(MAKE) --directory=liquid_package spit
 
 clean: $(if $(DEPENDENCIES_ONLY),clean_dependencies,$(if $(SHADER_ONLY),,clean_files) clean_shaders) 
 
@@ -226,10 +236,10 @@ $(WIN32RESOURCES):win32/resources.rc
 	@mkdir -p $(OBJ_PATH)
 	@windres win32/resources.rc -o $(WIN32RESOURCES)
 
-$(TARGET): $(if $(IS_WINDOWS),$(WIN32RESOURCES),) $(LDMAIN) ./liquid_engine/defines.h ./liquid_engine/constants.h ./liquid_platform/platform.h
+$(TARGET): $(if $(IS_WINDOWS),$(WIN32RESOURCES),) $(LD_PLATFORM_MAIN) $(LOCAL_SHARED_HEADERS) ./liquid_platform/platform.h
 	@echo "Make: compiling "$(TARGET)" . . ."
 	@mkdir -p $(OBJ_PATH)
-	@$(CC) $(CSTD) $(LDMAIN) $(WIN32RESOURCES) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
+	@$(CC) $(CSTD) $(LD_PLATFORM_MAIN) $(WIN32RESOURCES) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
 
 .PHONY: all test shaders run clean clean_shaders clean_files help build_core clean_dependencies generate_dependencies
 

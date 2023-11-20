@@ -7,3 +7,4 @@ resources/shaders/*.spv
 *.d
 old
 *.inl
+generated

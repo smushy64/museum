@@ -35,4 +35,6 @@ clang
 -DSTACK_SIZE=0x100000
 -D_XOPEN_SOURCE=600
 -I.
+-I../shared
 -I../liquid_platform
+-I../generated

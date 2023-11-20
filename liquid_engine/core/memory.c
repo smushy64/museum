@@ -93,9 +93,14 @@ internal b32 block_allocator_find_free_blocks(
 
     return false;
 }
+internal force_inline
+usize ___memory_size_to_blocks( usize block_size, usize memory_size ) {
+    usize block_count = memory_size / block_size;
+    block_count += ( memory_size % block_size ) ? 1 : 0;
+    return block_count;
+}
 LD_API void* block_allocator_alloc( BlockAllocator* allocator, usize size ) {
-    usize block_count = size / allocator->block_size;
-    block_count += ( allocator->block_size % size ) ? 1 : 0;
+    usize block_count = ___memory_size_to_blocks( allocator->block_size, size );
 
     usize head = 0;
     if( block_allocator_find_free_blocks( allocator, block_count, &head ) ) {
@@ -130,11 +135,8 @@ LD_API void* block_allocator_realloc(
         return memory;
     }
 
-    usize old_block_count = old_size / allocator->block_size;
-    old_block_count += ( allocator->block_size % old_size ) ? 1 : 0;
-
-    usize new_block_count = new_size / allocator->block_size;
-    new_block_count += ( allocator->block_size % new_size ) ? 1 : 0;
+    usize old_block_count = ___memory_size_to_blocks( allocator->block_size, old_size );
+    usize new_block_count = ___memory_size_to_blocks( allocator->block_size, new_size );
 
     usize additional_blocks_required = new_block_count - old_block_count;
     usize head = ((usize)allocator->buffer - (usize)memory) / allocator->block_size;
@@ -170,10 +172,9 @@ LD_API void* block_allocator_realloc(
 LD_API void block_allocator_free(
     BlockAllocator* allocator, void* memory, usize size
 ) {
-    usize block_count = size / allocator->block_size;
-    block_count += ( allocator->block_size % size ) ? 1 : 0;
+    usize block_count = ___memory_size_to_blocks( allocator->block_size, size );
 
-    usize head = ((usize)allocator->buffer - (usize)memory) / allocator->block_size;
+    usize head = ((usize)memory - (usize)allocator->buffer) / allocator->block_size;
 
     memory_zero( memory, size );
     memory_zero( allocator->free_list + head, block_count );

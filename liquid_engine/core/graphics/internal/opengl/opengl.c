@@ -117,9 +117,9 @@ internal no_inline b32 gl_begin_frame(void) {
     }
 
     /* process non-draw commands */ {
-        struct RenderCommand* command = list_peek( global_render_data->list_commands );
+        struct RenderCommand* command = list_peek( &global_render_data->list_commands );
         while( command && command->type != RENDER_COMMAND_DRAW_3D ) {
-            assert( list_pop( global_render_data->list_commands ) );
+            assert( list_pop( &global_render_data->list_commands ) );
 
             switch( command->type ) {
                 case RENDER_COMMAND_DIRECTIONAL_LIGHT: {
@@ -320,7 +320,7 @@ internal no_inline b32 gl_begin_frame(void) {
                 default: panic();
             }
 
-            command = list_peek( global_render_data->list_commands );
+            command = list_peek( &global_render_data->list_commands );
         }
     }
 
@@ -349,10 +349,10 @@ internal no_inline b32 gl_begin_frame(void) {
         }
     }
 
-    usize draw_command_count = list_count( global_render_data->list_commands );
+    usize draw_command_count = global_render_data->list_commands.count;
     for( usize i = 0; i < draw_command_count; ++i ) {
         struct RenderCommand* command =
-            list_index( global_render_data->list_commands, i );
+            list_index( &global_render_data->list_commands, i );
         assert( command->type == RENDER_COMMAND_DRAW_3D );
 
         RenderID mesh = command->draw_3d.mesh;
@@ -476,7 +476,7 @@ internal no_inline b32 gl_begin_frame(void) {
 
     for( usize i = 0; i < draw_command_count; ++i ) {
         struct RenderCommand* command =
-            list_index( global_render_data->list_commands, i );
+            list_index( &global_render_data->list_commands, i );
 
         RenderID mesh      = command->draw_3d.mesh;
         RenderID diffuse   = command->draw_3d.texture_diffuse;

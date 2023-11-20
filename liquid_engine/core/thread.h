@@ -9,11 +9,18 @@
 
 /// Thread work function.
 typedef void ThreadWorkProcFN( void* params );
-/// Push a new work proc into the work queue.
-LD_API void thread_work_queue_push( ThreadWorkProcFN* work_proc, void* params );
-
 /// Opaque Semaphore
 typedef void Semaphore;
+/// Opaque Mutex
+typedef void Mutex;
+
+/// Push a new work proc into the work queue.
+LD_API void thread_work_queue_push( ThreadWorkProcFN* work_proc, void* params );
+/// Query how many entries are still pending.
+LD_API usize thread_work_query_pending_count(void);
+/// Sleep current thread until all work is complete.
+LD_API void thread_work_wait_for_pending(void);
+
 /// Create a semaphore.
 LD_API Semaphore* semaphore_create(void);
 /// Signal a semaphore.
@@ -25,8 +32,6 @@ LD_API void semaphore_wait_timed( Semaphore* semaphore, u32 ms );
 /// Destroy a semaphore.
 LD_API void semaphore_destroy( Semaphore* semaphore );
 
-/// Opaque Mutex
-typedef void Mutex;
 /// Create a mutex.
 LD_API Mutex* mutex_create(void);
 /// Lock a mutex.
@@ -36,20 +41,28 @@ LD_API void mutex_unlock( Mutex* mutex );
 /// Destroy a mutex.
 LD_API void mutex_destroy( Mutex* mutex );
 
+/// Multi-Threading safe add.
+/// Returns previous value of addend.
+#define interlocked_add( addend, value )\
+    __sync_fetch_and_add( addend, value )
+/// Multi-Threading safe subtract.
+/// Returns previous value of addend.
+#define interlocked_sub( addend, value )\
+    __sync_fetch_and_sub( addend, value )
 /// Multi-Threading safe increment.
-LD_API i32 interlocked_increment_i32( volatile i32* addend );
+/// Returns previous value of addend.
+#define interlocked_increment( addend )\
+    __sync_fetch_and_add( addend, 1 )
 /// Multi-Threading safe decrement.
-LD_API i32 interlocked_decrement_i32( volatile i32* addend );
+/// Returns previous value of addend.
+#define interlocked_decrement( addend )\
+    __sync_fetch_and_sub( addend, 1 )
 /// Multi-Threading safe exchange.
-LD_API i32 interlocked_exchange_i32( volatile i32* target, i32 value );
+#define interlocked_exchange( target, value )\
+    __sync_val_compare_and_swap( target, *(target), value )
 /// Multi-Threading safe compare and exchange.
-LD_API i32 interlocked_compare_exchange_i32(
-    volatile i32* dst,
-    i32 exchange, i32 comperand );
-/// Multi-Threading safe compare and exchange.
-LD_API void* interlocked_compare_exchange_pointer(
-    void* volatile* dst,
-    void* exchange, void* comperand );
+#define interlocked_compare_exchange( dst, exchange, comperand )\
+    __sync_val_compare_and_swap( dst, comperand, exchange )
 
 #if defined(LD_ARCH_X86)
     /// Complete all reads and writes before this.

@@ -318,10 +318,14 @@ typedef b32 PlatformFileReadFN(
     PlatformFile* file, usize buffer_size, void* buffer );
 typedef b32 PlatformFileWriteFN(
     PlatformFile* file, usize buffer_size, void* buffer );
+typedef b32 PlatformFileWriteOffsetFN(
+    PlatformFile* file, usize buffer_size, void* buffer, usize offset_from_start );
 typedef usize PlatformFileQuerySizeFN( PlatformFile* file );
 typedef void PlatformFileSetOffsetFN( PlatformFile* file, usize offset );
 typedef usize PlatformFileQueryOffsetFN( PlatformFile* file );
 typedef b32 PlatformFileDeleteByPathFN( const char* path );
+typedef b32 PlatformFileCopyByPathFN(
+    const char* dst, const char* src, b32 fail_if_dst_exists );
 
 #if defined(LD_PLATFORM_WINDOWS)
 typedef void PlatformWin32OutputDebugStringFN( const char* cstr );
@@ -341,10 +345,12 @@ typedef struct {
     PlatformFileCloseFN*          file_close;
     PlatformFileReadFN*           file_read;
     PlatformFileWriteFN*          file_write;
+    PlatformFileWriteOffsetFN*    file_write_offset;
     PlatformFileQuerySizeFN*      file_query_size;
     PlatformFileSetOffsetFN*      file_set_offset;
     PlatformFileQueryOffsetFN*    file_query_offset;
     PlatformFileDeleteByPathFN*   file_delete_by_path;
+    PlatformFileCopyByPathFN*     file_copy_by_path;
 
 #if defined(LD_PLATFORM_WINDOWS)
     PlatformWin32OutputDebugStringFN* output_debug_string;
@@ -365,7 +371,7 @@ typedef struct {
     PlatformLibraryLoadFunctionFN* load_function;
 } PlatformLibraryAPI;
 
-// NOTE(alicia): Threading API
+// NOTE(alicia): Thread API
 
 typedef b32 PlatformThreadCreateFN(
     ThreadProcFN* thread_proc, void* params, usize stack_size );
@@ -374,36 +380,24 @@ typedef PlatformSemaphore* PlatformSemaphoreCreateFN(
 typedef void PlatformSemaphoreDestroyFN( PlatformSemaphore* semaphore );
 typedef void PlatformSemaphoreSignalFN( PlatformSemaphore* semaphore );
 typedef void PlatformSemaphoreWaitFN( PlatformSemaphore* semaphore );
-typedef void PlatformSemaphoreWaitTimedFN(
+typedef b32 PlatformSemaphoreWaitTimedFN(
     PlatformSemaphore* semaphore, u32 timeout_ms );
 typedef PlatformMutex* PlatformMutexCreateFN(void);
 typedef void PlatformMutexDestroyFN( PlatformMutex* mutex );
 typedef void PlatformMutexLockFN( PlatformMutex* mutex );
 typedef void PlatformMutexUnlockFN( PlatformMutex* mutex );
-typedef i32 PlatformInterlockedAdd( volatile i32* lhs, i32 rhs );
-typedef i32 PlatformInterlockedSub( volatile i32* lhs, i32 rhs );
-typedef i32 PlatformInterlockedExchange( volatile i32* target, i32 value );
-typedef i32 PlatformInterlockedCompareExchange(
-    volatile i32* dst, i32 exchange, i32 comperand );
-typedef void* PlatformInterlockedCompareExchangePointer(
-    void* volatile* dst, void* exchange, void* comperand );
 
 typedef struct {
-    PlatformThreadCreateFN*       create;
-    PlatformSemaphoreCreateFN*    semaphore_create;
-    PlatformSemaphoreDestroyFN*   semaphore_destroy;
-    PlatformSemaphoreSignalFN*    semaphore_signal;
-    PlatformSemaphoreWaitFN*      semaphore_wait;
-    PlatformSemaphoreWaitTimedFN* semaphore_wait_timed;
-    PlatformMutexCreateFN*        mutex_create;
-    PlatformMutexDestroyFN*       mutex_destroy;
-    PlatformMutexLockFN*          mutex_lock;
-    PlatformMutexUnlockFN*        mutex_unlock;
-    PlatformInterlockedAdd*                    interlocked_add;
-    PlatformInterlockedSub*                    interlocked_sub;
-    PlatformInterlockedExchange*               interlocked_exchange;
-    PlatformInterlockedCompareExchange*        interlocked_compare_exchange;
-    PlatformInterlockedCompareExchangePointer* interlocked_compare_exchange_pointer;
+    PlatformThreadCreateFN*        create;
+    PlatformSemaphoreCreateFN*     semaphore_create;
+    PlatformSemaphoreDestroyFN*    semaphore_destroy;
+    PlatformSemaphoreSignalFN*     semaphore_signal;
+    PlatformSemaphoreWaitFN*       semaphore_wait;
+    PlatformSemaphoreWaitTimedFN*  semaphore_wait_timed;
+    PlatformMutexCreateFN*  mutex_create;
+    PlatformMutexDestroyFN* mutex_destroy;
+    PlatformMutexLockFN*    mutex_lock;
+    PlatformMutexUnlockFN*  mutex_unlock;
 } PlatformThreadAPI;
 
 // NOTE(alicia): Memory API

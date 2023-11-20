@@ -31,6 +31,17 @@ LD_API u32 time_query_year(void);
 /// Get the current month.
 /// Value returned is between 1-12.
 LD_API u32 time_query_month(void);
+/// Get the current month as a null-terminated C string.
+header_only const char* time_query_month_cstr(void) {
+    const char* strings[13] = {
+        "Invalid Month",
+        "January", "February", "March",
+        "April", "May", "June",
+        "July",  "August", "September",
+        "October", "November", "December",
+    };
+    return strings[time_query_month()];
+}
 /// Get the current day of the month.
 /// Value returned is between 1-31.
 LD_API u32 time_query_day(void);

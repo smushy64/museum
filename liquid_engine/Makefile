@@ -68,14 +68,16 @@ endif
 
 COREMAIN := core/main.c
 
-INCLUDE := -I. -I../liquid_platform
+INCLUDE := -I. -I../liquid_platform -I../shared -I../generated
 
 TARGET := $(LOCAL_BUILD_PATH)/$(LIB_CORE)
 
 C := $(call recurse,,*.c)
 C := $(filter-out $(COREMAIN),$(C))
 
-H := $(call recurse,,*.h)
+LOCAL_SHARED_HEADERS := $(addprefix ../shared/,$(SHARED_HEADERS))
+
+H := $(call recurse,,*.h) $(LOCAL_SHARED_HEADERS)
 
 GENERATED_DEPENDENCIES := $(C)
 GENERATED_DEPENDENCIES := $(addsuffix \",$(GENERATED_DEPENDENCIES))
