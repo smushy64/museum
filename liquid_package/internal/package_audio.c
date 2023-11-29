@@ -3,6 +3,8 @@
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: November 08, 2023
 */
+#if 0
+
 #include <defines.h>
 #include <core/string.h>
 #include <core/memory.h>
@@ -245,4 +247,6 @@ PackageAudioError package_audio(
     platform->io.file_close( file );
     return PACKAGE_AUDIO_SUCCESS;
 }
+
+#endif
 

@@ -55,7 +55,7 @@ CFLAGS += -Wno-gnu-anonymous-struct -Wno-nested-anon-types
 CFLAGS += -Wno-ignored-attributes -Wno-gnu-case-range
 CFLAGS += -Wno-fixed-enum-extension -Wno-static-in-inline
 CFLAGS += -Wno-c99-extensions -Wno-duplicate-decl-specifier
-CFLAGS += -Wno-gnu-empty-initializer
+CFLAGS += -Wno-gnu-empty-initializer -Wno-c2x-extensions
 
 ifeq ($(RELEASE), true)
 	CFLAGS += -O2 -ffast-math
@@ -130,8 +130,10 @@ INCLUDE := -Ishared -Iliquid_platform
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
-export SHARED_HEADERS := $(notdir $(call recurse,./shared,*.h) )
+export SHARED_HEADERS := $(patsubst ./shared/%,%,$(call recurse,./shared,*.h))
 LOCAL_SHARED_HEADERS  := $(addprefix ./shared/,$(SHARED_HEADERS))
+
+SHARED_SOURCES := $(call recurse,./shared,*.c)
 
 all: $(if $(DEPENDENCIES_ONLY),generate_dependencies,shaders $(if $(SHADER_ONLY),,$(TARGET) build_core build_package))
 
@@ -154,6 +156,9 @@ shaders:
 
 run:
 	@echo run none
+
+splat:
+	@echo $(SHARED_SOURCES)
 
 spit:
 	@echo "platform:     "$(TARGET_PLATFORM)
@@ -236,10 +241,10 @@ $(WIN32RESOURCES):win32/resources.rc
 	@mkdir -p $(OBJ_PATH)
 	@windres win32/resources.rc -o $(WIN32RESOURCES)
 
-$(TARGET): $(if $(IS_WINDOWS),$(WIN32RESOURCES),) $(LD_PLATFORM_MAIN) $(LOCAL_SHARED_HEADERS) ./liquid_platform/platform.h
+$(TARGET): $(if $(IS_WINDOWS),$(WIN32RESOURCES),) $(LD_PLATFORM_MAIN) $(LOCAL_SHARED_HEADERS) ./liquid_platform/platform.h $(SHARED_SOURCES)
 	@echo "Make: compiling "$(TARGET)" . . ."
 	@mkdir -p $(OBJ_PATH)
 	@$(CC) $(CSTD) $(LD_PLATFORM_MAIN) $(WIN32RESOURCES) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
 
-.PHONY: all test shaders run clean clean_shaders clean_files help build_core clean_dependencies generate_dependencies
+.PHONY: all test shaders run clean clean_shaders clean_files help build_core clean_dependencies generate_dependencies splat
 

@@ -16,7 +16,8 @@
 #include "logging.h"
 #include "internal/package_audio.h"
 #include "internal/write_header.h"
-#include "write_package.h"
+// #include "write_package.h"
+#include "process_resource.h"
 
 struct PlatformAPI* platform = NULL;
 
@@ -120,16 +121,16 @@ c_linkage int core_init( int argc, char** argv, struct PlatformAPI* in_platform 
         return PACKAGER_ERROR_THREAD_SUBSYSTEM;
     }
 
-    List list_manifest_resources = {};
-    list_manifest_resources.item_size = sizeof( ManifestResource );
-    list_manifest_resources.capacity  = PACKAGER_MINIMUM_RESOURCE_COUNT;
-    list_manifest_resources.count     = 0;
-    list_manifest_resources.buffer    =
-        system_alloc( list_manifest_resources.item_size * list_manifest_resources.capacity );
-    if( !list_manifest_resources.buffer ) {
+    List manifest_resources = {};
+    manifest_resources.item_size = sizeof( ManifestResource );
+    manifest_resources.capacity  = PACKAGER_MINIMUM_RESOURCE_COUNT;
+    manifest_resources.count     = 0;
+    manifest_resources.buffer    =
+        system_alloc( manifest_resources.item_size * manifest_resources.capacity );
+    if( !manifest_resources.buffer ) {
         lp_error(
-            "failed to allocate {f,.2,b} for resources list!",
-            (f64)( list_manifest_resources.item_size * list_manifest_resources.capacity ) );
+            "failed to allocate {f,.2,m} for resources list!",
+            (f64)( manifest_resources.item_size * manifest_resources.capacity ) );
         return PACKAGER_ERROR_OUT_OF_MEMORY;
     }
 
@@ -139,7 +140,7 @@ c_linkage int core_init( int argc, char** argv, struct PlatformAPI* in_platform 
 
         if( !stack_buffer ) {
             lp_error(
-                "failed to allocate {f,.2,b} for manifest data stack!",
+                "failed to allocate {f,.2,m} for manifest data stack!",
                 (f64)stack_size );
             return PACKAGER_ERROR_OUT_OF_MEMORY;
         }
@@ -154,56 +155,64 @@ c_linkage int core_init( int argc, char** argv, struct PlatformAPI* in_platform 
     for( usize i = 0; i < params.create.manifest_path_count; ++i ) {
         const char* manifest_path = params.create.manifest_paths_start[i];
         if( !packager_manifest_parse(
-            &list_manifest_resources, &manifest_data_stack, manifest_path
+            &manifest_resources, &manifest_data_stack, manifest_path
         ) ) {
             return PACKAGER_ERROR_MANIFEST_PARSE;
         }
     }
     lp_note(
-        "manifest data size: {f,.2,b} / {f,.2,b}",
+        "manifest data size: {f,.2,m} / {f,.2,m}",
         (f64)manifest_data_stack.current,
         (f64)manifest_data_stack.buffer_size );
 
-    usize resource_count = list_manifest_resources.count;
+    usize resource_count = manifest_resources.count;
 
     struct WriteHeaderParams write_header_params = {};
     write_header_params.finished                = semaphore_create();
     write_header_params.output_path             = params.create.output_header_path;
-    write_header_params.list_manifest_resources = &list_manifest_resources;
+    write_header_params.list_manifest_resources = &manifest_resources;
     write_header_params.enum_name               = params.create.enum_name;
-
-    usize write_package_params_size =
-        sizeof( struct WritePackageParams ) * resource_count;
-    struct WritePackageParams* write_package_params =
-        system_alloc( write_package_params_size );
-    if( !write_package_params ) {
-        lp_error( "failed to allocate {f,.2,b}!", write_package_params_size );
-        return PACKAGER_ERROR_OUT_OF_MEMORY;
-    }
 
     read_write_fence();
 
     // kick off header writing.
     thread_work_queue_push( write_header, &write_header_params );
 
+    Semaphore* packaging_finished = semaphore_create();
+    read_write_fence();
+
+    const char* tmp_output_path = PACKAGER_TMP_OUTPUT_PATH;
+
+    struct PackagerResourceProcessParams* process_params =
+        system_alloc( sizeof( params ) * resource_count );
+
+    usize stream_buffer_size       = kilobytes(2);
+    usize stream_buffer_total_size = stream_buffer_size * resource_count;
+    u8* stream_buffer_base = system_alloc( stream_buffer_total_size );
+    u8* stream_buffer = stream_buffer_base;
+
+    read_write_fence();
+
     // kick off package writing.
     for( usize i = 0; i < resource_count; ++i ) {
-        struct WritePackageParams* write_params = write_package_params + i;
+        struct PackagerResourceProcessParams* process_param = process_params + i;
+        process_param->index              = i;
+        process_param->manifest_resources = &manifest_resources;
+        process_param->tmp_output_path    = tmp_output_path;
+        process_param->finished           = packaging_finished;
 
-        Semaphore* finished_semaphore = semaphore_create();
-        assert( finished_semaphore );
-
-        write_params->list_manifest_resources = &list_manifest_resources;
-        write_params->index                   = i;
-        write_params->finished                = finished_semaphore;
+        process_param->stream_buffer_size = stream_buffer_size;
+        process_param->stream_buffer      = stream_buffer;
+        stream_buffer += stream_buffer_size;
 
         read_write_fence();
-        thread_work_queue_push( write_package, write_params );
+
+        thread_work_queue_push( packager_resource_process, process_param );
     }
 
     /* write header */ {
         PlatformFile* output_file = platform->io.file_open(
-            PACKAGER_TMP_OUTPUT_PATH, PLATFORM_FILE_SHARE_WRITE | PLATFORM_FILE_WRITE );
+            tmp_output_path, PLATFORM_FILE_SHARE_WRITE | PLATFORM_FILE_WRITE );
 
         struct LiquidPackageHeader package_header = {};
         package_header.identifier     = LIQUID_PACKAGE_FILE_IDENTIFIER;
@@ -215,33 +224,27 @@ c_linkage int core_init( int argc, char** argv, struct PlatformAPI* in_platform 
     }
 
     // wait for packaging to finish
-    for( usize i = 0; i < resource_count; ++i ) {
-        struct WritePackageParams* current_params = write_package_params + i;
-        semaphore_wait( current_params->finished );
-        read_write_fence();
+    read_write_fence();
 
-        semaphore_destroy( current_params->finished );
-    }
+    semaphore_wait( write_header_params.finished );
+    semaphore_wait( packaging_finished );
 
     read_write_fence();
 
-    system_free(
-        write_package_params, sizeof( struct WritePackageParams ) * resource_count );
+    semaphore_destroy( packaging_finished );
+    semaphore_destroy( write_header_params.finished );
 
     if( platform->io.file_copy_by_path(
-        params.create.output_path, PACKAGER_TMP_OUTPUT_PATH, false
+        params.create.output_path, tmp_output_path, false
     ) ) {
-        platform->io.file_delete_by_path( PACKAGER_TMP_OUTPUT_PATH );
+        platform->io.file_delete_by_path( tmp_output_path );
         lp_print( "created liquid package at path '{cc}'!", params.create.output_path );
     } else {
         lp_error( "failed to write to output path '{cc}'!", params.create.output_path );
     }
 
-    read_write_fence();
-    semaphore_wait( write_header_params.finished );
-
     if( params.create.show_memory_usage && !params.create.is_silent ) {
-        lp_print( "total memory usage: {f,.2,b}", (f64)memory_query_total_usage() );
+        lp_print( "total memory usage: {f,.2,m}", (f64)memory_query_total_usage() );
     }
 
     return PACKAGER_SUCCESS;

@@ -13,7 +13,7 @@
 #define LOGGING_TIMESTAMP_BUFFER_SIZE (32)
 
 #define LOGGING_BUFFER_SIZE (kilobytes(1))
-global char LOGGING_BUFFER[LOGGING_BUFFER_SIZE] = {};
+global char LOGGING_BUFFER[LOGGING_BUFFER_SIZE] = {0};
 
 global LoggingLevel LOGGING_LEVEL = LOGGING_LEVEL_NONE;
 
@@ -205,7 +205,7 @@ LD_API void logging_output(
         }
     }
 
-    StringSlice console_color = {};
+    StringSlice console_color = {0};
     if( opt_color_override ) {
         console_color = string_slice_from_cstr( 0, opt_color_override );
     } else {
@@ -215,7 +215,7 @@ LD_API void logging_output(
     ___log_output_console( type, &console_color );
 
     if( timestamped ) {
-        char timestamp_buffer[LOGGING_TIMESTAMP_BUFFER_SIZE] = {};
+        char timestamp_buffer[LOGGING_TIMESTAMP_BUFFER_SIZE] = {0};
         StringSlice timestamp;
         timestamp.buffer   = timestamp_buffer;
         timestamp.len      = 0;
@@ -260,10 +260,10 @@ LD_API void logging_output_locked(
     ___log_unlock();
 }
 
-LD_API void logging_output_fmt_va(
+LD_API void ___internal_logging_output_fmt_va(
     LoggingType type, ConsoleColor* opt_color_override,
     b32 trace, b32 always_log, b32 new_line, b32 timestamped,
-    const char* format, va_list va
+    usize format_len, const char* format, va_list va
 ) {
     if( !always_log ) {
         if( !___is_log_allowed( type, trace ) ) {
@@ -276,7 +276,7 @@ LD_API void logging_output_fmt_va(
     format_buffer.len      = 0;
     format_buffer.capacity = LOGGING_BUFFER_SIZE;
 
-    string_slice_fmt_va( &format_buffer, format, va );
+    ___internal_string_slice_fmt_va( &format_buffer, format_len, format, va );
     if( !string_slice_push( &format_buffer, 0 ) ) {
         format_buffer.buffer[format_buffer.len - 1] = 0;
     }
@@ -285,47 +285,50 @@ LD_API void logging_output_fmt_va(
         type, opt_color_override, trace,
         always_log, new_line, timestamped, &format_buffer );
 }
-LD_API void logging_output_fmt_locked_va(
+LD_API void ___internal_logging_output_fmt_locked_va(
     LoggingType type, ConsoleColor* opt_color_override,
     b32 trace, b32 always_log, b32 new_line, b32 timestamped,
-    const char* format, va_list va
+    usize format_len, const char* format, va_list va
 ) {
     ___log_lock();
     read_write_fence();
 
-    logging_output_fmt_va(
+    ___internal_logging_output_fmt_va(
         type, opt_color_override, trace,
-        always_log, new_line, timestamped, format, va );
+        always_log, new_line, timestamped,
+        format_len, format, va );
 
     read_write_fence();
     ___log_unlock();
 }
 
-LD_API void logging_output_fmt(
+LD_API void ___internal_logging_output_fmt(
     LoggingType type, ConsoleColor* opt_color_override,
     b32 trace, b32 always_log, b32 new_line, b32 timestamped,
-    const char* format, ...
+    usize format_len, const char* format, ...
 ) {
     va_list va;
     va_start( va, format );
 
-    logging_output_fmt_va(
+    ___internal_logging_output_fmt_va(
         type, opt_color_override, trace,
-        always_log, new_line, timestamped, format, va );
+        always_log, new_line, timestamped,
+        format_len, format, va );
 
     va_end( va );
 }
-LD_API void logging_output_fmt_locked(
+LD_API void ___internal_logging_output_fmt_locked(
     LoggingType type, ConsoleColor* opt_color_override,
     b32 trace, b32 always_log, b32 new_line, b32 timestamped,
-    const char* format, ...
+    usize format_len, const char* format, ...
 ) {
     va_list va;
     va_start( va, format );
 
-    logging_output_fmt_locked_va(
+    ___internal_logging_output_fmt_locked_va(
         type, opt_color_override, trace,
-        always_log, new_line, timestamped, format, va );
+        always_log, new_line, timestamped,
+        format_len, format, va );
 
     va_end( va );
 }

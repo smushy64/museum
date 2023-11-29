@@ -493,7 +493,7 @@ rgb hsv_to_rgb( hsv col ) {
 
     f32 x = chroma * ( 1.0f - absolute( modulus( hue, 2.0f ) - 1.0f ) );
 
-    rgb result = {};
+    rgb result = {0};
 
     if( hue_index < 1 ) {
         result.r = chroma;
@@ -1474,7 +1474,7 @@ mat4 m4_mul( const mat4* lhs, f32 rhs ) {
 
 }
 mat4 m4_mul_m4( const mat4* lhs, const mat4* rhs ) {
-    mat4 result = {};
+    mat4 result = {0};
 
     Lane4f a, b, c;
 
@@ -1820,7 +1820,7 @@ mat4 m4_scale_2d_v2( vec2 scale ) {
 }
 
 LD_API Transform transform_create( vec3 position, quat rotation, vec3 scale ) {
-    Transform result = {};
+    Transform result = {0};
 
     result.position = position;
     result.rotation = rotation;

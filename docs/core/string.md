@@ -6,7 +6,7 @@
 
 # Liquid Engine Core String | [Table of Contents](../readme.md)
 
-To include:
+Header:
 ```cpp
 #include "core/string.h"
 ```
@@ -20,15 +20,6 @@ Includes:
     - [Character](#character)
     - [C String](#c-string)
     - [String Slice](#string-slice)
-    - [IO](#io)
-- [Format Specifiers](#format-specifiers)
-- [Format Specifier Parameters](#format-specifier-parameters)
-    - [Parameters for Any Specifier](#parameters-for-any-specifier)
-    - [Parameters for Number Specifiers](#parameters-for-number-specifiers)
-    - [Parameters for Integer Specifiers](#parameters-for-integer-specifiers)
-    - [Parameters for Float Specifiers](#parameters-for-float-specifiers)
-    - [Parameters for Boolean Specifiers](#parameters-for-boolean-specifiers)
-- [Formatting Examples](#formatting-examples)
 
 ## Types
 
@@ -41,27 +32,11 @@ typedef struct StringSlice {
     usize capacity;
 } StringSlice;
 ```
-```cpp
-/// Options for formatting integers.
-typedef enum : u32 {
-    FMT_INT_DECIMAL,
-    FMT_INT_BINARY,
-    FMT_INT_HEX
-} FormatInteger;
-```
 
 ## Functions
 
 ### Character
 
-```cpp
-/// Push character to stdout.
-void char_output_stdout( char character );
-```
-```cpp
-/// Push character to stderr.
-void char_output_stderr( char character );
-```
 ```cpp
 /// Returns true if character is whitespace character.
 b32 char_is_whitespace( char character );
@@ -274,161 +249,86 @@ b32 string_slice_parse_uint( StringSlice* slice, u64* out_integer );
 b32 string_slice_parse_float( StringSlice* slice, f64* out_float );
 ```
 ```cpp
-/// Write a formatted string to string slice.
-/// Returns additional space required if slice could not hold formatted string.
-usize string_slice_fmt( StringSlice* slice, const char* format, ... );
-```
-```cpp
 /// Write a formatted string to string slice using variadic list.
-/// Returns additional space required if slice could not hold formatted string.
-usize string_slice_fmt_va( StringSlice* slice, const char* format, va_list variadic );
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+#define string_slice_fmt( slice, format, ... )
 ```
 ```cpp
-/// Format an integer into string slice.
-usize string_slice_fmt_int( StringSlice* slice, i64 value, FormatInteger formatting );
+/// Write a formatted string to string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+#define string_slice_fmt_va( slice, format, va )
 ```
 ```cpp
-/// Format an unsigned integer into string slice.
-usize string_slice_fmt_uint( StringSlice* slice, u64 value, FormatInteger formatting );
+/// Write the value of boolean into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+usize string_slice_fmt_bool( StringSlice* slice, b32 b, b32 binary );
 ```
 ```cpp
-/// Format a float into string slice.
-usize string_slice_fmt_float( StringSlice* slice, f64 value, u32 precision );
+/// Write the value of float into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+usize string_slice_fmt_float( StringSlice* slice, f64 f, u32 precision );
 ```
 ```cpp
-/// Format a boolean into string slice.
-usize string_slice_fmt_bool( StringSlice* slice, b32 value );
+/// Write the value of integer into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+usize string_slice_fmt_i8( StringSlice* slice, i8 i, enum FormatInteger format );
 ```
 ```cpp
-/// Output string slice to standard out.
-void string_slice_output_stdout( StringSlice* slice );
+/// Write the value of integer into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+usize string_slice_fmt_u8( StringSlice* slice, u8 i, enum FormatInteger format );
 ```
 ```cpp
-/// Output string slice to standard error.
-void string_slice_output_stderr( StringSlice* slice );
-```
-
-### IO
-
-```cpp
-/// Print to stdout.
-void print( const char* format, ... );
-```
-
-```cpp
-/// Print to stderr.
-void print_err( const char* format, ... );
-```
-
-```cpp
-/// Print to stdout using variadic list.
-void print_va( const char* format, va_list variadic );
-```
-
-```cpp
-/// Print to stderr using variadic list.
-void print_err_va( const char* format, va_list variadic );
-```
-
-```cpp
-/// Print to stdout with a new line at the end.
-#define println( format, ... )
+/// Write the value of integer into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+usize string_slice_fmt_i16( StringSlice* slice, i16 i, enum FormatInteger format );
 ```
 ```cpp
-/// Print to stdout with a new line at the end.
-/// Variadic arguments come from va_list.
-#define println_va( format, variadic )
+/// Write the value of integer into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+usize string_slice_fmt_u16( StringSlice* slice, u16 i, enum FormatInteger format );
 ```
 ```cpp
-/// Print to stderr with a new line at the end.
-#define println_err( format, ... )
+/// Write the value of integer into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+usize string_slice_fmt_i32( StringSlice* slice, i32 i, enum FormatInteger format );
 ```
 ```cpp
-/// Print to stderr with a new line at the end.
-/// Variadic arguments come from va_list.
-#define println_err_va( format, variadic )
+/// Write the value of integer into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+usize string_slice_fmt_u32( StringSlice* slice, u32 i, enum FormatInteger format );
 ```
-
-## Format Specifiers.
-
-use {} to wrap a format specifier and use commas to separate parameters
-
-` Note: no specifier/parameter is case sensitive `
-
-| Specifier        | Type           | Description                              |
-| ---------------- | -------------- | ---------------------------------------- |
-| {{               | -              | literal '{'                              |
-| }}               | -              | literal '}'                              |
-| c                | Character      | 8-bit ASCII character                    |
-| cc               | String         | const char* ASCII null-terminated string |
-| s                | String         | StringSlice                              |
-| u                | Number/Integer | unsigned int32                           |
-| u8/16/32/64      | Number/Integer | unsigned sized int                       |
-| usize            | Number/Integer | unsigned pointer sized int               |
-| i                | Number/Integer | int32                                    |
-| i8/16/32/64      | Number/Integer | sized int                                |
-| isize            | Number/Integer | pointer sized int                        |
-| iv2/3/4          | Number/Integer | int vectors                              |
-| f                | Number/Float   | float (f32 gets promoted to f64)         |
-| v2/3/4           | Number/Float   | float vectors                            |
-| q                | Number/Float   | quaternion                               |
-| b                | Boolean        | boolean                                  |
-
-## Format Specifier Parameters
-### Parameters for Any Specifier
-| Parameter | Description                                                    |
-| --------- | -------------------------------------------------------------- |
-| int       | number of padding spaces; can be negative to pad to right side |
-
-### Parameters for Number Specifiers
-| Parameter         | Description                                  |
-| ----------------- | -------------------------------------------- |
-| 0 followed by int | number of padding zeroes, cannot be negative |
-
-### Parameters for Integer Specifiers
-| Parameter | Description        |
-| --------- | ------------------ |
-| x         | hexadecimal format |
-| b         | binary format      |
-
-### Parameters for Float Specifiers
-| Parameter                 | Description                              |
-| ------------------------- | ---------------------------------------- |
-| . followed by int         | fractional precision, cannot be negative |
-| b (does nothing with v/q) | storage formatting (bytes/kb/mb/gb/tb)   |
-
-### Parameters for Boolean Specifiers
-| Parameter | Description                   |
-| --------- | ----------------------------- |
-| b         | use 0/1 instead of true/false |
-
-## Formatting Examples
 ```cpp
-print( "{i} {f} {cc}", 10, -5.5f, "Hello world" );
+/// Write the value of integer into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+usize string_slice_fmt_i64( StringSlice* slice, i64 i, enum FormatInteger format );
 ```
-```
-10 -5.500000 Hello World
-```
----
 ```cpp
-print( "{f}|{f,3} {f,03.3}", -2.0f, 5.0f 1.25f );
+/// Write the value of integer into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+usize string_slice_fmt_u64( StringSlice* slice, u64 i, enum FormatInteger format );
 ```
-```
--2.000000|  5.000000 001.250
-```
----
 ```cpp
-print( "|{cc,-6}|", "hi" );
+/// Write the value of integer into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+usize string_slice_fmt_isize( StringSlice* slice, isize i, enum FormatInteger format );
 ```
-```
-|hi    |
-```
----
 ```cpp
-print( "|{cc,6}|", "hi" );
+/// Write the value of integer into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+usize string_slice_fmt_usize( StringSlice* slice, usize i, enum FormatInteger format );
 ```
-```
-|    hi|
-```
-
-

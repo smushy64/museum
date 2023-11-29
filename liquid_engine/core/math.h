@@ -315,7 +315,7 @@ union vec2 {
     struct { f32 width, height; };
     f32 c[VEC2_COMPONENT_COUNT];
 };
-#define VEC2_ZERO  (vec2){}
+#define VEC2_ZERO  (vec2){  0.0f,  0.0f }
 #define VEC2_ONE   (vec2){  1.0f,  1.0f }
 #define VEC2_LEFT  (vec2){ -1.0f,  0.0f }
 #define VEC2_RIGHT (vec2){  1.0f,  0.0f }
@@ -343,7 +343,7 @@ union ivec2 {
     struct { i32 width, height; };
     i32 c[IVEC2_COMPONENT_COUNT];
 };
-#define IVEC2_ZERO  (ivec2){} 
+#define IVEC2_ZERO  (ivec2){  0,  0 } 
 #define IVEC2_ONE   (ivec2){  1,  1 } 
 #define IVEC2_LEFT  (ivec2){ -1,  0 } 
 #define IVEC2_RIGHT (ivec2){  1,  0 } 
@@ -387,7 +387,7 @@ union vec3 {
     f32 c[VEC3_COMPONENT_COUNT];
 };
 
-#define VEC3_ZERO    (vec3){}
+#define VEC3_ZERO    (vec3){  0.0f,  0.0f,  0.0f }
 #define VEC3_ONE     (vec3){  1.0f,  1.0f,  1.0f } 
 #define VEC3_LEFT    (vec3){ -1.0f,  0.0f,  0.0f } 
 #define VEC3_RIGHT   (vec3){  1.0f,  0.0f,  0.0f } 
@@ -481,7 +481,7 @@ union vec4 {
     f32 c[VEC4_COMPONENT_COUNT];
 };
 
-#define VEC4_ZERO (vec4){}
+#define VEC4_ZERO (vec4){ 0.0f, 0.0f, 0.0f, 0.0f }
 #define VEC4_ONE  (vec4){ 1.0f, 1.0f, 1.0f, 1.0f }
 
 #define RGBA_RED     (rgba){ 1.0f, 0.0f, 0.0f, 1.0f } 
@@ -528,7 +528,7 @@ union ivec4 {
     i32 c[IVEC4_COMPONENT_COUNT];
 };
 
-#define IVEC4_ZERO (ivec4){} 
+#define IVEC4_ZERO (ivec4){ 0, 0, 0, 0 } 
 #define IVEC4_ONE  (ivec4){ 1, 1, 1, 1 } 
 
 /// Create vector with given components.

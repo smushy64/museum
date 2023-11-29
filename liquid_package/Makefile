@@ -14,7 +14,7 @@ CFLAGS += -Wno-gnu-anonymous-struct -Wno-nested-anon-types
 CFLAGS += -Wno-ignored-attributes -Wno-gnu-case-range
 CFLAGS += -Wno-fixed-enum-extension -Wno-static-in-inline
 CFLAGS += -Wno-c99-extensions -Wno-duplicate-decl-specifier
-CFLAGS += -Wno-gnu-empty-initializer
+CFLAGS += -Wno-gnu-empty-initializer -Wno-c2x-extensions
 
 ifeq ($(RELEASE), true)
 	CFLAGS += -O2 -ffast-math

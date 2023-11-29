@@ -25,6 +25,10 @@ typedef struct ThreadWorkQueue {
 
 global ThreadWorkQueue* WORK_QUEUE = NULL;
 
+LD_API usize thread_work_query_pending_count(void) {
+    return WORK_QUEUE->pending_work_count;
+}
+
 LD_API void thread_work_queue_push(
     ThreadWorkProcFN* work_proc, void* params
 ) {
@@ -69,8 +73,7 @@ internal b32 thread_proc( void* params ) {
             
             read_write_fence();
 
-            WORK_QUEUE->pending_work_count =
-                interlocked_decrement( &WORK_QUEUE->pending_work_count );
+            interlocked_decrement( &WORK_QUEUE->pending_work_count );
         }
     }
 

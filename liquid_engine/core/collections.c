@@ -6,7 +6,6 @@
 #include "defines.h"
 #include "core/collections.h"
 #include "core/memory.h"
-#include "core/math.h"
 
 LD_API void* iterator_next_enumerate( Iterator* iter, usize* out_enumerator ) {
     if( iter->current == iter->count ) {
@@ -197,7 +196,7 @@ LD_API void list_fill_to_capacity( List* list, void* item ) {
     list->count = list->capacity;
 }
 LD_API Iterator list_iterator( List* list ) {
-    Iterator result = {};
+    Iterator result = {0};
 
     result.buffer    = list->buffer;
     result.item_size = list->item_size;

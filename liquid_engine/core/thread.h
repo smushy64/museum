@@ -18,8 +18,6 @@ typedef void Mutex;
 LD_API void thread_work_queue_push( ThreadWorkProcFN* work_proc, void* params );
 /// Query how many entries are still pending.
 LD_API usize thread_work_query_pending_count(void);
-/// Sleep current thread until all work is complete.
-LD_API void thread_work_wait_for_pending(void);
 
 /// Create a semaphore.
 LD_API Semaphore* semaphore_create(void);

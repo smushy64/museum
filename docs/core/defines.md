@@ -6,7 +6,7 @@
 
 # Liquid Engine Core Defines | [Table of Contents](../readme.md)
 
-To include:
+Header:
 ```cpp
 #include "defines.h"
 ```
@@ -154,7 +154,6 @@ Includes:
 | c16      | UTF-16/Windows Unicode character         |
 | c32      | UTF-32 character                         |
 | pvoid    | void pointer                             |
-| tuple_## | tuple structs of the types defined above |
 
 ## Attributes
 

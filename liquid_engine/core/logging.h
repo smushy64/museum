@@ -100,28 +100,36 @@ LD_API void logging_output_locked(
     struct StringSlice* message );
 /// Output formatted logging message.
 /// Is not thread-safe, use logging_output_fmt_locked instead.
-LD_API void logging_output_fmt(
+LD_API void ___internal_logging_output_fmt(
     LoggingType type, ConsoleColor* opt_color_override,
     b32 trace, b32 always_log, b32 new_line, b32 timestamped,
-    const char* format, ... );
+    usize format_len, const char* format, ... );
+#define logging_output_fmt( type, opt_color_override, trace, always_log, new_line, timestamped, format, ... )\
+    ___internal_logging_output_fmt( type, opt_color_override, trace, always_log, new_line, timestamped, sizeof(format), format, ##__VA_ARGS__ )
 /// Output formatted logging message.
 /// Uses a mutex to make sure there is no cross-talk between threads.
-LD_API void logging_output_fmt_locked(
+LD_API void ___internal_logging_output_fmt_locked(
     LoggingType type, ConsoleColor* opt_color_override,
     b32 trace, b32 always_log, b32 new_line, b32 timestamped,
-    const char* format, ... );
+    usize format_len, const char* format, ... );
+#define logging_output_fmt_locked( type, opt_color_override, trace, always_log, new_line, timestamped, format, ... )\
+    ___internal_logging_output_fmt_locked( type, opt_color_override, trace, always_log, new_line, timestamped, sizeof(format), format, ##__VA_ARGS__ )
 /// Output formatted logging message using variadic list.
 /// Is not thread-safe, use logging_output_fmt_locked_va instead.
-LD_API void logging_output_fmt_va(
+LD_API void ___internal_logging_output_fmt_va(
     LoggingType type, ConsoleColor* opt_color_override,
     b32 trace, b32 always_log, b32 new_line, b32 timestamped,
-    const char* format, va_list va );
+    usize format_len, const char* format, va_list va );
+#define logging_output_fmt_va( type, opt_color_override, trace, always_log, new_line, timestamped, format, va )\
+    ___internal_logging_output_fmt_va( type, opt_color_override, trace, always_log, new_line, timestamped, sizeof(format), format, va )
 /// Output formatted logging message using variadic list.
 /// Uses a mutex to make sure there is no cross-talk between threads.
-LD_API void logging_output_fmt_locked_va(
+LD_API void ___internal_logging_output_fmt_locked_va(
     LoggingType type, ConsoleColor* opt_color_override,
     b32 trace, b32 always_log, b32 new_line, b32 timestamped,
-    const char* format, va_list va );
+    usize format_len, const char* format, va_list va );
+#define logging_output_fmt_locked_va( type, opt_color_override, trace, always_log, new_line, timestamped, format, va )\
+    ___internal_logging_output_fmt_locked_va( type, opt_color_override, trace, always_log, new_line, timestamped, sizeof(format), format, va )
 
 #if defined(LD_LOGGING)
     #define fatal_log( format, ... )\

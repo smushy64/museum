@@ -2,10 +2,13 @@ clang
 -std=c99
 -Wall
 -Wextra
+-pedantic
 -Werror=vla
 -fno-strict-enums
--Wno-missing-braces
 -Wno-c11-extensions
+-Wno-c99-extensions
+-Wno-c2x-extensions
+-Wno-missing-braces
 -Wno-gnu-zero-variadic-macro-arguments
 -Wno-gnu-anonymous-struct
 -Wno-nested-anon-types
@@ -13,10 +16,10 @@ clang
 -Wno-gnu-case-range
 -Wno-fixed-enum-extension
 -Wno-static-in-inline
--Wno-c99-extensions
 -Wno-duplicate-decl-specifier
 -Wno-gnu-empty-initializer
 -masm=intel
+-march=native
 -DLD_SIMD_WIDTH=4
 -DLIQUID_ENGINE_VERSION="Liquid Engine 0.0"
 -DLIQUID_ENGINE_VERSION_MAJOR=0

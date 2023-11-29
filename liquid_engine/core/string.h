@@ -8,12 +8,7 @@
 #include <defines.h>
 #include "core/collections.h"
 
-/// Options for formatting integers.
-typedef enum : u32 {
-    FMT_INT_DECIMAL,
-    FMT_INT_BINARY,
-    FMT_INT_HEX
-} FormatInteger;
+enum FormatInteger : u32;
 
 /// Slice of string buffer.
 struct StringSlice {
@@ -41,10 +36,6 @@ header_only b32 char_is_digit_hexadecimal( char character ) {
 
     return char_is_digit( character ) || upper || lower;
 }
-/// Push character to stdout.
-LD_API void char_output_stdout( char character );
-/// Push character to stderr.
-LD_API void char_output_stderr( char character );
 
 /// Calculate length of null-terminated C string.
 LD_API usize cstr_len( const char* cstr );
@@ -76,7 +67,7 @@ LD_API void cstr_copy_overlapped(
 /// Create a mutable string slice with given capacity.
 /// Buffer is stack allocated so string slice is only valid in the current scope.
 #define string_slice_mut_capacity( variable_name, cap )\
-    char variable_name##_buffer[cap] = {};\
+    char variable_name##_buffer[cap] = {0};\
     StringSlice variable_name;\
     variable_name.buffer   = variable_name##_buffer;\
     variable_name.len      = 0;\
@@ -166,12 +157,27 @@ LD_API void string_slice_fill_to_len( StringSlice* slice, char character );
 /// Set all characters in string slice to given character up to slice capacity.
 /// Sets slice length to capacity.
 LD_API void string_slice_fill_to_capacity( StringSlice* slice, char character );
+/// Changes all lower case ascii characters to upper case.
+LD_API void string_slice_to_upper( StringSlice* slice );
+/// Changes all upper case ascii characters to lower case.
+LD_API void string_slice_to_lower( StringSlice* slice );
+/// Clip a section from source string slice into dst string slice.
+/// Returns false if from is greater than to or
+/// if either is outside the bounds of the source string ( 0 to src->len ).
+LD_API b32 string_slice_clip(
+    StringSlice* src,
+    usize from_inclusive, usize to_exclusive,
+    StringSlice* out_dst );
 /// Push character to end of string.
 /// Returns true if there was enough space in buffer.
 LD_API b32 string_slice_push( StringSlice* slice, char character );
 /// Pop character off end of string.
 /// Returns true if length is not 0.
 LD_API b32 string_slice_pop( StringSlice* slice, char* opt_out_character );
+/// Pop character from the start of string.
+/// Returns true if length is not 0.
+/// Modifies buffer pointer.
+LD_API b32 string_slice_pop_start( StringSlice* slice, char* opt_out_character );
 /// Insert character in string slice.
 /// Returns true if there was enough space in buffer.
 LD_API b32 string_slice_insert_char( StringSlice* slice, usize index, char character );
@@ -210,62 +216,76 @@ LD_API b32 string_slice_parse_int( StringSlice* slice, i64* out_integer );
 LD_API b32 string_slice_parse_uint( StringSlice* slice, u64* out_integer );
 /// Parse a float from given string.
 LD_API b32 string_slice_parse_float( StringSlice* slice, f64* out_float );
-/// Write a formatted string to string slice.
-/// Returns additional space required if slice could not hold formatted string.
-LD_API usize string_slice_fmt( StringSlice* slice, const char* format, ... );
-/// Write a formatted string to string slice using variadic list.
-/// Returns additional space required if slice could not hold formatted string.
-LD_API usize string_slice_fmt_va(
-    StringSlice* slice, const char* format, va_list variadic );
-/// Format an integer into string slice.
-LD_API usize string_slice_fmt_int(
-    StringSlice* slice, i64 value, FormatInteger formatting );
-/// Format an unsigned integer into string slice.
-LD_API usize string_slice_fmt_uint(
-    StringSlice* slice, u64 value, FormatInteger formatting );
-/// Format a float into string slice.
-LD_API usize string_slice_fmt_float(
-    StringSlice* slice, f64 value, u32 precision );
-/// Format a boolean into string slice.
-LD_API usize string_slice_fmt_bool( StringSlice* slice, b32 value );
 /// Output string slice to standard out.
 LD_API void string_slice_output_stdout( StringSlice* slice );
 /// Output string slice to standard error.
 LD_API void string_slice_output_stderr( StringSlice* slice );
 
-/// Print to stdout.
-/// Format specifiers are in docs/format.md
-LD_API void print( const char* format, ... );
-/// Print to stderr.
-/// Format specifiers are in docs/format.md
-LD_API void print_err( const char* format, ... );
-/// Print to stdout using variadic list.
-/// Format specifiers are in docs/format.md
-LD_API void print_va( const char* format, va_list variadic );
-/// Print to stderr using variadic list.
-/// Format specifiers are in docs/format.md
-LD_API void print_err_va( const char* format, va_list variadic );
+/// Write a formatted string to string slice using variadic list.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+LD_API usize ___internal_string_slice_fmt_va(
+    StringSlice* slice, usize format_len, const char* format, va_list va );
+/// Write a formatted string to string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+LD_API usize ___internal_string_slice_fmt(
+    StringSlice* slice, usize format_len, const char* format, ... );
 
-/// Print to stdout with a new line at the end.
-#define println( format, ... )\
-    print( format, ##__VA_ARGS__ );\
-    char_output_stdout( '\n' )
+#define string_slice_fmt( slice, format, ... )\
+    ___internal_string_slice_fmt( slice, sizeof(format), format, ##__VA_ARGS__ )
+#define string_slice_fmt_va( slice, format, va )\
+    ___internal_string_slice_fmt_va( slice, sizeof(format), format, va )
 
-/// Print to stdout with a new line at the end.
-/// Variadic arguments come from va_list.
-#define println_va( format, variadic )\
-    print_va( format, variadic );\
-    char_output_stdout( '\n' )
-
-/// Print to stderr with a new line at the end.
-#define println_err( format, ... )\
-    print_err( format, ##__VA_ARGS__ );\
-    char_output_stderr( '\n' )
-
-/// Print to stderr with a new line at the end.
-/// Variadic arguments come from va_list.
-#define println_err_va( format, variadic )\
-    print_err_va( format, variadic );\
-    char_output_stderr( '\n' )
+/// Write the value of boolean into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+LD_API usize string_slice_fmt_bool( StringSlice* slice, b32 b, b32 binary );
+/// Write the value of float into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+LD_API usize string_slice_fmt_float( StringSlice* slice, f64 f, u32 precision );
+/// Write the value of integer into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+LD_API usize string_slice_fmt_i8( StringSlice* slice, i8 i, enum FormatInteger format );
+/// Write the value of integer into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+LD_API usize string_slice_fmt_u8( StringSlice* slice, u8 i, enum FormatInteger format );
+/// Write the value of integer into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+LD_API usize string_slice_fmt_i16( StringSlice* slice, i16 i, enum FormatInteger format );
+/// Write the value of integer into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+LD_API usize string_slice_fmt_u16( StringSlice* slice, u16 i, enum FormatInteger format );
+/// Write the value of integer into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+LD_API usize string_slice_fmt_i32( StringSlice* slice, i32 i, enum FormatInteger format );
+/// Write the value of integer into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+LD_API usize string_slice_fmt_u32( StringSlice* slice, u32 i, enum FormatInteger format );
+/// Write the value of integer into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+LD_API usize string_slice_fmt_i64( StringSlice* slice, i64 i, enum FormatInteger format );
+/// Write the value of integer into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+LD_API usize string_slice_fmt_u64( StringSlice* slice, u64 i, enum FormatInteger format );
+/// Write the value of integer into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+LD_API usize string_slice_fmt_isize(
+    StringSlice* slice, isize i, enum FormatInteger format );
+/// Write the value of integer into string slice.
+/// Returns number of bytes necessary to complete write operation if
+/// string slice is not large enough.
+LD_API usize string_slice_fmt_usize(
+    StringSlice* slice, usize i, enum FormatInteger format );
 
 #endif

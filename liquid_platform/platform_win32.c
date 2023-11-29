@@ -4,6 +4,7 @@
 #include "defines.h"
 #include "constants.h"
 #include "platform.h"
+#include "core/fmt.h"
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
@@ -452,6 +453,22 @@ void win32_fatal_message_box( const char* title, const char* message );
 #endif // if not headless
 
 void win32_last_error( usize* out_error_len, const char** out_error );
+
+usize win32_write_stdout( void* target, usize count, char* characters ) {
+    unused(target);
+    WriteConsoleA(
+        GetStdHandle( STD_OUTPUT_HANDLE ), characters, count, NULL, NULL );
+    return 0;
+}
+void ___win32_print( usize format_len, const char* format, ... ) {
+    va_list va;
+    va_start( va, format );
+    ___internal_fmt_write_va(
+        win32_write_stdout, NULL, format_len, format, va );
+    va_end( va );
+}
+#define win32_print( format, ... )\
+    ___win32_print( sizeof(format "\n"), format "\n", ##__VA_ARGS__ )
 
 #define WIN32_SUCCESS              ( 0)
 #define WIN32_ERROR_OPEN_CORE      ( 1)
@@ -2804,4 +2821,6 @@ LPSTR* WINAPI CommandLineToArgvA(LPSTR lpCmdline, int* numargs) {
 
     return argv;
 }
+
+#include "core/fmt.c"
 

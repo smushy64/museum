@@ -26,7 +26,7 @@ b32 package_shared_buffer_initialize(void) {
     global_allocator = system_alloc( global_allocator_size );
     if( !global_allocator ) {
         lp_error(
-            "failed to allocate {f,.2,b} for global allocator!",
+            "failed to allocate {f,.2,m} for global allocator!",
             (f64)global_allocator_size );
         return false;
     }

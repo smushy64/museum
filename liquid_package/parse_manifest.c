@@ -96,12 +96,12 @@ b32 packager_manifest_parse(
     }
     platform->io.file_close( file );
 
-    StringSlice manifest = {};
+    StringSlice manifest = {0};
     manifest.len      = manifest_size;
     manifest.capacity = manifest.len;
     manifest.buffer   = manifest_buffer;
 
-    StringSlice line = {};
+    StringSlice line = {0};
     if( !___next_line( &manifest, &line ) ) {
         manifest_error(
             "file '{cc}' is not a properly formatted manifest file!", path );
@@ -140,7 +140,7 @@ b32 packager_manifest_parse(
             goto cont;
         }
 
-        StringSlice resource_id = {}, resource_path = {};
+        StringSlice resource_id = {0}, resource_path = {0};
         if( !string_slice_split_char( &line, ':', &resource_id, &resource_path ) ) {
             lp_warn( "improperly formatted line!" );
             lp_warn( "'{cc}':{usize} > {s}", path, line_nr, line );
@@ -183,13 +183,13 @@ b32 packager_manifest_parse(
         resource_id.buffer = info_buffer;
 
         // make path relative to manifest file.
-        StringSlice processed_path = {};
+        StringSlice processed_path = {0};
         processed_path.buffer   = info_buffer + resource_id.len;
         processed_path.capacity = required_stack_size - resource_id.len - 1;
 
         string_slice_fmt( &processed_path, "{s}{s}", directory, resource_path );
 
-        ManifestResource resource = {};
+        ManifestResource resource = {0};
         resource.type = type;
         resource.id   = resource_id;
         resource.path = processed_path;

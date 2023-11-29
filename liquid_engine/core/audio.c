@@ -196,7 +196,7 @@ b32 ___debug_load_audio(
     audio_buffer.buffer = system_alloc( audio_buffer.buffer_size );
     if( !audio_buffer.buffer ) {
         error_log(
-            "Failed to allocate {f,b} for audio buffer!",
+            "Failed to allocate {f,m} for audio buffer!",
             (f32)audio_buffer.buffer_size );
         goto load_audio_fail;
     }

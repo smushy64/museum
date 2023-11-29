@@ -15,6 +15,7 @@
 #include "core/engine.h"
 #include "core/collections.h"
 #include "core/graphics/internal.h"
+#include "core/print.h"
 
 #define DEFAULT_RESOLUTION_WIDTH    (800)
 #define DEFAULT_RESOLUTION_HEIGHT   (600)
@@ -211,6 +212,7 @@ LD_API int core_init(
     f32 audio_volume_master = settings.audio_volume_master;
     f32 audio_volume_music  = settings.audio_volume_music;
     f32 audio_volume_sfx    = settings.audio_volume_sfx;
+    unused( audio_volume_master + audio_volume_sfx + audio_volume_music );
     i32 width  = settings.resolution_width;
     i32 height = settings.resolution_height;
     global_resolution_scale = settings.resolution_scale;
@@ -658,6 +660,7 @@ LD_API int core_init(
         return CORE_ERROR_LOAD_GAME_RUN;
     }
 
+#if 0
     if( !audio_subsystem_initialize() ) {
         fatal_log( "Failed to initialize audio subsystem!" );
         platform->fatal_message_box(
@@ -666,6 +669,7 @@ LD_API int core_init(
             "Failed to initialize audio subsystem!" );
         return CORE_ERROR_AUDIO_SUBSYSTEM_INITIALIZE;
     }
+#endif
 
     usize audio_subsystem_memory_requirement =
         audio_subsystem_query_memory_requirement();
@@ -700,7 +704,7 @@ LD_API int core_init(
         stack_size             = page_count_to_memory_size( stack_page_count );
 
         info_log(
-            "Stack Size: {usize}({f,.2,b}) Stack Pages: {usize}",
+            "Stack Size: {usize}({f,.2,m}) Stack Pages: {usize}",
             stack_size, (f64)stack_size, stack_page_count );
         if( !stack_buffer ) {
             string_slice_fmt(
@@ -723,12 +727,14 @@ LD_API int core_init(
     stack.buffer      = stack_buffer;
     stack.buffer_size = stack_size;
 
+#if 0
     void* audio_subsystem_buffer =
         stack_allocator_push( &stack, audio_subsystem_memory_requirement );
     audio_subsystem_submit_buffer_memory( audio_subsystem_buffer );
     audio_set_master_volume( audio_volume_master );
     audio_set_music_volume( audio_volume_music );
     audio_set_sfx_volume( audio_volume_sfx );
+#endif
 
     /* initialize input subsystem */ {
         void* input_subsytem_buffer = stack_allocator_push(
@@ -841,12 +847,14 @@ LD_API int core_init(
         input_subsystem_update_gamepads();
         platform->surface.pump_events();
 
+#if 0
         if( !surface_is_active ) {
             audio_subsystem_pause();
             continue;
         } else {
             audio_subsystem_resume();
         }
+#endif
 
         if( input_key( KEY_ALT_LEFT ) || input_key( KEY_ALT_RIGHT ) ) {
             if( input_key( KEY_F4 ) ) {
@@ -867,7 +875,9 @@ LD_API int core_init(
             return CORE_ERROR_APPLICATION_RUN;
         }
 
+#if 0
         audio_subsystem_output();
+#endif
 
         if( !renderer_subsystem_draw() ) {
             fatal_log( "Renderer failed!" );

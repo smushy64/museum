@@ -191,7 +191,7 @@ LD_API void block_allocator_clear( BlockAllocator* allocator ) {
 }
 
 LD_API StackAllocator stack_allocator_create( usize buffer_size, void* buffer ) {
-    StackAllocator result = {};
+    StackAllocator result = {0};
     result.buffer      = buffer;
     result.buffer_size = buffer_size;
     return result;
@@ -362,12 +362,12 @@ LD_API void* ___internal_system_page_alloc_trace(
 
     if( result ) {
         LOG_MEMORY_SUCCESS(
-            "PAGE", "Allocated {f,b,.2}. Pointer: {usize,x}",
+            "PAGE", "Allocated {f,m,.2}. Pointer: {usize,X}",
             (f64)memory_size, (usize)result );
         PAGE_MEMORY_USAGE += pages;
     } else {
         LOG_MEMORY_ERROR(
-            "PAGE", "Failed to allocate {f,b,.2}!",
+            "PAGE", "Failed to allocate {f,m,.2}!",
             (f64)memory_size );
     }
 
@@ -378,7 +378,7 @@ LD_API void  ___internal_system_page_free_trace(
 ) {
     usize memory_size = page_count_to_memory_size( pages );
     LOG_MEMORY_SUCCESS(
-        "PAGE", "Freed {f,b,.2}. Pointer: {usize,x}",
+        "PAGE", "Freed {f,m,.2}. Pointer: {usize,X}",
         (f64)memory_size, (usize)memory );
     PAGE_MEMORY_USAGE -= pages;
     platform->memory.page_free( memory, memory_size );
@@ -430,11 +430,11 @@ LD_API void* ___internal_system_alloc_trace(
     if( result ) {
         f64 sizef = (f64)size;
         LOG_MEMORY_SUCCESS(
-            "HEAP", "Allocated {f,b,.2}. Pointer: {usize,x}",
+            "HEAP", "Allocated {f,m,.2}. Pointer: {usize,X}",
             sizef, (usize)result );
         HEAP_MEMORY_USAGE += size;
     } else {
-        LOG_MEMORY_ERROR( "HEAP", "Failed to allocate {f,b,.2}!", (f64)size );
+        LOG_MEMORY_ERROR( "HEAP", "Failed to allocate {f,m,.2}!", (f64)size );
     }
 
     return result;
@@ -445,11 +445,11 @@ LD_API void* ___internal_system_alloc_aligned_trace(
     void* result = ___internal_system_alloc_aligned( size, alignment );
     if( result ) {
         LOG_MEMORY_SUCCESS(
-            "HEAP", "Allocated {f,b,.2}. Alignment: {usize} Pointer: {usize,x}",
+            "HEAP", "Allocated {f,m,.2}. Alignment: {usize} Pointer: {usize,X}",
             (f64)size, alignment, (usize)result );
     } else {
         LOG_MEMORY_ERROR(
-            "HEAP", "Failed to allocate {f,b,.2}! Alignment: {usize}",
+            "HEAP", "Failed to allocate {f,m,.2}! Alignment: {usize}",
             (f64)size, alignment );
     }
     return result;
@@ -461,13 +461,13 @@ LD_API void* ___internal_system_realloc_trace(
     void* result = platform->memory.heap_realloc( memory, old_size, new_size );
     if( result ) {
         LOG_MEMORY_SUCCESS(
-            "HEAP", "Reallocated {usize,x}. {f,b,.2} -> {f,b,.2}",
+            "HEAP", "Reallocated {usize,X}. {f,m,.2} -> {f,m,.2}",
             (usize)memory, (f64)old_size, (f64)new_size );
         HEAP_MEMORY_USAGE -= old_size;
         HEAP_MEMORY_USAGE += new_size;
     } else {
         LOG_MEMORY_SUCCESS(
-            "HEAP", "Failed to reallocate {usize,x}! {f,b,.2} -> {f,b,.2}",
+            "HEAP", "Failed to reallocate {usize,X}! {f,m,.2} -> {f,m,.2}",
             (usize)memory, (f64)old_size, (f64)new_size );
     }
     return result;
@@ -477,7 +477,7 @@ LD_API void ___internal_system_free_trace(
 ) {
     platform->memory.heap_free( memory, size );
     LOG_MEMORY_SUCCESS(
-        "HEAP", "Freed {f,b,.2}. Pointer: {usize,x}",
+        "HEAP", "Freed {f,m,.2}. Pointer: {usize,X}",
         (f64)size, (usize)memory );
     HEAP_MEMORY_USAGE -= size;
 }
@@ -487,7 +487,7 @@ LD_API void ___internal_system_free_aligned_trace(
 ) {
     ___internal_system_free_aligned( memory, size, alignment );
     LOG_MEMORY_SUCCESS(
-        "HEAP", "Freed {f,b,.2}. Alignment: {usize} Pointer: {usize,x}",
+        "HEAP", "Freed {f,m,.2}. Alignment: {usize} Pointer: {usize,X}",
         (f64)size, alignment, (usize)memory );
 }
 

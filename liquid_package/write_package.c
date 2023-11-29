@@ -3,6 +3,9 @@
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
  * File Created: November 11, 2023
 */
+
+#if 0
+
 #include "defines.h"
 #include "core/collections.h"
 #include "core/thread.h"
@@ -82,10 +85,9 @@ void write_package( void* user_params ) {
             output_file,
             resource_buffer_size, resource_buffer,
             write_offset );
-        platform->time.sleep_ms( 2 );
         if( !write_result ) {
             package_shared_buffer_free( resource_buffer, resource_buffer_size );
-            lp_error( "failed to write {f,.2,b} at offset {usize} to output file!", (f64)resource_buffer_size, write_offset );
+            lp_error( "failed to write {f,.2,m} at offset {usize} to output file!", (f64)resource_buffer_size, write_offset );
             panic();
         }
 
@@ -106,7 +108,12 @@ void write_package( void* user_params ) {
     platform->io.file_close( output_file );
 
     read_write_fence();
-    semaphore_signal( params->finished );
+
+    usize pending_count = thread_work_query_pending_count();
+    if( pending_count == 1 ) {
+        semaphore_signal( params->finished );
+    }
 }
 
+#endif
 
