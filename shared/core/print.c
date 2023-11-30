@@ -8,11 +8,18 @@
 #include "core/fmt.h"
 #include "core/internal.h"
 
-LD_API void char_output_stdout( char c ) {
+LD_API void print_char_stdout( char c ) {
     platform->io.console_write( platform->io.stdout_handle(), 1, &c );
 }
-LD_API void char_output_stderr( char c ) {
+LD_API void print_char_stderr( char c ) {
     platform->io.console_write( platform->io.stderr_handle(), 1, &c );
+}
+
+LD_API void print_string_stdout( usize len, const char* buffer ) {
+    platform->io.console_write( platform->io.stdout_handle(), len, buffer );
+}
+LD_API void print_string_stderr( usize len, const char* buffer ) {
+    platform->io.console_write( platform->io.stderr_handle(), len, buffer );
 }
 
 internal usize ___internal_output_string(

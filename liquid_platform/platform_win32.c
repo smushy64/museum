@@ -4,7 +4,6 @@
 #include "defines.h"
 #include "constants.h"
 #include "platform.h"
-#include "core/fmt.h"
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
@@ -460,15 +459,6 @@ usize win32_write_stdout( void* target, usize count, char* characters ) {
         GetStdHandle( STD_OUTPUT_HANDLE ), characters, count, NULL, NULL );
     return 0;
 }
-void ___win32_print( usize format_len, const char* format, ... ) {
-    va_list va;
-    va_start( va, format );
-    ___internal_fmt_write_va(
-        win32_write_stdout, NULL, format_len, format, va );
-    va_end( va );
-}
-#define win32_print( format, ... )\
-    ___win32_print( sizeof(format "\n"), format "\n", ##__VA_ARGS__ )
 
 #define WIN32_SUCCESS              ( 0)
 #define WIN32_ERROR_OPEN_CORE      ( 1)
@@ -512,7 +502,7 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
         win32_output_debug_string( message );\
     } while(0)
 #else
-    #define WIN32_REPORT_ERROR( message ) unused(message)
+    #define WIN32_REPORT_ERROR( ... )
 #endif
 
 #if defined(LD_DEVELOPER_MODE)
@@ -2822,5 +2812,7 @@ LPSTR* WINAPI CommandLineToArgvA(LPSTR lpCmdline, int* numargs) {
     return argv;
 }
 
+#include "core/memory_ops.c"
 #include "core/fmt.c"
+#include "core/string.c"
 

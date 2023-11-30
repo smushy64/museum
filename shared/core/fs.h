@@ -40,15 +40,6 @@ LD_API b32 fs_file_write( FSFile* file, usize buffer_size, void* buffer );
 /// Does not modify file offset.
 LD_API b32 fs_file_write_offset(
     FSFile* file, usize buffer_size, void* buffer, usize offset );
-/// Write formatted string to file.
-LD_API b32 fs_file_write_fmt( FSFile* file, const char* format, ... );
-/// Write formatted string to file using variadic arguments.
-LD_API b32 fs_file_write_fmt_va( FSFile* file, const char* format, va_list va );
-/// Write formatted string to file at current offset.
-LD_API b32 fs_file_write_offset_fmt( FSFile* file, usize offset, const char* format, ... );
-/// Write formatted string to file at current offset using variadic arguments.
-LD_API b32 fs_file_write_offset_fmt_va(
-    FSFile* file, usize offset, const char* format, va_list va );
 /// Query the size of the given file.
 LD_API usize fs_file_query_size( FSFile* file );
 /// Query the current file offset.
@@ -57,13 +48,32 @@ LD_API usize fs_file_query_offset( FSFile* file );
 LD_API void fs_file_set_offset( FSFile* file, usize offset );
 /// Set file offset relative to the current offset.
 LD_API void fs_file_set_offset_relative( FSFile* file, usize offset );
-/// Delete file by handle.
-LD_API b32 fs_file_delete( FSFile* file );
 /// Delete file by path.
-LD_API b32 fs_file_delete_by_path( const char* path );
-/// Copy source to destination file by handle.
-LD_API b32 fs_file_copy( FSFile* dst, FSFile* src, b32 fail_if_exists );
+LD_API b32 fs_file_delete( const char* path );
 /// Copy source to destination file by path.
-LD_API b32 fs_file_copy_by_path( const char* dst, const char* src, b32 fail_if_exists );
+LD_API b32 fs_file_copy(
+    const char* dst_path, const char* src_path, b32 fail_if_exists );
+
+/// Write formatted string to file.
+LD_API b32 ___internal_fs_file_write_fmt(
+    FSFile* file, usize format_len, const char* format, ... );
+/// Write formatted string to file using variadic list.
+LD_API b32 ___internal_fs_file_write_fmt_va(
+    FSFile* file, usize format_len, const char* format, va_list va );
+/// Write formatted string to file at offset.
+LD_API b32 ___internal_fs_file_write_offset_fmt(
+    FSFile* file, usize offset, usize format_len, const char* format, ... );
+/// Write formatted string to file at offset using variadic list.
+LD_API b32 ___internal_fs_file_write_offset_fmt_va(
+    FSFile* file, usize offset, usize format_len, const char* format, va_list va );
+
+#define fs_file_write_fmt( file, format, ... )\
+    ___internal_fs_file_write_fmt( file, sizeof(format), format, ##__VA_ARGS__ )
+#define fs_file_write_fmt_va( file, format, va )\
+    ___internal_fs_file_write_fmt_va( file, sizeof(format), format, va )
+#define fs_file_write_offset_fmt( file, offset, format, ... )\
+    ___internal_fs_file_write_offset_fmt( file, offset, sizeof(format), format, ##__VA_ARGS__ )
+#define fs_file_write_offset_fmt_va( file, offset, format, va )\
+    ___internal_fs_file_write_offset_fmt_va( file, offset, sizeof( format ), format, va )
 
 #endif /* header guard */

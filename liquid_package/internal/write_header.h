@@ -7,7 +7,7 @@
 */
 #include <defines.h>
 #include <core/collections.h>
-#include <core/thread.h>
+#include <engine/thread.h>
 
 #define PACKAGER_DEFAULT_ENUM_NAME "GeneratedResourceID"
 

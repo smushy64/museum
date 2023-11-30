@@ -5,7 +5,7 @@
 */
 #include "defines.h"
 #include "core/memory.h"
-#include "core/thread.h"
+#include "engine/thread.h"
 
 #include "logging.h"
 #include "shared_buffer.h"

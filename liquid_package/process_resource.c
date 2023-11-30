@@ -5,7 +5,7 @@
 */
 #include "defines.h"
 #include "core/collections.h"
-#include "core/thread.h"
+#include "engine/thread.h"
 #include "core/fs.h"
 // #include "core/math.h"
 #include "liquid_package.h"
@@ -93,7 +93,7 @@ internal b32 ___read_wave_header(
             return false;\
         }\
     } while(0)
-    #define read_no_advance( value ) do {\
+    #define read_no_offset( value ) do {\
         if( !fs_file_read( file, sizeof( value ), &value ) ) {\
             lp_error( "failed to read resource file!" );\
             return false;\
@@ -101,7 +101,7 @@ internal b32 ___read_wave_header(
         usize current_offset = fs_file_query_offset( file );\
         fs_file_set_offset( file, current_offset - sizeof( value ) );\
     } while(0)
-    #define advance( bytes ) do {\
+    #define move_offset( bytes ) do {\
         usize current_offset = fs_file_query_offset( file );\
         fs_file_set_offset( file, current_offset + bytes );\
     } while(0)
@@ -128,8 +128,8 @@ internal b32 ___read_wave_header(
         read( chunk );
         if( chunk.id == fmt.id ) {
             struct WaveFMTHeader fmt_header = {0};
-            read_no_advance( fmt_header );
-            advance( chunk.size );
+            read_no_offset( fmt_header );
+            move_offset( chunk.size );
 
             audio_data.number_of_channels = fmt_header.number_of_channels;
 
@@ -146,7 +146,7 @@ internal b32 ___read_wave_header(
             continue;
         }
 
-        advance( chunk.size );
+        move_offset( chunk.size );
     }
 
     if( audio_data.number_of_channels > 2 ) {

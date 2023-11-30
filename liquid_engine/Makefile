@@ -66,7 +66,7 @@ ifeq ($(TARGET_PLATFORM), win32)
 	endif
 endif
 
-COREMAIN := core/main.c
+COREMAIN := engine/main.c
 
 INCLUDE := -I. -I../liquid_platform -I../shared -I../generated
 

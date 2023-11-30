@@ -4,14 +4,14 @@
 #include <defines.h>
 #include <core/string.h>
 #include <core/math.h>
-#include <core/graphics.h>
-#include <core/input.h>
-#include <core/engine.h>
 #include <core/memory.h>
-#include <core/logging.h>
-#include <core/time.h>
-#include <core/audio.h>
 #include <core/collections.h>
+#include <engine/graphics.h>
+#include <engine/input.h>
+#include <engine/engine.h>
+#include <engine/logging.h>
+#include <engine/time.h>
+#include <engine/audio.h>
 
 struct GameMemory {
     Transform camera_transform;

@@ -5,13 +5,14 @@
  * Notes:        This file is automatically included by
  *               "packager_generated_dependencies.inl"
 */
-#include "core/time.c"
+#define LD_SHARED_CORE_INTERNAL_PLATFORM_INCLUDE_SOURCE
+#include "engine/time.c"
 #define LD_THREAD_SUBSYSTEM_SILENT
-#include "core/thread.c"
+#include "engine/thread.c"
 #include "core/math.c"
-#include "core/logging.c"
+#include "engine/logging.c"
 #include "core/memory.c"
-#include "core/string.c"
 #include "core/collections.c"
 #include "core/fs.c"
+#include "core/print.c"
 

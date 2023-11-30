@@ -8,9 +8,14 @@
 #include "defines.h"
 
 /// Output character to stdout.
-LD_API void char_output_stdout( char c );
+LD_API void print_char_stdout( char c );
 /// Output character to stderr.
-LD_API void char_output_stderr( char c );
+LD_API void print_char_stderr( char c );
+
+/// Output string to stdout.
+LD_API void print_string_stdout( usize len, const char* buffer );
+/// Output string to stderr.
+LD_API void print_string_stderr( usize len, const char* buffer );
 
 /// Print formatted string to stdout.
 LD_API void ___internal_print( usize format_len, const char* format, ... );
