@@ -22,8 +22,6 @@ struct PlatformAPI;
     /// Engine core init function prototype.
     typedef int CoreInitFN( int argc, char** argv, struct PlatformAPI* platform );
 #endif
-/// Thread procedure prototype.
-typedef b32 ThreadProcFN( void* user_params );
 
 /// Handle to surface.
 typedef void PlatformSurface;
@@ -251,14 +249,6 @@ typedef struct {
 
 #endif /* if not headless */
 
-// NOTE(alicia): Time API
-
-typedef void PlatformSleepMillisecondsFN( u32 ms );
-
-typedef struct {
-    PlatformSleepMillisecondsFN*   sleep_ms;
-} PlatformTimeAPI;
-
 // NOTE(alicia): IO API
 
 #if !defined(LD_HEADLESS)
@@ -275,15 +265,6 @@ typedef struct {
 } PlatformIOAPI;
 
 #endif
-
-// NOTE(alicia): Thread API
-
-typedef b32 PlatformThreadCreateFN(
-    ThreadProcFN* thread_proc, void* params, usize stack_size );
-
-typedef struct {
-    PlatformThreadCreateFN*        create;
-} PlatformThreadAPI;
 
 // NOTE(alicia): Misc
 
@@ -305,9 +286,6 @@ typedef struct PlatformAPI {
     PlatformFatalMessageBoxFN* fatal_message_box;
     PlatformIOAPI              io;
 #endif // if not headless
-
-    PlatformTimeAPI      time;
-    PlatformThreadAPI    thread;
 
     PlatformQueryInfoFN* query_info;
     PlatformLastErrorFN* last_error;

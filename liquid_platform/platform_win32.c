@@ -387,17 +387,12 @@ void win32_audio_stop( PlatformAudioContext* ctx );
 
 #endif // if not headless
 
-void win32_sleep_milliseconds( u32 ms );
-
 #if !defined(LD_HEADLESS)
 void win32_read_gamepads( PlatformGamepad gamepads[4] );
 void win32_set_gamepad_rumble(
     u32 gamepad_index, u16 left_motor, u16 right_motor );
 void win32_set_mouse_visible( b32 is_visible );
 #endif // if not headless
-
-b32 win32_thread_create(
-    ThreadProcFN* thread_proc, void* params, usize stack_size );
 
 PlatformInfo* win32_query_info(void);
 
@@ -795,7 +790,7 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
 #endif // simd width >= 8
 
     PlatformAPI api = {};
- 
+
 #if !defined(LD_HEADLESS)
     api.surface.create           = win32_surface_create;
     api.surface.destroy          = win32_surface_destroy;
@@ -826,8 +821,6 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
 
 #endif // if not headless
 
-    api.time.sleep_ms             = win32_sleep_milliseconds;
-
 #if !defined(LD_HEADLESS)
 
     api.io.read_gamepads       = win32_read_gamepads;
@@ -835,8 +828,6 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
     api.io.set_mouse_visible   = win32_set_mouse_visible;
 
 #endif // if not headless
-
-    api.thread.create = win32_thread_create;
 
     api.query_info        = win32_query_info;
     api.last_error        = win32_last_error;
@@ -1940,70 +1931,6 @@ void win32_set_mouse_visible( b32 is_visible ) {
 }
 
 #endif // if not headless
-
-// NOTE(alicia): Threading API
-
-struct Win32ThreadData {
-    ThreadProcFN* proc;
-    void*         params;
-    HANDLE        sem;
-};
-
-internal DWORD WINAPI win32_thread_proc( void* thread_params ) {
-    struct Win32ThreadData* thread_data = thread_params;
-    ThreadProcFN* proc   = thread_data->proc;
-    void*         params = thread_data->params;
-    HANDLE        sem    = thread_data->sem;
-
-    _ReadWriteBarrier();
-
-    ReleaseSemaphore( sem, 1, NULL );
-
-    _ReadWriteBarrier();
-
-    proc( params );
-
-    ExitThread( 0 );
-}
-
-b32 win32_thread_create(
-    ThreadProcFN* thread_proc, void* params, usize stack_size
-) {
-    assert( thread_proc );
-    struct Win32ThreadData data = {};
-    data.proc   = thread_proc;
-    data.params = params;
-    data.sem = CreateSemaphoreEx(
-        NULL, 0, I32_MAX, NULL, 0, SEMAPHORE_ALL_ACCESS );
-
-    if( !data.sem ) {
-        win32_report_last_error();
-        return false;
-    }
-
-    _ReadWriteBarrier();
-
-    DWORD id = 0;
-    HANDLE thread_handle = CreateThread(
-        NULL, stack_size,
-        win32_thread_proc, &data,
-        0, &id );
-    if( !thread_handle ) {
-        CloseHandle( data.sem );
-        win32_report_last_error();
-        return false;
-    }
-
-    _ReadWriteBarrier();
-
-    WaitForSingleObjectEx( data.sem, INFINITE, false );
-
-    _ReadWriteBarrier();
-
-    CloseHandle( data.sem );
-
-    return true;
-}
 
 // NOTE(alicia): Misc
 
