@@ -8,6 +8,7 @@
 #include "core/memory.h"
 #include "core/math.h"
 #include "core/fs.h"
+#include "core/thread.h"
 
 #include "engine/audio.h"
 #include "engine/logging.h"
@@ -370,7 +371,7 @@ void audio_subsystem_output(void) {
     semaphore_signal( &global_audio_mt.buffer_fill );
 }
 
-internal no_inline b32 on_buffer_fill( void* user_params ) {
+internal no_inline int on_buffer_fill( void* user_params ) {
     unused( user_params );
 
     read_write_fence();
@@ -411,7 +412,7 @@ internal no_inline b32 on_buffer_fill( void* user_params ) {
         platform->audio.unlock_buffer( global_audio_ctx, out_sample_count );
     }
 
-    return true;
+    return 0;
 }
 
 b32 audio_subsystem_initialize(void) {
@@ -464,7 +465,7 @@ b32 audio_subsystem_initialize(void) {
 
     read_write_fence();
 
-    if( !platform->thread.create( on_buffer_fill, NULL, STACK_SIZE ) ) {
+    if( !thread_create( on_buffer_fill, NULL ) ) {
         fatal_log( "Failed to create audio thread!" );
         return false;
     }
