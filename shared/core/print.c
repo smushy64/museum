@@ -6,59 +6,63 @@
 #include "defines.h"
 #include "core/print.h"
 #include "core/fmt.h"
-#include "core/internal.h"
+#include "core/internal/platform.h"
 
-LD_API void print_char_stdout( char c ) {
-    platform->io.console_write( platform->io.stdout_handle(), 1, &c );
+CORE_API void print_char_stdout( char c ) {
+    platform_file_write( platform_get_stdout(), 1, &c );
 }
-LD_API void print_char_stderr( char c ) {
-    platform->io.console_write( platform->io.stderr_handle(), 1, &c );
+CORE_API void print_char_stderr( char c ) {
+    platform_file_write( platform_get_stderr(), 1, &c );
 }
 
-LD_API void print_string_stdout( usize len, const char* buffer ) {
-    platform->io.console_write( platform->io.stdout_handle(), len, buffer );
+CORE_API void print_string_stdout( usize len, const char* buffer ) {
+    platform_file_write( platform_get_stdout(), len, (void*)buffer );
 }
-LD_API void print_string_stderr( usize len, const char* buffer ) {
-    platform->io.console_write( platform->io.stderr_handle(), len, buffer );
+CORE_API void print_string_stderr( usize len, const char* buffer ) {
+    platform_file_write( platform_get_stderr(), len, (void*)buffer );
 }
 
 internal usize ___internal_output_string(
     void* target, usize count, char* characters
 ) {
-    platform->io.console_write( target, count, characters );
+    platform_file_write( target, count, characters );
     return 0;
 }
 
-LD_API void ___internal_print( usize format_len, const char* format, ... ) {
+CORE_API void ___internal_print( usize format_len, const char* format, ... ) {
     va_list va;
     va_start( va, format );
 
     ___internal_fmt_write_va(
         ___internal_output_string,
-        platform->io.stdout_handle(), format_len, format, va );
+        platform_get_stdout(), format_len, format, va );
 
     va_end( va );
 }
-LD_API void ___internal_print_va( usize format_len, const char* format, va_list va ) {
+CORE_API void ___internal_print_va( usize format_len, const char* format, va_list va ) {
     ___internal_fmt_write_va(
         ___internal_output_string,
-        platform->io.stdout_handle(), format_len, format, va );
+        platform_get_stdout(), format_len, format, va );
 }
-LD_API void ___internal_print_err( usize format_len, const char* format, ... ) {
+CORE_API void ___internal_print_err( usize format_len, const char* format, ... ) {
     va_list va;
     va_start( va, format );
 
     ___internal_fmt_write_va(
         ___internal_output_string,
-        platform->io.stderr_handle(), format_len, format, va );
+        platform_get_stderr(), format_len, format, va );
 
     va_end( va );
 }
-LD_API void ___internal_print_err_va(
+CORE_API void ___internal_print_err_va(
     usize format_len, const char* format, va_list va
 ) {
     ___internal_fmt_write_va(
         ___internal_output_string,
-        platform->io.stderr_handle(), format_len, format, va );
+        platform_get_stderr(), format_len, format, va );
+}
+
+CORE_API void output_debug_string( const char* cstr ) {
+    platform_win32_output_debug_string( cstr );
 }
 

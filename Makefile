@@ -83,15 +83,17 @@ export VK_MINOR := 2
 export GL_MAJOR := 4
 export GL_MINOR := 5
 
-export LD_EXE_NAME       := liquid-engine$(if $(RELEASE),,-debug)
+export LD_EXE_NAME       := liquid$(if $(RELEASE),,-debug)
 export LD_EXE            := $(LD_EXE_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)
 export TARGET            := $(BUILD_PATH)/$(LD_EXE)
 export LIB_CORE_NAME     := liquid-core$(if $(RELEASE),,-debug)
 export LIB_CORE          := $(LIB_CORE_NAME).$(SO_EXT)
-export LIB_PACKAGER_NAME := liquid-packager
-export LIB_PACKAGER      := $(LIB_PACKAGER_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)
+export LIB_ENGINE_NAME   := liquid-engine$(if $(RELEASE),,-debug)
+export LIB_ENGINE        := $(LIB_ENGINE_NAME).$(SO_EXT)
 export LIB_TESTBED_NAME  := testbed$(if $(RELEASE),,-debug)
 export LIB_TESTBED       := $(LIB_TESTBED_NAME).$(SO_EXT)
+export PKG_EXE_NAME      := lpkg
+export PKG_EXE           := $(PKG_EXE_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)
 
 CPPFLAGS := -DLD_SIMD_WIDTH=4
 CPPFLAGS += -DLIQUID_ENGINE_VERSION=\""$(LD_NAME) $(LD_VERSION)"\"
@@ -103,7 +105,7 @@ CPPFLAGS += -DGL_VERSION_MINOR=$(GL_MINOR)
 CPPFLAGS += -DVULKAN_VERSION_MAJOR=$(VK_MAJOR)
 CPPFLAGS += -DVULKAN_VERSION_MINOR=$(VK_MINOR)
 CPPFLAGS += -DLD_EXPORT
-CPPFLAGS += -DLIQUID_ENGINE_CORE_LIBRARY_PATH=\"$(LIB_CORE)\"
+CPPFLAGS += -DLIQUID_ENGINE_PATH=\"$(LIB_ENGINE)\"
 CPPFLAGS += -DLD_PLATFORM_INTERNAL
 CPPFLAGS += -DSTACK_SIZE=$(LD_STACK_SIZE)
 
@@ -135,7 +137,8 @@ LOCAL_SHARED_HEADERS  := $(addprefix ./shared/,$(SHARED_HEADERS))
 
 SHARED_SOURCES := $(call recurse,./shared,*.c)
 
-all: $(if $(DEPENDENCIES_ONLY),generate_dependencies,shaders $(if $(SHADER_ONLY),,$(TARGET) build_core build_package))
+all: $(TARGET) build_core build_package build_engine shaders
+# all: $(if $(DEPENDENCIES_ONLY),generate_dependencies,shaders $(if $(SHADER_ONLY),,$(TARGET) build_core build_package))
 
 generate_dependencies:
 	@$(MAKE) --directory=liquid_engine generate_dependencies
@@ -143,13 +146,15 @@ generate_dependencies:
 
 test: all
 	@$(MAKE) --directory=testbed --no-print-directory
-	# @$(if $(shell which remedybg), remedybg start-debugging,)
 
-build_core: 
+build_core:
+	@$(MAKE) --directory=shared --no-print-directory
+
+build_engine: build_core
 	@$(MAKE) --directory=liquid_engine --no-print-directory
 
-build_package:
-	@$(MAKE) --directory=liquid_package --no-print-directory
+build_package: build_core
+	@$(MAKE) --directory=package --no-print-directory
 
 shaders:
 	@$(MAKE) --directory=shaders --no-print-directory
@@ -185,10 +190,11 @@ spit:
 	@echo "ldflags:    "$(LDFLAGS)
 	@echo
 	@echo "main:       "$(LD_PLATFORM_MAIN)
+	@$(MAKE) --directory=shared spit
 	@$(MAKE) --directory=liquid_engine spit
+	@$(MAKE) --directory=package spit
 	@$(MAKE) --directory=shaders spit
 	@$(MAKE) --directory=testbed spit
-	@$(MAKE) --directory=liquid_package spit
 
 clean: $(if $(DEPENDENCIES_ONLY),clean_dependencies,$(if $(SHADER_ONLY),,clean_files) clean_shaders) 
 
@@ -241,7 +247,7 @@ $(WIN32RESOURCES):win32/resources.rc
 	@mkdir -p $(OBJ_PATH)
 	@windres win32/resources.rc -o $(WIN32RESOURCES)
 
-$(TARGET): $(if $(IS_WINDOWS),$(WIN32RESOURCES),) $(LD_PLATFORM_MAIN) $(LOCAL_SHARED_HEADERS) ./liquid_platform/platform.h $(SHARED_SOURCES)
+$(TARGET): $(if $(IS_WINDOWS),$(WIN32RESOURCES),) $(LD_PLATFORM_MAIN) $(LOCAL_SHARED_HEADERS) ./liquid_platform/api.h $(SHARED_SOURCES)
 	@echo "Make: compiling "$(TARGET)" . . ."
 	@mkdir -p $(OBJ_PATH)
 	@$(CC) $(CSTD) $(LD_PLATFORM_MAIN) $(WIN32RESOURCES) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)

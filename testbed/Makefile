@@ -42,11 +42,10 @@ else
 	CPPFLAGS += -DLD_LOGGING -DLD_ASSERTIONS -DLD_PROFILING
 endif
 
-LDFLAGS := -shared
+LDFLAGS := -shared -L$(LOCAL_BUILD_PATH) -l$(LIB_CORE_NAME) -l$(LIB_ENGINE_NAME)
 
 ifeq ($(TARGET_PLATFORM), win32)
-	LDFLAGS += -fuse-ld=lld -nostdlib
-	LDFLAGS += -L$(LOCAL_BUILD_PATH) -l$(LIB_CORE_NAME)
+	LDFLAGS += -nostdlib
 	LDFLAGS += -mstack-probe-size=999999999 -Wl,//stack:$(LD_STACK_SIZE)
 
 	ifeq ($(RELEASE), true)
@@ -54,6 +53,8 @@ ifeq ($(TARGET_PLATFORM), win32)
 	else
 		LDFLAGS += -Wl,//debug
 	endif
+
+	LDFLAGS := -fuse-ld=lld $(LDFLAGS)
 endif
 
 DLLMAIN     := ../liquid_platform/platform_dllmain.c

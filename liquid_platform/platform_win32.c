@@ -3,7 +3,11 @@
 // * File Created: September 21, 2023
 #include "defines.h"
 #include "constants.h"
-#include "platform.h"
+#include "api.h"
+
+#undef CORE_API
+#define CORE_API
+
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
@@ -383,10 +387,7 @@ void win32_audio_stop( PlatformAudioContext* ctx );
 
 #endif // if not headless
 
-f64 win32_elapsed_milliseconds(void);
-f64 win32_elapsed_seconds(void);
 void win32_sleep_milliseconds( u32 ms );
-PlatformTime win32_query_system_time(void);
 
 #if !defined(LD_HEADLESS)
 void win32_read_gamepads( PlatformGamepad gamepads[4] );
@@ -395,52 +396,8 @@ void win32_set_gamepad_rumble(
 void win32_set_mouse_visible( b32 is_visible );
 #endif // if not headless
 
-PlatformFile* win32_stdout_handle(void);
-PlatformFile* win32_stderr_handle(void);
-void win32_console_write(
-    PlatformFile* console, usize buffer_size, const char* buffer );
-PlatformFile* win32_file_open(
-    const char* path, PlatformFileFlags flags );
-void win32_file_close( PlatformFile* file );
-b32 win32_file_read(
-    PlatformFile* file, usize buffer_size, void* buffer );
-b32 win32_file_write(
-    PlatformFile* file, usize buffer_size, void* buffer );
-b32 win32_file_write_offset(
-    PlatformFile* file, usize buffer_size, void* buffer, usize offset_from_start );
-usize win32_file_query_size( PlatformFile* file );
-void win32_file_set_offset( PlatformFile* file, usize offset );
-usize win32_file_query_offset( PlatformFile* file );
-b32 win32_file_delete_by_path( const char* path );
-b32 win32_file_copy_by_path(
-    const char* dst, const char* src, b32 fail_if_dest_exists );
-void win32_output_debug_string( const char* cstr );
-
-PlatformLibrary* win32_platform_library_open( const char* library_path );
-void win32_library_close( PlatformLibrary* library );
-void* win32_library_load_function(
-    PlatformLibrary* library, const char* function_name );
-
 b32 win32_thread_create(
     ThreadProcFN* thread_proc, void* params, usize stack_size );
-PlatformSemaphore* win32_semaphore_create(
-    const char* name, u32 initial_count );
-void win32_semaphore_destroy( PlatformSemaphore* semaphore );
-void win32_semaphore_signal( PlatformSemaphore* semaphore );
-void win32_semaphore_wait( PlatformSemaphore* semaphore );
-b32 win32_semaphore_wait_timed(
-    PlatformSemaphore* semaphore, u32 timeout_ms );
-PlatformMutex* win32_mutex_create(void);
-void win32_mutex_destroy( PlatformMutex* mutex );
-void win32_mutex_lock( PlatformMutex* mutex );
-void win32_mutex_unlock( PlatformMutex* mutex );
-
-void* win32_heap_alloc( usize size );
-void* win32_heap_realloc(
-    void* memory, usize old_size, usize new_size );
-void win32_heap_free( void* memory, usize size );
-void* win32_page_alloc( usize size );
-void win32_page_free( void* memory, usize size );
 
 PlatformInfo* win32_query_info(void);
 
@@ -498,8 +455,8 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
 
 #if defined(LD_DEVELOPER_MODE)
     #define WIN32_REPORT_ERROR( message ) do {\
-        win32_console_write( win32_stderr_handle(), sizeof(message), message );\
-        win32_output_debug_string( message );\
+        WriteConsoleA( GetStdHandle( STD_ERROR_HANDLE ), message, sizeof(message), NULL, NULL );\
+        OutputDebugStringA( message );\
     } while(0)
 #else
     #define WIN32_REPORT_ERROR( ... )
@@ -513,12 +470,10 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
             usize       last_error_len = 0;\
             const char* last_error     = NULL;\
             win32_last_error( &last_error_len, &last_error );\
-            win32_console_write(\
-                win32_stderr_handle(), sizeof( message ), message );\
-            win32_console_write(\
-                win32_stderr_handle(), last_error_len, last_error );\
-            win32_output_debug_string( message );\
-            win32_output_debug_string( last_error );\
+            WriteConsoleA( GetStdHandle( STD_ERROR_HANDLE ), message, sizeof(message), NULL, NULL );\
+            WriteConsoleA( GetStdHandle( STD_ERROR_HANDLE ), last_error, last_error_len, NULL, NULL );\
+            OutputDebugStringA( message );\
+            OutputDebugStringA( last_error );\
         }\
     } while(0)
 #else
@@ -527,12 +482,10 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
             usize       last_error_len = 0;\
             const char* last_error     = NULL;\
             win32_last_error( &last_error_len, &last_error );\
-            win32_console_write(\
-                win32_stderr_handle(), sizeof( message ), message );\
-            win32_console_write(\
-                win32_stderr_handle(), last_error_len, last_error );\
-            win32_output_debug_string( message );\
-            win32_output_debug_string( last_error );\
+            WriteConsoleA( GetStdHandle( STD_ERROR_HANDLE ), message, sizeof(message), NULL, NULL );\
+            WriteConsoleA( GetStdHandle( STD_ERROR_HANDLE ), last_error, last_error_len, NULL, NULL );\
+            OutputDebugStringA( message );\
+            OutputDebugStringA( last_error );\
         }\
         if( ___internal_MessageBoxA ) {\
             win32_fatal_message_box(\
@@ -591,12 +544,12 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
 #endif // if not headless
 
 #if !defined(LD_CORE_STATIC_BUILD)
-    HMODULE core = LoadLibraryA( LIQUID_ENGINE_CORE_LIBRARY_PATH );
+    HMODULE core = LoadLibraryA( LIQUID_ENGINE_PATH );
     if( !core ) {
         WIN32_REPORT_FATAL_ERROR(
             WIN32_ERROR_OPEN_CORE,
             "Fatal Error: Failed to open Engine Core library! "
-            "Core Library Path: " LIQUID_ENGINE_CORE_LIBRARY_PATH );
+            "Core Library Path: " LIQUID_ENGINE_PATH );
         EXIT( WIN32_ERROR_OPEN_CORE );
     }
 
@@ -873,10 +826,7 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
 
 #endif // if not headless
 
-    api.time.elapsed_milliseconds = win32_elapsed_milliseconds;
-    api.time.elapsed_seconds      = win32_elapsed_seconds;
     api.time.sleep_ms             = win32_sleep_milliseconds;
-    api.time.query_system_time    = win32_query_system_time;
 
 #if !defined(LD_HEADLESS)
 
@@ -886,41 +836,7 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
 
 #endif // if not headless
 
-    api.io.stdout_handle       = win32_stdout_handle;
-    api.io.stderr_handle       = win32_stderr_handle;
-    api.io.console_write       = win32_console_write;
-    api.io.file_open           = win32_file_open;
-    api.io.file_close          = win32_file_close;
-    api.io.file_read           = win32_file_read;
-    api.io.file_write          = win32_file_write;
-    api.io.file_write_offset   = win32_file_write_offset;
-    api.io.file_query_size     = win32_file_query_size;
-    api.io.file_set_offset     = win32_file_set_offset;
-    api.io.file_query_offset   = win32_file_query_offset;
-    api.io.file_delete_by_path = win32_file_delete_by_path;
-    api.io.file_copy_by_path   = win32_file_copy_by_path;
-    api.io.output_debug_string = win32_output_debug_string;
-
-    api.library.open          = win32_platform_library_open;
-    api.library.close         = win32_library_close;
-    api.library.load_function = win32_library_load_function;
-
     api.thread.create = win32_thread_create;
-    api.thread.semaphore_create     = win32_semaphore_create;
-    api.thread.semaphore_destroy    = win32_semaphore_destroy;
-    api.thread.semaphore_signal     = win32_semaphore_signal;
-    api.thread.semaphore_wait       = win32_semaphore_wait;
-    api.thread.semaphore_wait_timed = win32_semaphore_wait_timed;
-    api.thread.mutex_create  = win32_mutex_create;
-    api.thread.mutex_destroy = win32_mutex_destroy;
-    api.thread.mutex_lock    = win32_mutex_lock;
-    api.thread.mutex_unlock  = win32_mutex_unlock;
-
-    api.memory.heap_alloc   = win32_heap_alloc;
-    api.memory.heap_realloc = win32_heap_realloc;
-    api.memory.heap_free    = win32_heap_free;
-    api.memory.page_alloc   = win32_page_alloc;
-    api.memory.page_free    = win32_page_free;
 
     api.query_info        = win32_query_info;
     api.last_error        = win32_last_error;
@@ -991,7 +907,7 @@ PlatformSurface* win32_surface_create(
     PlatformSurfaceGraphicsBackend backend
 ) {
     struct Win32Surface* win32_surface =
-        win32_heap_alloc( sizeof(struct Win32Surface) );
+        HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(struct Win32Surface) );
     if( !win32_surface ) {
         return NULL;
     }
@@ -1104,7 +1020,7 @@ void win32_surface_destroy( PlatformSurface* surface ) {
     ReleaseDC( win32_surface->hWnd, win32_surface->hDc );
     DestroyWindow( win32_surface->hWnd );
 
-    win32_heap_free( win32_surface, sizeof(struct Win32Surface) );
+    HeapFree( GetProcessHeap(), HEAP_ZERO_MEMORY, win32_surface );
 }
 void win32_surface_set_callbacks(
     PlatformSurface* surface, PlatformSurfaceCallbacks* callbacks
@@ -1382,8 +1298,8 @@ struct Win32AudioContext {
 
 PlatformAudioContext* win32_audio_initialize( u64 buffer_length_ms ) {
 
-    struct Win32AudioContext* ctx =
-        win32_heap_alloc( sizeof( struct Win32AudioContext ) );
+    struct Win32AudioContext* ctx = HeapAlloc(
+        GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof( struct Win32AudioContext ) );
     if( !ctx ) {
         return NULL;
     }
@@ -1397,7 +1313,7 @@ PlatformAudioContext* win32_audio_initialize( u64 buffer_length_ms ) {
     #define WIN32_AUDIO_LOAD( function ) do {\
         ___internal_##function = (___internal_##function##FN*)GetProcAddress( ctx->ole32, #function );\
         if( !___internal_##function ) {\
-            win32_heap_free( ctx, sizeof( struct Win32AudioContext ) );\
+            HeapFree( GetProcessHeap(), 0, ctx );\
             return NULL;\
         }\
     } while(0)
@@ -1411,7 +1327,7 @@ PlatformAudioContext* win32_audio_initialize( u64 buffer_length_ms ) {
     #define AUDFN( function_call ) do {\
         HRESULT hresult = function_call;\
         if( FAILED( hresult ) ) {\
-            win32_heap_free( ctx, sizeof( struct Win32AudioContext ) );\
+            HeapFree( GetProcessHeap(), 0, ctx );\
             return NULL;\
         }\
     } while(0)
@@ -1503,7 +1419,7 @@ void win32_audio_shutdown( PlatformAudioContext* context ) {
 
     FreeLibrary( ctx->ole32 );
 
-    win32_heap_free( ctx, sizeof( struct Win32AudioContext ) );
+    HeapFree( GetProcessHeap(), 0, ctx );
 }
 PlatformAudioBufferFormat win32_audio_query_buffer_format(
     PlatformAudioContext* context
@@ -1972,43 +1888,9 @@ LRESULT win32_winproc(
 
 // NOTE(alicia): Time API
 
-f64 win32_elapsed_milliseconds(void) {
-    LARGE_INTEGER current_performance_counter;
-    QueryPerformanceCounter( &current_performance_counter );
-    u64 elapsed = current_performance_counter.QuadPart -
-        global_performance_counter.QuadPart;
-
-    return
-        (f64)(elapsed * 1000) /
-        (f64)(global_performance_frequency.QuadPart);
-}
-f64 win32_elapsed_seconds(void) {
-    LARGE_INTEGER current_performance_counter;
-    QueryPerformanceCounter( &current_performance_counter );
-    u64 elapsed = current_performance_counter.QuadPart -
-        global_performance_counter.QuadPart;
-
-    return
-        (f64)(elapsed) /
-        (f64)(global_performance_frequency.QuadPart);
-}
 void win32_sleep_milliseconds( u32 ms ) {
     DWORD dwMilliseconds = ms;
     Sleep( dwMilliseconds );
-}
-PlatformTime win32_query_system_time(void) {
-    PlatformTime result = {};
-    SYSTEMTIME system_time;
-    GetLocalTime( &system_time );
-
-    result.year   = (u32)system_time.wYear;
-    result.month  = (u32)system_time.wMonth;
-    result.day    = (u32)system_time.wDay;
-    result.hour   = (u32)system_time.wHour;
-    result.minute = (u32)system_time.wMinute;
-    result.second = (u32)system_time.wSecond;
-
-    return result;
 }
 
 // NOTE(alicia): IO API
@@ -2058,311 +1940,6 @@ void win32_set_mouse_visible( b32 is_visible ) {
 }
 
 #endif // if not headless
-
-PlatformFile* win32_stdout_handle(void) {
-    return GetStdHandle( STD_OUTPUT_HANDLE );
-}
-PlatformFile* win32_stderr_handle(void) {
-    return GetStdHandle( STD_ERROR_HANDLE );
-}
-void win32_console_write(
-    PlatformFile* console, usize buffer_size, const char* buffer
-) {
-    WriteConsoleA( console, buffer, buffer_size, NULL, NULL );
-}
-
-PlatformFile* win32_file_open(
-    const char* path, PlatformFileFlags flags
-) {
-    DWORD dwDesiredAccess = 0;
-    if( bitfield_check( flags, PLATFORM_FILE_READ ) ) {
-        dwDesiredAccess |= GENERIC_READ;
-    }
-    if( bitfield_check( flags, PLATFORM_FILE_WRITE ) ) {
-        dwDesiredAccess |= GENERIC_WRITE;
-    }
-
-    DWORD dwShareMode = 0;
-    if( bitfield_check( flags, PLATFORM_FILE_SHARE_READ ) ) {
-        dwShareMode |= FILE_SHARE_READ;
-    }
-    if( bitfield_check( flags, PLATFORM_FILE_SHARE_WRITE ) ) {
-        dwShareMode |= FILE_SHARE_WRITE;
-    }
-
-    DWORD dwCreationDisposition = 0;
-    if( bitfield_check( flags, PLATFORM_FILE_ONLY_EXISTING ) ) {
-        dwCreationDisposition |= OPEN_EXISTING;
-    } else {
-        dwCreationDisposition |= OPEN_ALWAYS;
-    }
-
-    LPSECURITY_ATTRIBUTES lpSecurityAttributes = NULL;
-
-    DWORD dwFlagsAndAttributes = 0;
-
-    HANDLE hTemplateFile = NULL;
-
-    HANDLE handle = CreateFileA(
-        path,
-        dwDesiredAccess,
-        dwShareMode,
-        lpSecurityAttributes,
-        dwCreationDisposition,
-        dwFlagsAndAttributes,
-        hTemplateFile );
-    if( handle == INVALID_HANDLE_VALUE ) {
-        win32_report_last_error();
-        return NULL;
-    }
-
-    return handle;
-}
-void win32_file_close( PlatformFile* file ) {
-    CloseHandle( (HANDLE)file );
-}
-b32 win32_file_read(
-    PlatformFile* file, usize buffer_size, void* buffer
-) {
-#if defined(LD_ARCH_64_BIT)
-    LARGE_INTEGER read = {};
-    read.QuadPart = buffer_size;
-
-    DWORD bytes_read = 0;
-    if( !ReadFile(
-        file, buffer,
-        read.LowPart,
-        &bytes_read,
-        NULL
-    ) ) {
-        return false;
-    }
-
-    if( bytes_read < read.LowPart ) {
-        return false;
-    }
-
-    // if less than 4GB, early return 
-    if( !read.HighPart ) {
-        return true;
-    }
-
-    bytes_read = 0;
-    if( !ReadFile(
-        file, (u8*)buffer + read.LowPart,
-        read.HighPart,
-        &bytes_read,
-        NULL
-    ) ) {
-        return false;
-    }
-
-    if( bytes_read < *(DWORD*)&read.HighPart ) {
-        return false;
-    }
-
-#else
-    DWORD bytes_to_read = buffer_size;
-    DWORD bytes_read    = 0;
-    if( !ReadFile(
-        file, buffer,
-        bytes_to_read,
-        &bytes_to_read,
-        NULL
-    ) ) {
-        return false;
-    }
-
-    if( bytes_to_read < bytes_read ) {
-        return false;
-    }
-#endif
-
-    return true;
-}
-b32 win32_file_write(
-    PlatformFile* file, usize buffer_size, void* buffer
-) {
-#if defined(LD_ARCH_64_BIT)
-    LARGE_INTEGER write = {};
-    write.QuadPart      = buffer_size;
-    DWORD bytes_written = 0;
-
-    if( !WriteFile(
-        file, buffer,
-        write.LowPart,
-        &bytes_written,
-        NULL
-    ) ) {
-        return false;
-    }
-
-    if( bytes_written != write.LowPart ) {
-        return false;
-    }
-
-    // early return if no more write.
-    if( !write.HighPart ) {
-        return true;
-    }
-
-    bytes_written = 0;
-    if( !WriteFile(
-        file, (u8*)buffer + write.LowPart,
-        write.HighPart,
-        &bytes_written,
-        NULL
-    ) ) {
-        return false;
-    }
-
-    if( bytes_written != *(DWORD*)&write.HighPart ) {
-        return false;
-    }
-
-    return true;
-#else
-    DWORD bytes_to_write = buffer_size;
-    DWORD bytes_written  = 0;
-
-    if( !WriteFile(
-        file, buffer,
-        bytes_to_write,
-        &bytes_written,
-        NULL
-    ) ) {
-        return false;
-    }
-
-    if( bytes_to_write != bytes_written ) {
-        return false;
-    }
-
-    return true;
-#endif
-
-}
-b32 win32_file_write_offset(
-    PlatformFile* file, usize buffer_size, void* buffer, usize offset_from_start
-) {
-    LARGE_INTEGER offset = {};
-    offset.QuadPart = offset_from_start;
-
-    OVERLAPPED overlapped = {};
-    overlapped.Offset     = offset.LowPart;
-    overlapped.OffsetHigh = offset.HighPart;
-
-    LARGE_INTEGER write = {};
-    write.QuadPart      = buffer_size;
-    DWORD bytes_written = 0;
-
-    if( WriteFile(
-        file, buffer,
-        write.LowPart,
-        &bytes_written,
-        &overlapped
-    ) != TRUE ) {
-        if( GetLastError() != ERROR_IO_PENDING ) {
-            return false;
-        }
-    }
-
-    if( bytes_written != write.LowPart ) {
-        return false;
-    }
-
-    return true;
-}
-
-usize win32_file_query_size( PlatformFile* file ) {
-#if defined(LD_ARCH_64_BIT)
-    LARGE_INTEGER result = {};
-    GetFileSizeEx( file, &result );
-    return result.QuadPart;
-#else
-    return GetFileSize( file, NULL );
-#endif
-
-}
-void win32_file_set_offset( PlatformFile* file, usize offset ) {
-#if defined(LD_ARCH_64_BIT)
-    LARGE_INTEGER large_offset = {};
-    large_offset.QuadPart = offset;
-
-    SetFilePointerEx(
-        (HANDLE)file,
-        large_offset,
-        NULL,
-        FILE_BEGIN
-    );
-#else
-    LONG off = offset;
-    SetFilePointer(
-        file,
-        off, NULL,
-        FILE_BEGIN
-    );
-#endif
-}
-usize win32_file_query_offset( PlatformFile* file ) {
-#if defined(LD_ARCH_64_BIT)
-    LARGE_INTEGER offset = {};
-    LARGE_INTEGER result = {};
-    SetFilePointerEx(
-        file,
-        offset,
-        &result,
-        FILE_CURRENT
-    );
-
-    return result.QuadPart;
-#else
-    LONG result = 0;
-    SetFilePointer(
-        file,
-        0, &result,
-        FILE_CURRENT
-    );
-
-    return result;
-#endif
-}
-b32 win32_file_delete_by_path( const char* path ) {
-    return DeleteFileA( path ) > 0;
-}
-b32 win32_file_copy_by_path(
-    const char* dst, const char* src, b32 fail_if_dest_exists
-) {
-    return CopyFile( src, dst, fail_if_dest_exists ) > 0;
-}
-void win32_output_debug_string( const char* cstr ) {
-    OutputDebugStringA( cstr );
-}
-
-// NOTE(alicia): Library API
-
-PlatformLibrary* win32_platform_library_open( const char* library_path ) {
-    HMODULE module = LoadLibraryA( library_path );
-    if( !module ) {
-        win32_report_last_error();
-    }
-    return (PlatformLibrary*)module;
-}
-void win32_library_close( PlatformLibrary* library ) {
-    if( !FreeLibrary( (HMODULE)library ) ) {
-        win32_report_last_error();
-    }
-}
-void* win32_library_load_function(
-    PlatformLibrary* library, const char* function_name
-) {
-    void* function = (void*)GetProcAddress( (HMODULE)library, function_name );
-    if( !function ) {
-        win32_report_last_error();
-        return NULL;
-    }
-    return function;
-}
 
 // NOTE(alicia): Threading API
 
@@ -2426,69 +2003,6 @@ b32 win32_thread_create(
     CloseHandle( data.sem );
 
     return true;
-}
-PlatformSemaphore* win32_semaphore_create(
-    const char* name, u32 initial_count
-) {
-    assert( name );
-    HANDLE result = CreateSemaphoreEx(
-        NULL, initial_count, I32_MAX, name, 0, SEMAPHORE_ALL_ACCESS );
-    if( !result ) {
-        win32_report_last_error();
-        return NULL;
-    }
-    return (PlatformSemaphore*)result;
-}
-void win32_semaphore_destroy( PlatformSemaphore* semaphore ) {
-    CloseHandle( (HANDLE)semaphore );
-}
-void win32_semaphore_signal( PlatformSemaphore* semaphore ) {
-    ReleaseSemaphore( (HANDLE)semaphore, 1, NULL );
-}
-void win32_semaphore_wait( PlatformSemaphore* semaphore ) {
-    WaitForSingleObjectEx( (HANDLE)semaphore, INFINITE, false );
-}
-b32 win32_semaphore_wait_timed(
-    PlatformSemaphore* semaphore, u32 timeout_ms
-) {
-    return WaitForSingleObjectEx( (HANDLE)semaphore, timeout_ms, false )
-        != WAIT_TIMEOUT;
-}
-PlatformMutex* win32_mutex_create(void) {
-    return (PlatformMutex*)CreateMutexA( NULL, false, NULL );
-}
-void win32_mutex_destroy( PlatformMutex* mutex ) {
-    CloseHandle( (HANDLE)mutex );
-}
-void win32_mutex_lock( PlatformMutex* mutex ) {
-    WaitForSingleObject( mutex, INFINITE );
-}
-void win32_mutex_unlock( PlatformMutex* mutex ) {
-    ReleaseMutex( (HANDLE)mutex );
-}
-
-// NOTE(alicia): Memory API
-
-void* win32_heap_alloc( usize size ) {
-    return (void*)HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, size );
-}
-void* win32_heap_realloc(
-    void* memory, usize old_size, usize new_size
-) {
-    unused(old_size);
-    return (void*)HeapReAlloc(
-        GetProcessHeap(), HEAP_ZERO_MEMORY, memory, new_size );
-}
-void win32_heap_free( void* memory, usize size ) {
-    unused(size);
-    HeapFree( GetProcessHeap(), 0, memory );
-}
-void* win32_page_alloc( usize size ) {
-    return (void*)VirtualAlloc(
-        NULL, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE );
-}
-void win32_page_free( void* memory, usize size ) {
-    VirtualFree( memory, size, MEM_RELEASE | MEM_DECOMMIT );
 }
 
 // NOTE(alicia): Misc
@@ -2811,8 +2325,4 @@ LPSTR* WINAPI CommandLineToArgvA(LPSTR lpCmdline, int* numargs) {
 
     return argv;
 }
-
-#include "core/memory_ops.c"
-#include "core/fmt.c"
-#include "core/string.c"
 

@@ -4,12 +4,13 @@
  * File Created: April 27, 2023
 */
 #include "defines.h"
-#include "engine/logging.h"
-#include "engine/time.h"
-#include "core/internal.h"
-#include "engine/thread.h"
+#include "core/sync.h"
 #include "core/print.h"
 #include "core/string.h"
+#include "core/fs.h"
+#include "core/time.h"
+
+#include "engine/logging.h"
 
 #define LOGGING_TIMESTAMP_BUFFER_SIZE (32)
 
@@ -18,43 +19,42 @@ global char LOGGING_BUFFER[LOGGING_BUFFER_SIZE] = {0};
 
 global LoggingLevel LOGGING_LEVEL = LOGGING_LEVEL_NONE;
 
-global Mutex* LOGGING_MUTEX = NULL;
+global Mutex LOGGING_MUTEX = {};
 internal force_inline
 void ___log_lock(void) {
-    if( LOGGING_MUTEX ) {
-        mutex_lock( LOGGING_MUTEX );
+    if( LOGGING_MUTEX.handle ) {
+        mutex_lock( &LOGGING_MUTEX );
     }
 }
 internal force_inline
 void ___log_unlock(void) {
-    if( LOGGING_MUTEX ) {
-        mutex_unlock( LOGGING_MUTEX );
+    if( LOGGING_MUTEX.handle ) {
+        mutex_unlock( &LOGGING_MUTEX );
     }
 }
 
-global PlatformFile* LOGGING_FILE = NULL;
+global FSFile* LOGGING_FILE = NULL;
 internal force_inline
 void ___log_output_file( StringSlice* message ) {
     if( LOGGING_FILE ) {
-        platform->io.file_write( LOGGING_FILE, message->len, message->buffer );
+        fs_file_write( LOGGING_FILE, message->len, message->buffer );
     }
 }
 
 
-void logging_subsystem_initialize( PlatformFile* output_file ) {
+void logging_subsystem_initialize( FSFile* output_file ) {
     LOGGING_FILE  = output_file;
     if( LOGGING_FILE ) {
-        usize file_size = platform->io.file_query_size( LOGGING_FILE );
-        platform->io.file_set_offset( LOGGING_FILE, file_size - 1 );
+        usize file_size = fs_file_query_size( LOGGING_FILE );
+        fs_file_set_offset( LOGGING_FILE, file_size - 1 );
 
         string_slice_mut( logging_file_header, "\n\n[PROGRAM START] --------\n\n" );
         ___log_output_file( &logging_file_header );
     }
 
-    LOGGING_MUTEX = mutex_create();
-    assert( LOGGING_MUTEX );
+    assert( mutex_create( &LOGGING_MUTEX ) );
 }
-void logging_subsystem_attach_file( PlatformFile* file ) {
+void logging_subsystem_attach_file( FSFile* file ) {
     ___log_lock();
     read_write_fence();
 
@@ -95,7 +95,7 @@ LD_API LoggingLevel logging_query_level(void) {
         if( !LOGGING_OUTPUT_DEBUG_STRING_ENABLED ) {
             return;
         }
-        platform->io.output_debug_string( message->buffer );
+        output_debug_string( message->buffer );
     }
 
     #define ___log_output_debug_string( message )\
@@ -177,21 +177,16 @@ void ___log_console_color_reset( LoggingType type ) {
 internal force_inline
 void ___log_generate_timestamp( StringSlice* slice ) {
 
-    u32 month = time_query_month();
-    u32 day   = time_query_day();
-    u32 year  = time_query_year();
+    TimeRecord record = time_record();
 
     b32 is_am;
     u32 hour;
-    time_query_hour_12hr( &hour, &is_am );
-
-    u32 minute = time_query_minute();
-    u32 second = time_query_second();
+    time_hour_24_to_hour_12( record.hour, &hour, &is_am );
 
     string_slice_fmt(
         slice, "[{u,02}/{u,02}/{u,04} {u,02}:{u,02}:{u,02} {cc}] ",
-        month, day, year,
-        hour, minute, second,
+        record.month, record.day, record.year,
+        hour, record.minute, record.second,
         is_am ? "AM" : "PM" );
 }
 

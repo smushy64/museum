@@ -6,10 +6,10 @@
 #include "defines.h"
 
 #if defined(LD_API_INTERNAL)
-#include "core/internal.h"
 #include "core/math.h"
 #include "core/collections.h"
 #include "engine/graphics/types.h"
+#include "engine/internal/platform.h"
 
 extern struct RendererSubsystem* global_renderer;
 extern struct RenderData*        global_render_data;

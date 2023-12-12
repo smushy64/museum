@@ -8,26 +8,26 @@
 #include "core/simd.h"
 #include "core/math.h"
 
-LD_API u32 round_u32( f32 x ) {
+CORE_API u32 round_u32( f32 x ) {
     return lane1f_round_u32( x );
 }
-LD_API u32 floor_u32( f32 x ) {
+CORE_API u32 floor_u32( f32 x ) {
     return lane1f_floor_u32( x );
 }
-LD_API u32 ceil_u32( f32 x ) {
+CORE_API u32 ceil_u32( f32 x ) {
     return lane1f_ceil_u32( x );
 }
-LD_API i32 round_i32( f32 x ) {
+CORE_API i32 round_i32( f32 x ) {
     return lane1f_round_i32( x );
 }
-LD_API i32 floor_i32( f32 x ) {
+CORE_API i32 floor_i32( f32 x ) {
     return lane1f_floor_i32( x );
 }
-LD_API i32 ceil_i32( f32 x ) {
+CORE_API i32 ceil_i32( f32 x ) {
     return lane1f_ceil_i32( x );
 }
 
-LD_API b32 is_nan( f32 x ) {
+CORE_API b32 is_nan( f32 x ) {
     u32 bitpattern = reinterpret_cast( u32, &x );
 
     u32 exp = bitpattern & F32_EXPONENT_MASK;
@@ -36,14 +36,14 @@ LD_API b32 is_nan( f32 x ) {
     return exp == F32_EXPONENT_MASK && man != 0;
 }
 
-LD_API f32 square_root( f32 x ) {
+CORE_API f32 square_root( f32 x ) {
     return lane1f_sqrt( x );
 }
-LD_API f32 inv_square_root( f32 x ) {
+CORE_API f32 inv_square_root( f32 x ) {
     return lane1f_rsqrt( x );
 }
 
-LD_API f32 poweri( f32 base, i32 exp ) {
+CORE_API f32 poweri( f32 base, i32 exp ) {
     u32 exp_abs = absolute( exp );
     f32 result       = base;
     for( u32 i = 1; i < exp_abs; ++i ) {
@@ -56,11 +56,11 @@ LD_API f32 poweri( f32 base, i32 exp ) {
     }
 }
 
-LD_API f32 power( f32 base, f32 exp ) {
+CORE_API f32 power( f32 base, f32 exp ) {
     return e_power( natural_logarithm( base ) * exp );
 }
 
-LD_API f32 modulus( f32 lhs, f32 rhs ) {
+CORE_API f32 modulus( f32 lhs, f32 rhs ) {
     if( rhs == 0.0f ) {
         return lhs;
     }
@@ -95,7 +95,7 @@ LD_API f32 modulus( f32 lhs, f32 rhs ) {
     return m;
 }
 
-LD_API f32 sine( f32 x ) {
+CORE_API f32 sine( f32 x ) {
     x = wrap_radians(x);
 
     f32 pow3  = x * x * x;
@@ -111,7 +111,7 @@ LD_API f32 sine( f32 x ) {
         ( pow9  / F32_NINE_FACTORIAL  ) -
         ( pow11 / F32_ELEVEN_FACTORIAL );
 }
-LD_API f32 cosine( f32 x ) {
+CORE_API f32 cosine( f32 x ) {
     x = wrap_radians(x);
 
     f32 pow2  = x * x;
@@ -127,19 +127,19 @@ LD_API f32 cosine( f32 x ) {
         ( pow8  / F32_EIGHT_FACTORIAL ) -
         ( pow10 / F32_TEN_FACTORIAL );
 }
-LD_API f32 tangent( f32 x ) {
+CORE_API f32 tangent( f32 x ) {
     f32 sin, cos;
     sine_cosine( x, &sin, &cos );
     return cos == 0.0f ? F32_NAN : sin / cos;
 }
 
-LD_API void sine_cosine( f32 x, f32* out_sin, f32* out_cos ) {
+CORE_API void sine_cosine( f32 x, f32* out_sin, f32* out_cos ) {
     // TODO(alicia): 
     *out_sin = sine( x );
     *out_cos = cosine( x );
 }
 
-LD_API f32 arc_sine( f32 x ) {
+CORE_API f32 arc_sine( f32 x ) {
     // NOTE(alicia): don't ask me how i figured this shit out
     // i don't even know
     f32 sign_of_x = signum( x );
@@ -161,10 +161,10 @@ LD_API f32 arc_sine( f32 x ) {
     return result * sign_of_x;
 
 }
-LD_API f32 arc_cosine( f32 x ) {
+CORE_API f32 arc_cosine( f32 x ) {
     return -arc_sine( x ) + F32_HALF_PI;
 }
-LD_API f32 arc_tangent( f32 x ) {
+CORE_API f32 arc_tangent( f32 x ) {
     f32 pow3  = x * x * x;
     f32 pow5  = pow3 * x * x;
     f32 pow7  = pow5 * x * x;
@@ -179,7 +179,7 @@ LD_API f32 arc_tangent( f32 x ) {
         ( pow11 / 11.0f ) +
         ( pow13 / 13.0f );
 }
-LD_API f32 arc_tangent2( f32 y, f32 x ) {
+CORE_API f32 arc_tangent2( f32 y, f32 x ) {
     if( y == 0.0f ) {
         if( x < 0.0f ) {
             return F32_PI;
@@ -193,7 +193,7 @@ LD_API f32 arc_tangent2( f32 y, f32 x ) {
     return 2.0f * arc_tangent( y / ( square_root( x_sqr + y_sqr ) + x ) );
 }
 
-LD_API f32 e_power( f32 x ) {
+CORE_API f32 e_power( f32 x ) {
     if( x < -4.0f ) {
         return 0.0f;
     }
@@ -222,7 +222,7 @@ LD_API f32 e_power( f32 x ) {
 
     return r;
 }
-LD_API f32 natural_logarithm( f32 x ) {
+CORE_API f32 natural_logarithm( f32 x ) {
     if( x < 0.0f ) {
         return F32_NAN;
     }
@@ -241,7 +241,7 @@ LD_API f32 natural_logarithm( f32 x ) {
     
     return 2.0f * (div + r3 + r5 + r7 + r9);
 }
-LD_API f32 logarithm2( f32 x ) {
+CORE_API f32 logarithm2( f32 x ) {
     if( x < 0.0f ) {
         return F32_NAN;
     }
@@ -250,7 +250,7 @@ LD_API f32 logarithm2( f32 x ) {
     }
     return natural_logarithm( x ) * 1.49f;
 }
-LD_API f32 logarithm10( f32 x ) {
+CORE_API f32 logarithm10( f32 x ) {
     if( x < 0.0f ) {
         return F32_NAN;
     }
@@ -260,73 +260,73 @@ LD_API f32 logarithm10( f32 x ) {
     return natural_logarithm( x ) / 2.3f;
 }
 
-LD_API f32 lerp( f32 a, f32 b, f32 t ) {
+CORE_API f32 lerp( f32 a, f32 b, f32 t ) {
     return ( 1.0f - t ) * a + b * t;
 }
-LD_API f32 inv_lerp( f32 a, f32 b, f32 v ) {
+CORE_API f32 inv_lerp( f32 a, f32 b, f32 v ) {
     return ( v - a ) / ( b - a );
 }
-LD_API f32 remap( f32 imin, f32 imax, f32 omin, f32 omax, f32 v ) {
+CORE_API f32 remap( f32 imin, f32 imax, f32 omin, f32 omax, f32 v ) {
     f32 t = inv_lerp( imin, imax, v );
     return lerp( omin, omax, t );
 }
-LD_API f32 smooth_step( f32 a, f32 b, f32 t ) {
+CORE_API f32 smooth_step( f32 a, f32 b, f32 t ) {
     return ( b - a ) * ( 3.0f - t * 2.0f ) * t * t + a;
 }
-LD_API f32 smoother_step( f32 a, f32 b, f32 t ) {
+CORE_API f32 smoother_step( f32 a, f32 b, f32 t ) {
     return ( b - a ) *
         ( ( t * ( t * 6.0f - 15.0f ) + 10.0f ) * t * t * t ) + a;
 }
 
-LD_API vec2 v2_neg( vec2 v ) {
+CORE_API vec2 v2_neg( vec2 v ) {
     vec2 result;
     result.x = -v.x;
     result.y = -v.y;
     return result;
 }
-LD_API vec2 v2_add( vec2 lhs, vec2 rhs ) {
+CORE_API vec2 v2_add( vec2 lhs, vec2 rhs ) {
     vec2 result;
     result.x = lhs.x + rhs.x;
     result.y = lhs.y + rhs.y;
     return result;
 }
-LD_API vec2 v2_sub( vec2 lhs, vec2 rhs ) {
+CORE_API vec2 v2_sub( vec2 lhs, vec2 rhs ) {
     vec2 result;
     result.x = lhs.x - rhs.x;
     result.y = lhs.y - rhs.y;
     return result;
 }
-LD_API vec2 v2_mul( vec2 lhs, f32 rhs ) {
+CORE_API vec2 v2_mul( vec2 lhs, f32 rhs ) {
     vec2 result;
     result.x = lhs.x * rhs;
     result.y = lhs.y * rhs;
     return result;
 }
-LD_API vec2 v2_div( vec2 lhs, f32 rhs ) {
+CORE_API vec2 v2_div( vec2 lhs, f32 rhs ) {
     vec2 result;
     result.x = lhs.x / rhs;
     result.y = lhs.y / rhs;
     return result;
 }
-LD_API f32 v2_hadd( vec2 v ) {
+CORE_API f32 v2_hadd( vec2 v ) {
     return v.x + v.y;
 }
-LD_API f32 v2_hmul( vec2 v ) {
+CORE_API f32 v2_hmul( vec2 v ) {
     return v.x * v.y;
 }
-LD_API vec2 v2_hadamard( vec2 lhs, vec2 rhs ) {
+CORE_API vec2 v2_hadamard( vec2 lhs, vec2 rhs ) {
     vec2 result;
     result.x = lhs.x * rhs.x;
     result.y = lhs.y * rhs.y;
     return result;
 }
-LD_API f32 v2_aspect_ratio( vec2 v ) {
+CORE_API f32 v2_aspect_ratio( vec2 v ) {
     return v.x / v.y;
 }
-LD_API f32 v2_dot( vec2 lhs, vec2 rhs ) {
+CORE_API f32 v2_dot( vec2 lhs, vec2 rhs ) {
     return v2_hadd( v2_hadamard( lhs, rhs ) );
 }
-LD_API vec2 v2_rotate( vec2 v, f32 theta_radians ) {
+CORE_API vec2 v2_rotate( vec2 v, f32 theta_radians ) {
     f32 sin, cos;
     sine_cosine( theta_radians, &sin, &cos );
     vec2 a = {  cos, sin };
@@ -1819,7 +1819,7 @@ mat4 m4_scale_2d_v2( vec2 scale ) {
     return m4_scale_2d( scale.width, scale.height );
 }
 
-LD_API Transform transform_create( vec3 position, quat rotation, vec3 scale ) {
+CORE_API Transform transform_create( vec3 position, quat rotation, vec3 scale ) {
     Transform result = {0};
 
     result.position = position;
@@ -1837,14 +1837,14 @@ LD_API Transform transform_create( vec3 position, quat rotation, vec3 scale ) {
 
     return result;
 }
-LD_API mat4 transform_local_matrix( Transform* t ) {
+CORE_API mat4 transform_local_matrix( Transform* t ) {
     if( t->local_matrix_dirty ) {
         t->local_matrix = m4_transform( t->position, t->rotation, t->scale );
         t->local_matrix_dirty = false;
     }
     return t->local_matrix;
 }
-LD_API mat4 transform_world_matrix( Transform* t ) {
+CORE_API mat4 transform_world_matrix( Transform* t ) {
     if( t->world_matrix_dirty ) {
         mat4 local_matrix = transform_local_matrix( t );
         if( t->parent ) {
@@ -1858,26 +1858,26 @@ LD_API mat4 transform_world_matrix( Transform* t ) {
     }
     return t->world_matrix;
 }
-LD_API vec3 transform_local_position( Transform* t ) {
+CORE_API vec3 transform_local_position( Transform* t ) {
     return t->position;
 }
-LD_API vec3 transform_world_position( Transform* t ) {
+CORE_API vec3 transform_world_position( Transform* t ) {
     mat4 world_matrix = transform_world_matrix( t );
     return m4_transform_position( &world_matrix );
 }
-LD_API void transform_set_position( Transform* t, vec3 position ) {
+CORE_API void transform_set_position( Transform* t, vec3 position ) {
     t->position           = position;
     t->camera_dirty       = true;
     t->local_matrix_dirty = true;
     t->world_matrix_dirty = true;
 }
-LD_API void transform_translate( Transform* t, vec3 translation ) {
+CORE_API void transform_translate( Transform* t, vec3 translation ) {
     transform_set_position( t, v3_add( t->position, translation ) );
 }
-LD_API quat transform_local_rotation( Transform* t ) {
+CORE_API quat transform_local_rotation( Transform* t ) {
     return t->rotation;
 }
-LD_API quat transform_world_rotation( Transform* t ) {
+CORE_API quat transform_world_rotation( Transform* t ) {
     quat local_ = transform_local_rotation( t );
     if( t->parent ) {
         quat parent = transform_world_rotation( t->parent );
@@ -1885,19 +1885,19 @@ LD_API quat transform_world_rotation( Transform* t ) {
     }
     return local_;
 }
-LD_API void transform_set_rotation( Transform* t, quat rotation ) {
+CORE_API void transform_set_rotation( Transform* t, quat rotation ) {
     t->rotation           = rotation;
     t->camera_dirty       = true;
     t->local_matrix_dirty = true;
     t->world_matrix_dirty = true;
 }
-LD_API void transform_rotate( Transform* t, quat rotation ) {
+CORE_API void transform_rotate( Transform* t, quat rotation ) {
     transform_set_rotation( t, q_mul_q( rotation, t->rotation ) );
 }
-LD_API vec3 transform_local_scale( Transform* t ) {
+CORE_API vec3 transform_local_scale( Transform* t ) {
     return t->scale;
 }
-LD_API vec3 transform_world_scale( Transform* t ) {
+CORE_API vec3 transform_world_scale( Transform* t ) {
     vec3 local_ = transform_local_scale( t );
     if( t->parent ) {
         vec3 parent = transform_world_scale( t );
@@ -1905,32 +1905,32 @@ LD_API vec3 transform_world_scale( Transform* t ) {
     }
     return local_;
 }
-LD_API void transform_set_scale( Transform* t, vec3 scale ) {
+CORE_API void transform_set_scale( Transform* t, vec3 scale ) {
     t->scale              = scale;
     t->local_matrix_dirty = true;
     t->world_matrix_dirty = true;
 }
-LD_API void transform_scale( Transform* t, vec3 scale ) {
+CORE_API void transform_scale( Transform* t, vec3 scale ) {
     transform_set_scale( t, v3_hadamard( t->scale, scale ) );
 }
 
-LD_API vec3 transform_local_forward( Transform* t ) {
+CORE_API vec3 transform_local_forward( Transform* t ) {
     return q_mul_v3( t->rotation, VEC3_FORWARD );
 }
-LD_API vec3 transform_local_right( Transform* t ) {
+CORE_API vec3 transform_local_right( Transform* t ) {
     return q_mul_v3( t->rotation, VEC3_RIGHT );
 }
-LD_API vec3 transform_local_up( Transform* t ) {
+CORE_API vec3 transform_local_up( Transform* t ) {
     return q_mul_v3( t->rotation, VEC3_UP );
 }
 
-LD_API vec3 transform_world_forward( Transform* t ) {
+CORE_API vec3 transform_world_forward( Transform* t ) {
     return q_mul_v3( transform_world_rotation( t ), VEC3_FORWARD );
 }
-LD_API vec3 transform_world_right( Transform* t ) {
+CORE_API vec3 transform_world_right( Transform* t ) {
     return q_mul_v3( transform_world_rotation( t ), VEC3_RIGHT );
 }
-LD_API vec3 transform_world_up( Transform* t ) {
+CORE_API vec3 transform_world_up( Transform* t ) {
     return q_mul_v3( transform_world_rotation( t ), VEC3_UP );
 }
 

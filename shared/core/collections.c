@@ -7,7 +7,7 @@
 #include "core/collections.h"
 #include "core/memory.h"
 
-LD_API void* iterator_next_enumerate( Iterator* iter, usize* out_enumerator ) {
+CORE_API void* iterator_next_enumerate( Iterator* iter, usize* out_enumerator ) {
     if( iter->current == iter->count ) {
         return NULL;
     }
@@ -15,7 +15,7 @@ LD_API void* iterator_next_enumerate( Iterator* iter, usize* out_enumerator ) {
     void* result = (u8*)iter->buffer + ( iter->item_size * iter->current++ );
     return result;
 }
-LD_API void* iterator_reverse_next_enumerate( Iterator* iter, usize* out_enumerator ) {
+CORE_API void* iterator_reverse_next_enumerate( Iterator* iter, usize* out_enumerator ) {
     if( iter->current == iter->count ) {
         return NULL;
     }
@@ -27,7 +27,7 @@ LD_API void* iterator_reverse_next_enumerate( Iterator* iter, usize* out_enumera
 
     return result;
 }
-LD_API b32 iterator_next_value_enumerate( Iterator* iter, void* out_item, usize* out_index ) {
+CORE_API b32 iterator_next_value_enumerate( Iterator* iter, void* out_item, usize* out_index ) {
     if( iter->current == iter->count ) {
         return false;
     }
@@ -38,7 +38,7 @@ LD_API b32 iterator_next_value_enumerate( Iterator* iter, void* out_item, usize*
 
     return true;
 }
-LD_API b32 iterator_reverse_next_value_enumerate(
+CORE_API b32 iterator_reverse_next_value_enumerate(
     Iterator* iter, void* out_item, usize* out_index
 ) {
     if( iter->current == iter->count ) {
@@ -53,7 +53,7 @@ LD_API b32 iterator_reverse_next_value_enumerate(
 
     return true;
 }
-LD_API void iterator_split(
+CORE_API void iterator_split(
     Iterator* iter, usize index, Iterator* out_first, Iterator* out_last
 ) {
     out_first->buffer    = iter->buffer;
@@ -67,7 +67,7 @@ LD_API void iterator_split(
     out_last->current   = 0;
 }
 
-LD_API b32 list_push( List* list, void* item ) {
+CORE_API b32 list_push( List* list, void* item ) {
     if( list->count == list->capacity ) {
         return false;
     }
@@ -78,7 +78,7 @@ LD_API b32 list_push( List* list, void* item ) {
 
     return true;
 }
-LD_API b32 list_append( List* list, usize append_count, void* append_items ) {
+CORE_API b32 list_append( List* list, usize append_count, void* append_items ) {
     if( list->count + append_count > list->capacity ) {
         return false;
     }
@@ -90,14 +90,14 @@ LD_API b32 list_append( List* list, usize append_count, void* append_items ) {
 
     return true;
 }
-LD_API void* list_pop( List* list ) {
+CORE_API void* list_pop( List* list ) {
     if( !list->count ) {
         return NULL;
     }
     void* result = (u8*)list->buffer + ( list->item_size * --list->count );
     return result;
 }
-LD_API b32 list_pop_value( List* list, void* out_item ) {
+CORE_API b32 list_pop_value( List* list, void* out_item ) {
     if( !list->count ) {
         return false;
     }
@@ -107,13 +107,13 @@ LD_API b32 list_pop_value( List* list, void* out_item ) {
         (u8*)list->buffer + ( list->item_size * --list->count ), list->item_size );
     return true;
 }
-LD_API void* list_peek( List* list ) {
+CORE_API void* list_peek( List* list ) {
     if( !list->count ) {
         return NULL;
     }
     return (u8*)list->buffer + ( list->item_size * ( list->count - 1 ) );
 }
-LD_API b32 list_insert( List* list, usize index, void* item ) {
+CORE_API b32 list_insert( List* list, usize index, void* item ) {
     if( list->count == list->capacity ) {
         return false;
     }
@@ -135,7 +135,7 @@ LD_API b32 list_insert( List* list, usize index, void* item ) {
 
     return true;
 }
-LD_API void list_remove( List* list, usize index, void* opt_out_item ) {
+CORE_API void list_remove( List* list, usize index, void* opt_out_item ) {
     assert( index < list->count );
 
     if( index == list->count - 1 ) {
@@ -160,13 +160,13 @@ LD_API void list_remove( List* list, usize index, void* opt_out_item ) {
 
     list->count--;
 }
-LD_API void* list_index( List* list, usize index ) {
+CORE_API void* list_index( List* list, usize index ) {
     if( index >= list->count ) {
         return NULL;
     }
     return (u8*)list->buffer + ( list->item_size * index );
 }
-LD_API b32 list_index_value( List* list, usize index, void* out_item ) {
+CORE_API b32 list_index_value( List* list, usize index, void* out_item ) {
     if( index >= list->count ) {
         return false;
     }
@@ -174,20 +174,20 @@ LD_API b32 list_index_value( List* list, usize index, void* out_item ) {
         out_item, (u8*)list->buffer + (index * list->item_size), list->item_size );
     return true;
 }
-LD_API void list_set( List* list, usize index, void* item ) {
+CORE_API void list_set( List* list, usize index, void* item ) {
     assert( index < list->count );
     memory_copy(
         (u8*)list->buffer + ( list->item_size * index ),
         item, list->item_size );
 }
-LD_API void list_fill( List* list, void* item ) {
+CORE_API void list_fill( List* list, void* item ) {
     for( usize i = 0; i < list->count; ++i ) {
         memory_copy(
             (u8*)list->buffer + ( list->item_size * i ),
             item, list->item_size );
     }
 }
-LD_API void list_fill_to_capacity( List* list, void* item ) {
+CORE_API void list_fill_to_capacity( List* list, void* item ) {
     for( usize i = 0; i < list->capacity; ++i ) {
         memory_copy(
             (u8*)list->buffer + ( list->item_size * i ),
@@ -195,7 +195,7 @@ LD_API void list_fill_to_capacity( List* list, void* item ) {
     }
     list->count = list->capacity;
 }
-LD_API Iterator list_iterator( List* list ) {
+CORE_API Iterator list_iterator( List* list ) {
     Iterator result = {0};
 
     result.buffer    = list->buffer;

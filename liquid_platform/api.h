@@ -5,9 +5,9 @@
 // * File Created: September 21, 2023
 #include "defines.h"
 
-#if defined(LD_PLATFORM_INTERNAL) && !defined(LIQUID_ENGINE_CORE_LIBRARY_PATH)
+#if defined(LD_PLATFORM_INTERNAL) && !defined(LIQUID_ENGINE_PATH)
     #if !defined(LD_CORE_STATIC_BUILD)
-        #error "LIQUID_ENGINE_CORE_LIBRARY_PATH must be defined!"
+        #error "LIQUID_ENGINE_PATH must be defined!"
     #endif
 #endif
 
@@ -40,26 +40,11 @@ typedef struct PlatformAudioBufferFormat {
     usize buffer_size;
 } PlatformAudioBufferFormat;
 
-/// System time.
-typedef struct PlatformTime {
-    u32 year;
-    /// 1-12
-    u32 month;
-    /// 1-31
-    u32 day;
-    /// 0-23
-    u32 hour;
-    /// 0-59
-    u32 minute;
-    /// 0-59
-    u32 second;
-} PlatformTime;
-
 #if !defined(LD_HEADLESS)
 /// This keycode corresponds to Liquid Engine core keycodes.
 typedef u8 PlatformKeyboardCode;
 /// Mouse codes.
-typedef enum : u8 {
+typedef enum PlatformMouseCode : u8 {
     PLATFORM_MOUSE_BUTTON_LEFT,
     PLATFORM_MOUSE_BUTTON_MIDDLE,
     PLATFORM_MOUSE_BUTTON_RIGHT,
@@ -108,15 +93,6 @@ typedef struct {
 } PlatformSurfaceCallbacks;
 
 #endif // if not headless
-
-/// Handle to library.
-typedef void PlatformLibrary;
-/// Handle to file.
-typedef void PlatformFile;
-/// Handle to semaphore.
-typedef void PlatformSemaphore;
-/// Handle to mutex.
-typedef void PlatformMutex;
 
 #if !defined(LD_HEADLESS)
 
@@ -172,13 +148,6 @@ enum : u32 {
 typedef u32 PlatformSurfaceMode;
 
 #endif // if not headless
-
-typedef u32 PlatformFileFlags;
-#define PLATFORM_FILE_READ          (1 << 0)
-#define PLATFORM_FILE_WRITE         (1 << 1)
-#define PLATFORM_FILE_SHARE_READ    (1 << 2) 
-#define PLATFORM_FILE_SHARE_WRITE   (1 << 3)
-#define PLATFORM_FILE_ONLY_EXISTING (1 << 4)
 
 typedef u16 PlatformProcessorFeatures;
 #define PLATFORM_PROCESSOR_FEATURE_SSE     (1 << 0)
@@ -284,16 +253,10 @@ typedef struct {
 
 // NOTE(alicia): Time API
 
-typedef f64 PlatformElapsedMillisecondsFN(void);
-typedef f64 PlatformSecondsElapsedFN(void);
 typedef void PlatformSleepMillisecondsFN( u32 ms );
-typedef PlatformTime PlatformQuerySystemTimeFN(void);
 
 typedef struct {
-    PlatformElapsedMillisecondsFN* elapsed_milliseconds;
-    PlatformSecondsElapsedFN*      elapsed_seconds;
     PlatformSleepMillisecondsFN*   sleep_ms;
-    PlatformQuerySystemTimeFN*     query_system_time;
 } PlatformTimeAPI;
 
 // NOTE(alicia): IO API
@@ -305,117 +268,22 @@ typedef void PlatformIOSetGamepadRumbleFN(
     u32 gamepad_index, u16 normalized_motor_left, u16 normalized_motor_right );
 typedef void PlatformIOSetMouseVisibleFN( b32 is_visible );
 
-#endif // if not headless
-
-typedef PlatformFile* PlatformIOGetStdOutFN(void);
-typedef PlatformFile* PlatformIOGetStdErrFN(void);
-typedef void PlatformConsoleWriteFN(
-    PlatformFile* console, usize buffer_size, const char* buffer );
-typedef PlatformFile* PlatformFileOpenFN(
-    const char* path, PlatformFileFlags flags );
-typedef void PlatformFileCloseFN( PlatformFile* file );
-typedef b32 PlatformFileReadFN(
-    PlatformFile* file, usize buffer_size, void* buffer );
-typedef b32 PlatformFileWriteFN(
-    PlatformFile* file, usize buffer_size, void* buffer );
-typedef b32 PlatformFileWriteOffsetFN(
-    PlatformFile* file, usize buffer_size, void* buffer, usize offset_from_start );
-typedef usize PlatformFileQuerySizeFN( PlatformFile* file );
-typedef void PlatformFileSetOffsetFN( PlatformFile* file, usize offset );
-typedef usize PlatformFileQueryOffsetFN( PlatformFile* file );
-typedef b32 PlatformFileDeleteByPathFN( const char* path );
-typedef b32 PlatformFileCopyByPathFN(
-    const char* dst, const char* src, b32 fail_if_dst_exists );
-
-#if defined(LD_PLATFORM_WINDOWS)
-typedef void PlatformWin32OutputDebugStringFN( const char* cstr );
-#endif
-
 typedef struct {
-#if !defined(LD_HEADLESS)
     PlatformIOReadGamepadsFN*     read_gamepads;
     PlatformIOSetGamepadRumbleFN* set_gamepad_rumble;
     PlatformIOSetMouseVisibleFN*  set_mouse_visible;
-#endif // if not headless
-
-    PlatformIOGetStdOutFN*        stdout_handle;
-    PlatformIOGetStdErrFN*        stderr_handle;
-    PlatformConsoleWriteFN*       console_write;
-    PlatformFileOpenFN*           file_open;
-    PlatformFileCloseFN*          file_close;
-    PlatformFileReadFN*           file_read;
-    PlatformFileWriteFN*          file_write;
-    PlatformFileWriteOffsetFN*    file_write_offset;
-    PlatformFileQuerySizeFN*      file_query_size;
-    PlatformFileSetOffsetFN*      file_set_offset;
-    PlatformFileQueryOffsetFN*    file_query_offset;
-    PlatformFileDeleteByPathFN*   file_delete_by_path;
-    PlatformFileCopyByPathFN*     file_copy_by_path;
-
-#if defined(LD_PLATFORM_WINDOWS)
-    PlatformWin32OutputDebugStringFN* output_debug_string;
-#endif
-
 } PlatformIOAPI;
 
-// NOTE(alicia): Library API
-
-typedef PlatformLibrary* PlatformLibraryOpenFN( const char* library_path );
-typedef void PlatformLibraryCloseFN( PlatformLibrary* library );
-typedef void* PlatformLibraryLoadFunctionFN(
-    PlatformLibrary* library, const char* function_name );
-
-typedef struct {
-    PlatformLibraryOpenFN*         open;
-    PlatformLibraryCloseFN*        close;
-    PlatformLibraryLoadFunctionFN* load_function;
-} PlatformLibraryAPI;
+#endif
 
 // NOTE(alicia): Thread API
 
 typedef b32 PlatformThreadCreateFN(
     ThreadProcFN* thread_proc, void* params, usize stack_size );
-typedef PlatformSemaphore* PlatformSemaphoreCreateFN(
-    const char* name, u32 initial_count );
-typedef void PlatformSemaphoreDestroyFN( PlatformSemaphore* semaphore );
-typedef void PlatformSemaphoreSignalFN( PlatformSemaphore* semaphore );
-typedef void PlatformSemaphoreWaitFN( PlatformSemaphore* semaphore );
-typedef b32 PlatformSemaphoreWaitTimedFN(
-    PlatformSemaphore* semaphore, u32 timeout_ms );
-typedef PlatformMutex* PlatformMutexCreateFN(void);
-typedef void PlatformMutexDestroyFN( PlatformMutex* mutex );
-typedef void PlatformMutexLockFN( PlatformMutex* mutex );
-typedef void PlatformMutexUnlockFN( PlatformMutex* mutex );
 
 typedef struct {
     PlatformThreadCreateFN*        create;
-    PlatformSemaphoreCreateFN*     semaphore_create;
-    PlatformSemaphoreDestroyFN*    semaphore_destroy;
-    PlatformSemaphoreSignalFN*     semaphore_signal;
-    PlatformSemaphoreWaitFN*       semaphore_wait;
-    PlatformSemaphoreWaitTimedFN*  semaphore_wait_timed;
-    PlatformMutexCreateFN*  mutex_create;
-    PlatformMutexDestroyFN* mutex_destroy;
-    PlatformMutexLockFN*    mutex_lock;
-    PlatformMutexUnlockFN*  mutex_unlock;
 } PlatformThreadAPI;
-
-// NOTE(alicia): Memory API
-
-typedef void* PlatformHeapAllocFN( usize size );
-typedef void* PlatformHeapReallocFN(
-    void* memory, usize old_size, usize new_size );
-typedef void PlatformHeapFreeFN( void* memory, usize size );
-typedef void* PlatformPageAllocFN( usize size );
-typedef void PlatformPageFreeFN( void* memory, usize size );
-
-typedef struct {
-    PlatformHeapAllocFN*   heap_alloc;
-    PlatformHeapReallocFN* heap_realloc;
-    PlatformHeapFreeFN*    heap_free;
-    PlatformPageAllocFN*   page_alloc;
-    PlatformPageFreeFN*    page_free;
-} PlatformMemoryAPI;
 
 // NOTE(alicia): Misc
 
@@ -435,13 +303,11 @@ typedef struct PlatformAPI {
     PlatformAudioAPI           audio;
     PlatformGLLoadProcFN*      gl_load_proc;
     PlatformFatalMessageBoxFN* fatal_message_box;
+    PlatformIOAPI              io;
 #endif // if not headless
 
     PlatformTimeAPI      time;
-    PlatformIOAPI        io;
-    PlatformLibraryAPI   library;
     PlatformThreadAPI    thread;
-    PlatformMemoryAPI    memory;
 
     PlatformQueryInfoFN* query_info;
     PlatformLastErrorFN* last_error;

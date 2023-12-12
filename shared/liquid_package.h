@@ -21,8 +21,10 @@ struct no_padding LiquidPackageHeader {
 typedef enum LiquidPackageResourceType : u32 {
     LIQUID_PACKAGE_RESOURCE_TYPE_INVALID,
     LIQUID_PACKAGE_RESOURCE_TYPE_AUDIO,
+    LIQUID_PACKAGE_RESOURCE_TYPE_MODEL,
     LIQUID_PACKAGE_RESOURCE_TYPE_TEXTURE,
-    LIQUID_PACKAGE_RESOURCE_TYPE_3D_MODEL,
+    LIQUID_PACKAGE_RESOURCE_TYPE_TEXT,
+    LIQUID_PACKAGE_RESOURCE_TYPE_MAP,
 } LiquidPackageResourceType;
 header_only const char* liquid_package_resource_type_to_identifier(
     LiquidPackageResourceType type
@@ -30,8 +32,10 @@ header_only const char* liquid_package_resource_type_to_identifier(
     const char* strings[] = {
         "RESOURCE_INVALID",
         "RESOURCE_AUDIO",
+        "RESOURCE_MODEL",
         "RESOURCE_TEXTURE",
-        "RESOURCE_3D_MODEL",
+        "RESOURCE_TEXT",
+        "RESOURCE_MAP"
     };
     if( type >= static_array_count( strings ) ) {
         return strings[0];
@@ -74,11 +78,16 @@ header_only u32 liquid_package_resource_audio_buffer_size(
         number_of_channels;
 }
 
+struct no_padding LiquidPackageResourceText {
+    u32 len;
+};
+
 struct no_padding LiquidPackageResource {
     LiquidPackageResourceType type;
     u32 buffer_offset;
     union {
         struct LiquidPackageResourceAudio audio;
+        struct LiquidPackageResourceText  text;
     };
 };
 

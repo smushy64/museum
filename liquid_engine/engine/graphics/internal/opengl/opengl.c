@@ -4,12 +4,14 @@
  * File Created: September 24, 2023
 */
 #include "defines.h"
-#include "engine/logging.h"
-#include "engine/time.h"
 #include "core/memory.h"
 #include "core/math.h"
 #include "core/string.h"
 #include "core/collections.h"
+#include "core/fs.h"
+#include "core/time.h"
+
+#include "engine/logging.h"
 #include "engine/graphics/primitives.h"
 #include "engine/graphics/internal.h"
 #include "engine/graphics/internal/opengl.h"
@@ -103,9 +105,9 @@ internal no_inline b32 gl_begin_frame(void) {
 
     /* update misc data */ {
         struct OpenGLUniformBufferData buffer_data = {};
-        buffer_data.delta_seconds   = time_delta();
-        buffer_data.elapsed_seconds = time_elapsed();
-        buffer_data.frame_count     = time_frame_count() % U32_MAX;
+        buffer_data.delta_seconds   = time_delta_seconds();
+        buffer_data.elapsed_seconds = time_elapsed_seconds();
+        buffer_data.frame_count     = time_query_update_count() % U32_MAX;
 
         buffer_data.surface_resolution = v2_iv2( global_renderer->surface_dimensions );
         buffer_data.aspect_ratio       =
@@ -883,19 +885,19 @@ b32 gl_subsystem_init(void) {
         usize buffer_size = 0;
 
         #define GL_OPEN_SHADER( path, name )\
-            PlatformFile* file_##name = platform->io.file_open(\
-                path, PLATFORM_FILE_READ | PLATFORM_FILE_SHARE_READ |\
-                PLATFORM_FILE_ONLY_EXISTING );\
+            FSFile* file_##name = fs_file_open(\
+                path, FS_FILE_READ | FS_FILE_SHARE_READ |\
+                FS_FILE_ONLY_EXISTING );\
             assert( file_##name );\
-            usize name##_size   = platform->io.file_query_size( file_##name );\
+            usize name##_size   = fs_file_query_size( file_##name );\
             usize name##_offset = buffer_size;\
             buffer_size += name##_size
 
         #define GL_READ_SHADER( name )\
-            assert( platform->io.file_read(\
+            assert( fs_file_read(\
                 file_##name, name##_size,\
                 read_buffer + name##_offset ) );\
-            platform->io.file_close( file_##name )
+            fs_file_close( file_##name )
         
         #define GL_COMPILE_SHADER( name, stage, shader )\
             assert( gl_shader_compile_spirv(\

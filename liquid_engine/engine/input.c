@@ -4,12 +4,12 @@
  * File Created: May 03, 2023
 */
 #include "defines.h"
-#include "constants.h"
-#include "engine/input.h"
-#include "engine/logging.h"
 #include "core/math.h"
 #include "core/memory.h"
-#include "core/internal.h"
+
+#include "engine/input.h"
+#include "engine/logging.h"
+#include "engine/internal/platform.h"
 
 struct GamepadState {
     GamepadCode buttons;
@@ -120,7 +120,7 @@ void input_subsystem_set_key( KeyCode code, b32 is_down ) {
         global_input->keyboard.buttons[code] = is_down;
     }
 }
-void input_subsystem_set_mouse_button( PlatformMouseCode code, b32 is_down ) {
+void input_subsystem_set_mouse_button( enum PlatformMouseCode code, b32 is_down ) {
     MouseCode mouse_code = 0;
     switch( code ) {
         case PLATFORM_MOUSE_BUTTON_LEFT: {

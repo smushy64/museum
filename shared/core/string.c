@@ -5,10 +5,14 @@
 */
 #include "defines.h"
 #include "core/string.h"
-#include "core/memory_ops.h"
+#include "core/memory.h"
 #include "core/fmt.h"
 
-LD_API Iterator string_slice_iterator( StringSlice* slice ) {
+#if defined(LD_ARCH_X86) && LD_SIMD_WIDTH != 1
+    #include <immintrin.h>
+#endif
+
+CORE_API Iterator string_slice_iterator( StringSlice* slice ) {
     Iterator result = {0};
     result.buffer    = slice->buffer;
     result.current   = 0;
@@ -18,7 +22,7 @@ LD_API Iterator string_slice_iterator( StringSlice* slice ) {
     return result;
 }
 
-LD_API usize cstr_len( const char* cstr ) {
+CORE_API usize cstr_len( const char* cstr ) {
     if( !cstr ) {
         return 0;
     }
@@ -28,7 +32,7 @@ LD_API usize cstr_len( const char* cstr ) {
     }
     return cstr - start;
 }
-LD_API b32 cstr_cmp( const char* a, const char* b ) {
+CORE_API b32 cstr_cmp( const char* a, const char* b ) {
     if( !a || !b ) {
         return false;
     }
@@ -44,7 +48,7 @@ LD_API b32 cstr_cmp( const char* a, const char* b ) {
 
     return true;
 }
-LD_API void cstr_copy(
+CORE_API void cstr_copy(
     char* restricted dst, const char* restricted src, usize opt_src_len
 ) {
     usize src_len = opt_src_len;
@@ -53,7 +57,7 @@ LD_API void cstr_copy(
     }
     memory_copy( dst, src, src_len );
 }
-LD_API void cstr_copy_overlapped(
+CORE_API void cstr_copy_overlapped(
     char* dst, const char* src, usize opt_src_len
 ) {
     usize src_len = opt_src_len;
@@ -71,7 +75,7 @@ internal b32 ___safe_increment( usize* val, usize max ) {
         return true;
     }
 }
-LD_API b32 string_slice_parse_int( StringSlice* slice, i64* out_integer ) {
+CORE_API b32 string_slice_parse_int( StringSlice* slice, i64* out_integer ) {
     if( !slice->len ) {
         return false;
     }
@@ -103,7 +107,7 @@ LD_API b32 string_slice_parse_int( StringSlice* slice, i64* out_integer ) {
     *out_integer = result * ( is_negative ? -1 : 1 );
     return true;
 }
-LD_API b32 string_slice_parse_uint( StringSlice* slice, u64* out_integer ) {
+CORE_API b32 string_slice_parse_uint( StringSlice* slice, u64* out_integer ) {
     if( !slice->len ) {
         return false;
     }
@@ -183,8 +187,7 @@ internal f32 ___internal_poweri( f32 base, i32 exp ) {
     }
 }
 
-
-LD_API b32 string_slice_parse_float( StringSlice* slice, f64* out_float ) {
+CORE_API b32 string_slice_parse_float( StringSlice* slice, f64* out_float ) {
     // f64 result = 0.0;
     i64 whole_part      = 0;
     u64 fractional_part = 0;
@@ -238,7 +241,7 @@ LD_API b32 string_slice_parse_float( StringSlice* slice, f64* out_float ) {
         }
     }
 }
-LD_API StringSlice string_slice_from_cstr( usize opt_len, const char* cstr ) {
+CORE_API StringSlice string_slice_from_cstr( usize opt_len, const char* cstr ) {
     StringSlice result;
     result.buffer = (char*)cstr;
     if( opt_len ) {
@@ -249,7 +252,7 @@ LD_API StringSlice string_slice_from_cstr( usize opt_len, const char* cstr ) {
     result.capacity = result.len + 1;
     return result;
 }
-LD_API b32 string_slice_cmp( StringSlice* a, StringSlice* b ) {
+CORE_API b32 string_slice_cmp( StringSlice* a, StringSlice* b ) {
     if( a->len != b->len ) {
         return false;
     }
@@ -261,7 +264,7 @@ LD_API b32 string_slice_cmp( StringSlice* a, StringSlice* b ) {
 
     return true;
 }
-LD_API b32 string_slice_find(
+CORE_API b32 string_slice_find(
     StringSlice* slice, StringSlice* phrase, usize* opt_out_index
 ) {
     if( slice->len < phrase->len ) {
@@ -289,7 +292,7 @@ LD_API b32 string_slice_find(
     return false;
 
 }
-LD_API void string_slice_to_upper( StringSlice* slice ) {
+CORE_API void string_slice_to_upper( StringSlice* slice ) {
     for( usize i = 0; i < slice->len; ++i ) {
         char* current = slice->buffer + i;
         if( *current >= 'a' && *current <= 'z' ) {
@@ -297,7 +300,7 @@ LD_API void string_slice_to_upper( StringSlice* slice ) {
         }
     }
 }
-LD_API void string_slice_to_lower( StringSlice* slice ) {
+CORE_API void string_slice_to_lower( StringSlice* slice ) {
     for( usize i = 0; i < slice->len; ++i ) {
         char* current = slice->buffer + i;
         if( *current >= 'A' && *current <= 'Z' ) {
@@ -305,7 +308,7 @@ LD_API void string_slice_to_lower( StringSlice* slice ) {
         }
     }
 }
-LD_API b32 string_slice_find_count(
+CORE_API b32 string_slice_find_count(
     StringSlice* slice, StringSlice* phrase,
     usize* opt_out_first_index, usize* out_count
 ) {
@@ -343,9 +346,80 @@ LD_API b32 string_slice_find_count(
     *out_count = count;
     return found;
 }
-LD_API b32 string_slice_find_char(
+CORE_API b32 string_slice_find_char(
     StringSlice* slice, char character, usize* opt_out_index
 ) {
+    if( !slice->len ) {
+        return false;
+    }
+
+#if defined(LD_ARCH_X86) && LD_SIMD_WIDTH != 1
+    char* aligned_ptr = memory_align( slice->buffer, 16 );
+
+    usize aligned_remaining_len = aligned_ptr - slice->buffer;
+    if( aligned_remaining_len > slice->len ) {
+        goto find_by_char;
+    }
+
+    // check up to aligned pointer
+    usize result = 0;
+    char* at = slice->buffer;
+    while( at != aligned_ptr ) {
+        if( *at++ == character ) {
+            if( opt_out_index ) {
+                *opt_out_index = result;
+            }
+            return true;
+        }
+        result++;
+    }
+
+    // check using simd
+    __m128i* current   = (__m128i*)aligned_ptr;
+    __m128i  wide_char = _mm_set1_epi8( character );
+    loop {
+        __m128i loaded_string = _mm_load_si128( current );
+        __m128i cmp_result    = _mm_cmpeq_epi8( loaded_string, wide_char );
+
+        u16 mask = _mm_movemask_epi8( cmp_result );
+
+        if( mask ) {
+            u16 offset = 0;
+            // if match was found in second half of chunk
+            // this is just to skip checking first half of chunk
+            if( !(mask & (0xFF)) && (mask & (0xFF << 8)) ) {
+                result += 8;
+                offset  = 8;
+            }
+
+            for( u16 i = 0; i < 8; ++i ) {
+                if( ( mask >> (i + offset) ) & 0x1 ) {
+                    break;
+                }
+                result++;
+            }
+
+            if( result >= slice->len ) {
+                return false;
+            }
+
+            if( opt_out_index ) {
+                *opt_out_index = result;
+            }
+            return true;
+        }
+
+        current++;
+        result += 16;
+        if( result >= slice->len ) {
+            return false;
+        }
+    }
+
+#endif
+
+maybe_unused
+find_by_char:
     for( usize i = 0; i < slice->len; ++i ) {
         if( slice->buffer[i] == character ) {
             if( opt_out_index ) {
@@ -356,32 +430,34 @@ LD_API b32 string_slice_find_char(
     }
     return false;
 }
-LD_API b32 string_slice_find_char_count(
+CORE_API b32 string_slice_find_char_count(
     StringSlice* slice, char character,
     usize* opt_out_first_index, usize* out_count
 ) {
-    b32   found       = false;
-    usize first_index = 0;
-    usize count       = 0;
-
-    for( usize i = 0; i < slice->len; ++i ) {
-        if( slice->buffer[i] == character ) {
-            if( !found ) {
-                first_index = i;
+    StringSlice sub_slice = string_slice_clone( slice );
+    usize count = 0;
+    loop {
+        usize index = 0;
+        if( string_slice_find_char( &sub_slice, character, &index ) ) {
+            if( !count && opt_out_first_index ) {
+                *opt_out_first_index = index;
             }
-            found = true;
             count++;
+
+            if( index + 1 > sub_slice.len ) {
+                *out_count = count;
+                return count != 0;
+            }
+
+            sub_slice.buffer += index + 1;
+            sub_slice.len    -= index + 1;
+        } else {
+            *out_count = count;
+            return count != 0;
         }
     }
-
-    if( found && opt_out_first_index ) {
-        *opt_out_first_index = first_index;
-    }
-
-    *out_count = count;
-    return found;
 }
-LD_API b32 string_slice_find_whitespace( StringSlice* slice, usize* opt_out_index ) {
+CORE_API b32 string_slice_find_whitespace( StringSlice* slice, usize* opt_out_index ) {
     for( usize i = 0; i < slice->len; ++i ) {
         if( char_is_whitespace( slice->buffer[i] ) ) {
             if( opt_out_index ) {
@@ -394,14 +470,14 @@ LD_API b32 string_slice_find_whitespace( StringSlice* slice, usize* opt_out_inde
 
     return false;
 }
-LD_API void string_slice_copy_to_len( StringSlice* dst, StringSlice* src ) {
+CORE_API void string_slice_copy_to_len( StringSlice* dst, StringSlice* src ) {
     usize max_copy = dst->len;
     if( max_copy > src->len ) {
         max_copy = src->len;
     }
     memory_copy( dst->buffer, src->buffer, max_copy );
 }
-LD_API void string_slice_copy_to_capacity( StringSlice* dst, StringSlice* src ) {
+CORE_API void string_slice_copy_to_capacity( StringSlice* dst, StringSlice* src ) {
     usize max_copy = dst->capacity;
     if( max_copy > src->len ) {
         max_copy = src->len;
@@ -411,7 +487,7 @@ LD_API void string_slice_copy_to_capacity( StringSlice* dst, StringSlice* src ) 
         dst->len = max_copy;
     }
 }
-LD_API void string_slice_reverse( StringSlice* slice ) {
+CORE_API void string_slice_reverse( StringSlice* slice ) {
     char* begin = slice->buffer;
     char* end   = begin + slice->len - 1;
 
@@ -426,7 +502,7 @@ LD_API void string_slice_reverse( StringSlice* slice ) {
         }
     }
 }
-LD_API void string_slice_trim_leading_whitespace(
+CORE_API void string_slice_trim_leading_whitespace(
     StringSlice* slice, StringSlice* out_trimmed
 ) {
     StringSlice result = string_slice_clone( slice );
@@ -443,7 +519,7 @@ LD_API void string_slice_trim_leading_whitespace(
 
     *out_trimmed = result;
 }
-LD_API void string_slice_trim_trailing_whitespace(
+CORE_API void string_slice_trim_trailing_whitespace(
     StringSlice* slice, StringSlice* out_trimmed
 ) {
     StringSlice result = string_slice_clone( slice );
@@ -456,14 +532,14 @@ LD_API void string_slice_trim_trailing_whitespace(
     }
     *out_trimmed = result;
 }
-LD_API void string_slice_fill_to_len( StringSlice* slice, char character ) {
+CORE_API void string_slice_fill_to_len( StringSlice* slice, char character ) {
     memory_set( slice->buffer, *(u8*)&character, slice->len );
 }
-LD_API void string_slice_fill_to_capacity( StringSlice* slice, char character ) {
+CORE_API void string_slice_fill_to_capacity( StringSlice* slice, char character ) {
     slice->len = slice->capacity;
     memory_set( slice->buffer, *(u8*)&character, slice->len );
 }
-LD_API b32 string_slice_clip(
+CORE_API b32 string_slice_clip(
     StringSlice* src,
     usize from_inclusive, usize to_exclusive,
     StringSlice* out_dst
@@ -485,7 +561,7 @@ LD_API b32 string_slice_clip(
 
     return true;
 }
-LD_API b32 string_slice_push( StringSlice* slice, char character ) {
+CORE_API b32 string_slice_push( StringSlice* slice, char character ) {
     if( slice->len == slice->capacity ) {
         return false;
     }
@@ -494,7 +570,7 @@ LD_API b32 string_slice_push( StringSlice* slice, char character ) {
 
     return true;
 }
-LD_API b32 string_slice_pop( StringSlice* slice, char* opt_out_char ) {
+CORE_API b32 string_slice_pop( StringSlice* slice, char* opt_out_char ) {
     if( !slice->len ) {
         return false;
     }
@@ -507,7 +583,7 @@ LD_API b32 string_slice_pop( StringSlice* slice, char* opt_out_char ) {
     
     return true;
 }
-LD_API b32 string_slice_pop_start( StringSlice* slice, char* opt_out_char ) {
+CORE_API b32 string_slice_pop_start( StringSlice* slice, char* opt_out_char ) {
     if( !slice->len ) {
         return false;
     }
@@ -522,7 +598,7 @@ LD_API b32 string_slice_pop_start( StringSlice* slice, char* opt_out_char ) {
 
     return true;
 }
-LD_API b32 string_slice_insert_char(
+CORE_API b32 string_slice_insert_char(
     StringSlice* slice, usize index, char character
 ) {
     if( index == slice->len ) {
@@ -539,7 +615,7 @@ LD_API b32 string_slice_insert_char(
 
     return true;
 }
-LD_API b32 string_slice_prepend( StringSlice* slice, StringSlice* prepend ) {
+CORE_API b32 string_slice_prepend( StringSlice* slice, StringSlice* prepend ) {
     usize len = slice->len + prepend->len;
     if( len > slice->capacity ) {
         return false;
@@ -552,7 +628,7 @@ LD_API b32 string_slice_prepend( StringSlice* slice, StringSlice* prepend ) {
 
     return true;
 }
-LD_API b32 string_slice_insert(
+CORE_API b32 string_slice_insert(
     StringSlice* slice, usize index, StringSlice* insert
 ) {
     if( !index ) {
@@ -579,7 +655,7 @@ LD_API b32 string_slice_insert(
     slice->len = required_capacity;
     return true;
 }
-LD_API b32 string_slice_append( StringSlice* slice, StringSlice* append ) {
+CORE_API b32 string_slice_append( StringSlice* slice, StringSlice* append ) {
     usize required_capacity = slice->len + append->len;
     if( required_capacity > slice->capacity ) {
         return false;
@@ -590,21 +666,21 @@ LD_API b32 string_slice_append( StringSlice* slice, StringSlice* append ) {
 
     return true;
 }
-LD_API b32 string_slice_prepend_cstr( StringSlice* slice, const char* prepend ) {
+CORE_API b32 string_slice_prepend_cstr( StringSlice* slice, const char* prepend ) {
     StringSlice prepend_slice = string_slice_from_cstr( 0, prepend );
     return string_slice_prepend( slice, &prepend_slice );
 }
-LD_API b32 string_slice_append_cstr( StringSlice* slice, const char* append ) {
+CORE_API b32 string_slice_append_cstr( StringSlice* slice, const char* append ) {
     StringSlice append_slice = string_slice_from_cstr( 0, append );
     return string_slice_append( slice, &append_slice );
 }
-LD_API b32 string_slice_insert_cstr(
+CORE_API b32 string_slice_insert_cstr(
     StringSlice* slice, usize index, const char* insert
 ) {
     StringSlice insert_slice = string_slice_from_cstr( 0, insert );
     return string_slice_insert( slice, index, &insert_slice );
 }
-LD_API void string_slice_split(
+CORE_API void string_slice_split(
     StringSlice* slice_to_split, usize index,
     StringSlice* out_first, StringSlice* out_last
 ) {
@@ -619,9 +695,13 @@ LD_API void string_slice_split(
     out_last->len       = slice_to_split->len - offset;
     out_last->capacity  = slice_to_split->capacity - offset;
 }
-LD_API b32 string_slice_split_char(
+CORE_API b32 string_slice_split_char(
     StringSlice* slice, char character, StringSlice* out_first, StringSlice* out_last
 ) {
+    if( slice->len < 2 ) {
+        return false;
+    }
+
     usize index = 0;
     if( !string_slice_find_char( slice, character, &index ) ) {
         return false;
@@ -631,7 +711,7 @@ LD_API b32 string_slice_split_char(
 
     return true;
 }
-LD_API b32 string_slice_split_whitespace(
+CORE_API b32 string_slice_split_whitespace(
     StringSlice* slice, StringSlice* out_first, StringSlice* out_last
 ) {
     usize index = 0;
@@ -652,16 +732,19 @@ LD_API b32 string_slice_split_whitespace(
 
     return true;
 }
-LD_API u64 string_slice_hash( StringSlice* slice ) {
-    local const u64 multiplier = 97;
+CORE_API u64 ___internal_hash( usize len, const char* str ) {
+    // NOTE(alicia): elf-hash implementation
+    // may change in the future!
 
-    u64 result = 0;
-    for( usize i = 0; i < slice->len; ++i ) {
-        result = result * multiplier + slice->buffer[i];
-    }
-
-    if( slice->len ) {
-        result %= slice->len;
+    u64 x;
+    u64 result = x = 0;
+    for( usize i = 0; i < len; ++i ) {
+        result = ( result << 4 ) + str[i];
+        x = result & 0xF000000000000000;
+        if( x ) {
+            result ^= x >> 24;
+        }
+        result &= ~x;
     }
 
     return result;
@@ -685,13 +768,13 @@ usize ___internal_write_string_slice( void* target, usize count, char* character
     return result;
 }
 
-LD_API usize ___internal_string_slice_fmt_va(
+CORE_API usize ___internal_string_slice_fmt_va(
     StringSlice* slice, usize format_len, const char* format, va_list va
 ) {
     return ___internal_fmt_write_va(
         ___internal_write_string_slice, slice, format_len, format, va );
 }
-LD_API usize ___internal_string_slice_fmt(
+CORE_API usize ___internal_string_slice_fmt(
     StringSlice* slice, usize format_len, const char* format, ...
 ) {
     va_list va;
@@ -704,42 +787,42 @@ LD_API usize ___internal_string_slice_fmt(
 
     return result;
 }
-LD_API usize string_slice_fmt_bool( StringSlice* slice, b32 b, b32 binary ) {
+CORE_API usize string_slice_fmt_bool( StringSlice* slice, b32 b, b32 binary ) {
     return fmt_write_bool( ___internal_write_string_slice, slice, b, binary );
 }
-LD_API usize string_slice_fmt_float( StringSlice* slice, f64 f, u32 precision ) {
+CORE_API usize string_slice_fmt_float( StringSlice* slice, f64 f, u32 precision ) {
     return fmt_write_float( ___internal_write_string_slice, slice, f, precision );
 }
-LD_API usize string_slice_fmt_i8( StringSlice* slice, i8 i, enum FormatInteger format ) {
+CORE_API usize string_slice_fmt_i8( StringSlice* slice, i8 i, enum FormatInteger format ) {
     return fmt_write_i8( ___internal_write_string_slice, slice, i, format );
 }
-LD_API usize string_slice_fmt_u8( StringSlice* slice, u8 i, enum FormatInteger format ) {
+CORE_API usize string_slice_fmt_u8( StringSlice* slice, u8 i, enum FormatInteger format ) {
     return fmt_write_u8( ___internal_write_string_slice, slice, i, format );
 }
-LD_API usize string_slice_fmt_i16( StringSlice* slice, i16 i, enum FormatInteger format ) {
+CORE_API usize string_slice_fmt_i16( StringSlice* slice, i16 i, enum FormatInteger format ) {
     return fmt_write_i16( ___internal_write_string_slice, slice, i, format );
 }
-LD_API usize string_slice_fmt_u16( StringSlice* slice, u16 i, enum FormatInteger format ) {
+CORE_API usize string_slice_fmt_u16( StringSlice* slice, u16 i, enum FormatInteger format ) {
     return fmt_write_u16( ___internal_write_string_slice, slice, i, format );
 }
-LD_API usize string_slice_fmt_i32( StringSlice* slice, i32 i, enum FormatInteger format ) {
+CORE_API usize string_slice_fmt_i32( StringSlice* slice, i32 i, enum FormatInteger format ) {
     return fmt_write_i32( ___internal_write_string_slice, slice, i, format );
 }
-LD_API usize string_slice_fmt_u32( StringSlice* slice, u32 i, enum FormatInteger format ) {
+CORE_API usize string_slice_fmt_u32( StringSlice* slice, u32 i, enum FormatInteger format ) {
     return fmt_write_u32( ___internal_write_string_slice, slice, i, format );
 }
-LD_API usize string_slice_fmt_i64( StringSlice* slice, i64 i, enum FormatInteger format ) {
+CORE_API usize string_slice_fmt_i64( StringSlice* slice, i64 i, enum FormatInteger format ) {
     return fmt_write_i64( ___internal_write_string_slice, slice, i, format );
 }
-LD_API usize string_slice_fmt_u64( StringSlice* slice, u64 i, enum FormatInteger format ) {
+CORE_API usize string_slice_fmt_u64( StringSlice* slice, u64 i, enum FormatInteger format ) {
     return fmt_write_u64( ___internal_write_string_slice, slice, i, format );
 }
-LD_API usize string_slice_fmt_isize(
+CORE_API usize string_slice_fmt_isize(
     StringSlice* slice, isize i, enum FormatInteger format
 ) {
     return fmt_write_isize( ___internal_write_string_slice, slice, i, format );
 }
-LD_API usize string_slice_fmt_usize(
+CORE_API usize string_slice_fmt_usize(
     StringSlice* slice, usize i, enum FormatInteger format
 ) {
     return fmt_write_usize( ___internal_write_string_slice, slice, i, format );

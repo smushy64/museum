@@ -354,23 +354,27 @@ typedef __builtin_va_list va_list;
 /// Terabytes to bytes
 #define terabytes(tb) ( terabytes( (tb) ) * 1024ULL )
 
+#if defined(LD_PLATFORM_WINDOWS)
+    #define api_export __declspec(dllexport)
+    #define api_import __declspec(dllimport) c_linkage
+#else
+    #define api_export __attribute__((visibility("default")))
+    #define api_import c_linkage
+#endif
+
 #if !defined(LD_API)
     #if defined(LD_EXPORT)
-        #if defined(LD_PLATFORM_WINDOWS)
-            /// Import/Export function
-            #define LD_API __declspec(dllexport)
-        #else
-            /// Import/Export function
-            #define LD_API __attribute__((visibility("default")))
-        #endif
+        #define LD_API api_export
     #else
-        #if defined(LD_PLATFORM_WINDOWS)
-            /// Import/Export function
-            #define LD_API __declspec(dllimport) c_linkage
-        #else
-            /// Import/Export function
-            #define LD_API c_linkage
-        #endif
+        #define LD_API api_import
+    #endif
+#endif
+
+#if !defined(CORE_API)
+    #if defined(CORE_EXPORT)
+        #define CORE_API api_export
+    #else
+        #define CORE_API api_import
     #endif
 #endif
 

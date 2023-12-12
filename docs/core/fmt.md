@@ -19,6 +19,7 @@ Includes:
 - [Functions](#functions)
 - [Formatting](#formatting)
     - [Parenthesis](#parenthesis)
+    - [Null Terminator](#null-terminator)
     - [Boolean](#boolean)
     - [Char](#char)
     - [C-String](#c-string)
@@ -157,6 +158,14 @@ Description: Open parenthesis, two are needed to escape formatting.
 ### Parenthesis - Specifiers
 
 {{ -
+
+## Null Terminator
+
+Description: Write a null character.
+
+### Null Terminator - Specifiers
+
+{0} - Null character
 
 ## Boolean
 

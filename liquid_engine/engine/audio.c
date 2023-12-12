@@ -4,18 +4,19 @@
  * File Created: October 27, 2023
 */
 #include "defines.h"
-#include "engine/audio.h"
-#include "engine/time.h"
-#include "engine/logging.h"
-#include "engine/thread.h"
+#include "core/sync.h"
 #include "core/memory.h"
 #include "core/math.h"
-#include "core/internal.h"
+#include "core/fs.h"
+
+#include "engine/audio.h"
+#include "engine/logging.h"
+#include "engine/internal/platform.h"
 
 // TODO(alicia): start debug code!!!!
 
 #include "liquid_package.h"
-#include "resource.h"
+// #include "resource.h"
 
 struct AudioBuffer {
     u8    number_of_channels;
@@ -97,30 +98,30 @@ internal
 b32 ___debug_load_audio(
     const char* audio_test_path, struct AudioBuffer* out_buffer
 ) {
-    PlatformFile* file = platform->io.file_open(
+    FSFile* file = fs_file_open(
         audio_test_path,
-        PLATFORM_FILE_READ |
-        PLATFORM_FILE_SHARE_READ |
-        PLATFORM_FILE_ONLY_EXISTING );
+        FS_FILE_READ |
+        FS_FILE_SHARE_READ |
+        FS_FILE_ONLY_EXISTING );
     if( !file ) {
         return false;
     }
     struct AudioBuffer buffer = {};
 
     struct LiquidPackageHeader header = {};
-    assert( platform->io.file_read( file, sizeof(header), &header ) );
+    assert( fs_file_read( file, sizeof(header), &header ) );
 
     usize offset =
-        liquid_package_calculate_resource_file_offset( RESOURCE_AUDIO_MUSIC_TEST );
+        liquid_package_calculate_resource_file_offset( 0 );
     struct LiquidPackageResource resource = {};
-    platform->io.file_set_offset( file, offset );
-    assert( platform->io.file_read( file, sizeof(resource), &resource ) );
+    fs_file_set_offset( file, offset );
+    assert( fs_file_read( file, sizeof(resource), &resource ) );
     assert( resource.type == LIQUID_PACKAGE_RESOURCE_TYPE_AUDIO );
 
     offset = (header.resource_count * sizeof(resource)) + sizeof(header);
     offset += resource.buffer_offset;
 
-    platform->io.file_set_offset( file, offset );
+    fs_file_set_offset( file, offset );
 
     buffer.buffer_size = liquid_package_resource_audio_buffer_size( &resource.audio );
     assert( buffer.right_channel_offset < buffer.buffer_size );
@@ -133,11 +134,11 @@ b32 ___debug_load_audio(
     buffer.sample_count       = resource.audio.sample_count;
     buffer.right_channel_offset = resource.audio.right_channel_buffer_offset;
 
-    assert( platform->io.file_read( file, buffer.buffer_size, buffer.buffer ) );
+    assert( fs_file_read( file, buffer.buffer_size, buffer.buffer ) );
 
     *out_buffer = buffer;
 
-    platform->io.file_close( file );
+    fs_file_close( file );
     return true;
 #if 0
     PlatformFile* file = platform->io.file_open(
@@ -360,13 +361,13 @@ void ___audio_fill_buffer( usize samples_to_fill ) {
 }
 
 struct AudioMT {
-    Semaphore* buffer_fill;
+    Semaphore buffer_fill;
 };
 global struct AudioMT global_audio_mt = {};
 
 // global f64 audio_last_time = 0.0f;
 void audio_subsystem_output(void) {
-    semaphore_signal( global_audio_mt.buffer_fill );
+    semaphore_signal( &global_audio_mt.buffer_fill );
 }
 
 internal no_inline b32 on_buffer_fill( void* user_params ) {
@@ -375,7 +376,7 @@ internal no_inline b32 on_buffer_fill( void* user_params ) {
     read_write_fence();
 
     loop {
-        semaphore_wait( global_audio_mt.buffer_fill );
+        semaphore_wait( &global_audio_mt.buffer_fill );
         read_write_fence();
 
         if( !global_audio_is_playing ) {
@@ -456,8 +457,7 @@ b32 audio_subsystem_initialize(void) {
     global_voices[1].pan        = 0.0f;
     global_voices[1].buffer     = &global_tmp_sfx_buffer;
 
-    global_audio_mt.buffer_fill = semaphore_create();
-    if( !global_audio_mt.buffer_fill ) {
+    if( !semaphore_create( &global_audio_mt.buffer_fill ) ) {
         fatal_log( "Failed to create multithreaded audio data!" );
         return false;
     }

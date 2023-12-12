@@ -1,5 +1,5 @@
-#if !defined(LD_CORE_MATH_H)
-#define LD_CORE_MATH_H
+#if !defined(LD_SHARED_CORE_MATH_H)
+#define LD_SHARED_CORE_MATH_H
 /**
  * Description:  Math Library
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
@@ -69,66 +69,66 @@ typedef struct Transform Transform;
     ( theta * F32_TO_DEG )
 
 /// Check if float is NaN.
-LD_API b32 is_nan( f32 x );
+CORE_API b32 is_nan( f32 x );
 
 /// Square root of x.
-LD_API f32 square_root( f32 x );
+CORE_API f32 square_root( f32 x );
 
 /// Reciprical of square root of x.
-LD_API f32 inv_square_root( f32 x );
+CORE_API f32 inv_square_root( f32 x );
 
 /// Raise base to integer exponent.
-LD_API f32 poweri( f32 base, i32 exp );
+CORE_API f32 poweri( f32 base, i32 exp );
 
 /// Raise base to float exponent.
-LD_API f32 power( f32 base, f32 exp );
+CORE_API f32 power( f32 base, f32 exp );
 
 /// Float modulus.
-LD_API f32 modulus( f32 lhs, f32 rhs );
+CORE_API f32 modulus( f32 lhs, f32 rhs );
 
 /// Sine of x.
-LD_API f32 sine( f32 x );
+CORE_API f32 sine( f32 x );
 /// Cosine of x.
-LD_API f32 cosine( f32 x );
+CORE_API f32 cosine( f32 x );
 /// Tangent of x.
-LD_API f32 tangent( f32 x );
+CORE_API f32 tangent( f32 x );
 
 /// Sine and Cos of x.
 /// If you need both values,
 /// this is faster than calling each function individually.
-LD_API void sine_cosine( f32 x, f32* out_sin, f32* out_cos );
+CORE_API void sine_cosine( f32 x, f32* out_sin, f32* out_cos );
 
 /// Arc-Sine of x.
-LD_API f32 arc_sine( f32 x );
+CORE_API f32 arc_sine( f32 x );
 /// Arc-Cosine of x.
-LD_API f32 arc_cosine( f32 x );
+CORE_API f32 arc_cosine( f32 x );
 /// Arc-Tangent of x.
-LD_API f32 arc_tangent( f32 x );
+CORE_API f32 arc_tangent( f32 x );
 /// Two argument arc-tangent.
-LD_API f32 arc_tangent2( f32 y, f32 x );
+CORE_API f32 arc_tangent2( f32 y, f32 x );
 
 /// Natural logarithm.
-LD_API f32 natural_logarithm( f32 x );
+CORE_API f32 natural_logarithm( f32 x );
 
 /// Log2.
-LD_API f32 logarithm2( f32 x );
+CORE_API f32 logarithm2( f32 x );
 
 /// Log10.
-LD_API f32 logarithm10( f32 x );
+CORE_API f32 logarithm10( f32 x );
 
 /// e^x
-LD_API f32 e_power( f32 x );
+CORE_API f32 e_power( f32 x );
 
 /// Linearly interpolate a to b.
-LD_API f32 lerp( f32 a, f32 b, f32 t );
+CORE_API f32 lerp( f32 a, f32 b, f32 t );
 /// Get t value from value v.
-LD_API f32 inv_lerp( f32 a, f32 b, f32 v );
+CORE_API f32 inv_lerp( f32 a, f32 b, f32 v );
 /// Remap value v from range imin-imax to range omin-omax.
-LD_API f32 remap( f32 imin, f32 imax, f32 omin, f32 omax, f32 v );
+CORE_API f32 remap( f32 imin, f32 imax, f32 omin, f32 omax, f32 v );
 /// Smooth step interpolate a to b.
-LD_API f32 smooth_step( f32 a, f32 b, f32 t );
+CORE_API f32 smooth_step( f32 a, f32 b, f32 t );
 /// Smoother step interpolate a to b.
-LD_API f32 smoother_step( f32 a, f32 b, f32 t );
+CORE_API f32 smoother_step( f32 a, f32 b, f32 t );
 
 /// Arc-Sine of x. Does not return NaN.
 header_only f32 arc_sine_no_nan( f32 x ) {
@@ -151,18 +151,18 @@ header_only f32 wrap_radians( f32 radians ) {
 }
 
 /// Round float to u32
-LD_API u32 round_u32( f32 x );
+CORE_API u32 round_u32( f32 x );
 /// Floor float to u32
-LD_API u32 floor_u32( f32 x );
+CORE_API u32 floor_u32( f32 x );
 /// Ceil float to u32
-LD_API u32 ceil_u32( f32 x );
+CORE_API u32 ceil_u32( f32 x );
 
 /// Round float to i32
-LD_API i32 round_i32( f32 x );
+CORE_API i32 round_i32( f32 x );
 /// Floor float to i32
-LD_API i32 floor_i32( f32 x );
+CORE_API i32 floor_i32( f32 x );
 /// Ceil float to i32
-LD_API i32 ceil_i32( f32 x );
+CORE_API i32 ceil_i32( f32 x );
 
 /// Normalize integer -1 to 1 range
 header_only f32 normalize_range_i8_f32( i8 x ) {
@@ -811,12 +811,12 @@ header_only ivec4 iv4_v4( vec4 v ) {
 }
 
 /// Create euler angles from quaternion.
-LD_API euler_angles euler_q( quat q );
+CORE_API euler_angles euler_q( quat q );
 
 /// Create mat2 from mat3.
-LD_API mat2 m2_m3( const mat3* m );
+CORE_API mat2 m2_m3( const mat3* m );
 /// Create mat2 from mat4.
-LD_API mat2 m2_m4( const mat4* m );
+CORE_API mat2 m2_m4( const mat4* m );
 
 /// Create mat3 from mat2.
 header_only mat3 m3_m2( mat2 m ) {
@@ -827,7 +827,7 @@ header_only mat3 m3_m2( mat2 m ) {
     };
 }
 /// Create mat3 from mat4.
-LD_API mat3 m3_m4( const mat4* m );
+CORE_API mat3 m3_m4( const mat4* m );
 
 /// Create mat4 from mat2.
 header_only mat4 m4_m2( mat2 m ) {
@@ -839,425 +839,425 @@ header_only mat4 m4_m2( mat2 m ) {
     };
 }
 /// Create mat4 from mat3.
-LD_API mat4 m4_m3( const mat3* m );
+CORE_API mat4 m4_m3( const mat3* m );
 
 /// Negate vector.
-LD_API vec2 v2_neg( vec2 v );
+CORE_API vec2 v2_neg( vec2 v );
 /// Add vectors.
-LD_API vec2 v2_add( vec2 lhs, vec2 rhs );
+CORE_API vec2 v2_add( vec2 lhs, vec2 rhs );
 /// Sub vectors.
-LD_API vec2 v2_sub( vec2 lhs, vec2 rhs );
+CORE_API vec2 v2_sub( vec2 lhs, vec2 rhs );
 /// Scale vector.
-LD_API vec2 v2_mul( vec2 lhs, f32 rhs );
+CORE_API vec2 v2_mul( vec2 lhs, f32 rhs );
 /// Divide vector.
-LD_API vec2 v2_div( vec2 lhs, f32 rhs );
+CORE_API vec2 v2_div( vec2 lhs, f32 rhs );
 /// Horizontal add.
 /// Add components.
-LD_API f32 v2_hadd( vec2 v );
+CORE_API f32 v2_hadd( vec2 v );
 /// Horizontal multiply.
 /// Multiply all components.
-LD_API f32 v2_hmul( vec2 v );
+CORE_API f32 v2_hmul( vec2 v );
 /// Hadamard product.
 /// Component-wise multiplication.
-LD_API vec2 v2_hadamard( vec2 lhs, vec2 rhs );
+CORE_API vec2 v2_hadamard( vec2 lhs, vec2 rhs );
 /// Get the aspect ratio of x and y.
-LD_API f32 v2_aspect_ratio( vec2 v );
+CORE_API f32 v2_aspect_ratio( vec2 v );
 /// Dot/inner product.
-LD_API f32 v2_dot( vec2 lhs, vec2 rhs );
+CORE_API f32 v2_dot( vec2 lhs, vec2 rhs );
 /// Rotate vector by theta(radians).
-LD_API vec2 v2_rotate( vec2 v, f32 theta_radians );
+CORE_API vec2 v2_rotate( vec2 v, f32 theta_radians );
 /// Clamp vector's magnitude to range min-max.
-LD_API vec2 v2_clamp_mag( vec2 v, f32 min, f32 max );
+CORE_API vec2 v2_clamp_mag( vec2 v, f32 min, f32 max );
 /// Compare vectors for equality.
-LD_API b32 v2_cmp( vec2 a, vec2 b );
+CORE_API b32 v2_cmp( vec2 a, vec2 b );
 /// Swap x and y components.
-LD_API vec2 v2_swap( vec2 v );
+CORE_API vec2 v2_swap( vec2 v );
 /// Square magnitude.
-LD_API f32 v2_sqrmag( vec2 v );
+CORE_API f32 v2_sqrmag( vec2 v );
 /// Magnitude.
-LD_API f32 v2_mag( vec2 v );
+CORE_API f32 v2_mag( vec2 v );
 /// Normalize vector.
-LD_API vec2 v2_normalize( vec2 v );
+CORE_API vec2 v2_normalize( vec2 v );
 /// Angle(radians) of two vectors.
-LD_API f32 v2_angle( vec2 lhs, vec2 rhs );
+CORE_API f32 v2_angle( vec2 lhs, vec2 rhs );
 /// Linearly interpolate vectors.
-LD_API vec2 v2_lerp( vec2 a, vec2 b, f32 t );
+CORE_API vec2 v2_lerp( vec2 a, vec2 b, f32 t );
 /// Smooth step interpolate vectors.
-LD_API vec2 v2_smooth_step( vec2 a, vec2 b, f32 t );
+CORE_API vec2 v2_smooth_step( vec2 a, vec2 b, f32 t );
 /// Smoother step interpolate vectors.
-LD_API vec2 v2_smoother_step( vec2 a, vec2 b, f32 t );
+CORE_API vec2 v2_smoother_step( vec2 a, vec2 b, f32 t );
 
 /// Negate vector.
-LD_API ivec2 iv2_neg( ivec2 v );
+CORE_API ivec2 iv2_neg( ivec2 v );
 /// Add vectors.
-LD_API ivec2 iv2_add( ivec2 lhs, ivec2 rhs );
+CORE_API ivec2 iv2_add( ivec2 lhs, ivec2 rhs );
 /// Sub vectors.
-LD_API ivec2 iv2_sub( ivec2 lhs, ivec2 rhs );
+CORE_API ivec2 iv2_sub( ivec2 lhs, ivec2 rhs );
 /// Scale vector.
-LD_API ivec2 iv2_mul( ivec2 lhs, i32 rhs );
+CORE_API ivec2 iv2_mul( ivec2 lhs, i32 rhs );
 /// Divide vector.
-LD_API ivec2 iv2_div( ivec2 lhs, i32 rhs );
+CORE_API ivec2 iv2_div( ivec2 lhs, i32 rhs );
 /// Horizontal add.
 /// Add components.
-LD_API i32 iv2_hadd( ivec2 v );
+CORE_API i32 iv2_hadd( ivec2 v );
 /// Horizontal multiply.
 /// Multiply all components.
-LD_API i32 iv2_hmul( ivec2 v );
+CORE_API i32 iv2_hmul( ivec2 v );
 /// Hadamard product.
 /// Component-wise multiplication.
-LD_API ivec2 iv2_hadamard( ivec2 lhs, ivec2 rhs );
+CORE_API ivec2 iv2_hadamard( ivec2 lhs, ivec2 rhs );
 /// Get the aspect ratio of x and y.
-LD_API f32 iv2_aspect_ratio( ivec2 v );
+CORE_API f32 iv2_aspect_ratio( ivec2 v );
 /// Dot/inner product.
-LD_API f32 iv2_dot( ivec2 lhs, ivec2 rhs );
+CORE_API f32 iv2_dot( ivec2 lhs, ivec2 rhs );
 /// Compare vectors for equality.
-LD_API b32 iv2_cmp( ivec2 a, ivec2 b );
+CORE_API b32 iv2_cmp( ivec2 a, ivec2 b );
 /// Swap x and y components.
-LD_API ivec2 iv2_swap( ivec2 v );
+CORE_API ivec2 iv2_swap( ivec2 v );
 /// Square magnitude.
-LD_API f32 iv2_sqrmag( ivec2 v );
+CORE_API f32 iv2_sqrmag( ivec2 v );
 /// Magnitude.
-LD_API f32 iv2_mag( ivec2 v );
+CORE_API f32 iv2_mag( ivec2 v );
 /// Angle(radians) of two vectors.
-LD_API f32 iv2_angle( ivec2 lhs, ivec2 rhs );
+CORE_API f32 iv2_angle( ivec2 lhs, ivec2 rhs );
 
 /// Create HSV from hue, saturation and value.
-LD_API hsv v3_hsv( f32 hue, f32 saturation, f32 value );
+CORE_API hsv v3_hsv( f32 hue, f32 saturation, f32 value );
 /// Convert RGB to HSV.
-LD_API hsv rgb_to_hsv( rgb col );
+CORE_API hsv rgb_to_hsv( rgb col );
 /// Convert HSV to RGB.
-LD_API rgb hsv_to_rgb( hsv col );
+CORE_API rgb hsv_to_rgb( hsv col );
 /// Convert linear color space to sRGB color space.
-LD_API rgb linear_to_srgb( rgb linear );
+CORE_API rgb linear_to_srgb( rgb linear );
 /// Convert sRGB color space to linear color space.
-LD_API rgb srgb_to_linear( rgb srgb );
+CORE_API rgb srgb_to_linear( rgb srgb );
 /// Negate vector.
-LD_API vec3 v3_neg( vec3 v );
+CORE_API vec3 v3_neg( vec3 v );
 /// Add vectors.
-LD_API vec3 v3_add( vec3 lhs, vec3 rhs );
+CORE_API vec3 v3_add( vec3 lhs, vec3 rhs );
 /// Sub vectors.
-LD_API vec3 v3_sub( vec3 lhs, vec3 rhs );
+CORE_API vec3 v3_sub( vec3 lhs, vec3 rhs );
 /// Scale vector.
-LD_API vec3 v3_mul( vec3 lhs, f32 rhs );
+CORE_API vec3 v3_mul( vec3 lhs, f32 rhs );
 /// Divide vector.
-LD_API vec3 v3_div( vec3 lhs, f32 rhs );
+CORE_API vec3 v3_div( vec3 lhs, f32 rhs );
 /// Horizontal add.
 /// Add components.
-LD_API f32 v3_hadd( vec3 v );
+CORE_API f32 v3_hadd( vec3 v );
 /// Horizontal multiply.
 /// Multiply all components.
-LD_API f32 v3_hmul( vec3 v );
+CORE_API f32 v3_hmul( vec3 v );
 /// Hadamard product.
 /// Component-wise multiplication.
-LD_API vec3 v3_hadamard( vec3 lhs, vec3 rhs );
+CORE_API vec3 v3_hadamard( vec3 lhs, vec3 rhs );
 /// Cross product.
-LD_API vec3 v3_cross( vec3 lhs, vec3 rhs );
+CORE_API vec3 v3_cross( vec3 lhs, vec3 rhs );
 /// Dot/inner product.
-LD_API f32 v3_dot( vec3 lhs, vec3 rhs );
+CORE_API f32 v3_dot( vec3 lhs, vec3 rhs );
 /// Reflect direction across axis of given normal.
-LD_API vec3 v3_reflect( vec3 direction, vec3 normal );
+CORE_API vec3 v3_reflect( vec3 direction, vec3 normal );
 /// Clamp vector's magnitude to range min-max.
-LD_API vec3 v3_clamp_mag( vec3 v, f32 min, f32 max );
+CORE_API vec3 v3_clamp_mag( vec3 v, f32 min, f32 max );
 /// Compare vectors for equality.
-LD_API b32 v3_cmp( vec3 a, vec3 b );
+CORE_API b32 v3_cmp( vec3 a, vec3 b );
 /// Shift components to the left.
 /// Wraps around.
-LD_API vec3 v3_shift_left( vec3 v );
+CORE_API vec3 v3_shift_left( vec3 v );
 /// Shift components to the right.
 /// Wraps around.
-LD_API vec3 v3_shift_right( vec3 v );
+CORE_API vec3 v3_shift_right( vec3 v );
 /// Square magnitude.
-LD_API f32 v3_sqrmag( vec3 v );
+CORE_API f32 v3_sqrmag( vec3 v );
 /// Magnitude.
-LD_API f32 v3_mag( vec3 v );
+CORE_API f32 v3_mag( vec3 v );
 /// Normalize vector.
-LD_API vec3 v3_normalize( vec3 v );
+CORE_API vec3 v3_normalize( vec3 v );
 /// Angle(radians) of two vectors.
-LD_API f32 v3_angle( vec3 lhs, vec3 rhs );
+CORE_API f32 v3_angle( vec3 lhs, vec3 rhs );
 /// Linearly interpolate vectors.
-LD_API vec3 v3_lerp( vec3 a, vec3 b, f32 t );
+CORE_API vec3 v3_lerp( vec3 a, vec3 b, f32 t );
 /// Smooth step interpolate vectors.
-LD_API vec3 v3_smooth_step( vec3 a, vec3 b, f32 t );
+CORE_API vec3 v3_smooth_step( vec3 a, vec3 b, f32 t );
 /// Smoother step interpolate vectors.
-LD_API vec3 v3_smoother_step( vec3 a, vec3 b, f32 t );
+CORE_API vec3 v3_smoother_step( vec3 a, vec3 b, f32 t );
 
 /// Negate vector.
-LD_API ivec3 iv3_neg( ivec3 v );
+CORE_API ivec3 iv3_neg( ivec3 v );
 /// Add vectors.
-LD_API ivec3 iv3_add( ivec3 lhs, ivec3 rhs );
+CORE_API ivec3 iv3_add( ivec3 lhs, ivec3 rhs );
 /// Sub vectors.
-LD_API ivec3 iv3_sub( ivec3 lhs, ivec3 rhs );
+CORE_API ivec3 iv3_sub( ivec3 lhs, ivec3 rhs );
 /// Scale vector.
-LD_API ivec3 iv3_mul( ivec3 lhs, i32 rhs );
+CORE_API ivec3 iv3_mul( ivec3 lhs, i32 rhs );
 /// Divide vector.
-LD_API ivec3 iv3_div( ivec3 lhs, i32 rhs );
+CORE_API ivec3 iv3_div( ivec3 lhs, i32 rhs );
 /// Horizontal add.
 /// Add components.
-LD_API i32 iv3_hadd( ivec3 v );
+CORE_API i32 iv3_hadd( ivec3 v );
 /// Horizontal multiply.
 /// Multiply all components.
-LD_API i32 iv3_hmul( ivec3 v );
+CORE_API i32 iv3_hmul( ivec3 v );
 /// Hadamard product.
 /// Component-wise multiplication.
-LD_API ivec3 iv3_hadamard( ivec3 lhs, ivec3 rhs );
+CORE_API ivec3 iv3_hadamard( ivec3 lhs, ivec3 rhs );
 /// Dot/inner product.
-LD_API f32 iv3_dot( ivec3 lhs, ivec3 rhs );
+CORE_API f32 iv3_dot( ivec3 lhs, ivec3 rhs );
 /// Compare vectors for equality.
-LD_API b32 iv3_cmp( ivec3 a, ivec3 b );
+CORE_API b32 iv3_cmp( ivec3 a, ivec3 b );
 /// Shift components to the left.
 /// Wraps around.
-LD_API ivec3 iv3_shift_left( ivec3 v );
+CORE_API ivec3 iv3_shift_left( ivec3 v );
 /// Shift components to the right.
 /// Wraps around.
-LD_API ivec3 iv3_shift_right( ivec3 v );
+CORE_API ivec3 iv3_shift_right( ivec3 v );
 /// Square magnitude.
-LD_API f32 iv3_sqrmag( ivec3 v );
+CORE_API f32 iv3_sqrmag( ivec3 v );
 /// Magnitude.
-LD_API f32 iv3_mag( ivec3 v );
+CORE_API f32 iv3_mag( ivec3 v );
 /// Angle(radians) of two vectors.
-LD_API f32 iv3_angle( ivec3 lhs, ivec3 rhs );
+CORE_API f32 iv3_angle( ivec3 lhs, ivec3 rhs );
 
 /// Negate vector.
-LD_API vec4 v4_neg( vec4 v );
+CORE_API vec4 v4_neg( vec4 v );
 /// Add vectors.
-LD_API vec4 v4_add( vec4 lhs, vec4 rhs );
+CORE_API vec4 v4_add( vec4 lhs, vec4 rhs );
 /// Sub vectors.
-LD_API vec4 v4_sub( vec4 lhs, vec4 rhs );
+CORE_API vec4 v4_sub( vec4 lhs, vec4 rhs );
 /// Scale vector.
-LD_API vec4 v4_mul( vec4 lhs, f32 rhs );
+CORE_API vec4 v4_mul( vec4 lhs, f32 rhs );
 /// Divide vector.
-LD_API vec4 v4_div( vec4 lhs, f32 rhs );
+CORE_API vec4 v4_div( vec4 lhs, f32 rhs );
 /// Horizontal add.
 /// Add components.
-LD_API f32 v4_hadd( vec4 v );
+CORE_API f32 v4_hadd( vec4 v );
 /// Horizontal multiply.
 /// Multiply all components.
-LD_API f32 v4_hmul( vec4 v );
+CORE_API f32 v4_hmul( vec4 v );
 /// Hadamard product.
 /// Component-wise multiplication.
-LD_API vec4 v4_hadamard( vec4 lhs, vec4 rhs );
+CORE_API vec4 v4_hadamard( vec4 lhs, vec4 rhs );
 /// Dot/inner product.
-LD_API f32 v4_dot( vec4 lhs, vec4 rhs );
+CORE_API f32 v4_dot( vec4 lhs, vec4 rhs );
 /// Clamp vector's magnitude to range min-max.
-LD_API vec4 v4_clamp_mag( vec4 v, f32 min, f32 max );
+CORE_API vec4 v4_clamp_mag( vec4 v, f32 min, f32 max );
 /// Compare vectors for equality.
-LD_API b32 v4_cmp( vec4 a, vec4 b );
+CORE_API b32 v4_cmp( vec4 a, vec4 b );
 /// Shift components to the left.
 /// Wraps around.
-LD_API vec4 v4_shift_left( vec4 v );
+CORE_API vec4 v4_shift_left( vec4 v );
 /// Shift components to the right.
 /// Wraps around.
-LD_API vec4 v4_shift_right( vec4 v );
+CORE_API vec4 v4_shift_right( vec4 v );
 /// Square magnitude.
-LD_API f32 v4_sqrmag( vec4 v );
+CORE_API f32 v4_sqrmag( vec4 v );
 /// Magnitude.
-LD_API f32 v4_mag( vec4 v );
+CORE_API f32 v4_mag( vec4 v );
 /// Normalize vector.
-LD_API vec4 v4_normalize( vec4 v );
+CORE_API vec4 v4_normalize( vec4 v );
 /// Angle(radians) of two vectors.
-LD_API f32 v4_angle( vec4 lhs, vec4 rhs );
+CORE_API f32 v4_angle( vec4 lhs, vec4 rhs );
 /// Linearly interpolate vectors.
-LD_API vec4 v4_lerp( vec4 a, vec4 b, f32 t );
+CORE_API vec4 v4_lerp( vec4 a, vec4 b, f32 t );
 /// Smooth step interpolate vectors.
-LD_API vec4 v4_smooth_step( vec4 a, vec4 b, f32 t );
+CORE_API vec4 v4_smooth_step( vec4 a, vec4 b, f32 t );
 /// Smoother step interpolate vectors.
-LD_API vec4 v4_smoother_step( vec4 a, vec4 b, f32 t );
+CORE_API vec4 v4_smoother_step( vec4 a, vec4 b, f32 t );
 
 /// Negate vector.
-LD_API ivec4 iv4_neg( ivec4 v );
+CORE_API ivec4 iv4_neg( ivec4 v );
 /// Add vectors.
-LD_API ivec4 iv4_add( ivec4 lhs, ivec4 rhs );
+CORE_API ivec4 iv4_add( ivec4 lhs, ivec4 rhs );
 /// Sub vectors.
-LD_API ivec4 iv4_sub( ivec4 lhs, ivec4 rhs );
+CORE_API ivec4 iv4_sub( ivec4 lhs, ivec4 rhs );
 /// Scale vector.
-LD_API ivec4 iv4_mul( ivec4 lhs, i32 rhs );
+CORE_API ivec4 iv4_mul( ivec4 lhs, i32 rhs );
 /// Divide vector.
-LD_API ivec4 iv4_div( ivec4 lhs, i32 rhs );
+CORE_API ivec4 iv4_div( ivec4 lhs, i32 rhs );
 /// Horizontal add.
 /// Add components.
-LD_API i32 iv4_hadd( ivec4 v );
+CORE_API i32 iv4_hadd( ivec4 v );
 /// Horizontal multiply.
 /// Multiply all components.
-LD_API i32 iv4_hmul( ivec4 v );
+CORE_API i32 iv4_hmul( ivec4 v );
 /// Hadamard product.
 /// Component-wise multiplication.
-LD_API ivec4 iv4_hadamard( ivec4 lhs, ivec4 rhs );
+CORE_API ivec4 iv4_hadamard( ivec4 lhs, ivec4 rhs );
 /// Dot/inner product.
-LD_API f32 iv4_dot( ivec4 lhs, ivec4 rhs );
+CORE_API f32 iv4_dot( ivec4 lhs, ivec4 rhs );
 /// Compare vectors for equality.
-LD_API b32 iv4_cmp( ivec4 a, ivec4 b );
+CORE_API b32 iv4_cmp( ivec4 a, ivec4 b );
 /// Shift components to the left.
 /// Wraps around.
-LD_API ivec4 iv4_shift_left( ivec4 v );
+CORE_API ivec4 iv4_shift_left( ivec4 v );
 /// Shift components to the right.
 /// Wraps around.
-LD_API ivec4 iv4_shift_right( ivec4 v );
+CORE_API ivec4 iv4_shift_right( ivec4 v );
 /// Square magnitude.
-LD_API f32 iv4_sqrmag( ivec4 v );
+CORE_API f32 iv4_sqrmag( ivec4 v );
 /// Magnitude.
-LD_API f32 iv4_mag( ivec4 v );
+CORE_API f32 iv4_mag( ivec4 v );
 
 /// Create quaternion from angle(radians) and axis.
-LD_API quat q_angle_axis( f32 angle, vec3 axis );
+CORE_API quat q_angle_axis( f32 angle, vec3 axis );
 /// Create quaternion from euler angles.
-LD_API quat q_euler( f32 pitch, f32 yaw, f32 roll );
+CORE_API quat q_euler( f32 pitch, f32 yaw, f32 roll );
 /// Create quaternion from euler angles.
-LD_API quat q_euler_v3( euler_angles euler );
+CORE_API quat q_euler_v3( euler_angles euler );
 /// Negate quaternion.
-LD_API quat q_neg( quat q );
+CORE_API quat q_neg( quat q );
 /// Add quaternions.
-LD_API quat q_add( quat lhs, quat rhs );
+CORE_API quat q_add( quat lhs, quat rhs );
 /// Sub quaternions.
-LD_API quat q_sub( quat lhs, quat rhs );
+CORE_API quat q_sub( quat lhs, quat rhs );
 /// Scale quaternion.
-LD_API quat q_mul( quat lhs, f32 rhs );
+CORE_API quat q_mul( quat lhs, f32 rhs );
 /// Mul quaternions.
-LD_API quat q_mul_q( quat lhs, quat rhs );
+CORE_API quat q_mul_q( quat lhs, quat rhs );
 /// Mul quaternion and vector3.
-LD_API vec3 q_mul_v3( quat lhs, vec3 rhs );
+CORE_API vec3 q_mul_v3( quat lhs, vec3 rhs );
 /// Div quaternion.
-LD_API quat q_div( quat lhs, f32 rhs );
+CORE_API quat q_div( quat lhs, f32 rhs );
 /// Compare quaternions for equality.
-LD_API b32 q_cmp( quat a, quat b );
+CORE_API b32 q_cmp( quat a, quat b );
 /// Square magnitude.
-LD_API f32 q_sqrmag( quat q );
+CORE_API f32 q_sqrmag( quat q );
 /// Magnitude.
-LD_API f32 q_mag( quat q );
+CORE_API f32 q_mag( quat q );
 /// Normalize quaternion.
-LD_API quat q_normalize( quat q );
+CORE_API quat q_normalize( quat q );
 /// Conjugate of quaternion.
-LD_API quat q_conjugate( quat q );
+CORE_API quat q_conjugate( quat q );
 /// Inverse of quaternion.
-LD_API quat q_inverse( quat q );
+CORE_API quat q_inverse( quat q );
 /// Angle between quaternions.
-LD_API f32 q_angle( quat lhs, quat rhs );
+CORE_API f32 q_angle( quat lhs, quat rhs );
 /// Quaternion inner product.
-LD_API f32 q_dot( quat lhs, quat rhs );
+CORE_API f32 q_dot( quat lhs, quat rhs );
 /// Linear interpolation.
-LD_API quat q_lerp( quat a, quat b, f32 t );
+CORE_API quat q_lerp( quat a, quat b, f32 t );
 /// Spherical interpolation.
-LD_API quat q_slerp( quat a, quat b, f32 t );
+CORE_API quat q_slerp( quat a, quat b, f32 t );
 
 /// Add matrices.
-LD_API mat2 m2_add( mat2 lhs, mat2 rhs );
+CORE_API mat2 m2_add( mat2 lhs, mat2 rhs );
 /// Sub matrices.
-LD_API mat2 m2_sub( mat2 lhs, mat2 rhs );
+CORE_API mat2 m2_sub( mat2 lhs, mat2 rhs );
 /// Scale matrix.
-LD_API mat2 m2_mul( mat2 lhs, f32 rhs );
+CORE_API mat2 m2_mul( mat2 lhs, f32 rhs );
 /// Mul matrices.
-LD_API mat2 m2_mul_m2( mat2 lhs, mat2 rhs );
+CORE_API mat2 m2_mul_m2( mat2 lhs, mat2 rhs );
 /// Div matrix.
-LD_API mat2 m2_div( mat2 lhs, f32 rhs );
+CORE_API mat2 m2_div( mat2 lhs, f32 rhs );
 /// Transpose matrix.
-LD_API mat2 m2_transpose( mat2 m );
+CORE_API mat2 m2_transpose( mat2 m );
 /// Determinant of matrix.
-LD_API f32 m2_determinant( mat2 m );
+CORE_API f32 m2_determinant( mat2 m );
 
 /// Add matrices.
-LD_API mat3 m3_add( const mat3* lhs, const mat3* rhs );
+CORE_API mat3 m3_add( const mat3* lhs, const mat3* rhs );
 /// Sub matrices.
-LD_API mat3 m3_sub( const mat3* lhs, const mat3* rhs );
+CORE_API mat3 m3_sub( const mat3* lhs, const mat3* rhs );
 /// Scale matrix.
-LD_API mat3 m3_mul( const mat3* lhs, f32 rhs );
+CORE_API mat3 m3_mul( const mat3* lhs, f32 rhs );
 /// Mul matrices.
-LD_API mat3 m3_mul_m3( const mat3* lhs, const mat3* rhs );
+CORE_API mat3 m3_mul_m3( const mat3* lhs, const mat3* rhs );
 /// Div matrix.
-LD_API mat3 m3_div( const mat3* lhs, f32 rhs );
+CORE_API mat3 m3_div( const mat3* lhs, f32 rhs );
 /// Transpose matrix.
-LD_API mat3 m3_transpose( const mat3* m );
+CORE_API mat3 m3_transpose( const mat3* m );
 /// Determinant of matrix.
-LD_API f32 m3_determinant( const mat3* m );
+CORE_API f32 m3_determinant( const mat3* m );
 
 /// Create view matrix.
-LD_API mat4 m4_view( vec3 position, vec3 target, vec3 up );
+CORE_API mat4 m4_view( vec3 position, vec3 target, vec3 up );
 /// Create 2d view matrix.
-LD_API mat4 m4_view_2d( vec2 position, vec2 up );
+CORE_API mat4 m4_view_2d( vec2 position, vec2 up );
 /// Create orthographic projection matrix.
-LD_API mat4 m4_ortho(
+CORE_API mat4 m4_ortho(
     f32 left, f32 right,
     f32 bottom, f32 top,
     f32 near_clip, f32 far_clip );
 /// Create perspective projection matrix.
-LD_API mat4 m4_perspective(
+CORE_API mat4 m4_perspective(
     f32 fov_radians, f32 aspect_ratio,
     f32 near_clip, f32 far_clip );
 /// Create translation matrix.
-LD_API mat4 m4_translation( f32 x, f32 y, f32 z );
+CORE_API mat4 m4_translation( f32 x, f32 y, f32 z );
 /// Create 2d translation matrix.
-LD_API mat4 m4_translation_2d( f32 x, f32 y );
+CORE_API mat4 m4_translation_2d( f32 x, f32 y );
 /// Create translation matrix from vector3.
-LD_API mat4 m4_translation_v3( vec3 translation );
+CORE_API mat4 m4_translation_v3( vec3 translation );
 /// Create 2d translation matrix from vector2.
-LD_API mat4 m4_translation_2d_v2( vec2 translation );
+CORE_API mat4 m4_translation_2d_v2( vec2 translation );
 /// Create rotation matrix around x axis.
-LD_API mat4 m4_rotation_pitch( f32 pitch_radians );
+CORE_API mat4 m4_rotation_pitch( f32 pitch_radians );
 /// Create rotation matrix around y axis.
-LD_API mat4 m4_rotation_yaw( f32 yaw_radians );
+CORE_API mat4 m4_rotation_yaw( f32 yaw_radians );
 /// Create rotation matrix around z axis.
-LD_API mat4 m4_rotation_roll( f32 roll_radians );
+CORE_API mat4 m4_rotation_roll( f32 roll_radians );
 /// Create rotation matrix from euler angles.
-LD_API mat4 m4_rotation_euler(
+CORE_API mat4 m4_rotation_euler(
     f32 pitch_radians, f32 yaw_radians, f32 roll_radians );
 /// Create rotation matrix from euler angles vector.
-LD_API mat4 m4_rotation_euler_v3( vec3 rotation );
+CORE_API mat4 m4_rotation_euler_v3( vec3 rotation );
 /// Create rotation matrix from quaternion.
-LD_API mat4 m4_rotation_q( quat rotation );
+CORE_API mat4 m4_rotation_q( quat rotation );
 /// Create scale matrix.
-LD_API mat4 m4_scale( f32 width, f32 height, f32 length );
+CORE_API mat4 m4_scale( f32 width, f32 height, f32 length );
 /// Create 2d scale matrix.
-LD_API mat4 m4_scale_2d( f32 width, f32 height );
+CORE_API mat4 m4_scale_2d( f32 width, f32 height );
 /// Create scale matrix from vector.
-LD_API mat4 m4_scale_v3( vec3 scale );
+CORE_API mat4 m4_scale_v3( vec3 scale );
 /// Create 2d scale matrix from vector.
-LD_API mat4 m4_scale_2d_v2( vec2 scale );
+CORE_API mat4 m4_scale_2d_v2( vec2 scale );
 /// Create transform matrix.
-LD_API mat4 m4_transform( vec3 translation, quat rotation, vec3 scale );
+CORE_API mat4 m4_transform( vec3 translation, quat rotation, vec3 scale );
 /// Create transform matrix using euler angles.
-LD_API mat4 m4_transform_euler( vec3 translation, vec3 rotation, vec3 scale );
+CORE_API mat4 m4_transform_euler( vec3 translation, vec3 rotation, vec3 scale );
 /// Create 2d transform matrix.
-LD_API mat4 m4_transform_2d( vec2 translation, f32 rotation_radians, vec2 scale );
+CORE_API mat4 m4_transform_2d( vec2 translation, f32 rotation_radians, vec2 scale );
 /// Add matrices.
-LD_API mat4 m4_add( const mat4* lhs, const mat4* rhs );
+CORE_API mat4 m4_add( const mat4* lhs, const mat4* rhs );
 /// Sub matrices.
-LD_API mat4 m4_sub( const mat4* lhs, const mat4* rhs );
+CORE_API mat4 m4_sub( const mat4* lhs, const mat4* rhs );
 /// Scale matrix.
-LD_API mat4 m4_mul( const mat4* lhs, f32 rhs );
+CORE_API mat4 m4_mul( const mat4* lhs, f32 rhs );
 /// Mul matrices.
-LD_API mat4 m4_mul_m4( const mat4* lhs, const mat4* rhs );
+CORE_API mat4 m4_mul_m4( const mat4* lhs, const mat4* rhs );
 /// Mul matrix vector.
-LD_API vec4 m4_mul_v4( const mat4* lhs, vec4 rhs );
+CORE_API vec4 m4_mul_v4( const mat4* lhs, vec4 rhs );
 /// Mul matrix vector.
-LD_API vec3 m4_mul_v3( const mat4* lhs, vec3 rhs );
+CORE_API vec3 m4_mul_v3( const mat4* lhs, vec3 rhs );
 /// Div matrix.
-LD_API mat4 m4_div( const mat4* lhs, f32 rhs );
+CORE_API mat4 m4_div( const mat4* lhs, f32 rhs );
 /// Transpose matrix.
-LD_API mat4 m4_transpose( const mat4* m );
+CORE_API mat4 m4_transpose( const mat4* m );
 /// Get submatrix at given cell.
-LD_API mat3 m4_submatrix( const mat4* m, usize row, usize column );
+CORE_API mat3 m4_submatrix( const mat4* m, usize row, usize column );
 /// Get determinant of submatrix at given cell.
-LD_API f32 m4_minor( const mat4* m, usize row, usize column );
+CORE_API f32 m4_minor( const mat4* m, usize row, usize column );
 /// Get the cofactor of minor at given cell.
-LD_API f32 m4_cofactor( const mat4* m, usize row, usize column );
+CORE_API f32 m4_cofactor( const mat4* m, usize row, usize column );
 /// Construct matrix from cofactors.
-LD_API mat4 m4_cofactor_matrix( const mat4* m );
+CORE_API mat4 m4_cofactor_matrix( const mat4* m );
 /// Construct adjoint matrix.
-LD_API mat4 m4_adjoint( const mat4* m );
+CORE_API mat4 m4_adjoint( const mat4* m );
 /// Determinant of matrix.
-LD_API f32 m4_determinant( const mat4* m );
+CORE_API f32 m4_determinant( const mat4* m );
 /// Attempt to construct inverse matrix.
 /// Returns true if successful.
-LD_API b32 m4_inverse( const mat4* m, mat4* out_inverse );
+CORE_API b32 m4_inverse( const mat4* m, mat4* out_inverse );
 /// Construct inverse matrix.
 /// If unsuccessful, cells will be NaN due to division by zero!
-LD_API mat4 m4_inverse_unchecked( const mat4* m );
+CORE_API mat4 m4_inverse_unchecked( const mat4* m );
 /// Construct normal matrix.
 /// Returns true if successful.
-LD_API b32 m4_normal_matrix( const mat4* m, mat3* out_normal_matrix );
+CORE_API b32 m4_normal_matrix( const mat4* m, mat3* out_normal_matrix );
 /// Construct normal matrix.
 /// If unsuccessful, cells will be NaN!
-LD_API mat3 m4_normal_matrix_unchecked( const mat4* m );
+CORE_API mat3 m4_normal_matrix_unchecked( const mat4* m );
 /// Extract position from transform matrix.
-LD_API vec3 m4_transform_position( const mat4* m );
+CORE_API vec3 m4_transform_position( const mat4* m );
 
 /// Transform.
 /// You should never directly modify any
@@ -1274,7 +1274,7 @@ struct Transform {
 };
 
 /// Create a transform.
-LD_API Transform transform_create( vec3 position, quat rotation, vec3 scale );
+CORE_API Transform transform_create( vec3 position, quat rotation, vec3 scale );
 /// Create a default transform.
 header_only Transform transform_zero(void) {
     return transform_create( v3_zero(), QUAT_IDENTITY, VEC3_ONE );
@@ -1291,26 +1291,26 @@ header_only Transform transform_with_rotation( quat rotation ) {
 header_only Transform transform_with_scale( vec3 scale ) {
     return transform_create( VEC3_ZERO, QUAT_IDENTITY, scale );
 }
-LD_API mat4 transform_local_matrix( Transform* t );
-LD_API mat4 transform_world_matrix( Transform* t );
-LD_API vec3 transform_local_position( Transform* t );
-LD_API vec3 transform_world_position( Transform* t );
-LD_API void transform_set_position( Transform* t, vec3 position );
-LD_API void transform_translate( Transform* t, vec3 translation );
-LD_API quat transform_local_rotation( Transform* t );
-LD_API quat transform_world_rotation( Transform* t );
-LD_API void transform_set_rotation( Transform* t, quat rotation );
-LD_API void transform_rotate( Transform* t, quat rotation );
-LD_API vec3 transform_local_scale( Transform* t );
-LD_API vec3 transform_world_scale( Transform* t );
-LD_API void transform_set_scale( Transform* t, vec3 scale );
-LD_API void transform_scale( Transform* t, vec3 scale );
-LD_API vec3 transform_local_forward( Transform* t );
-LD_API vec3 transform_local_right( Transform* t );
-LD_API vec3 transform_local_up( Transform* t );
-LD_API vec3 transform_world_forward( Transform* t );
-LD_API vec3 transform_world_right( Transform* t );
-LD_API vec3 transform_world_up( Transform* t );
+CORE_API mat4 transform_local_matrix( Transform* t );
+CORE_API mat4 transform_world_matrix( Transform* t );
+CORE_API vec3 transform_local_position( Transform* t );
+CORE_API vec3 transform_world_position( Transform* t );
+CORE_API void transform_set_position( Transform* t, vec3 position );
+CORE_API void transform_translate( Transform* t, vec3 translation );
+CORE_API quat transform_local_rotation( Transform* t );
+CORE_API quat transform_world_rotation( Transform* t );
+CORE_API void transform_set_rotation( Transform* t, quat rotation );
+CORE_API void transform_rotate( Transform* t, quat rotation );
+CORE_API vec3 transform_local_scale( Transform* t );
+CORE_API vec3 transform_world_scale( Transform* t );
+CORE_API void transform_set_scale( Transform* t, vec3 scale );
+CORE_API void transform_scale( Transform* t, vec3 scale );
+CORE_API vec3 transform_local_forward( Transform* t );
+CORE_API vec3 transform_local_right( Transform* t );
+CORE_API vec3 transform_local_up( Transform* t );
+CORE_API vec3 transform_world_forward( Transform* t );
+CORE_API vec3 transform_world_right( Transform* t );
+CORE_API vec3 transform_world_up( Transform* t );
 
 #if defined(__cplusplus)
 

@@ -1,6 +1,6 @@
-# * Description:  Liquid Engine Library Makefile
-# * Author:       Alicia Amarilla (smushyaa@gmail.com)
-# * File Created: September 23, 2023
+# Description:  Liquid Engine Core Library Makefile
+# Author:       Alicia Amarilla (smushyaa@gmail.com)
+# File Created: December 03, 2023
 
 LOCAL_BUILD_PATH  := ../$(BUILD_PATH)
 LOCAL_OBJ_PATH    := ../$(OBJ_PATH)
@@ -36,15 +36,7 @@ ifeq ($(TARGET_PLATFORM), win32)
 endif
 
 CPPFLAGS := -DLD_SIMD_WIDTH=4
-CPPFLAGS += -DLIQUID_ENGINE_VERSION=\""$(LD_NAME) $(LD_VERSION)"\"
-CPPFLAGS += -DLIQUID_ENGINE_VERSION_MAJOR=$(LD_MAJOR)
-CPPFLAGS += -DLIQUID_ENGINE_VERSION_MINOR=$(LD_MINOR)
-CPPFLAGS += -DLIQUID_ENGINE_EXECUTABLE=\"$(LD_EXE_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)\"
-CPPFLAGS += -DGL_VERSION_MAJOR=$(GL_MAJOR)
-CPPFLAGS += -DGL_VERSION_MINOR=$(GL_MINOR)
-CPPFLAGS += -DVULKAN_VERSION_MAJOR=$(VK_MAJOR)
-CPPFLAGS += -DVULKAN_VERSION_MINOR=$(VK_MINOR)
-CPPFLAGS += -DLD_EXPORT -DSTACK_SIZE=$(LD_STACK_SIZE)
+CPPFLAGS += -DCORE_EXPORT -DSTACK_SIZE=$(LD_STACK_SIZE)
 
 ifeq ($(RELEASE), true)
 else
@@ -52,12 +44,12 @@ else
 	CPPFLAGS += -DLD_DEVELOPER_MODE
 endif
 
-LDFLAGS := -shared -L$(LOCAL_BUILD_PATH) -l$(LIB_CORE_NAME)
+LDFLAGS := -shared
 
 ifeq ($(TARGET_PLATFORM), win32)
 	LDFLAGS += -fuse-ld=lld -nostdlib -lkernel32
 	LDFLAGS += -mstack-probe-size=999999999 -Wl,//stack:$(LD_STACK_SIZE)
-	LDFLAGS += -Wl,--out-implib=$(LOCAL_BUILD_PATH)/$(LIB_ENGINE_NAME).lib
+	LDFLAGS += -Wl,--out-implib=$(LOCAL_BUILD_PATH)/$(LIB_CORE_NAME).lib
 
 	ifeq ($(RELEASE), true)
 		LDFLAGS += -Wl,//release
@@ -66,35 +58,29 @@ ifeq ($(TARGET_PLATFORM), win32)
 	endif
 endif
 
-ENGINEMAIN := engine/main.c
+INCLUDE := -I.
 
-INCLUDE := -I. -I../liquid_platform -I../shared -I../generated
-
-TARGET := $(LOCAL_BUILD_PATH)/$(LIB_ENGINE)
+TARGET := $(LOCAL_BUILD_PATH)/$(LIB_CORE)
 
 C := $(call recurse,,*.c)
-C := $(filter-out $(ENGINEMAIN),$(C))
-
-LOCAL_SHARED_HEADERS := $(addprefix ../shared/,$(SHARED_HEADERS))
-
-H := $(call recurse,,*.h) $(LOCAL_SHARED_HEADERS)
+H := $(call recurse,,*.h)
 
 GENERATED_DEPENDENCIES := $(C)
 GENERATED_DEPENDENCIES := $(addsuffix \",$(GENERATED_DEPENDENCIES))
 GENERATED_DEPENDENCIES := $(addprefix "#include \"",$(GENERATED_DEPENDENCIES))
-GENERATED_DEPENDENCIES_PATH := engine_generated_dependencies.inl
+GENERATED_DEPENDENCIES_PATH := core_generated_dependencies.inl
 
 all: $(TARGET)
 
 generate_dependencies: $(GENERATED_DEPENDENCIES_PATH)
 
 clean_dependencies:
-	@echo "Make: cleaning liquid engine dependencies . . ."
+	@echo "Make: cleaning liquid engine core dependencies . . ."
 	-@rm -f $(GENERATED_DEPENDENCIES_PATH) 2> /dev/null || true
 
 spit:
 	@echo
-	@echo "-------- lib engine ---------"
+	@echo "-------- lib core ---------"
 	@echo "target:     "$(TARGET)
 	@echo
 	@echo "cflags:     "$(CFLAGS)
@@ -104,23 +90,21 @@ spit:
 	@echo "include:    "$(INCLUDE)
 	@echo
 	@echo "ldflags:    "$(LDFLAGS)
-	@echo
-	@echo "main:       "$(ENGINEMAIN)
 
 $(GENERATED_DEPENDENCIES_PATH): $(C)
-	@echo "Make: generating dependencies for liquid engine . . ."
-	@echo "// * Description:  Generated file containing all Liquid Engine dependencies" > $(GENERATED_DEPENDENCIES_PATH)
+	@echo "Make: generating dependencies for liquid engine core library . . ."
+	@echo "// * Description:  Generated file containing all Liquid Engine core dependencies" > $(GENERATED_DEPENDENCIES_PATH)
 	@echo "// * Author:       Alicia Amarilla (smushyaa@gmail.com)" >> $(GENERATED_DEPENDENCIES_PATH)
 	@echo "// * Generated on: "$(shell date) >> $(GENERATED_DEPENDENCIES_PATH)
 	@echo "" >> $(GENERATED_DEPENDENCIES_PATH)
-	@echo "// IMPORTANT(alicia): This file should only ever be included in Liquid Engine and it should only be included ONCE." >> $(GENERATED_DEPENDENCIES_PATH)
+	@echo "// IMPORTANT(alicia): This file should only ever be included in Liquid Engine Core and it should only be included ONCE." >> $(GENERATED_DEPENDENCIES_PATH)
 	@echo "" >> $(GENERATED_DEPENDENCIES_PATH)
 	for i in $(GENERATED_DEPENDENCIES); do echo $$i >> $(GENERATED_DEPENDENCIES_PATH); done
 
-$(TARGET): $(GENERATED_DEPENDENCIES_PATH) $(ENGINEMAIN) $(C) $(H) ../liquid_platform/api.h
+$(TARGET): $(GENERATED_DEPENDENCIES_PATH) $(C) $(H)
 	@echo "Make: compiling "$(TARGET)" . . ."
 	@mkdir -p $(LOCAL_OBJ_PATH)
-	@$(CC) $(CSTD) $(ENGINEMAIN) ../liquid_platform/platform_dllmain.c -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
+	@$(CC) $(CSTD) -xc $(GENERATED_DEPENDENCIES_PATH) ../liquid_platform/platform_dllmain.c -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
 
 .PHONY: all spit clean_dependencies generate_dependencies
 

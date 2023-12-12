@@ -1,17 +1,17 @@
 // * Description:  Testbed Entry
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: August 09, 2023
-#include <defines.h>
-#include <core/string.h>
-#include <core/math.h>
-#include <core/memory.h>
-#include <core/collections.h>
-#include <engine/graphics.h>
-#include <engine/input.h>
-#include <engine/engine.h>
-#include <engine/logging.h>
-#include <engine/time.h>
-#include <engine/audio.h>
+#include "defines.h"
+#include "core/string.h"
+#include "core/math.h"
+#include "core/memory.h"
+#include "core/collections.h"
+#include "core/time.h"
+#include "engine/graphics.h"
+#include "engine/input.h"
+#include "engine/engine.h"
+#include "engine/logging.h"
+#include "engine/audio.h"
 
 struct GameMemory {
     Transform camera_transform;
@@ -92,7 +92,7 @@ c_linkage b32 application_initialize( void* in_memory ) {
 
 c_linkage b32 application_run( void* in_memory ) {
     GameMemory* memory = (GameMemory*)in_memory;
-    f64 delta_time = time_delta();
+    f64 delta_time = time_delta_seconds();
 
     if( input_key_down( KEY_ESCAPE ) ) {
         engine_exit();

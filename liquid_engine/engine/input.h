@@ -355,7 +355,7 @@ LD_API void input_gamepad_query_rumble(
 LD_API b32 input_gamepad_is_active( usize gamepad );
 
 #if defined(LD_API_INTERNAL)
-    #include "core/internal.h"
+    enum PlatformMouseCode : u8;
 
     /// Query input subsystem memory requirement.
     usize input_subsystem_query_memory_requirement(void);
@@ -370,7 +370,7 @@ LD_API b32 input_gamepad_is_active( usize gamepad );
     /// Set key state.
     void input_subsystem_set_key( KeyCode code, b32 is_down );
     /// Set mouse button state.
-    void input_subsystem_set_mouse_button( PlatformMouseCode code, b32 is_down );
+    void input_subsystem_set_mouse_button( enum PlatformMouseCode code, b32 is_down );
     /// Set mouse wheel.
     void input_subsystem_set_mouse_wheel( i32 wheel );
     /// Set horizontal mouse wheel.

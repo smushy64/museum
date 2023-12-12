@@ -7,6 +7,7 @@
  * Notes:        define LD_LOGGING to enable logging
 */
 #include "defines.h"
+#include "core/print.h"
 
 /// Logging levels.
 /// Used to define what log messages should be permitted.
@@ -45,18 +46,6 @@ typedef enum LoggingType : u32 {
     LOGGING_TYPE_INFO,
     LOGGING_TYPE_NOTE,
 } LoggingType;
-
-/// Color codes for colored console messages.
-typedef const char ConsoleColor;
-#define CONSOLE_COLOR_BLACK   "\033[1;30m"
-#define CONSOLE_COLOR_RED     "\033[1;31m"
-#define CONSOLE_COLOR_GREEN   "\033[1;32m"
-#define CONSOLE_COLOR_YELLOW  "\033[1;33m"
-#define CONSOLE_COLOR_MAGENTA "\033[1;35m"
-#define CONSOLE_COLOR_CYAN    "\033[1;36m"
-#define CONSOLE_COLOR_WHITE   "\033[1;37m"
-#define CONSOLE_COLOR_BLUE    "\033[1;34m"
-#define CONSOLE_COLOR_RESET   "\033[1;00m"
 
 struct StringSlice;
 

@@ -6,6 +6,7 @@
 #include "defines.h"
 #include "constants.h"
 #include "core/fmt.h"
+#include "core/string.h"
 
 #if defined(LD_ARCH_X86) && LD_SIMD_WIDTH != 1
 #include <immintrin.h>
@@ -40,6 +41,7 @@ typedef enum FMTIdentifier : u32 {
     FMT_IDENT_UINT_VECTOR_3,
     FMT_IDENT_UINT_VECTOR_4,
     FMT_IDENT_STRING_SLICE,
+    FMT_IDENT_NULL,
 } FMTIdentifier;
 typedef enum : u32 {
     FMT_FORMAT_NORMAL = 0,
@@ -93,10 +95,6 @@ union FMTInteger {
     i64 i64;
 };
 
-internal b32 ___find_char(
-    usize len, const char* cstr,
-    char character, usize* out_index ); 
-
 internal
 usize ___internal_fmt_integer(
     FormatWriteFN* write, void* target,
@@ -122,11 +120,6 @@ internal char ___char_to_lower( char c ) {
         return c + ('a' - 'A');
     }
     return c;
-}
-internal usize ___strlen( const char* c ) {
-    usize result = 0;
-    while( *c++ ) { result++; }
-    return result;
 }
 typedef enum {
     FMT_STORAGE_BYTES,
@@ -280,6 +273,10 @@ internal FMTIdentifier ___determine_identifier(
             _advance();
             *in_at = at;
             return identifier = FMT_IDENT_LITERAL_PAREN;
+        } break;
+        case '0': {
+            _advance();
+            identifier = FMT_IDENT_NULL;
         } break;
         case 'c': {
             _advance();
@@ -529,7 +526,11 @@ internal b32 ___process_arguments(
         usize argument_len = 0;
         if( ___collect_argument( *remaining, at, &argument_len ) ) {
             usize dot_position = 0;
-            if( ___find_char( argument_len, at, '.', &dot_position ) ) {
+            StringSlice argument = {};
+            argument.buffer = at;
+            argument.len    = argument_len;
+
+            if( string_slice_find_char( &argument, '.', &dot_position ) ) {
                 switch( identifier ) {
                     case FMT_IDENT_FLOAT ... FMT_IDENT_VECTOR_4: break;
                     default: failed();
@@ -611,7 +612,7 @@ usize ___write_intermediate( void* target, usize len, char* string ) {
     return result;
 }
 
-LD_API usize ___internal_fmt_write_va(
+CORE_API usize ___internal_fmt_write_va(
     FormatWriteFN* write, void* target,
     usize format_len, const char* format, va_list va
 ) {
@@ -676,7 +677,10 @@ LD_API usize ___internal_fmt_write_va(
 
     while( remaining ) {
         usize brace_index = 0;
-        if( !___find_char( remaining, at, '{', &brace_index ) ) {
+        StringSlice remaining_slice = {};
+        remaining_slice.buffer = at;
+        remaining_slice.len    = remaining;
+        if( !string_slice_find_char( &remaining_slice, '{', &brace_index ) ) {
             write_string( remaining, at );
             break;
         }
@@ -833,6 +837,9 @@ LD_API usize ___internal_fmt_write_va(
             } while(0)
 
             switch( identifier ) {
+                case FMT_IDENT_NULL: {
+                    write_char( '\0' );
+                } break;
                 case FMT_IDENT_BOOL: {
                     b32  local_value = false;
                     b32* value       = &local_value;
@@ -911,60 +918,56 @@ LD_API usize ___internal_fmt_write_va(
 
                 case FMT_IDENT_STRING_SLICE:
                 case FMT_IDENT_CSTR: {
-                    usize len   = 0;
-                    char* value = NULL;
+                    StringSlice output = {};
 
                     if( identifier == FMT_IDENT_CSTR ) {
-                        value = va_arg( va, void* );
-                        if( !value ) {
-                            value = "";
+                        output.buffer = va_arg( va, void* );
+                        if( !output.buffer ) {
+                            output.buffer = "";
                         }
-                        len = ___strlen( value );
-                        if( args.count && args.count < len ) {
-                            len = args.count;
+                        output.len = cstr_len( output.buffer );
+                        if( args.count && args.count < output.len ) {
+                            output.len = args.count;
                         }
                     } else {
-                        struct ___S { char* buffer; usize len, capacity; };
-                        struct ___S ss = va_arg( va, struct ___S );
-                        len   = ss.len;
-                        value = ss.buffer;
+                        output = va_arg( va, StringSlice );
 
                         if( args.count ) {
-                            if( ss.capacity ) {
-                                if( args.count < ss.capacity ) {
-                                    len = args.count;
+                            if( output.capacity ) {
+                                if( args.count < output.capacity ) {
+                                    output.len = args.count;
                                 }
                             } else {
-                                if( args.count < ss.len ) {
-                                    len = args.count;
+                                if( args.count < output.len ) {
+                                    output.len = args.count;
                                 }
                             }
                         }
                     }
 
                     if( !args.casing ) {
-                        write_string_padded( ' ', len, value );
+                        write_string_padded( ' ', output.len, output.buffer );
                         break;
                     }
 
                     if( args.padding < 0 ) {
-                        apply_padding( ' ', args.padding, len );
+                        apply_padding( ' ', args.padding, output.len );
                     }
                     switch( args.casing ) {
                         case FMT_FORMAT_CASE_UPPER: {
-                            for( usize i = 0; i < len; ++i ) {
-                                write_char( ___char_to_upper( value[i] ) );
+                            for( usize i = 0; i < output.len; ++i ) {
+                                write_char( ___char_to_upper( output.buffer[i] ) );
                             }
                         } break;
                         case FMT_FORMAT_CASE_LOWER: {
-                            for( usize i = 0; i < len; ++i ) {
-                                write_char( ___char_to_lower( value[i] ) );
+                            for( usize i = 0; i < output.len; ++i ) {
+                                write_char( ___char_to_lower( output.buffer[i] ) );
                             }
                         } break;
                         default: break;
                     }
                     if( args.padding > 0 ) {
-                        apply_padding( ' ', args.padding, len );
+                        apply_padding( ' ', args.padding, output.len );
                     }
                 } break;
 
@@ -1130,7 +1133,7 @@ fmt_end:
 
     return result;
 }
-LD_API usize ___internal_fmt_write(
+CORE_API usize ___internal_fmt_write(
     FormatWriteFN* write, void* target,
     usize format_len, const char* format, ...
 ) {
@@ -1151,7 +1154,7 @@ internal b32 ___read_increment( usize* value, usize max ) {
     return true;
 }
 
-LD_API b32 fmt_read_int( usize len, char* buffer, i64* out_parsed_int ) {
+CORE_API b32 fmt_read_int( usize len, char* buffer, i64* out_parsed_int ) {
     if( !len || !buffer ) {
         return false;
     }
@@ -1182,7 +1185,7 @@ LD_API b32 fmt_read_int( usize len, char* buffer, i64* out_parsed_int ) {
     *out_parsed_int = result * ( is_negative ? -1 : 1 );
     return true;
 }
-LD_API b32 fmt_read_uint( usize len, char* buffer, u64* out_parsed_int ) {
+CORE_API b32 fmt_read_uint( usize len, char* buffer, u64* out_parsed_int ) {
     if( !len || !buffer ) {
         return false;
     }
@@ -1240,23 +1243,6 @@ global char FMT_DIGITS_HEXADECIMAL_LOWER[16] = {
         buffer[len++] = character;\
     }\
 } while(0)
-
-internal maybe_unused
-void ___internal_fmt_reverse( usize len, char* buffer ) {
-    char* begin = buffer;
-    char* end   = begin + len - 1;
-
-    while( begin != end ) {
-        char temp = *end;
-        *end--   = *begin;
-        b32 should_end = begin == end;
-        *begin++ = temp;
-
-        if( should_end ) {
-            return;
-        }
-    }
-}
 
 internal
 b32 ___is_nan64( f64 x ) {
@@ -1501,69 +1487,69 @@ usize ___internal_fmt_integer(
     return ___integer_write();
 }
 
-LD_API usize fmt_write_i8(
+CORE_API usize fmt_write_i8(
     FormatWriteFN* write, void* target, i8 integer, FormatInteger format
 ) {
     return ___internal_fmt_integer(
         write, target, (union FMTInteger){ .i8 = integer },
         format, true, 8, FMT_FORMAT_WIDTH_NORMAL );
 }
-LD_API usize fmt_write_u8(
+CORE_API usize fmt_write_u8(
     FormatWriteFN* write, void* target, u8 integer, FormatInteger format
 ) {
     return ___internal_fmt_integer(
         write, target, (union FMTInteger){ .u8 = integer },
         format, false, 8, FMT_FORMAT_WIDTH_NORMAL );
 }
-LD_API usize fmt_write_i16(
+CORE_API usize fmt_write_i16(
     FormatWriteFN* write, void* target, i16 integer, FormatInteger format
 ) {
     return ___internal_fmt_integer(
         write, target, (union FMTInteger){ .i16 = integer },
         format, true, 16, FMT_FORMAT_WIDTH_NORMAL );
 }
-LD_API usize fmt_write_u16(
+CORE_API usize fmt_write_u16(
     FormatWriteFN* write, void* target, u16 integer, FormatInteger format
 ) {
     return ___internal_fmt_integer(
         write, target, (union FMTInteger){ .u16 = integer },
         format, false, 16, FMT_FORMAT_WIDTH_NORMAL );
 }
-LD_API usize fmt_write_i32(
+CORE_API usize fmt_write_i32(
     FormatWriteFN* write, void* target, i32 integer, FormatInteger format
 ) {
     return ___internal_fmt_integer(
         write, target, (union FMTInteger){ .i32 = integer },
         format, true, 32, FMT_FORMAT_WIDTH_NORMAL );
 }
-LD_API usize fmt_write_u32(
+CORE_API usize fmt_write_u32(
     FormatWriteFN* write, void* target, u32 integer, FormatInteger format
 ) {
     return ___internal_fmt_integer(
         write, target, (union FMTInteger){ .u32 = integer },
         format, false, 32, FMT_FORMAT_WIDTH_NORMAL );
 }
-LD_API usize fmt_write_i64(
+CORE_API usize fmt_write_i64(
     FormatWriteFN* write, void* target, i64 integer, FormatInteger format
 ) {
     return ___internal_fmt_integer(
         write, target, (union FMTInteger){ .i64 = integer },
         format, true, 64, FMT_FORMAT_WIDTH_NORMAL );
 }
-LD_API usize fmt_write_u64(
+CORE_API usize fmt_write_u64(
     FormatWriteFN* write, void* target, u64 integer, FormatInteger format
 ) {
     return ___internal_fmt_integer(
         write, target, (union FMTInteger){ .u64 = integer },
         format, false, 64, FMT_FORMAT_WIDTH_NORMAL );
 }
-LD_API usize fmt_write_float(
+CORE_API usize fmt_write_float(
     FormatWriteFN* write, void* target, f64 f, u32 precision
 ) {
     return ___internal_fmt_float(
         write, target, f, precision, FMT_FORMAT_WIDTH_NORMAL );
 }
-LD_API usize fmt_write_bool(
+CORE_API usize fmt_write_bool(
     FormatWriteFN* write, void* target, b32 b, b32 binary
 ) {
     usize len = b ?
@@ -1571,82 +1557,4 @@ LD_API usize fmt_write_bool(
     char* cstr = b ? ( binary ? "1" : "true" ) : ( binary ? "0" : "false" );
     return write( target, len, cstr );
 }
-
-internal b32 ___find_char(
-    usize len, const char* cstr, char character, usize* out_index
-) {
-    b32 found = false;
-    usize index = 0;
-#if LD_SIMD_WIDTH == 1 || !defined(LD_ARCH_X86)
-    for( usize i = 0; i < len; ++i ) {
-        if( cstr[i] == character ) {
-            index = i;
-            found = true;
-            break;
-        }
-    }
-
-    if( found ) {
-        *out_index = index;
-    }
-    return found;
-#elif LD_SIMD_WIDTH == 4
-    usize size16    = len / 16;
-    usize remainder = len % 16;
-
-    __m128i* cstr_ptr   = (__m128i*)cstr;
-    __m128i wide_char   = _mm_set1_epi8( character );
-
-    for( usize i = 0; i < size16; ++i ) {
-        __m128i loaded_string = _mm_loadu_si128( cstr_ptr );
-        __m128i cmp_result    = _mm_cmpeq_epi8( loaded_string, wide_char );
-
-        u16 mask = _mm_movemask_epi8( cmp_result );
-
-        if( mask ) {
-            u16 offset = 0;
-            // if match was found in second half (8 characters)
-            // of format string chunk.
-            // this is just so we skip to second half
-            // when checking each bit for where the character is
-            if( !(mask & (0xFF)) && (mask & (0xFF << 8)) ) {
-                index += 8;
-                offset = 8;
-            }
-
-            // check every bit until first match is found.
-            for( u16 j = 0; j < 8; ++j ) {
-                if( (mask >> (j + offset)) & 0x1 ) {
-                    break;
-                }
-                index++;
-            }
-
-            *out_index = index;
-            found      = true;
-            break;
-        }
-
-        cstr_ptr++;
-        index += 16;
-    }
-
-    if( found ) {
-        *out_index = index;
-        return true;
-    }
-
-    char* at = (char*)cstr_ptr;
-    for( usize i = 0; i < remainder; ++i ) {
-        if( at[i] == character ) {
-            *out_index = index;
-            return true;
-        }
-        index++;
-    }
-
-    return false;
-#endif
-}
-
 

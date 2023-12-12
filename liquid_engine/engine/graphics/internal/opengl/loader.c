@@ -2,10 +2,10 @@
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: September 24, 2023
 #include "defines.h"
-#include "core/internal.h"
 #include "engine/logging.h"
 #include "engine/graphics/internal/opengl/functions.h"
 #include "engine/graphics/internal/opengl.h"
+#include "engine/internal/platform.h"
 
 #define LOAD_PROC_REQUIRED( fn ) do {\
 void* proc = get_proc_address( macro_name_to_string(fn) );\

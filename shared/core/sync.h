@@ -1,43 +1,51 @@
-#if !defined(CORE_THREADING_HPP)
-#define CORE_THREADING_HPP
+#if !defined(LD_SHARED_CORE_SYNC_H)
+#define LD_SHARED_CORE_SYNC_H
 /**
- * Description:  Multi-Threading
+ * Description:  Thread synchronization.
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
- * File Created: June 14, 2023
+ * File Created: December 03, 2023
 */
 #include "defines.h"
 
-/// Thread work function.
-typedef void ThreadWorkProcFN( void* params );
-/// Opaque Semaphore
-typedef void Semaphore;
-/// Opaque Mutex
-typedef void Mutex;
-
-/// Push a new work proc into the work queue.
-LD_API void thread_work_queue_push( ThreadWorkProcFN* work_proc, void* params );
-/// Query how many entries are still pending.
-LD_API usize thread_work_query_pending_count(void);
+/// Semaphore handle.
+typedef struct Semaphore {
+    void* handle;
+} Semaphore;
+/// Mutex handle.
+typedef struct Mutex {
+    void* handle;
+} Mutex;
 
 /// Create a semaphore.
-LD_API Semaphore* semaphore_create(void);
-/// Signal a semaphore.
-LD_API void semaphore_signal( Semaphore* semaphore );
-/// Wait for a semaphore to be signaled.
-LD_API void semaphore_wait( Semaphore* semaphore );
-/// Wait for a semaphore to be signaled for milliseconds.
-LD_API void semaphore_wait_timed( Semaphore* semaphore, u32 ms );
+CORE_API b32 semaphore_create( Semaphore* out_semaphore );
+/// Create a named semaphore.
+CORE_API b32 semaphore_create_named( const char* name, Semaphore* out_semaphore );
 /// Destroy a semaphore.
-LD_API void semaphore_destroy( Semaphore* semaphore );
+CORE_API void semaphore_destroy( Semaphore* semaphore );
+/// Signal a semaphore.
+CORE_API void semaphore_signal( Semaphore* semaphore );
+/// Wait for a semaphore to be signaled indefinitely.
+CORE_API void semaphore_wait( Semaphore* semaphore );
+/// Wait for a semaphore to be signaled for specified milliseconds.
+/// Returns false if timed out.
+CORE_API b32 semaphore_wait_timed( Semaphore* semaphore, u32 ms );
 
 /// Create a mutex.
-LD_API Mutex* mutex_create(void);
-/// Lock a mutex.
-LD_API void mutex_lock( Mutex* mutex );
-/// Unlock a mutex.
-LD_API void mutex_unlock( Mutex* mutex );
+CORE_API b32 mutex_create( Mutex* out_mutex );
+/// Create a named mutex.
+CORE_API b32 mutex_create_named( const char* name, Mutex* out_mutex );
 /// Destroy a mutex.
-LD_API void mutex_destroy( Mutex* mutex );
+CORE_API void mutex_destroy( Mutex* mutex );
+/// Lock a mutex, wait indefinitely.
+CORE_API void mutex_lock( Mutex* mutex );
+/// Lock a mutex, wait for specified milliseconds.
+/// Returns false if timed out.
+CORE_API b32 mutex_lock_timed( Mutex* mutex, u32 ms );
+/// Unlock a mutex.
+CORE_API void mutex_unlock( Mutex* mutex );
+
+/// Sleep thread for given milliseconds.
+CORE_API void thread_sleep( u32 ms );
 
 /// Multi-Threading safe add.
 /// Returns previous value of addend.
@@ -88,13 +96,4 @@ LD_API void mutex_destroy( Mutex* mutex );
     #error "Fences not defined for current architecture!"
 #endif
 
-#if defined(LD_API_INTERNAL)
-
-    /// Thread subsystem size.
-    extern usize THREAD_SUBSYSTEM_SIZE;
-    /// Initialize thread subsystem
-    b32 thread_subsystem_init( u32 logical_processor_count, void* buffer );
-
-#endif
-
-#endif // header guard
+#endif /* header guard */

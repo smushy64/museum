@@ -22,59 +22,59 @@ typedef enum FormatInteger : u32 {
 typedef usize FormatWriteFN( void* target, usize count, char* characters );
 
 /// Parse integer from string.
-LD_API b32 fmt_read_int( usize len, char* buffer, i64* out_parsed_int );
+CORE_API b32 fmt_read_int( usize len, char* buffer, i64* out_parsed_int );
 /// Parse unsigned integer from string.
-LD_API b32 fmt_read_uint( usize len, char* buffer, u64* out_parsed_int );
+CORE_API b32 fmt_read_uint( usize len, char* buffer, u64* out_parsed_int );
 
 /// Write boolean to a target.
 /// Returns number of bytes necessary to complete write operation
 /// if target is not large enough.
-LD_API usize fmt_write_bool(
+CORE_API usize fmt_write_bool(
     FormatWriteFN* write, void* target, b32 b, b32 binary );
 /// Write floating point number to a target.
 /// Returns number of bytes necessary to complete write operation
 /// if target is not large enough.
-LD_API usize fmt_write_float(
+CORE_API usize fmt_write_float(
     FormatWriteFN* write, void* target, f64 f, u32 precision );
 /// Write 8-bit integer to a target.
 /// Returns number of bytes necessary to complete write operation if
 /// target is not large enough.
-LD_API usize fmt_write_i8(
+CORE_API usize fmt_write_i8(
     FormatWriteFN* write, void* target, i8 integer, FormatInteger format );
 /// Write 8-bit unsigned integer to a target.
 /// Returns number of bytes necessary to complete write operation if
 /// target is not large enough.
-LD_API usize fmt_write_u8(
+CORE_API usize fmt_write_u8(
     FormatWriteFN* write, void* target, u8 integer, FormatInteger format );
 /// Write 16-bit integer to a target.
 /// Returns number of bytes necessary to complete write operation if
 /// target is not large enough.
-LD_API usize fmt_write_i16(
+CORE_API usize fmt_write_i16(
     FormatWriteFN* write, void* target, i16 integer, FormatInteger format );
 /// Write 16-bit unsigned integer to a target.
 /// Returns number of bytes necessary to complete write operation if
 /// target is not large enough.
-LD_API usize fmt_write_u16(
+CORE_API usize fmt_write_u16(
     FormatWriteFN* write, void* target, u16 integer, FormatInteger format );
 /// Write 32-bit integer to a target.
 /// Returns number of bytes necessary to complete write operation if
 /// target is not large enough.
-LD_API usize fmt_write_i32(
+CORE_API usize fmt_write_i32(
     FormatWriteFN* write, void* target, i32 integer, FormatInteger format );
 /// Write 32-bit unsigned integer to a target.
 /// Returns number of bytes necessary to complete write operation if
 /// target is not large enough.
-LD_API usize fmt_write_u32(
+CORE_API usize fmt_write_u32(
     FormatWriteFN* write, void* target, u32 integer, FormatInteger format );
 /// Write 64-bit integer to a target.
 /// Returns number of bytes necessary to complete write operation if
 /// target is not large enough.
-LD_API usize fmt_write_i64(
+CORE_API usize fmt_write_i64(
     FormatWriteFN* write, void* target, i64 integer, FormatInteger format );
 /// Write 64-bit unsigned integer to a target.
 /// Returns number of bytes necessary to complete write operation if
 /// target is not large enough.
-LD_API usize fmt_write_u64(
+CORE_API usize fmt_write_u64(
     FormatWriteFN* write, void* target, u64 integer, FormatInteger format );
 /// Write pointer sized integer to a target.
 /// Returns number of bytes necessary to complete write operation if
@@ -104,13 +104,13 @@ header_only usize fmt_write_usize(
 /// Write formatted string to a target.
 /// Returns number of bytes necessary to complete write operation if
 /// target is not large enough.
-LD_API usize ___internal_fmt_write(
+CORE_API usize ___internal_fmt_write(
     FormatWriteFN* write, void* target,
     usize format_len, const char* format, ... );
 /// Write formatted string to a target using variadic list.
 /// Returns number of bytes necessary to complete write operation if
 /// target is not large enough.
-LD_API usize ___internal_fmt_write_va(
+CORE_API usize ___internal_fmt_write_va(
     FormatWriteFN* write, void* target,
     usize format_len, const char* format, va_list va );
 

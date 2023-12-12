@@ -29,7 +29,7 @@ internal isize sorting_quicksort_partition(
     return i + 1;
 }
 
-LD_API void sorting_quicksort(
+CORE_API void sorting_quicksort(
     isize       low,
     isize       high,
     usize       element_size,
@@ -83,7 +83,7 @@ internal isize sorting_quicksort_partition_u32(
     return i + 1;
 }
 
-LD_API void sorting_quicksort_u32( isize low, isize high, u32* buffer ) {
+CORE_API void sorting_quicksort_u32( isize low, isize high, u32* buffer ) {
     while( low < high ) {
         isize partition_index = sorting_quicksort_partition_u32( low, high, buffer );
         if( partition_index - low < high - partition_index ) {

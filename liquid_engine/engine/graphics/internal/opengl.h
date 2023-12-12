@@ -6,7 +6,7 @@
 #include "defines.h"
 
 #if defined(LD_API_INTERNAL)
-#include "core/internal.h"
+#include "engine/internal/platform.h"
 #include "engine/graphics/types.h"
 #include "engine/graphics/internal.h"
 #include "engine/graphics/internal/opengl/types.h"

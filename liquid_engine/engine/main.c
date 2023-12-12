@@ -2,17 +2,22 @@
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: September 23, 2023
 #include "defines.h"
-#include <platform.h>
 #include "core/print.h"
 #include "core/string.h"
 #include "core/memory.h"
 #include "core/math.h"
 #include "core/collections.h"
+#include "core/sync.h"
+#include "core/fs.h"
+#include "core/shared_object.h"
+#include "core/time.h"
+#include "core/jobs.h"
+#include "core/misc.h"
+
+#include "engine/internal/platform.h"
 #include "engine/audio.h"
 #include "engine/logging.h"
-#include "engine/thread.h"
 #include "engine/input.h"
-#include "engine/time.h"
 #include "engine/engine.h"
 #include "engine/graphics/internal.h"
 
@@ -171,8 +176,9 @@ global PlatformSurface* ENGINE_SURFACE = NULL;
 
 #define DEFAULT_LOGGING_FILE_PATH "./museum-logging.txt"
 
+internal void core_logging(
+    usize message_len, const char* message, CoreLoggingType type );
 internal void print_help(void);
-
 LD_API int core_init(
     int argc, char** argv,
     struct PlatformAPI* in_platform
@@ -180,7 +186,7 @@ LD_API int core_init(
     assert( in_platform );
     platform = in_platform;
 
-    time_subsystem_initialize();
+    time_initialize();
 
     char fatal_error_title_buffer[255];
     char fatal_error_message_buffer[255];
@@ -191,8 +197,8 @@ LD_API int core_init(
 
 #if defined(LD_LOGGING)
 
-    PlatformFile* logging_file = platform->io.file_open(
-        DEFAULT_LOGGING_FILE_PATH, PLATFORM_FILE_WRITE | PLATFORM_FILE_SHARE_READ );
+    FSFile* logging_file = fs_file_open(
+        DEFAULT_LOGGING_FILE_PATH, FS_FILE_WRITE | FS_FILE_SHARE_READ );
 
     if( !logging_file ) {
         println_err( "[FATAL] Failed to open logging file!" );
@@ -201,6 +207,8 @@ LD_API int core_init(
 
     logging_subsystem_initialize( logging_file );
     logging_set_level( LOGGING_LEVEL_ALL );
+
+    core_logging_callback_set( core_logging );
 
 #endif
 
@@ -277,15 +285,15 @@ LD_API int core_init(
             }
             if( string_slice_cmp( &current, &clear_log ) ) {
                 logging_subsystem_detach_file();
-                platform->io.file_close( logging_file );
+                fs_file_close( logging_file );
 
-                if( !platform->io.file_delete_by_path( DEFAULT_LOGGING_FILE_PATH ) ) {
+                if( !fs_file_delete( DEFAULT_LOGGING_FILE_PATH ) ) {
                     warn_log( "Unable to delete logging file!" );
                 }
 
-                logging_file = platform->io.file_open(
+                logging_file = fs_file_open(
                     DEFAULT_LOGGING_FILE_PATH,
-                    PLATFORM_FILE_WRITE | PLATFORM_FILE_SHARE_READ );
+                    FS_FILE_WRITE | FS_FILE_SHARE_READ );
 
                 read_write_fence();
                 logging_subsystem_attach_file( logging_file );
@@ -589,8 +597,7 @@ LD_API int core_init(
     note_log( "Resolution:        {i}x{i}", width, height );
     note_log( "Resolution Scale:  {f,.2}x", global_resolution_scale );
 
-    PlatformLibrary* game =
-        platform->library.open( game_library_path.buffer );
+    SharedObject* game = shared_object_open( game_library_path.buffer );
     if( !game ) {
         string_slice_fmt(
             &fatal_error_title,
@@ -608,13 +615,13 @@ LD_API int core_init(
 
     ApplicationQueryMemoryRequirementFN*
         application_query_memory_requirement =
-        (ApplicationQueryMemoryRequirementFN*)platform->library.load_function(
+        (ApplicationQueryMemoryRequirementFN*)shared_object_load(
             game, "application_query_memory_requirement" );
     ApplicationInitializeFN* application_initialize =
-        (ApplicationInitializeFN*)platform->library.load_function(
+        (ApplicationInitializeFN*)shared_object_load(
             game, "application_initialize" );
     ApplicationRunFN* application_run =
-        (ApplicationRunFN*)platform->library.load_function(
+        (ApplicationRunFN*)shared_object_load(
             game, "application_run" );
 
     if( !application_query_memory_requirement ) {
@@ -674,19 +681,24 @@ LD_API int core_init(
     usize audio_subsystem_memory_requirement =
         audio_subsystem_query_memory_requirement();
 
+    u32 thread_count = platform->query_info()->logical_processor_count;
+    thread_count = max( thread_count, 1 );
+
     usize stack_size                       = 0;
     void* stack_buffer                     = NULL;
     usize renderer_subsystem_size          = 0;
     usize renderer_command_buffer_capacity = 0;
     usize renderer_command_buffer_size     = 0;
     usize application_memory_requirement   = 0;
+    usize jobs_system_memory_requirement   =
+        job_system_query_memory_requirement( thread_count );
     /* allocate stack */ {
         application_memory_requirement =
             application_query_memory_requirement();
 
         stack_size += application_memory_requirement;
 
-        stack_size += THREAD_SUBSYSTEM_SIZE;
+        stack_size += jobs_system_memory_requirement;
         stack_size += input_subsystem_query_memory_requirement();
         stack_size += audio_subsystem_memory_requirement;
 
@@ -743,16 +755,10 @@ LD_API int core_init(
     }
 
     /* initialize threading subsystem */ {
-        void* threading_subsystem_buffer =
-            stack_allocator_push( &stack, THREAD_SUBSYSTEM_SIZE );
+        void* jobs_subsystem_buffer =
+            stack_allocator_push( &stack, jobs_system_memory_requirement );
 
-        u32 thread_count = platform->query_info()->logical_processor_count;
-        thread_count = max( thread_count, 1 );
-
-        if( !thread_subsystem_init(
-            thread_count,
-            threading_subsystem_buffer
-        ) ) {
+        if( !job_system_initialize( thread_count, jobs_subsystem_buffer ) ) {
             fatal_log( "Failed to initialize thread subsystem!" );
             platform->fatal_message_box(
                 "Fatal Error "
@@ -894,7 +900,7 @@ LD_API int core_init(
             platform->surface.center_cursor( surface );
         }
 
-        time_subsystem_update();
+        time_update();
     }
 
     audio_subsystem_shutdown();
@@ -905,9 +911,10 @@ LD_API int core_init(
     platform->surface.destroy( surface );
 
 #if defined(LD_LOGGING)
-    platform->io.file_close( logging_file );
+    fs_file_close( logging_file );
 #endif
 
+    shared_object_close( game );
     return CORE_SUCCESS;
 }
 
@@ -1012,28 +1019,28 @@ internal b32 ___settings_parse_float(
 
     return true;
 }
-enum Section : u32 {
+typedef enum Section : u32 {
     SECTION_UNKNOWN,
     SECTION_GRAPHICS,
     SECTION_AUDIO
-};
+} Section;
 
 internal
 b32 parse_settings( struct SettingsParse* out_parse_result ) {
     struct SettingsParse parse_result = {};
 
-    PlatformFileFlags flags =
-        PLATFORM_FILE_READ |
-        PLATFORM_FILE_READ |
-        PLATFORM_FILE_ONLY_EXISTING;
+    FSFileFlags flags =
+        FS_FILE_READ |
+        FS_FILE_READ |
+        FS_FILE_ONLY_EXISTING;
     #define SETTINGS_PATH "./settings.ini"
 
-    PlatformFile* settings_file = platform->io.file_open(
-        SETTINGS_PATH, flags | PLATFORM_FILE_ONLY_EXISTING );
+    FSFile* settings_file = fs_file_open(
+        SETTINGS_PATH, flags | FS_FILE_ONLY_EXISTING );
 
     if( !settings_file ) {
-        settings_file = platform->io.file_open(
-            SETTINGS_PATH, PLATFORM_FILE_WRITE );
+        settings_file = fs_file_open(
+            SETTINGS_PATH, FS_FILE_WRITE );
         if( !settings_file ) {
             fatal_log( "Failed to open settings file at all!" );
             return false;
@@ -1042,10 +1049,7 @@ b32 parse_settings( struct SettingsParse* out_parse_result ) {
         string_slice_mut_capacity( default_settings, 128 );
 
         #define settings_output_string( format, ... )\
-            default_settings.len = 0;\
-            string_slice_fmt( &default_settings, format, ##__VA_ARGS__ );\
-            platform->io.file_write(\
-                settings_file, default_settings.len, default_settings.buffer )
+            fs_file_write_fmt( settings_file, format, ##__VA_ARGS__ )
 
         settings_output_string( "[graphics] \n" );
         settings_output_string( "width            = {i} \n", DEFAULT_RESOLUTION_WIDTH );
@@ -1058,9 +1062,9 @@ b32 parse_settings( struct SettingsParse* out_parse_result ) {
         settings_output_string( "music  = {f,.1} \n", DEFAULT_AUDIO_VOLUME_MUSIC );
         settings_output_string( "sfx    = {f,.1} \n", DEFAULT_AUDIO_VOLUME_SFX );
 
-        platform->io.file_close( settings_file );
+        fs_file_close( settings_file );
 
-        settings_file = platform->io.file_open( SETTINGS_PATH, flags );
+        settings_file = fs_file_open( SETTINGS_PATH, flags );
 
         if( !settings_file ) {
             fatal_log( "Failed to reopen settings file for reading!" );
@@ -1073,9 +1077,9 @@ b32 parse_settings( struct SettingsParse* out_parse_result ) {
     parse_result.resolution_scale  = DEFAULT_RESOLUTION_SCALE;
     parse_result.backend           = RENDERER_BACKEND_OPENGL;
 
-    usize settings_file_size = platform->io.file_query_size( settings_file );
+    usize settings_file_size = fs_file_query_size( settings_file );
     if( !settings_file_size ) {
-        platform->io.file_close( settings_file );
+        fs_file_close( settings_file );
         *out_parse_result = parse_result;
         warn_log( "Settings file is empty!" );
         return true;
@@ -1083,17 +1087,17 @@ b32 parse_settings( struct SettingsParse* out_parse_result ) {
 
     char* settings_file_buffer = system_alloc( settings_file_size );
     if( !settings_file_buffer ) {
-        platform->io.file_close( settings_file );
+        fs_file_close( settings_file );
         fatal_log( "Failed to allocate settings file buffer!" );
         return false;
     }
 
-    b32 read_result = platform->io.file_read(
+    b32 read_result = fs_file_read(
         settings_file,
         settings_file_size,
         settings_file_buffer );
     if( !read_result ) {
-        platform->io.file_close( settings_file );
+        fs_file_close( settings_file );
         system_free( settings_file_buffer, settings_file_size );
         fatal_log( "Failed to read settings file!" );
         return false;
@@ -1224,7 +1228,7 @@ b32 parse_settings( struct SettingsParse* out_parse_result ) {
     }
 
     system_free( settings_file_buffer, settings_file_size );
-    platform->io.file_close( settings_file );
+    fs_file_close( settings_file );
 
     *out_parse_result = parse_result;
     return true;
@@ -1249,4 +1253,46 @@ LD_API void engine_toggle_fullscreen(void) {
     engine_set_fullscreen( !engine_query_fullscreen() );
 }
 
-#include "core_generated_dependencies.inl"
+internal void core_logging(
+    usize message_len, const char* message, CoreLoggingType type
+) {
+    b32 trace      = false;
+    b32 always_log = false;
+    const char* console_color = NULL;
+    LoggingType logging_type  = LOGGING_TYPE_NOTE;
+
+    switch( type ) {
+        case CORE_LOGGING_TYPE_NOTE: break;
+        case CORE_LOGGING_TYPE_INFO: {
+            trace         = true;
+            logging_type  = LOGGING_TYPE_INFO;
+            console_color = CONSOLE_COLOR_WHITE;
+        } break;
+        case CORE_LOGGING_TYPE_WARN: {
+            logging_type  = LOGGING_TYPE_WARN;
+            console_color = CONSOLE_COLOR_YELLOW;
+        } break;
+        case CORE_LOGGING_TYPE_MEMORY_ERROR:
+        case CORE_LOGGING_TYPE_ERROR: {
+            logging_type  = LOGGING_TYPE_ERROR;
+            console_color = CONSOLE_COLOR_RED;
+        } break;
+        case CORE_LOGGING_TYPE_FATAL: {
+            logging_type  = LOGGING_TYPE_FATAL;
+            console_color = CONSOLE_COLOR_MAGENTA;
+            trace         = true;
+            always_log    = true;
+        } break;
+        case CORE_LOGGING_TYPE_MEMORY_SUCCESS: {
+            logging_type  = LOGGING_TYPE_DEBUG;
+            console_color = CONSOLE_COLOR_GREEN;
+        } break;
+    }
+
+    ___internal_logging_output_fmt_locked(
+        logging_type, console_color,
+        trace, always_log, true, true, message_len, message );
+}
+
+
+#include "engine_generated_dependencies.inl"
