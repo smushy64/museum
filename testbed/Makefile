@@ -4,10 +4,7 @@
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
-LOCAL_BUILD_PATH := ../$(BUILD_PATH)
-LOCAL_OBJ_PATH   := ../$(OBJ_PATH)
-
-TARGET := $(LOCAL_BUILD_PATH)/$(LIB_TESTBED)
+TARGET := $(BUILD_PATH)/$(LIB_TESTBED)
 
 CXXFLAGS := $(WARNING_FLAGS) $(OPTIMIZATION_FLAGS) $(ARCH_FLAGS) $(PLATFORM_FLAGS)
 
@@ -15,7 +12,7 @@ LOCAL_CPPFLAGS := -DSTACK_SIZE=$(PROGRAM_STACK_SIZE)
 
 CPPFLAGS := $(DEVELOPER_FLAGS) $(LOCAL_CPPFLAGS)
 
-LOCAL_LDFLAGS := -shared -L$(LOCAL_BUILD_PATH) -l$(LIB_CORE_NAME) -l$(LIB_ENGINE_NAME)
+LOCAL_LDFLAGS := -shared -L$(BUILD_PATH) -l$(LIB_CORE_NAME) -l$(LIB_ENGINE_NAME)
 
 LDFLAGS := $(LINKER_FLAGS_PRELUDE) $(LOCAL_LDFLAGS) $(LINKER_FLAGS_PLATFORM)
 
@@ -36,7 +33,7 @@ clean_dep:
 	@echo "Make: cleaning testbed dependencies . . ."
 	-@rm -f $(GENERATED_DEP_PATH) 2> /dev/null || true
 
-spit:
+config:
 	@echo
 	@echo "-------- lib testbed ---------"
 	@echo "target:     "$(TARGET)
@@ -63,10 +60,8 @@ $(GENERATED_DEP_PATH): $(C)
 
 $(TARGET): $(GENERATED_DEP_PATH) $(C) $(H) $(DEP_SHARED_H) $(DEP_CORE_H)
 	@echo "Make: compiling "$(TARGET)" . . ."
-	@mkdir -p $(LOCAL_OBJ_PATH)
-	@$(CXX) $(CXXSTD) -x c++ $(MAIN) ../$(DLLMAIN) -o $(TARGET) $(CXXFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
-
-COMPILE_COMMANDS_PATH := compile_flags.txt
+	@mkdir -p $(OBJ_PATH)
+	@$(CXX) $(CXXSTD) -x c++ $(MAIN) $(DLLMAIN) -o $(TARGET) $(CXXFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
 
 generate_compile_flags:
 	@echo "Make: generating testbed "$(COMPILE_COMMANDS_PATH)". . ."
@@ -77,5 +72,5 @@ generate_compile_flags:
 	@echo "-I.." >> $(COMPILE_COMMANDS_PATH)
 	for i in $(LDFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
 
-.PHONY: all spit clean_dep generate_compile_flags
+.PHONY: all config clean_dep generate_compile_flags
 

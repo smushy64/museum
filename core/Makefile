@@ -4,10 +4,7 @@
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
-LOCAL_BUILD_PATH := ../$(BUILD_PATH)
-LOCAL_OBJ_PATH   := ../$(OBJ_PATH)
-
-TARGET := $(LOCAL_BUILD_PATH)/$(LIB_CORE)
+TARGET := $(BUILD_PATH)/$(LIB_CORE)
 
 CFLAGS := $(WARNING_FLAGS) $(OPTIMIZATION_FLAGS) $(ARCH_FLAGS) $(PLATFORM_FLAGS)
 
@@ -21,7 +18,7 @@ INCLUDE := $(INCLUDE_FLAGS)
 LOCAL_LDFLAGS := -shared
 
 ifeq ($(TARGET_PLATFORM), win32)
-	LOCAL_LDFLAGS += -Wl,--out-implib=$(LOCAL_BUILD_PATH)/$(LIB_CORE_NAME).lib
+	LOCAL_LDFLAGS += -Wl,--out-implib=$(BUILD_PATH)/$(LIB_CORE_NAME).lib
 endif
 
 LDFLAGS := $(LINKER_FLAGS_PRELUDE) $(LOCAL_LDFLAGS) $(LINKER_FLAGS_PLATFORM)
@@ -38,7 +35,7 @@ clean_dep:
 	@echo "Make: cleaning lib core dependencies . . ."
 	@rm -f $(GENERATED_DEP_PATH) 2> /dev/null || true
 
-spit:
+config:
 	@echo
 	@echo "-------- lib core ---------"
 	@echo "target:     "$(TARGET)
@@ -63,10 +60,8 @@ $(GENERATED_DEP_PATH): $(C)
 
 $(TARGET) : $(GENERATED_DEP_PATH) $(C) $(H)
 	@echo "Make: compiling "$(TARGET)" . . ."
-	@mkdir -p $(LOCAL_OBJ_PATH)
-	@$(CC) $(CSTD) -xc $(GENERATED_DEP_PATH) ../$(DLLMAIN) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
-
-COMPILE_COMMANDS_PATH := compile_flags.txt
+	@mkdir -p $(OBJ_PATH)
+	@$(CC) $(CSTD) -xc $(GENERATED_DEP_PATH) $(DLLMAIN) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
 
 generate_compile_flags:
 	@echo "Make: generating core "$(COMPILE_COMMANDS_PATH)". . ."
@@ -77,5 +72,5 @@ generate_compile_flags:
 	@echo "-I.." >> $(COMPILE_COMMANDS_PATH)
 	for i in $(LDFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
 
-.PHONY: all spit clean_dep generate_compile_flags
+.PHONY: all config clean_dep generate_compile_flags
 

@@ -4,10 +4,7 @@
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
-LOCAL_BUILD_PATH  := ../$(BUILD_PATH)
-LOCAL_OBJ_PATH    := ../$(OBJ_PATH)
-
-TARGET := $(LOCAL_BUILD_PATH)/$(LIB_ENGINE)
+TARGET := $(BUILD_PATH)/$(LIB_ENGINE)
 
 CFLAGS := $(WARNING_FLAGS) $(OPTIMIZATION_FLAGS) $(ARCH_FLAGS) $(PLATFORM_FLAGS)
 
@@ -15,7 +12,7 @@ LOCAL_CPPFLAGS := -DLD_SIMD_WIDTH=4 -DLD_EXPORT
 
 CPPFLAGS := $(ENGINE_FLAGS) $(GRAPHICS_FLAGS) $(DEVELOPER_FLAGS) $(LOCAL_CPPFLAGS)
 
-LOCAL_LDFLAGS := -shared -L$(LOCAL_BUILD_PATH) -l$(LIB_CORE_NAME)
+LOCAL_LDFLAGS := -shared -L$(BUILD_PATH) -l$(LIB_CORE_NAME)
 
 LDFLAGS := $(LOCAL_LDFLAGS) $(LINKER_FLAGS)
 
@@ -32,7 +29,7 @@ GENERATED_DEP := $(addprefix "#include \"",$(GENERATED_DEP))
 
 all: $(TARGET)
 
-spit:
+config:
 	@echo
 	@echo "-------- lib engine ---------"
 	@echo "target:     "$(TARGET)
@@ -63,10 +60,8 @@ $(GENERATED_DEP_PATH): $(C)
 
 $(TARGET): $(GENERATED_DEP_PATH) $(C) $(H) $(DEP_SHARED_H) $(DEP_SHARED_C) $(DEP_CORE_H) $(DEP_CORE_C)
 	@echo "Make: compiling "$(TARGET)" . . ."
-	@mkdir -p $(LOCAL_OBJ_PATH)
-	@$(CC) $(CSTD) -xc ../$(DLLMAIN) $(MAIN) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS) 
-
-COMPILE_COMMANDS_PATH := compile_flags.txt
+	@mkdir -p $(OBJ_PATH)
+	@$(CC) $(CSTD) -xc $(DLLMAIN) $(MAIN) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS) 
 
 generate_compile_flags:
 	@echo "Make: generating engine "$(COMPILE_COMMANDS_PATH)". . ."
@@ -77,5 +72,5 @@ generate_compile_flags:
 	@echo "-I.." >> $(COMPILE_COMMANDS_PATH)
 	for i in $(LDFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
 
-.PHONY: all spit clean_dep generate_compile_flags
+.PHONY: all config clean_dep generate_compile_flags
 

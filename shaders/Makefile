@@ -2,7 +2,7 @@
 # * Author:       Alicia Amarilla (smushyaa@gmail.com)
 # * File Created: September 04, 2023
 
-LOCAL_BUILD_PATH := ../$(BUILD_PATH)/resources/shaders
+LOCAL_BUILD_PATH := $(BUILD_PATH)/resources/shaders
 SCC    := glslc
 SCCSTD := -std=450core --target-env=opengl -x glsl
 

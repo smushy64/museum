@@ -4,10 +4,7 @@
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
-LOCAL_BUILD_PATH := ../$(BUILD_PATH)
-LOCAL_OBJ_PATH   := ../$(OBJ_PATH)
-
-TARGET := $(LOCAL_BUILD_PATH)/$(UTIL_PKG)
+TARGET := $(BUILD_PATH)/$(UTIL_PKG)
 
 CFLAGS := $(WARNING_FLAGS) $(OPTIMIZATION_FLAGS) $(ARCH_FLAGS) $(PLATFORM_FLAGS)
 
@@ -19,7 +16,7 @@ CPPFLAGS := $(DEVELOPER_FLAGS) $(LOCAL_CPPFLAGS)
 
 INCLUDE := $(INCLUDE_FLAGS)
 
-LOCAL_LDFLAGS := -L$(LOCAL_BUILD_PATH) -l$(LIB_CORE_NAME)
+LOCAL_LDFLAGS := -L$(BUILD_PATH) -l$(LIB_CORE_NAME)
 
 LDFLAGS := $(LOCAL_LDFLAGS) $(LINKER_FLAGS)
 
@@ -34,7 +31,7 @@ GENERATED_DEP := $(addprefix "#include \"",$(GENERATED_DEP))
 
 all: $(TARGET)
 
-spit:
+config:
 	@echo
 	@echo "-------- util pkg ---------"
 	@echo "target:     "$(TARGET)
@@ -57,7 +54,9 @@ $(GENERATED_DEP_PATH): $(C)
 	@echo "" >> $(GENERATED_DEP_PATH)
 	for i in $(GENERATED_DEP); do echo $$i >> $(GENERATED_DEP_PATH); done
 
-COMPILE_COMMANDS_PATH := compile_flags.txt
+clean_dep:
+	@echo "Make: cleaning util pkg dependencies . . ."
+	@rm -f $(GENERATED_DEP_PATH) 2> /dev/null || true
 
 generate_compile_flags:
 	@echo "Make: generating package "$(COMPILE_COMMANDS_PATH)". . ."
@@ -70,8 +69,8 @@ generate_compile_flags:
 
 $(TARGET): $(GENERATED_DEP_PATH) $(C) $(H) $(DEP_CORE_H) $(DEP_SHARED_H) $(PLATFORM_DEP_C)
 	@echo "Make: compiling "$(TARGET)" . . ."
-	@mkdir -p $(LOCAL_OBJ_PATH)
+	@mkdir -p $(OBJ_PATH)
 	@$(CC) $(CSTD) -xc $(PLATFORM_DEP_C) $(MAIN) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
 
-.PHONY: all spit generate_compile_flags
+.PHONY: all config generate_compile_flags clean_dep
 
