@@ -18,6 +18,8 @@ export LD_NAME    := liquid-engine
 
 export EXE_NAME   := liquid$(if $(RELEASE),,-debug)
 
+export GENERATED_PATH := ../generated
+
 # 1 MB
 export PROGRAM_STACK_SIZE := 0x100000
 
@@ -193,10 +195,10 @@ build_core:
 build_hash: build_core
 	@$(MAKE) --directory=hash --no-print-directory
 
-build_engine: build_core
+build_engine: build_core build_hash
 	@$(MAKE) --directory=engine --no-print-directory
 
-build_package: build_core
+build_package: build_core build_hash
 	@$(MAKE) --directory=package --no-print-directory
 
 build_shaders:
@@ -245,6 +247,7 @@ config:
 	@$(MAKE) --directory=hash config
 
 clean: clean_shaders clean_objects
+	@$(MAKE) --directory=package clean
 
 clean_dep:
 	@$(MAKE) --directory=core clean_dep

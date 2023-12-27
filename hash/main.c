@@ -9,6 +9,7 @@
 #include "core/print.h"
 #include "core/fs.h"
 #include "core/time.h"
+#include "core/rand.h"
 
 typedef enum ErrorCode : int {
     HASH_SUCCESS = 0,
@@ -76,15 +77,17 @@ c_linkage int core_init( int argc, char** argv, struct PlatformAPI* in_platform 
 
     TimeRecord time = time_record();
 
-    hash_write( "#if !defined( LD_HASH_GENERATED_HEADER_H )" );
-    hash_write( "#define LD_HASH_GENERATED_HEADER_H " );
+    rand_reset_global_state();
+    u32 random = rand_xor_u32();
+    hash_write( "#if !defined( GENERATED_HASHES_{u32}_H )", random );
+    hash_write( "#define GENERATED_HASHES_{u32}_H ", random );
     hash_write( "/**" );
     hash_write( " * Description:  Generated String hashes header." );
     hash_write( " * Author:       Liquid Engine Utility: hash" );
     hash_write( " * File Created: {cc} {u,02}, {u,04}",
         time_month_to_cstr( time.month ), time.day, time.year );
     hash_write( "*/" );
-    hash_write( "#include \"defines.h\"\n" );
+    hash_write( "#include \"shared/defines.h\"\n" );
 
     int variant_index = 2;
     for( usize i = 0; i < hashes_count; ++i ) {
@@ -102,7 +105,7 @@ hash_end:
     fs_file_close( output_file );
 
     if( !error_code ) {
-        println( "hash generated at path {cc}", output_path );
+        println( "hashes generated at path {cc}", output_path );
     }
 
     return error_code;

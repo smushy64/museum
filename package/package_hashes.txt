@@ -1,0 +1,11 @@
+TOKEN_MODE_CREATE          "create"
+TOKEN_MODE_HELP            "help"
+
+TOKEN_CREATE_OUTPUT        "--output"
+TOKEN_CREATE_HEADER_OUTPUT "--header-output"
+TOKEN_CREATE_MAX_THREADS   "--max-threads"
+TOKEN_CREATE_SILENT        "--silent"
+TOKEN_CREATE_VERBOSE       "--verbose"
+
+TOKEN_HELP_MANIFEST        "--manifest"
+TOKEN_HELP_SUPPORTED       "--supported"

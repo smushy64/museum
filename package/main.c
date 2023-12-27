@@ -22,6 +22,8 @@
 
 #include "core/compression.h"
 
+#include "generated/package_hashes.h"
+
 #define PACKAGE_DEFAULT_OUTPUT_PATH "./package.lpkg"
 #define PACKAGE_DEFAULT_HEADER_OUTPUT_PATH "./package_generated_header.h"
 
@@ -266,15 +268,12 @@ internal PackageError package_create( PackageParams* params ) {
 }
 
 internal PackageMode parse_mode( StringSlice* slice ) {
-    string_slice_const( token_mode_create, "create" );
-    string_slice_const( token_mode_help,   "help" );
+    u64 slice_hash = string_slice_hash( slice );
 
-    if( string_slice_cmp( slice, &token_mode_create ) ) {
-        return PACKAGE_MODE_CREATE;
-    } else if( string_slice_cmp( slice, &token_mode_help ) ) {
-        return PACKAGE_MODE_HELP;
-    } else {
-        return PACKAGE_MODE_INVALID;
+    switch( slice_hash ) {
+        case HASH_TOKEN_MODE_CREATE: return PACKAGE_MODE_CREATE;
+        case HASH_TOKEN_MODE_HELP:   return PACKAGE_MODE_HELP;
+        default:                     return PACKAGE_MODE_INVALID;
     }
 }
 
@@ -308,18 +307,13 @@ internal PackageError parse_arguments(
     string_slice_const( token_create_output, "--output" );
     string_slice_const( token_create_header_output, "--header-output" );
     string_slice_const( token_create_max_threads, "--max-threads" );
-    string_slice_const( token_create_silent, "--silent" );
-    string_slice_const( token_create_verbose, "--verbose" );
-
-    string_slice_const( token_help_manifest,  "--manifest"  );
-    string_slice_const( token_help_supported, "--supported" );
 
     for( int i = 1; i < argc; ++i ) {
-        StringSlice argument = string_slice_from_cstr( 0, argv[i] );
+        StringSlice arg = string_slice_from_cstr( 0, argv[i] );
 
         switch( params.mode ) {
             case PACKAGE_MODE_INVALID: {
-                PackageMode parsed_mode = parse_mode( &argument );
+                PackageMode parsed_mode = parse_mode( &arg );
                 if( parsed_mode != PACKAGE_MODE_INVALID ) {
                     params.mode      = parsed_mode;
                     out_params->mode = params.mode;
@@ -327,63 +321,81 @@ internal PackageError parse_arguments(
                 }
             } break;
             case PACKAGE_MODE_HELP: {
-                PackageMode parsed_mode = parse_mode( &argument );
-                if( parsed_mode != PACKAGE_MODE_INVALID ) {
-                    params.help.submode = parsed_mode;
-                    goto parse_end;
-                } else if( string_slice_cmp( &argument, &token_help_supported ) ) {
-                    params.help.supported_files = true;
-                    goto parse_end;
-                } else if( string_slice_cmp( &argument, &token_help_manifest ) ) {
-                    params.help.manifest = true;
-                    goto parse_end;
+                PackageMode parsed_mode = parse_mode( &arg );
+                switch( parsed_mode ) {
+                    case PACKAGE_MODE_INVALID: {
+                        u64 arg_hash = string_slice_hash( &arg );
+                        switch( arg_hash ) {
+                            case HASH_TOKEN_HELP_SUPPORTED: {
+                                params.help.supported_files = true;
+                                goto parse_end;
+                            } break;
+                            case HASH_TOKEN_HELP_MANIFEST: {
+                                params.help.manifest = true;
+                                goto parse_end;
+                            } break;
+                        }
+                    } break;
+                    default: {
+                        params.help.submode = parsed_mode;
+                        goto parse_end;
+                    } break;
                 }
             } break;
             case PACKAGE_MODE_CREATE: {
-                if( argument.buffer[0] != '-' )  {
+                if( arg.buffer[0] != '-' )  {
                     if( params.create.manifest_path ) {
                         break;
                     } else {
-                        params.create.manifest_path = argument.buffer;
+                        params.create.manifest_path = arg.buffer;
                         continue;
                     }
                 }
-                if( string_slice_cmp( &argument, &token_create_output ) ) {
-                    check_next_exists( token_create_output );
-                    const char* next = check_next( path, token_create_output );
-                    params.create.output_path = next;
-                    continue;
-                } else if( string_slice_cmp( &argument, &token_create_header_output ) ) {
-                    check_next_exists( token_create_header_output );
-                    const char* next = check_next( path, token_create_header_output );
-                    params.create.header_output_path = next;
-                    continue;
-                } else if( string_slice_cmp( &argument, &token_create_max_threads ) ) {
-                    check_next_exists( token_create_max_threads );
-                    argument = string_slice_from_cstr( 0, argv[++i] );
+                u64 arg_hash = string_slice_hash( &arg );
 
-                    u64 parsed_int = 0;
-                    if( !string_slice_parse_uint( &argument, &parsed_int ) ) {
-                        arg_error(
-                            "{s} requires an unsigned integer after it!",
-                            token_create_max_threads );
-                        return PACKAGE_ERROR_ARGS_INVALID_ARGUMENT;
-                    }
+                switch( arg_hash ) {
+                    case HASH_TOKEN_CREATE_OUTPUT: {
+                        check_next_exists( token_create_output );
+                        const char* next = check_next( path, token_create_output );
+                        params.create.output_path = next;
+                        continue;
+                    } break;
+                    case HASH_TOKEN_CREATE_HEADER_OUTPUT: {
+                        check_next_exists( token_create_header_output );
+                        const char* next =
+                            check_next( path, token_create_header_output );
+                        params.create.header_output_path = next;
+                        continue;
+                    } break;
+                    case HASH_TOKEN_CREATE_MAX_THREADS: {
+                        check_next_exists( token_create_max_threads );
+                        arg = string_slice_from_cstr( 0, argv[++i] );
 
-                    params.create.max_threads = parsed_int;
-                    continue;
-                } else if( string_slice_cmp( &argument, &token_create_silent ) ) {
-                    params.is_silent = true;
-                    continue;
-                } else if( string_slice_cmp( &argument, &token_create_verbose ) ) {
-                    params.is_verbose = true;
-                    continue;
+                        u64 parsed_int = 0;
+                        if( !string_slice_parse_uint( &arg, &parsed_int ) ) {
+                            arg_error(
+                                "{s} requires an unsigned integer after it!",
+                                token_create_max_threads );
+                            return PACKAGE_ERROR_ARGS_INVALID_ARGUMENT;
+                        }
+
+                        params.create.max_threads = parsed_int;
+                        continue;
+                    } break;
+                    case HASH_TOKEN_CREATE_SILENT: {
+                        params.is_silent = true;
+                        continue;
+                    } break;
+                    case HASH_TOKEN_CREATE_VERBOSE: {
+                        params.is_verbose = true;
+                        continue;
+                    } break;
                 }
             } break;
             default: break;
         }
 
-        arg_error( "Unrecognized argument '{s}'!", argument );
+        arg_error( "Unrecognized argument '{s}'!", arg );
         return PACKAGE_ERROR_ARGS_UNRECOGNIZED_ARGUMENT;
     }
 
@@ -534,5 +546,5 @@ void ___log( LogType type, usize format_len, const char* format, ... ) {
     mutex_unlock( &global_logging_mutex );
 }
 
-#include "package_generated_dependencies.inl"
+#include "generated_dependencies.inl"
 

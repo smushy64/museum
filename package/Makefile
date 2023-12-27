@@ -4,6 +4,10 @@
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
+OUTPUT_HASHES_PATH := $(GENERATED_PATH)/package_hashes.h
+INPUT_HASHES_PATH := ./package_hashes.txt
+INPUT_HASHES := $(shell cat $(INPUT_HASHES_PATH))
+
 TARGET := $(BUILD_PATH)/$(UTIL_PKG)
 
 CFLAGS := $(WARNING_FLAGS) $(OPTIMIZATION_FLAGS) $(ARCH_FLAGS) $(PLATFORM_FLAGS)
@@ -30,6 +34,10 @@ GENERATED_DEP := $(addsuffix \",$(GENERATED_DEP))
 GENERATED_DEP := $(addprefix "#include \"",$(GENERATED_DEP))
 
 all: $(TARGET)
+
+clean:
+	@echo "Make: cleaning package generated hashes . . ."
+	@rm -f $(OUTPUT_HASHES_PATH) 2> /dev/null || true
 
 config:
 	@echo
@@ -67,10 +75,14 @@ generate_compile_flags:
 	@echo "-I.." >> $(COMPILE_COMMANDS_PATH)
 	for i in $(LDFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
 
-$(TARGET): $(GENERATED_DEP_PATH) $(C) $(H) $(DEP_CORE_H) $(DEP_SHARED_H) $(PLATFORM_DEP_C)
+$(OUTPUT_HASHES_PATH): $(INPUT_HASHES_PATH)
+	@echo -n "Make: "
+	$(BUILD_PATH)/$(UTIL_HASH) $(OUTPUT_HASHES_PATH) $(INPUT_HASHES)
+
+$(TARGET): $(GENERATED_DEP_PATH) $(OUTPUT_HASHES_PATH) $(C) $(H) $(DEP_CORE_H) $(DEP_SHARED_H) $(PLATFORM_DEP_C)
 	@echo "Make: compiling "$(TARGET)" . . ."
 	@mkdir -p $(OBJ_PATH)
 	@$(CC) $(CSTD) -xc $(PLATFORM_DEP_C) $(MAIN) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
 
-.PHONY: all config generate_compile_flags clean_dep
+.PHONY: all config generate_compile_flags clean clean_dep generate_hashes
 
