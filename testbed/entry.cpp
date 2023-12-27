@@ -1,7 +1,7 @@
 // * Description:  Testbed Entry
 // * Author:       Alicia Amarilla (smushyaa@gmail.com)
 // * File Created: August 09, 2023
-#include "defines.h"
+#include "shared/defines.h"
 #include "core/string.h"
 #include "core/math.h"
 #include "core/memory.h"
@@ -182,5 +182,5 @@ c_linkage b32 application_run( void* in_memory ) {
     return true;
 }
 
-#include "testbed_generated_dependencies.inl"
+#include "generated_dependencies.inl"
 

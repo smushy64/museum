@@ -35,6 +35,10 @@
     #define LD_COMPILER_UNKNOWN
 #endif
 
+#if defined(LD_COMPILER_MSVC)
+    #error "MSVC compiler is not supported!"
+#endif
+
 // platform defines
 #if defined(_WIN32) || defined(__WIN32__) || defined(_WIN64) || defined(__WIN64__)
     #define LD_PLATFORM_WINDOWS
@@ -165,9 +169,9 @@ typedef float f32;
 /// double precision IEEE-754 floating-point number
 typedef double f64;
 
-/// void* pointer alias
-/// useful for macros that name things
-/// based on type names
+/// void* alias
+/// useful for macros that generate
+/// names using type names
 typedef void* pvoid;
 
 #if !defined( __cplusplus )
@@ -227,6 +231,8 @@ typedef void* pvoid;
 
 /// Crash the program >:)
 #define panic() __builtin_trap()
+/// Path is unreachable.
+#define unreachable() __builtin_unreachable()
 
 /// Mark value as unused.
 #define unused(x) (void)((x))
@@ -268,7 +274,12 @@ typedef void* pvoid;
 #define maybe_unused __attribute__((unused))
 /// Mark value with alignment.
 /// Alignment must be a power of two.
-#define aligned(alignment) __attribute__((aligned (alignment)))
+#define align(alignment) __attribute__((aligned (alignment)))
+/// Function has no side effects.
+#define pure __attribute__((pure))
+/// Function has no side effects and return value is strictly
+/// a result of the function's arguments.
+#define pure_const __attribute__((const))
 
 #if defined(__cplusplus)
     #define restricted __restrict
@@ -299,9 +310,15 @@ typedef void* pvoid;
 #define attribute_none
 
 typedef __builtin_va_list va_list;
-#define va_arg   __builtin_va_arg
-#define va_start __builtin_va_start
-#define va_end   __builtin_va_end
+#if !defined(va_arg)
+    #define va_arg __builtin_va_arg
+#endif
+#if !defined(va_start)
+    #define va_start __builtin_va_start
+#endif
+#if !defined(va_end)
+    #define va_end __builtin_va_end
+#endif
 
 /// Define a 24-bit RGB value (using u32)
 #define rgb_u32( r, g, b )\
@@ -378,10 +395,6 @@ typedef __builtin_va_list va_list;
     #endif
 #endif
 
-#if defined(LD_COMPILER_MSVC)
-    #error "MSVC compiler is not supported!"
-#endif
-
 #if defined(LD_EXPORT)
     /// Internal definition
     #define LD_API_INTERNAL
@@ -398,9 +411,6 @@ static_assert(sizeof(i32) == 4, "Expected i32 to be 4 bytes!");
 static_assert(sizeof(i64) == 8, "Expected i64 to be 8 bytes!");
 static_assert(sizeof(f32) == 4, "Expected f32 to be 4 bytes!");
 static_assert(sizeof(f64) == 8, "Expected f64 to be 8 bytes!");
-static_assert(sizeof(c8)  == 1, "Expected c8 to be 1 byte!" );
-static_assert(sizeof(c16) == 2, "Expected c16 to be 2 bytes!" );
-static_assert(sizeof(c32) == 4, "Expected c32 to be 4 bytes!" );
 
 #if defined(LD_ARCH_32_BIT)
     static_assert(sizeof(isize) == sizeof(i32), "Expected to be running on 32 bit architecture!");

@@ -17,7 +17,9 @@ export LD_VERSION := $(LD_MAJOR).$(LD_MINOR)
 export LD_NAME    := liquid-engine
 
 # 1 MB
-export LD_STACK_SIZE := 0x100000
+export PROGRAM_STACK_SIZE := 0x100000
+
+recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
 # valid options = x86_64, arm64, wasm64
 ifndef $(TARGET_ARCH)
@@ -48,34 +50,47 @@ endif
 export BUILD_PATH := build/$(if $(RELEASE),release,debug)
 export OBJ_PATH   := $(BUILD_PATH)/obj
 
-CFLAGS := -Werror -Wall -Wextra -pedantic -Werror=vla
-CFLAGS += -fno-strict-enums -Wno-missing-braces
-CFLAGS += -Wno-c11-extensions -Wno-gnu-zero-variadic-macro-arguments
-CFLAGS += -Wno-gnu-anonymous-struct -Wno-nested-anon-types
-CFLAGS += -Wno-ignored-attributes -Wno-gnu-case-range
-CFLAGS += -Wno-fixed-enum-extension -Wno-static-in-inline
-CFLAGS += -Wno-c99-extensions -Wno-duplicate-decl-specifier
-CFLAGS += -Wno-gnu-empty-initializer -Wno-c2x-extensions
+# NOTE(alicia): COMMON COMPILER FLAGS
+
+export WARNING_FLAGS := -Werror -Wall -Wextra -pedantic -Werror=vla\
+	-fno-strict-enums -Wno-missing-braces -Wno-c11-extensions\
+	-Wno-gnu-zero-variadic-macro-arguments -Wno-gnu-anonymous-struct\
+	-Wno-nested-anon-types -Wno-ignored-attributes -Wno-gnu-case-range\
+	-Wno-fixed-enum-extension -Wno-static-in-inline -Wno-c99-extensions\
+	-Wno-duplicate-decl-specifier -Wno-gnu-empty-initializer\
+	-Wno-c2x-extensions
+
+export OPTIMIZATION_FLAGS_RELEASE := -O2 -ffast-math
+export OPTIMIZATION_FLAGS_DEBUG   := -O0 -g
 
 ifeq ($(RELEASE), true)
-	CFLAGS += -O2 -ffast-math
+	export OPTIMIZATION_FLAGS := $(OPTIMIZATION_FLAGS_RELEASE)
 else
-	CFLAGS += -O0 -g
+	export OPTIMIZATION_FLAGS := $(OPTIMIZATION_FLAGS_DEBUG)
 endif
 
 ifeq ($(TARGET_ARCH), x86_64)
-	CFLAGS += -masm=intel -mcpu=x86-64
+	export ARCH_FLAGS += -masm=intel -msse4.2
 else
-	CFLAGS += -mcpu=$(TARGET_ARCH)
+	export ARCH_FLAGS += -mcpu=$(TARGET_ARCH)
+endif
+
+export PLATFORM_FLAGS_WIN32_RELEASE := -mwindows
+export PLATFORM_FLAGS_WIN32_DEBUG   := -gcodeview
+
+ifeq ($(RELEASE), true)
+	export PLATFORM_FLAGS_WIN32 := $(PLATFORM_FLAGS_WIN32_RELEASE)
+else
+	export PLATFORM_FLAGS_WIN32 := $(PLATFORM_FLAGS_WIN32_DEBUG)
 endif
 
 ifeq ($(TARGET_PLATFORM), win32)
-	ifeq ($(RELEASE), true)
-		CFLAGS += -mwindows
-	else
-		CFLAGS += -gcodeview
-	endif
+	export PLATFORM_FLAGS := $(PLATFORM_FLAGS_WIN32)
 endif
+
+CFLAGS := $(WARNING_FLAGS) $(OPTIMIZATION_FLAGS) $(ARCH_FLAGS) $(PLATFORM_FLAGS)
+
+# NOTE(alicia): COMMON INFO
 
 export VK_MAJOR := 1
 export VK_MINOR := 2
@@ -83,62 +98,102 @@ export VK_MINOR := 2
 export GL_MAJOR := 4
 export GL_MINOR := 5
 
-export LD_EXE_NAME       := liquid$(if $(RELEASE),,-debug)
-export LD_EXE            := $(LD_EXE_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)
-export TARGET            := $(BUILD_PATH)/$(LD_EXE)
-export LIB_CORE_NAME     := liquid-core$(if $(RELEASE),,-debug)
-export LIB_CORE          := $(LIB_CORE_NAME).$(SO_EXT)
-export LIB_ENGINE_NAME   := liquid-engine$(if $(RELEASE),,-debug)
-export LIB_ENGINE        := $(LIB_ENGINE_NAME).$(SO_EXT)
-export LIB_TESTBED_NAME  := testbed$(if $(RELEASE),,-debug)
-export LIB_TESTBED       := $(LIB_TESTBED_NAME).$(SO_EXT)
-export PKG_EXE_NAME      := lpkg
-export PKG_EXE           := $(PKG_EXE_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)
+export LD_EXE_NAME      := liquid$(if $(RELEASE),,-debug)
+export LD_EXE           := $(LD_EXE_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)
+export TARGET           := $(BUILD_PATH)/$(LD_EXE)
+export LIB_CORE_NAME    := liquid-core$(if $(RELEASE),,-debug)
+export LIB_CORE         := $(LIB_CORE_NAME).$(SO_EXT)
+export LIB_ENGINE_NAME  := liquid-engine$(if $(RELEASE),,-debug)
+export LIB_ENGINE       := $(LIB_ENGINE_NAME).$(SO_EXT)
+export LIB_TESTBED_NAME := testbed$(if $(RELEASE),,-debug)
+export LIB_TESTBED      := $(LIB_TESTBED_NAME).$(SO_EXT)
+export UTIL_PKG_NAME    := lpkg
+export UTIL_PKG         := $(UTIL_PKG_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)
+export UTIL_HASH_NAME   := lhash
+export UTIL_HASH        := $(UTIL_HASH_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)
 
-CPPFLAGS := -DLD_SIMD_WIDTH=4
-CPPFLAGS += -DLIQUID_ENGINE_VERSION=\""$(LD_NAME) $(LD_VERSION)"\"
-CPPFLAGS += -DLIQUID_ENGINE_VERSION_MAJOR=$(LD_MAJOR)
-CPPFLAGS += -DLIQUID_ENGINE_VERSION_MINOR=$(LD_MINOR)
-CPPFLAGS += -DLIQUID_ENGINE_EXECUTABLE=\"$(LD_EXE_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)\"
-CPPFLAGS += -DGL_VERSION_MAJOR=$(GL_MAJOR)
-CPPFLAGS += -DGL_VERSION_MINOR=$(GL_MINOR)
-CPPFLAGS += -DVULKAN_VERSION_MAJOR=$(VK_MAJOR)
-CPPFLAGS += -DVULKAN_VERSION_MINOR=$(VK_MINOR)
-CPPFLAGS += -DLD_EXPORT
-CPPFLAGS += -DLIQUID_ENGINE_PATH=\"$(LIB_ENGINE)\"
-CPPFLAGS += -DLD_PLATFORM_INTERNAL
-CPPFLAGS += -DSTACK_SIZE=$(LD_STACK_SIZE)
+export GENERATED_DEP_PATH := generated_dependencies.inl
+
+export DLLMAIN := platform/platform_dllmain.c
+
+# NOTE(alicia): COMMON PREPROCESSOR FLAGS
+
+export ENGINE_FLAGS :=	-DLIQUID_ENGINE_VERSION_MAJOR=$(LD_MAJOR) \
+	-DLIQUID_ENGINE_VERSION_MINOR=$(LD_MINOR) \
+	-DLIQUID_ENGINE_PATH=\"$(LIB_ENGINE)\"\
+	-DLIQUID_ENGINE_VERSION=\""$(LD_NAME) $(LD_VERSION)"\"\
+	-DSTACK_SIZE=$(PROGRAM_STACK_SIZE)
+
+export GRAPHICS_FLAGS := -DVULKAN_VERSION_MAJOR=$(VK_MAJOR) \
+	-DVULKAN_VERSION_MINOR=$(VK_MINOR) \
+	-DGL_VERSION_MAJOR=$(GL_MAJOR) \
+	-DGL_VERSION_MINOR=$(GL_MINOR)
+
+export DEVELOPER_FLAGS_RELEASE :=
+export DEVELOPER_FLAGS_DEBUG   := -DLD_LOGGING -DLD_ASSERTIONS \
+	-DLD_PROFILING -DLD_DEVELOPER_MODE
 
 ifeq ($(RELEASE), true)
+	export DEVELOPER_FLAGS := $(DEVELOPER_FLAGS_RELEASE)
 else
-	CPPFLAGS += -DLD_LOGGING -DLD_ASSERTIONS -DLD_PROFILING -DLD_CONSOLE_APP
-	CPPFLAGS += -DLD_DEVELOPER_MODE
+	export DEVELOPER_FLAGS := $(DEVELOPER_FLAGS_DEBUG)
 endif
 
-LDFLAGS := 
+LOCAL_CPPFLAGS := -DLD_SIMD_WIDTH=4
+LOCAL_CPPFLAGS += -DLD_EXPORT -DDLLMAIN_DISABLED
+LOCAL_CPPFLAGS += -DLD_PLATFORM_INTERNAL -DLD_CONSOLE_APP
+
+CPPFLAGS := $(ENGINE_FLAGS) $(GRAPHICS_FLAGS) $(DEVELOPER_FLAGS) $(LOCAL_CPPFLAGS)
+
+# NOTE(alicia): COMMON LINKER FLAGS
+
+export LINKER_FLAGS_WIN32_RELEASE := -Wl,//release
+export LINKER_FLAGS_WIN32_DEBUG   := -Wl,//debug
+
+ifeq ($(RELEASE), true)
+	export LINKER_FLAGS_WIN32 := $(LINKER_FLAGS_WIN32_RELEASE)
+else
+	export LINKER_FLAGS_WIN32 := $(LINKER_FLAGS_WIN32_DEBUG)
+endif
+
+export LINKER_FLAGS_PRELUDE_WIN32 := -fuse-ld=lld -nostdlib -lkernel32\
+	-mstack-probe-size=999999999 -Wl,//stack:$(PROGRAM_STACK_SIZE)
 
 ifeq ($(TARGET_PLATFORM), win32)
-	LDFLAGS += -fuse-ld=lld -nostdlib -lkernel32
-	LDFLAGS += -mstack-probe-size=999999999 -Wl,//stack:$(LD_STACK_SIZE)
-
-	ifeq ($(RELEASE), true)
-		LDFLAGS += -Wl,//release
-	else
-		LDFLAGS += -Wl,//debug
-	endif
+	export LINKER_FLAGS_PRELUDE := $(LINKER_FLAGS_PRELUDE_WIN32)
 endif
 
-INCLUDE := -Ishared -Iliquid_platform
+ifeq ($(TARGET_PLATFORM), win32)
+	export LINKER_FLAGS_PLATFORM := $(LINKER_FLAGS_WIN32)
+endif
 
-recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
+export LINKER_FLAGS := $(LINKER_FLAGS_PRELUDE) $(LINKER_FLAGS_PLATFORM)
 
-export SHARED_HEADERS := $(patsubst ./shared/%,%,$(call recurse,./shared,*.h))
-LOCAL_SHARED_HEADERS  := $(addprefix ./shared/,$(SHARED_HEADERS))
+LDFLAGS := $(LINKER_FLAGS)
 
-SHARED_SOURCES := $(call recurse,./shared,*.c)
+# NOTE(alicia): COMMON INCLUDE FLAGS
 
-all: $(TARGET) build_core build_package build_engine shaders
-# all: $(if $(DEPENDENCIES_ONLY),generate_dependencies,shaders $(if $(SHADER_ONLY),,$(TARGET) build_core build_package))
+export INCLUDE_FLAGS := -I$(shell pwd)
+
+INCLUDE := $(INCLUDE_FLAGS)
+
+# NOTE(alicia): COMMON DEPENDENCIES
+
+export SHARED_H := $(call recurse,./shared,*.h)
+export SHARED_C := $(call recurse,./shared,*.c)
+
+export DEP_SHARED_H := $(addprefix .,$(SHARED_H))
+export DEP_SHARED_C := $(addprefix .,$(SHARED_C))
+
+export DEP_CORE_H := $(addprefix .,$(call recurse,./core,*.h))
+export DEP_CORE_C := $(addprefix .,$(call recurse,./core,*.c))
+
+export PLATFORM_DEP_C := $(addprefix .,$(filter-out ./platform/platform_dllmain.c,$(call recurse,./platform,*.c)))
+
+H := $(call recurse,./platform,*.h)
+C := $(call recurse,./platform,*.c)
+
+all: $(TARGET) build_core build_engine build_package build_hash
 
 generate_dependencies:
 	@$(MAKE) --directory=liquid_engine generate_dependencies
@@ -148,22 +203,25 @@ test: all
 	@$(MAKE) --directory=testbed --no-print-directory
 
 build_core:
-	@$(MAKE) --directory=shared --no-print-directory
+	@$(MAKE) --directory=core --no-print-directory
 
-build_engine: build_core
-	@$(MAKE) --directory=liquid_engine --no-print-directory
+build_hash: build_core
+	@$(MAKE) --directory=hash --no-print-directory
+
+build_engine: build_core build_shaders
+	@$(MAKE) --directory=engine --no-print-directory
 
 build_package: build_core
 	@$(MAKE) --directory=package --no-print-directory
 
-shaders:
+build_shaders:
 	@$(MAKE) --directory=shaders --no-print-directory
 
 run:
 	@echo run none
 
 splat:
-	@echo $(SHARED_SOURCES)
+	@echo $(DEP_CORE_H)
 
 spit:
 	@echo "platform:     "$(TARGET_PLATFORM)
@@ -174,27 +232,49 @@ spit:
 	@echo "c++ compiler: "$(CXX)
 	@echo "c++ standard: "$(CXXSTD)
 	@echo
-	@echo "-------- shared --------------"
+	@echo "-------- flags --------------"
 	@echo
-	@echo "headers:    "$(SHARED_HEADERS)
+	@echo "warning:      "$(WARNING_FLAGS)
+	@echo 
+	@echo "optimization: "$(OPTIMIZATION_FLAGS)
+	@echo
+	@echo "arch:         "$(ARCH_FLAGS)
+	@echo
+	@echo "platform:     "$(PLATFORM_FLAGS)
+	@echo
+	@echo "engine:       "$(ENGINE_FLAGS)
+	@echo
+	@echo "graphics:     "$(GRAPHICS_FLAGS)
+	@echo
+	@echo "developer:    "$(DEVELOPER_FLAGS)
+	@echo
+	@echo "linker_prelude: "$(LINKER_FLAGS_PRELUDE)
+	@echo
+	@echo "linker_platform: "$(LINKER_FLAGS_PLATFORM)
+	@echo
+	@echo "linker:       linker_prelude, linker_platform"
+	@echo
+	@echo "include:      "$(INCLUDE_FLAGS)
 	@echo
 	@echo "-------- platform ------------"
 	@echo "target:     "$(TARGET)
 	@echo
-	@echo "cflags:     "$(CFLAGS)
+	@echo "cflags:     warning, optimization, arch, platform"
 	@echo
-	@echo "cppflags:   "$(CPPFLAGS)
+	@echo "cppflags:   engine, graphics, developer, "$(LOCAL_CPPFLAGS)
 	@echo
 	@echo "include:    "$(INCLUDE)
 	@echo
-	@echo "ldflags:    "$(LDFLAGS)
+	@echo "ldflags:    linker"
 	@echo
-	@echo "main:       "$(LD_PLATFORM_MAIN)
-	@$(MAKE) --directory=shared spit
-	@$(MAKE) --directory=liquid_engine spit
-	@$(MAKE) --directory=package spit
-	@$(MAKE) --directory=shaders spit
+	@echo "headers:    "$(H)
+	@echo 
+	@echo "sources:    "$(C)
+	@$(MAKE) --directory=core spit
+	@$(MAKE) --directory=engine spit
 	@$(MAKE) --directory=testbed spit
+	@$(MAKE) --directory=package spit
+	@$(MAKE) --directory=hash spit
 
 clean: $(if $(DEPENDENCIES_ONLY),clean_dependencies,$(if $(SHADER_ONLY),,clean_files) clean_shaders) 
 
@@ -247,10 +327,34 @@ $(WIN32RESOURCES):win32/resources.rc
 	@mkdir -p $(OBJ_PATH)
 	@windres win32/resources.rc -o $(WIN32RESOURCES)
 
-$(TARGET): $(if $(IS_WINDOWS),$(WIN32RESOURCES),) $(LD_PLATFORM_MAIN) $(LOCAL_SHARED_HEADERS) ./liquid_platform/api.h $(SHARED_SOURCES)
+$(TARGET): $(if $(IS_WINDOWS),$(WIN32RESOURCES),) $(H) $(C) $(SHARED_H) $(SHARED_C)
 	@echo "Make: compiling "$(TARGET)" . . ."
 	@mkdir -p $(OBJ_PATH)
-	@$(CC) $(CSTD) $(LD_PLATFORM_MAIN) $(WIN32RESOURCES) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
+	@$(CC) $(CSTD) $(C) $(WIN32RESOURCES) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
 
-.PHONY: all test shaders run clean clean_shaders clean_files help build_core clean_dependencies generate_dependencies splat
+
+compile_flags: generate_compile_flags
+	@$(MAKE) --directory=core generate_compile_flags
+	@$(MAKE) --directory=engine generate_compile_flags
+	@$(MAKE) --directory=testbed generate_compile_flags
+	@$(MAKE) --directory=package generate_compile_flags
+	@$(MAKE) --directory=hash generate_compile_flags
+
+COMPILE_COMMANDS_PATH := ./platform/compile_flags.txt
+
+generate_compile_flags:
+	@echo "Make: generating platform "$(COMPILE_COMMANDS_PATH)". . ."
+	@echo $(CC) > $(COMPILE_COMMANDS_PATH)
+	@echo $(CSTD) >> $(COMPILE_COMMANDS_PATH)
+	for i in $(CFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
+	for i in $(CPPFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
+	@echo "-I.." >> $(COMPILE_COMMANDS_PATH)
+	for i in $(LDFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
+
+.PHONY: all test run clean help \
+	build_core build_hash build_package \
+	build_engine build_shaders \
+	clean_files clean_shaders clean_dependencies \
+	generate_dependencies \
+	spit splat compile_flags generate_compile_flags
 

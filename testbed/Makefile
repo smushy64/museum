@@ -2,118 +2,80 @@
 # * Author:       Alicia Amarilla (smushyaa@gmail.com)
 # * File Created: September 04, 2023
 
+recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
+
 LOCAL_BUILD_PATH := ../$(BUILD_PATH)
 LOCAL_OBJ_PATH   := ../$(OBJ_PATH)
 
-recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
-
-CXXFLAGS := -Werror -Wall -Wextra -pedantic -Werror=vla
-CXXFLAGS += -fno-strict-enums -Wno-missing-braces
-CXXFLAGS += -Wno-c11-extensions -Wno-gnu-zero-variadic-macro-arguments
-CXXFLAGS += -Wno-gnu-anonymous-struct -Wno-nested-anon-types
-CXXFLAGS += -Wno-ignored-attributes -Wno-gnu-case-range
-CXXFLAGS += -Wno-fixed-enum-extension -Wno-static-in-inline
-CXXFLAGS += -Wno-c99-extensions -Wno-duplicate-decl-specifier
-CXXFLAGS += -Wno-gnu-empty-initializer
-
-ifeq ($(RELEASE), true)
-	CXXFLAGS += -O2 -ffast-math
-else
-	CXXFLAGS += -O0 -g
-endif
-
-ifeq ($(TARGET_ARCH), x86_64)
-	CXXFLAGS += -masm=intel -mcpu=x86-64
-else
-	CXXFLAGS += -mcpu=$(TARGET_ARCH)
-endif
-
-ifeq ($(TARGET_PLATFORM), win32)
-	ifeq ($(RELEASE), true)
-	else
-		CXXFLAGS += -gcodeview
-	endif
-endif
-
-CPPFLAGS := -DLD_SIMD_WIDTH=4 -DSTACK_SIZE=$(LD_STACK_SIZE)
-
-ifeq ($(RELEASE), true)
-else
-	CPPFLAGS += -DLD_LOGGING -DLD_ASSERTIONS -DLD_PROFILING
-endif
-
-LDFLAGS := -shared -L$(LOCAL_BUILD_PATH) -l$(LIB_CORE_NAME) -l$(LIB_ENGINE_NAME)
-
-ifeq ($(TARGET_PLATFORM), win32)
-	LDFLAGS += -nostdlib
-	LDFLAGS += -mstack-probe-size=999999999 -Wl,//stack:$(LD_STACK_SIZE)
-
-	ifeq ($(RELEASE), true)
-		LDFLAGS += -Wl,//release
-	else
-		LDFLAGS += -Wl,//debug
-	endif
-
-	LDFLAGS := -fuse-ld=lld $(LDFLAGS)
-endif
-
-DLLMAIN     := ../liquid_platform/platform_dllmain.c
-TESTBEDMAIN := entry.cpp
-
-INCLUDE := -I. -I../liquid_engine -I../shared
-
 TARGET := $(LOCAL_BUILD_PATH)/$(LIB_TESTBED)
 
-CPP := $(call recurse,,*.c)
-CPP := $(filter-out $(COREMAIN),$(CPP))
+CXXFLAGS := $(WARNING_FLAGS) $(OPTIMIZATION_FLAGS) $(ARCH_FLAGS) $(PLATFORM_FLAGS)
 
-LOCAL_SHARED_HEADERS := $(addprefix ../shared/,$(SHARED_HEADERS))
+LOCAL_CPPFLAGS := -DSTACK_SIZE=$(PROGRAM_STACK_SIZE)
 
-H := $(call recurse,../liquid_engine,*.h) $(LOCAL_SHARED_HEADERS)
-H := $(H) $(call recurse,,*.h)
+CPPFLAGS := $(DEVELOPER_FLAGS) $(LOCAL_CPPFLAGS)
 
-GENERATED_DEPENDENCIES := $(CPP)
-GENERATED_DEPENDENCIES := $(addsuffix \",$(GENERATED_DEPENDENCIES))
-GENERATED_DEPENDENCIES := $(addprefix "#include \"",$(GENERATED_DEPENDENCIES))
-GENERATED_DEPENDENCIES_PATH := testbed_generated_dependencies.inl
+LOCAL_LDFLAGS := -shared -L$(LOCAL_BUILD_PATH) -l$(LIB_CORE_NAME) -l$(LIB_ENGINE_NAME)
+
+LDFLAGS := $(LINKER_FLAGS_PRELUDE) $(LOCAL_LDFLAGS) $(LINKER_FLAGS_PLATFORM)
+
+INCLUDE := $(INCLUDE_FLAGS)
+
+MAIN := ../testbed/entry.cpp
+
+C := $(call recurse,../testbed,*.cpp)
+H := $(call recurse,../testbed,*.h)
+
+GENERATED_DEP := $(filter-out $(MAIN),$(C))
+GENERATED_DEP := $(addsuffix \",$(GENERATED_DEP))
+GENERATED_DEP := $(addprefix "#include \"",$(GENERATED_DEP))
 
 all: $(TARGET)
 
-generate_dependencies: $(GENERATED_DEPENDENCIES_PATH)
-
-clean_dependencies:
+clean_dep:
 	@echo "Make: cleaning testbed dependencies . . ."
-	-@rm -f $(GENERATED_DEPENDENCIES_PATH) 2> /dev/null || true
+	-@rm -f $(GENERATED_DEP_PATH) 2> /dev/null || true
 
 spit:
 	@echo
 	@echo "-------- lib testbed ---------"
 	@echo "target:     "$(TARGET)
 	@echo
-	@echo "cflags:     "$(CXXFLAGS)
+	@echo "cflags:     warning, optimization, arch, platform"
 	@echo
-	@echo "cppflags:   "$(CPPFLAGS)
+	@echo "cppflags:   developer, "$(LOCAL_CPPFLAGS)
 	@echo
-	@echo "include:    "$(INCLUDE)
+	@echo "include:    include"
 	@echo
-	@echo "ldflags:    "$(LDFLAGS)
+	@echo "ldflags:    linker_prelude, "$(LOCAL_LDFLAGS)", linker_platform"
 	@echo
-	@echo "main:       "$(TESTBEDMAIN)
+	@echo "main:       "$(MAIN)
 
-$(GENERATED_DEPENDENCIES_PATH): $(CPP)
-	@echo "Make: generating dependencies for testbed . . ."
-	@echo "// * Description:  Generated file containing all Liquid Engine testbed dependencies" > $(GENERATED_DEPENDENCIES_PATH)
-	@echo "// * Author:       Alicia Amarilla (smushyaa@gmail.com)" >> $(GENERATED_DEPENDENCIES_PATH)
-	@echo "// * Generated on: "$(shell date) >> $(GENERATED_DEPENDENCIES_PATH)
-	@echo "" >> $(GENERATED_DEPENDENCIES_PATH)
-	@echo "// IMPORTANT(alicia): This file should only ever be included ONCE." >> $(GENERATED_DEPENDENCIES_PATH)
-	@echo "" >> $(GENERATED_DEPENDENCIES_PATH)
-	for i in $(GENERATED_DEPENDENCIES); do echo $$i >> $(GENERATED_DEPENDENCIES_PATH); done
+$(GENERATED_DEP_PATH): $(C)
+	@echo "Make: generating dependencies for lib testbed . . ."
+	@echo "// * Description:  Generated file containing dependencies" > $(GENERATED_DEP_PATH)
+	@echo "// * Author:       Alicia Amarilla (smushyaa@gmail.com)" >> $(GENERATED_DEP_PATH)
+	@echo "// * Generated on: "$(shell date) >> $(GENERATED_DEP_PATH)
+	@echo "" >> $(GENERATED_DEP_PATH)
+	@echo "// IMPORTANT(alicia): This file should only ever be included in the current directory and it should only be included ONCE." >> $(GENERATED_DEP_PATH)
+	@echo "" >> $(GENERATED_DEP_PATH)
+	for i in $(GENERATED_DEP); do echo $$i >> $(GENERATED_DEP_PATH); done
 
-$(TARGET): $(GENERATED_DEPENDENCIES_PATH) $(TESTBEDMAIN) $(CPP) $(H)
+$(TARGET): $(GENERATED_DEP_PATH) $(C) $(H) $(DEP_SHARED_H) $(DEP_CORE_H)
 	@echo "Make: compiling "$(TARGET)" . . ."
 	@mkdir -p $(LOCAL_OBJ_PATH)
-	@$(CXX) $(CXXSTD) -x c++ $(TESTBEDMAIN) ../liquid_platform/platform_dllmain.c -o $(TARGET) $(CXXFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
+	@$(CXX) $(CXXSTD) -x c++ $(MAIN) ../$(DLLMAIN) -o $(TARGET) $(CXXFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
 
-.PHONY: all spit generate_dependencies clean_dependencies
+COMPILE_COMMANDS_PATH := compile_flags.txt
+
+generate_compile_flags:
+	@echo "Make: generating testbed "$(COMPILE_COMMANDS_PATH)". . ."
+	@echo $(CXX) > $(COMPILE_COMMANDS_PATH)
+	@echo $(CXXSTD) >> $(COMPILE_COMMANDS_PATH)
+	for i in $(CXXFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
+	for i in $(CPPFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
+	@echo "-I.." >> $(COMPILE_COMMANDS_PATH)
+	for i in $(LDFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
+
+.PHONY: all spit clean_dep generate_compile_flags
 

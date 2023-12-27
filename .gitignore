@@ -7,4 +7,6 @@ resources/shaders/*.spv
 *.d
 old
 *.inl
+*.tmp
 generated
+**/compile_flags.txt

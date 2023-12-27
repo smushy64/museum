@@ -11,6 +11,12 @@
         hold requested memory
 - [x] logging: write logs to file (with timestamps?)
 - [ ] fmt: time formatting
+- [ ] fmt: len argument for pointer argument
+    - ex:
+    u8 foo[2] = { 1, 2 };
+    println( "{u8,*_}", 2, foo );
+    "{ 1, 2 }"
+- [ ] fmt: more accurate float formatting (grisu3 or errol?)
 - [ ] audio subsystem
 - [ ] resource/asset subsystem
 - [ ] entity subsystem
@@ -21,6 +27,4 @@
 ## Bug fixes
 - [ ] math: make sure atan produces good results
     - it diverges heavily outside the -1 -> 1 range
-## Misc
-- [ ] strings: more accurate float formatting (grisu3 or errol?)
 

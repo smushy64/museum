@@ -1,20 +1,17 @@
-liquid manifest
-
 # * Description:  Test manifest file.
 # * Author:       Alicia Amarilla (smushyaa@gmail.com)
-# * File Created: November 05, 2023
+# * File Created: December 06, 2023
+manifest
+count: 3
 
-# Sections:
-#     [models]
-#     [textures]
-#     [audio]
-
-# each section provides a path to the resource
-# this path is either an absolute path
-# or a path relative to the manifest file.
-
-# example:
-[audio]
-SFX_TEST: ./sfx_test.wav
-MUSIC_TEST: ./music_test.wav
+SFX_TEST:
+    type: audio
+    path: "./sfx_test.wav"
+MUSIC_TEST:
+    type: audio
+    path: "./music_test.wav"
+    compression: rle
+LOREM_IPSUM:
+    type: text
+    path: "./test.txt"
 
