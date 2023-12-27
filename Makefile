@@ -205,9 +205,6 @@ build_shaders:
 test: all
 	@$(MAKE) --directory=testbed --no-print-directory
 
-run:
-	@echo run none
-
 config:
 	@echo "platform:     "$(TARGET_PLATFORM)
 	@echo "arch:         "$(TARGET_ARCH)
@@ -301,7 +298,7 @@ init:
 	@$(MAKE) --directory=package generate_compile_flags
 	@$(MAKE) --directory=hash generate_compile_flags
 
-.PHONY: all test run clean help \
+.PHONY: all test clean help \
 	build_core build_hash build_package \
 	build_engine build_shaders \
 	clean_objects clean_shaders clean_dep \
