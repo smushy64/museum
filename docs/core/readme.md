@@ -7,8 +7,6 @@
 # Documentation for Liquid Engine Core.
 
 ## Sections
-- [defines.h](./defines.md)
-- [constants.h](./constants.md)
-- [string.h](./string.md)
-- [fmt.h](./fmt.md)
+- [core/string.h](./string.md)
+- [core/fmt.h](./fmt.md)
 

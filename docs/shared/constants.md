@@ -4,11 +4,11 @@
  * File Created: September 27, 2023
 -->
 
-# Liquid Engine Core Constants | [Table of Contents](../readme.md)
+# Liquid Engine Shared Constants | [Table of Contents](../readme.md)
 
 To include:
 ```cpp
-#include "constants.h"
+#include "shared/constants.h"
 ```
 
 ## Jump Table

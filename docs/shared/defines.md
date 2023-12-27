@@ -4,11 +4,11 @@
  * File Created: September 27, 2023
 -->
 
-# Liquid Engine Core Defines | [Table of Contents](../readme.md)
+# Liquid Engine Shared Defines | [Table of Contents](../readme.md)
 
 Header:
 ```cpp
-#include "defines.h"
+#include "shared/defines.h"
 ```
 
 Includes:
