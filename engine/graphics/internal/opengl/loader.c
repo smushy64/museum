@@ -7,6 +7,8 @@
 #include "engine/graphics/internal/opengl.h"
 #include "engine/internal/platform.h"
 
+#include "media/surface.h"
+
 #define LOAD_PROC_REQUIRED( fn ) do {\
 void* proc = get_proc_address( macro_name_to_string(fn) );\
 if( !proc ) {\
@@ -343,10 +345,10 @@ b32 gl_load_functions( PlatformGLLoadProcFN* in_get_proc_address ) {
 }
 
 void glSwapBuffers( void* surface ) {
-    platform->surface.gl_swap_buffers( surface );
+    media_surface_gl_swap_buffers( surface );
 }
 void glSwapInterval( void* surface, int interval ) {
-    platform->surface.gl_swap_interval( surface, interval );
+    media_surface_gl_swap_interval( surface, interval );
 }
 
 

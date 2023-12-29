@@ -6,7 +6,6 @@ recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
 OUTPUT_HASHES_PATH := $(GENERATED_PATH)/package_hashes.h
 INPUT_HASHES_PATH := ./package_hashes.txt
-INPUT_HASHES := $(shell cat $(INPUT_HASHES_PATH))
 
 TARGET := $(BUILD_PATH)/$(UTIL_PKG)
 
@@ -70,14 +69,13 @@ generate_compile_flags:
 	@echo "Make: generating package "$(COMPILE_COMMANDS_PATH)". . ."
 	@echo $(CC) > $(COMPILE_COMMANDS_PATH)
 	@echo $(CSTD) >> $(COMPILE_COMMANDS_PATH)
-	for i in $(CFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
+	for i in $(filter-out -Werror -pedantic,$(CFLAGS)); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
 	for i in $(CPPFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
 	@echo "-I.." >> $(COMPILE_COMMANDS_PATH)
 	for i in $(LDFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
 
 $(OUTPUT_HASHES_PATH): $(INPUT_HASHES_PATH)
-	@echo -n "Make: "
-	$(BUILD_PATH)/$(UTIL_HASH) $(OUTPUT_HASHES_PATH) $(INPUT_HASHES)
+	@echo "Make: "$(shell $(BUILD_PATH)/$(UTIL_HASH) --output-path $(OUTPUT_HASHES_PATH) --file $(INPUT_HASHES_PATH) )
 
 $(TARGET): $(GENERATED_DEP_PATH) $(OUTPUT_HASHES_PATH) $(C) $(H) $(DEP_CORE_H) $(DEP_SHARED_H) $(PLATFORM_DEP_C)
 	@echo "Make: compiling "$(TARGET)" . . ."

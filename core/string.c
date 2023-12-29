@@ -685,14 +685,18 @@ CORE_API void string_slice_split(
 ) {
     assert( index + 1 < slice_to_split->len );
 
-    out_first->buffer   = slice_to_split->buffer;
-    out_first->len      = index;
-    out_first->capacity = out_first->len;
+    if( out_first ) {
+        out_first->buffer   = slice_to_split->buffer;
+        out_first->len      = index;
+        out_first->capacity = out_first->len;
+    }
 
     usize offset = index + 1;
-    out_last->buffer    = slice_to_split->buffer + offset;
-    out_last->len       = slice_to_split->len - offset;
-    out_last->capacity  = slice_to_split->capacity - offset;
+    if( out_last ) {
+        out_last->buffer    = slice_to_split->buffer + offset;
+        out_last->len       = slice_to_split->len - offset;
+        out_last->capacity  = slice_to_split->capacity - offset;
+    }
 }
 CORE_API b32 string_slice_split_char(
     StringSlice* slice, char character, StringSlice* out_first, StringSlice* out_last
@@ -704,6 +708,19 @@ CORE_API b32 string_slice_split_char(
     usize index = 0;
     if( !string_slice_find_char( slice, character, &index ) ) {
         return false;
+    }
+
+    if( index == slice->len - 1 ) {
+        if( out_first ) {
+            out_first->buffer = slice->buffer;
+            out_first->len    = slice->len;
+        }
+
+        if( out_last ) {
+            out_last->buffer = 0;
+            out_last->len    = 0;
+        }
+        return true;
     }
 
     string_slice_split( slice, index, out_first, out_last );

@@ -11,6 +11,8 @@
 #include "engine/graphics/internal.h"
 #include "engine/graphics/internal/opengl.h"
 
+#include "media/surface.h"
+
 struct RendererSubsystem* global_renderer = NULL;
 RenderData* global_render_data            = NULL;
 global RenderID global_running_mesh_id    = 10;
@@ -26,7 +28,7 @@ usize renderer_subsystem_query_size( RendererBackend backend ) {
     }
 }
 b32 renderer_subsystem_init(
-    PlatformSurface* surface,
+    MediaSurface* surface,
     RendererBackend backend,
     ivec2 framebuffer_dimensions,
     RenderData* render_data,
@@ -50,8 +52,8 @@ b32 renderer_subsystem_init(
         default: unimplemented();
     }
 
-    ivec2 surface_dimensions;
-    platform->surface.query_dimensions(
+    ivec2 surface_dimensions = {};
+    media_surface_query_dimensions(
         surface, &surface_dimensions.x, &surface_dimensions.y );
 
     renderer_subsystem_on_resize(

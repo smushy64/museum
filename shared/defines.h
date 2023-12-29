@@ -387,6 +387,14 @@ typedef __builtin_va_list va_list;
     #endif
 #endif
 
+#if !defined(MEDIA_API)
+    #if defined(MEDIA_EXPORT)
+        #define MEDIA_API api_export
+    #else
+        #define MEDIA_API api_import
+    #endif
+#endif
+
 #if !defined(CORE_API)
     #if defined(CORE_EXPORT)
         #define CORE_API api_export

@@ -11,6 +11,7 @@
 #include "engine/graphics/types.h"
 #include "engine/internal/platform.h"
 
+struct MediaSurface;
 extern struct RendererSubsystem* global_renderer;
 extern struct RenderData*        global_render_data;
 #define POINT_LIGHT_COUNT (4)
@@ -134,7 +135,7 @@ struct RendererSubsystem {
     RenderEndFrameFN*   end_frame;
     RenderShutdownFN*   shutdown;
 
-    PlatformSurface* surface;
+    struct MediaSurface* surface;
 
     ivec2 surface_dimensions;
     ivec2 framebuffer_dimensions;
@@ -149,7 +150,7 @@ struct RendererSubsystem {
 
 usize renderer_subsystem_query_size( RendererBackend backend );
 b32 renderer_subsystem_init(
-    PlatformSurface* surface,
+    struct MediaSurface* surface,
     RendererBackend backend,
     ivec2 framebuffer_dimensions,
     RenderData* render_data,

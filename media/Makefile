@@ -1,55 +1,50 @@
-# Description:  Liquid Engine Core Library Makefile
+# Description:  Liquid Media Layer
 # Author:       Alicia Amarilla (smushyaa@gmail.com)
-# File Created: December 03, 2023
+# File Created: December 28, 2023
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
-TARGET := $(BUILD_PATH)/$(LIB_CORE)
+TARGET := $(BUILD_PATH)/$(LIB_MEDIA)
 
 CFLAGS := $(WARNING_FLAGS) $(OPTIMIZATION_FLAGS) $(ARCH_FLAGS) $(PLATFORM_FLAGS)
 
-LOCAL_CPPFLAGS := -DLD_SIMD_WIDTH=4
-LOCAL_CPPFLAGS += -DCORE_EXPORT -DSTACK_SIZE=$(PROGRAM_STACK_SIZE)
+LOCAL_CPPFLAGS := -DLD_SIMD_WIDTH=4 -DMEDIA_EXPORT -DSTACK_SIZE=$(PROGRAM_STACK_SIZE)
 
-CPPFLAGS := $(LOCAL_CPPFLAGS) $(DEVELOPER_FLAGS)
+CPPFLAGS := $(GRAPHICS_FLAGS) $(DEVELOPER_FLAGS) $(LOCAL_CPPFLAGS)
+
+LOCAL_LDFLAGS := -shared -L$(BUILD_PATH) -l$(LIB_CORE_NAME)
+
+LDFLAGS := $(LOCAL_LDFLAGS) $(LINKER_FLAGS)
 
 INCLUDE := $(INCLUDE_FLAGS)
 
-LOCAL_LDFLAGS := -shared
-
-ifeq ($(TARGET_PLATFORM), win32)
-	LOCAL_LDFLAGS += -Wl,--out-implib=$(BUILD_PATH)/$(LIB_CORE_NAME).lib
-endif
-
-LDFLAGS := $(LINKER_FLAGS_PRELUDE) $(LOCAL_LDFLAGS) $(LINKER_FLAGS_PLATFORM)
-
-C := $(DEP_CORE_C)
-H := $(DEP_CORE_H)
+C := $(call recurse,../media,*.c)
+H := $(call recurse,../media,*.h)
 
 GENERATED_DEP := $(addsuffix \",$(C))
 GENERATED_DEP := $(addprefix "#include \"",$(GENERATED_DEP))
 
 all: $(TARGET)
 
-clean_dep:
-	@echo "Make: cleaning lib core dependencies . . ."
-	@rm -f $(GENERATED_DEP_PATH) 2> /dev/null || true
-
 config:
 	@echo
-	@echo "-------- lib core ---------"
+	@echo "-------- lib media ---------"
 	@echo "target:     "$(TARGET)
 	@echo
 	@echo "cflags:     warning, optimization, arch, platform"
 	@echo
-	@echo "cppflags:   developer, "$(LOCAL_CPPFLAGS)
+	@echo "cppflags:   engine, graphics, developer, "$(LOCAL_CPPFLAGS)
 	@echo
 	@echo "include:    include"
 	@echo
-	@echo "ldflags:    linker_prelude, "$(LOCAL_LDFLAGS)", linker_platform"
+	@echo "ldflags:    "$(LOCAL_LDFLAGS)", linker"
+
+clean_dep:
+	@echo "Make: cleaning lib media dependencies . . ."
+	-@rm -f $(GENERATED_DEPENDENCIES_PATH) 2> /dev/null || true
 
 $(GENERATED_DEP_PATH): $(C)
-	@echo "Make: generating dependencies for lib core . . ."
+	@echo "Make: generating dependencies for lib media . . ."
 	@echo "// * Description:  Generated file containing dependencies" > $(GENERATED_DEP_PATH)
 	@echo "// * Author:       Alicia Amarilla (smushyaa@gmail.com)" >> $(GENERATED_DEP_PATH)
 	@echo "// * Generated on: "$(shell date) >> $(GENERATED_DEP_PATH)
@@ -58,13 +53,13 @@ $(GENERATED_DEP_PATH): $(C)
 	@echo "" >> $(GENERATED_DEP_PATH)
 	for i in $(GENERATED_DEP); do echo $$i >> $(GENERATED_DEP_PATH); done
 
-$(TARGET) : $(GENERATED_DEP_PATH) $(C) $(H)
+$(TARGET): $(GENERATED_DEP_PATH) $(C) $(H) $(DEP_SHARED_H) $(DEP_SHARED_C) $(DEP_CORE_H) $(DEP_CORE_C)
 	@echo "Make: compiling "$(TARGET)" . . ."
 	@mkdir -p $(OBJ_PATH)
-	@$(CC) $(CSTD) -xc $(GENERATED_DEP_PATH) $(DLLMAIN) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
+	@$(CC) $(CSTD) -xc $(DLLMAIN) $(GENERATED_DEP_PATH) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS) 
 
 generate_compile_flags:
-	@echo "Make: generating core "$(COMPILE_COMMANDS_PATH)". . ."
+	@echo "Make: generating media "$(COMPILE_COMMANDS_PATH)". . ."
 	@echo $(CC) > $(COMPILE_COMMANDS_PATH)
 	@echo $(CSTD) >> $(COMPILE_COMMANDS_PATH)
 	for i in $(filter-out -Werror -pedantic,$(CFLAGS)); do echo $$i >> $(COMPILE_COMMANDS_PATH); done

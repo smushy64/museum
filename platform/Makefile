@@ -65,7 +65,7 @@ generate_compile_flags:
 	@echo "Make: generating platform "$(COMPILE_COMMANDS_PATH)". . ."
 	@echo $(CC) > $(COMPILE_COMMANDS_PATH)
 	@echo $(CSTD) >> $(COMPILE_COMMANDS_PATH)
-	for i in $(CFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
+	for i in $(filter-out -Werror -pedantic,$(CFLAGS)); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
 	for i in $(CPPFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
 	@echo "-I.." >> $(COMPILE_COMMANDS_PATH)
 	for i in $(LDFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done

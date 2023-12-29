@@ -108,6 +108,8 @@ export LIB_CORE_NAME    := liquid-core$(if $(RELEASE),,-debug)
 export LIB_CORE         := $(LIB_CORE_NAME).$(SO_EXT)
 export LIB_ENGINE_NAME  := liquid-engine$(if $(RELEASE),,-debug)
 export LIB_ENGINE       := $(LIB_ENGINE_NAME).$(SO_EXT)
+export LIB_MEDIA_NAME   := liquid-media$(if $(RELEASE),,-debug)
+export LIB_MEDIA        := $(LIB_MEDIA_NAME).$(SO_EXT)
 export LIB_TESTBED_NAME := testbed$(if $(RELEASE),,-debug)
 export LIB_TESTBED      := $(LIB_TESTBED_NAME).$(SO_EXT)
 export UTIL_PKG_NAME    := lpkg
@@ -192,11 +194,14 @@ build_platform:
 build_core:
 	@$(MAKE) --directory=core --no-print-directory
 
+build_media:
+	@$(MAKE) --directory=media --no-print-directory
+
+build_engine: build_core build_hash build_media
+	@$(MAKE) --directory=engine --no-print-directory
+
 build_hash: build_core
 	@$(MAKE) --directory=hash --no-print-directory
-
-build_engine: build_core build_hash
-	@$(MAKE) --directory=engine --no-print-directory
 
 build_package: build_core build_hash
 	@$(MAKE) --directory=package --no-print-directory
@@ -241,6 +246,7 @@ config:
 	@echo "include:      "$(INCLUDE_FLAGS)
 	@$(MAKE) --directory=platform config
 	@$(MAKE) --directory=core config
+	@$(MAKE) --directory=media config
 	@$(MAKE) --directory=engine config
 	@$(MAKE) --directory=testbed config
 	@$(MAKE) --directory=package config
@@ -251,6 +257,7 @@ clean: clean_shaders clean_objects
 
 clean_dep:
 	@$(MAKE) --directory=core clean_dep
+	@$(MAKE) --directory=media clean_dep
 	@$(MAKE) --directory=engine clean_dep
 	@$(MAKE) --directory=testbed clean_dep
 	@$(MAKE) --directory=package clean_dep
@@ -296,6 +303,7 @@ help_opt:
 init:
 	@$(MAKE) --directory=platform generate_compile_flags
 	@$(MAKE) --directory=core generate_compile_flags
+	@$(MAKE) --directory=media generate_compile_flags
 	@$(MAKE) --directory=engine generate_compile_flags
 	@$(MAKE) --directory=testbed generate_compile_flags
 	@$(MAKE) --directory=package generate_compile_flags
@@ -303,7 +311,7 @@ init:
 
 .PHONY: all test clean help \
 	build_core build_hash build_package \
-	build_engine build_shaders \
+	build_engine build_shaders build_media \
 	clean_objects clean_shaders clean_dep \
 	config init \
 	help_ex help_opt

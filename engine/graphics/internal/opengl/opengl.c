@@ -19,6 +19,8 @@
 #include "engine/graphics/internal/opengl/functions.h"
 #include "engine/graphics/internal/opengl/shader.h"
 
+#include "media/surface.h"
+
 global struct OpenGLSubsystem* global_gl = NULL;
 
 #define GL_VERTEX_3D_ATTRIBUTE_COUNT (5)
@@ -588,7 +590,7 @@ b32 gl_subsystem_init(void) {
     global_gl = (struct OpenGLSubsystem*)
         ((u8*)global_renderer + sizeof(struct RendererSubsystem));
 
-    if( !platform->surface.gl_init( global_renderer->surface ) ) {
+    if( !media_surface_gl_init( global_renderer->surface ) ) {
         StringSlice last_error;
         platform->last_error( &last_error.len, (const char**)&last_error.buffer );
         fatal_log_gl( "Failed to initialize OpenGL!" );
@@ -596,7 +598,7 @@ b32 gl_subsystem_init(void) {
         return false;
     }
 
-    if( !gl_load_functions( platform->gl_load_proc ) ) {
+    if( !gl_load_functions( media_gl_load_proc ) ) {
         fatal_log_gl( "Failed to load OpenGL functions!" );
         return false;
     }

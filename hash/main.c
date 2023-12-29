@@ -14,32 +14,107 @@
 typedef enum ErrorCode : int {
     HASH_SUCCESS = 0,
     HASH_ERROR_NO_ARGUMENTS = 128,
-    HASH_ERROR_WRONG_ARGUMENT_COUNT,
+    HASH_ERROR_INVALID_ARGUMENT,
     HASH_ERROR_OUT_OF_MEMORY,
     HASH_ERROR_FILE_OPEN,
     HASH_ERROR_FILE_WRITE,
+    HASH_ERROR_FILE_READ,
 } ErrorCode;
 
 internal void print_help(void);
 
 #define hash_error( format, ... )\
     println_err( CONSOLE_COLOR_RED format CONSOLE_COLOR_RESET, ##__VA_ARGS__ )
+#define hash_info( format, ... )\
+    if( !is_silent )\
+        println( format, ##__VA_ARGS__ )
+
+#define HASH_DEFAULT_OUTPUT_PATH "./generated_hashes.h"
+global const char* global_program_name = "lhash";
 
 struct PlatformAPI;
 c_linkage int core_init( int argc, char** argv, struct PlatformAPI* in_platform ) {
     unused( in_platform );
+    global_program_name = argv[0];
 
-    if( argc <= 2 ) {
+    if( argc <= 1 ) {
         hash_error( "no arguments provided!" );
         print_help();
         return HASH_ERROR_NO_ARGUMENTS;
     }
-    if( argc % 2 != 0 ) {
-        hash_error( "argument count must be divisible by 2!" );
+
+    const char*  output_path = HASH_DEFAULT_OUTPUT_PATH;
+    const char** list_start  = NULL;
+    const char*  list_path   = NULL;
+    int hash_count = 0;
+    b32 is_silent  = false;
+
+    string_slice_const( arg_output_path, "--output-path" );
+    string_slice_const( arg_help, "--help" );
+    string_slice_const( arg_silent, "--silent" );
+    string_slice_const( arg_list, "--list" );
+    string_slice_const( arg_file, "--file" );
+
+    for( int i = 1; i < argc; ++i ) {
+        StringSlice arg = string_slice_from_cstr( 0, argv[i] );
+
+        if( string_slice_cmp( &arg, &arg_output_path ) ) {
+            if( i + 1 >= argc ) {
+                hash_error( "--output-path must be followed by a path!" );
+                print_help();
+                return HASH_ERROR_INVALID_ARGUMENT;
+            }
+            arg = string_slice_from_cstr( 0, argv[++i] );
+
+            output_path = arg.buffer;
+            continue;
+        } else if( string_slice_cmp( &arg, &arg_help ) ) {
+            print_help();
+            return HASH_SUCCESS;
+        } else if( string_slice_cmp( &arg, &arg_silent ) ) {
+            is_silent = true;
+            continue;
+        } else if( string_slice_cmp( &arg, &arg_file ) ) {
+            if( i + 1 >= argc ) {
+                hash_error( "--file must be followed by a path!" );
+                print_help();
+                return HASH_ERROR_INVALID_ARGUMENT;
+            }
+            arg = string_slice_from_cstr( 0, argv[++i] );
+
+            list_path = arg.buffer;
+            continue;
+        } else if( string_slice_cmp( &arg, &arg_list ) ) {
+            if( i + 1 >= argc ) {
+                hash_error( "--list must be followed by a list!" );
+                print_help();
+                return HASH_ERROR_INVALID_ARGUMENT;
+            }
+            i++;
+
+            int remaining_arguments = argc - i;
+            if( remaining_arguments % 2 != 0 ) {
+                hash_error( "--list requires a list of name string pairs!" );
+                print_help();
+                return HASH_ERROR_INVALID_ARGUMENT;
+            }
+
+            hash_count = remaining_arguments / 2;
+            list_start = (const char**)(argv + i);
+
+            break;
+        }
+
+        hash_error( "unrecognized argument '{s}'!", arg );
         print_help();
-        return HASH_ERROR_WRONG_ARGUMENT_COUNT;
+        return HASH_ERROR_INVALID_ARGUMENT;
     }
-    const char* output_path = argv[1];
+
+    if( !( list_start || list_path ) ) {
+        hash_error( "no file path or list provided!" );
+        print_help();
+        return HASH_ERROR_INVALID_ARGUMENT;
+    }
 
     if( fs_file_exists( output_path ) ) {
         fs_file_delete( output_path );
@@ -47,77 +122,132 @@ c_linkage int core_init( int argc, char** argv, struct PlatformAPI* in_platform 
 
     FSFile* output_file = fs_file_open( output_path, FS_FILE_WRITE );
     if( !output_file ) {
-        hash_error( "failed to open file '{cc}'!", output_path );
+        hash_error( "failed to open output path '{cc}'!", output_path );
         return HASH_ERROR_FILE_OPEN;
     }
 
-    usize hashes_count = (argc - 2) / 2;
-    usize hashes_size  = sizeof(u64) * hashes_count;
-    u64* hashes = system_alloc( hashes_size );
-    if( !hashes ) {
-        hash_error( "failed to allocate {f,.2,m}!", (f64)hashes_size );
-        return HASH_ERROR_OUT_OF_MEMORY;
+    FSFile* input_file = NULL;
+    if( list_path ) {
+        input_file = fs_file_open( list_path, FS_FILE_READ | FS_FILE_SHARE_READ );
+        if( !input_file ) {
+            hash_error( "failed to open list path '{cc}'!", list_path );
+            return HASH_ERROR_FILE_OPEN;
+        }
     }
 
-    usize index = 0;
-    for( int i = 3; i < argc; i += 2 ) {
-        hashes[index++] = ___internal_hash( cstr_len( argv[i] ), argv[i] );
-    }
-    assert( index == hashes_count );
-
-    ErrorCode error_code = HASH_SUCCESS;
-
-    #define hash_write( format, ... ) do {\
+    #define output_write( format, ... ) do {\
         if( !fs_file_write_fmt( output_file, format "\n", ##__VA_ARGS__ ) ) {\
             hash_error( "failed to write to output file '{cc}'!", output_path );\
-            error_code = HASH_ERROR_FILE_WRITE;\
-            goto hash_end;\
+            return HASH_ERROR_FILE_WRITE;\
         }\
     } while(0)
 
     TimeRecord time = time_record();
-
     rand_reset_global_state();
-    u32 random = rand_xor_u32();
-    hash_write( "#if !defined( GENERATED_HASHES_{u32}_H )", random );
-    hash_write( "#define GENERATED_HASHES_{u32}_H ", random );
-    hash_write( "/**" );
-    hash_write( " * Description:  Generated String hashes header." );
-    hash_write( " * Author:       Liquid Engine Utility: hash" );
-    hash_write( " * File Created: {cc} {u,02}, {u,04}",
+    u32 random_id = rand_xor_u32();
+
+    output_write( "#if !defined( GENERATED_HASH_{u32}_H )", random_id );
+    output_write( "#define GENERATED_HASH_{u32}_H", random_id );
+    output_write( "/**" );
+    output_write( " * Description:  Generated String hashes header." );
+    output_write( " * Author:       Liquid Engine Utility: hash" );
+    output_write( " * File Created: {cc} {u,02}, {u,04}",
         time_month_to_cstr( time.month ), time.day, time.year );
-    hash_write( "*/" );
-    hash_write( "#include \"shared/defines.h\"\n" );
+    output_write( "*/" );
+    output_write( "#include \"shared/defines.h\"\n" );
 
-    int variant_index = 2;
-    for( usize i = 0; i < hashes_count; ++i ) {
-        const char* variant_name = argv[variant_index];
-        variant_index += 2;
+    if( input_file ) {
+        usize file_size   = fs_file_query_size( input_file );
+        char* file_buffer = system_alloc( file_size );
 
-        hash_write( "#define HASH_{cc,u} ({u64}ULL)",
-            variant_name, hashes[i] );
+        if( !file_buffer ) {
+            hash_error( "failed to allocate {f,.2,m}!", (f64)file_size );
+            return HASH_ERROR_OUT_OF_MEMORY;
+        }
+        if( !fs_file_read( input_file, file_size, file_buffer ) ) {
+            hash_error( "failed to read file at path '{cc}'!", list_path );
+            return HASH_ERROR_FILE_READ;
+        }
+
+        fs_file_close( input_file );
+
+        StringSlice file_contents = {};
+        file_contents.buffer   = file_buffer;
+        file_contents.len      = file_size;
+
+        while( file_contents.len ) {
+            StringSlice line = {};
+            if( !string_slice_split_char( &file_contents, '\n', &line, NULL ) ) {
+                line.buffer = file_contents.buffer;
+                line.len    = file_contents.len;
+            }
+            if( !line.len ) {
+                file_contents.buffer++;
+                file_contents.len--;
+                continue;
+            }
+            if( line.len == 1 || line.buffer[0] == '\n' ) {
+                goto skip_line;
+            }
+
+            StringSlice identifier = {};
+            StringSlice string     = {};
+
+            u64 hash = 0;
+
+            string_slice_split_whitespace( &line, &identifier, &string );
+            if( !(identifier.len || string.len) ) {
+                goto skip_line;
+            }
+
+            string_slice_trim_trailing_whitespace( &string, &string );
+
+            if( !string.len ) {
+                goto skip_line;
+            }
+
+            if( string.len > 2 ) {
+                if( string.buffer[0] == '"' ) {
+                    string.buffer++;
+                    string.len--;
+                }
+                if( string.buffer[string.len - 1] == '"' ) {
+                    string.len--;
+                }
+            }
+
+            hash = string_slice_hash( &string );
+            output_write( "#define HASH_{s,u} ({u64}ULL)", identifier, hash );
+
+skip_line:
+            file_contents.buffer += line.len;
+            file_contents.len    -= line.len;
+        }
+    } else {
+        for( int i = 0; i < hash_count; ++i ) {
+            const char* identifier = *((list_start + i) + 0);
+            const char* string     = *((list_start + i) + 1);
+
+            u64 hash = ___internal_hash( cstr_len( string ), string );
+
+            output_write( "#define HASH_{cc,u} ({u64}ULL)", identifier, hash );
+        }
     }
+    output_write( "\n#endif /* header guard */" );
 
-    hash_write( "\n#endif /* header guard */" );
-
-hash_end:
-    system_free( hashes, hashes_size );
+    hash_info( "generated hashes at path '{cc}'", output_path );
     fs_file_close( output_file );
-
-    if( !error_code ) {
-        println( "hashes generated at path {cc}", output_path );
-    }
-
-    return error_code;
+    return HASH_SUCCESS;
 }
 
 internal void print_help(void) {
     println( "OVERVIEW: Hash Generator\n" );
-    println( "USAGE: hash <output path> [ <name> <string> ] ..." );
+    println( "USAGE: {cc} <arguments>\n", global_program_name );
     println( "ARGUMENTS:" );
-    println( "    <output path>  path to write hashes to." );
-    println( "    <name>         valid C identifier that becomes name of hash value." );
-    println( "                   must be followed by the string that will be hashed" );
-    println( "    <string>       string that will be hashed." );
+    println( "    --output-path <path>      change output path (default=" HASH_DEFAULT_OUTPUT_PATH ")" );
+    println( "    --list [<name> <string>]  list of valid C identifiers followed by string to be hashed." );
+    println( "    --file <path>             use a text file with each line containing a valid C identifier followed by string to be hashed." );
+    println( "    --silent                  don't output messages to stdout (still outputs errors to stderr)" );
+    println( "    --help                    print this message" );
 }
 

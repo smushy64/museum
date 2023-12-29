@@ -5,7 +5,6 @@
 */
 #include "shared/defines.h"
 
-// TODO(alicia): flip NOT
 #if defined(LD_PLATFORM_LINUX)
 #include "constants.h"
 #include "core/time.h"

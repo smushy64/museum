@@ -12,7 +12,7 @@ LOCAL_CPPFLAGS := -DLD_SIMD_WIDTH=4 -DLD_EXPORT
 
 CPPFLAGS := $(ENGINE_FLAGS) $(GRAPHICS_FLAGS) $(DEVELOPER_FLAGS) $(LOCAL_CPPFLAGS)
 
-LOCAL_LDFLAGS := -shared -L$(BUILD_PATH) -l$(LIB_CORE_NAME)
+LOCAL_LDFLAGS := -shared -L$(BUILD_PATH) -l$(LIB_CORE_NAME) -l$(LIB_MEDIA_NAME)
 
 LDFLAGS := $(LOCAL_LDFLAGS) $(LINKER_FLAGS)
 
@@ -67,7 +67,7 @@ generate_compile_flags:
 	@echo "Make: generating engine "$(COMPILE_COMMANDS_PATH)". . ."
 	@echo $(CC) > $(COMPILE_COMMANDS_PATH)
 	@echo $(CSTD) >> $(COMPILE_COMMANDS_PATH)
-	for i in $(CFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
+	for i in $(filter-out -Werror -pedantic,$(CFLAGS)); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
 	for i in $(CPPFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
 	@echo "-I.." >> $(COMPILE_COMMANDS_PATH)
 	for i in $(LDFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done

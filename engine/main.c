@@ -21,6 +21,9 @@
 #include "engine/engine.h"
 #include "engine/graphics/internal.h"
 
+#include "media/surface.h"
+#include "media/media.h"
+
 global const char* global_executable_name = "";
 
 #define DEFAULT_RESOLUTION_WIDTH    (800)
@@ -90,91 +93,71 @@ struct PlatformAPI* platform = NULL;
 #define CORE_ERROR_APPLICATION_RUN                (141)
 #define CORE_ERROR_RENDERER_DRAW                  (142)
 
-internal no_inline void on_resolution_change(
-    PlatformSurface* surface,
-    i32 old_width, i32 old_height,
-    i32 new_width, i32 new_height,
-    void* user_params
+typedef struct SurfaceCallbackData {
+    b32* surface_is_active;
+} SurfaceCallbackData;
+internal no_inline void surface_callback(
+    MediaSurface* surface, MediaSurfaceCallbackData* data, void* params
 ) {
-    unused( surface );
-    unused( old_width + old_height );
-    unused( user_params );
+    SurfaceCallbackData* engine_data = params;
 
-    ivec2 surface_dimensions  = { new_width, new_height };
-    vec2  surface_dimensionsf = v2_iv2( surface_dimensions );
-    ivec2 framebuffer_dimensions = iv2_v2( v2_mul(
-        surface_dimensionsf, global_resolution_scale ) );
-    renderer_subsystem_on_resize( surface_dimensions, framebuffer_dimensions );
-}
-internal no_inline void on_close(
-    PlatformSurface* surface, void* user_params
-) {
-    unused(surface && user_params);
-    global_application_is_running = false;
-    note_log( "Application is shutting down." );
-}
-internal no_inline void on_activate(
-    PlatformSurface* surface, b32 is_active, void* user_params
-) {
-    unused(surface);
-    b32* surface_is_active = user_params;
-    *surface_is_active     = is_active;
-    note_log( "Surface {cc}", is_active ? "is active." : "is inactive." );
-}
-internal no_inline void on_key(
-    PlatformSurface* surface, b32 is_down,
-    PlatformKeyboardCode code, void* user_params
-) {
-    unused(surface);
-    unused(user_params);
-    input_subsystem_set_key( code, is_down );
-}
-internal no_inline void on_mouse_button(
-    PlatformSurface* surface, b32 is_down,
-    PlatformMouseCode code, void* user_params
-) {
-    unused(surface);
-    unused(user_params);
-    input_subsystem_set_mouse_button( code, is_down );
-}
-internal no_inline void on_mouse_move(
-    PlatformSurface* surface,
-    i32 x, i32 y, void* user_params
-) {
-    unused(user_params);
+    switch( data->type ) {
+        case MEDIA_SURFACE_CALLBACK_TYPE_CLOSE: {
+            global_application_is_running = false;
+            note_log( "application is shutting down." );
+        } break;
+        case MEDIA_SURFACE_CALLBACK_TYPE_ACTIVATE: {
+            *engine_data->surface_is_active = data->activate.is_active;
+            note_log(
+                "Surface {cc}", data->activate.is_active ?
+                "is active." : "is inactive." );
+        } break;
+        case MEDIA_SURFACE_CALLBACK_TYPE_RESOLUTION_CHANGE: {
+            ivec2 surface_dimensions = {
+                data->resolution_change.new_width,
+                data->resolution_change.new_height };
+            vec2 surface_dimensions_f = v2_iv2( surface_dimensions );
 
-    i32 width, height;
-    platform->surface.query_dimensions( surface, &width, &height );
+            ivec2 framebuffer_dimensions =
+                iv2_v2( v2_mul( surface_dimensions_f, global_resolution_scale ) );
+            renderer_subsystem_on_resize( surface_dimensions, framebuffer_dimensions );
+        } break;
+        case MEDIA_SURFACE_CALLBACK_TYPE_KEYBOARD_KEY: {
+            input_subsystem_set_key( data->key.key, data->key.is_down );
+        } break;
+        case MEDIA_SURFACE_CALLBACK_TYPE_MOUSE_BUTTON: {
+            input_subsystem_set_mouse_button(
+                (PlatformMouseCode)data->mouse_button.button,
+                data->mouse_button.is_down );
+        } break;
+        case MEDIA_SURFACE_CALLBACK_TYPE_MOUSE_MOVE: {
+            i32 w, h;
+            media_surface_query_dimensions( surface, &w, &h );
 
-    f32 x01 = (f32)x / (f32)width;
-    f32 y01 = (f32)y / (f32)height;
-    input_subsystem_set_mouse_position( x, y, x01, y01 );
-}
-internal no_inline void on_mouse_move_relative(
-    PlatformSurface* surface,
-    i32 x_rel, i32 y_rel, void* user_params
-) {
-    unused(surface);
-    unused(user_params);
+            i32 x = data->mouse_move.x;
+            i32 y = data->mouse_move.y;
+            f32 x01 = (f32)x / (f32)w;
+            f32 y01 = (f32)y / (f32)h;
 
-    input_subsystem_set_mouse_relative( x_rel, y_rel );
-}
-internal no_inline void on_mouse_wheel(
-    PlatformSurface* surface,
-    b32 is_horizontal, i32 value, void* user_params
-) {
-    unused(surface);
-    unused(user_params);
-    if( is_horizontal ) {
-        input_subsystem_set_mouse_wheel_horizontal( value );
-    } else {
-        input_subsystem_set_mouse_wheel( value );
+            input_subsystem_set_mouse_position( x, y, x01, y01 );
+        } break;
+        case MEDIA_SURFACE_CALLBACK_TYPE_MOUSE_MOVE_RELATIVE: {
+            input_subsystem_set_mouse_relative(
+                data->mouse_move.x, data->mouse_move.y );
+        } break;
+        case MEDIA_SURFACE_CALLBACK_TYPE_MOUSE_WHEEL: {
+            if( data->mouse_wheel.is_horizontal ) {
+                input_subsystem_set_mouse_wheel_horizontal( data->mouse_wheel.value );
+            } else {
+                input_subsystem_set_mouse_wheel( data->mouse_wheel.value );
+            }
+        } break;
     }
 }
 
 internal b32 parse_settings( struct SettingsParse* out_parse_result );
 
-global PlatformSurface* ENGINE_SURFACE = NULL;
+global MediaSurface* ENGINE_SURFACE = NULL;
 
 #define DEFAULT_LOGGING_FILE_PATH "./museum-logging.txt"
 
@@ -214,6 +197,8 @@ LD_API int core_init(
     core_logging_callback_set( core_logging );
 
 #endif
+
+    media_initialize();
 
     struct SettingsParse settings = ___settings_parse_default();
     if( !parse_settings( &settings ) ) {
@@ -772,47 +757,27 @@ LD_API int core_init(
         }
     }
 
-    PlatformSurface* surface = NULL;
-
     b32 surface_is_active = true;
+    MediaSurface surface = {};
+    SurfaceCallbackData surface_callback_data = {};
+    surface_callback_data.surface_is_active = &surface_is_active;
+
     /* initialize surface */ {
         #define SURFACE_CREATE_HIDDEN true
         #define SURFACE_RESIZEABLE    true
-        surface = platform->surface.create(
-            width, height,
-            "liquid engine",
-            SURFACE_CREATE_HIDDEN,
-            SURFACE_RESIZEABLE,
-            backend );
-        if( !surface ) {
-            StringSlice last_error;
-            platform->last_error(
-                &last_error.len, (const char**)&last_error.buffer );
-            fatal_log( "{s}", last_error );
-            fatal_log( "Failed to create main surface!" );
-            platform->fatal_message_box(
-                "Fatal Error "
-                macro_value_to_string( CORE_ERROR_CREATE_SURFACE ),
-                "Failed to create main surface!" );
+        MediaSurfaceFlags flags =
+            MEDIA_SURFACE_FLAG_HIDDEN | MEDIA_SURFACE_FLAG_RESIZEABLE;
+        if( !media_surface_create(
+            width, height, sizeof("liquid engine"), "liquid engine",
+            flags, surface_callback, &surface_callback_data, backend, &surface
+        ) ) {
+            platform->fatal_message_box( "Fatal Error", "Failed to create window!" );
             return CORE_ERROR_CREATE_SURFACE;
         }
-
-        PlatformSurfaceCallbacks callbacks = {};
-        callbacks.on_activate                 = on_activate;
-        callbacks.on_activate_params          = &surface_is_active;
-        callbacks.on_close                    = on_close;
-        callbacks.on_key                      = on_key;
-        callbacks.on_mouse_button             = on_mouse_button;
-        callbacks.on_mouse_move               = on_mouse_move;
-        callbacks.on_mouse_move_relative      = on_mouse_move_relative;
-        callbacks.on_mouse_wheel              = on_mouse_wheel;
-        callbacks.on_resolution_change        = on_resolution_change;
-
-        platform->surface.set_callbacks( surface, &callbacks );
-        platform->surface.set_visible( surface, true );
+        media_surface_set_hidden( &surface, false );
     }
 
-    ENGINE_SURFACE = surface;
+    ENGINE_SURFACE = &surface;
 
     RenderData render_data = {};
     /* initialize renderer */ {
@@ -826,7 +791,7 @@ LD_API int core_init(
             sizeof(struct RenderCommand), renderer_command_buffer );
 
         if( !renderer_subsystem_init(
-            surface, backend,
+            &surface, backend,
             iv2_v2( v2_mul( v2( (f32)width, (f32)height ), global_resolution_scale ) ),
             &render_data,
             renderer_subsystem_buffer
@@ -900,7 +865,7 @@ LD_API int core_init(
         list_clear( &render_data.list_commands );
 
         if( input_is_mouse_locked() ) {
-            platform->surface.center_cursor( surface );
+            media_surface_cursor_center( &surface );
         }
 
         time_update();
@@ -908,10 +873,10 @@ LD_API int core_init(
 
     audio_subsystem_shutdown();
 
-    platform->surface.clear_callbacks( surface );
+    media_surface_clear_callback( &surface );
 
     renderer_subsystem_shutdown();
-    platform->surface.destroy( surface );
+    media_surface_destroy( &surface );
 
 #if defined(LD_LOGGING)
     fs_file_close( logging_file );

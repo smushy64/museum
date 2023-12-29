@@ -7,6 +7,8 @@
 #include "core/math.h"
 #include "engine/graphics/types.h"
 
+struct MediaSurface;
+
 /// Set the current camera.
 LD_API void graphics_set_camera( struct Camera* camera );
 
