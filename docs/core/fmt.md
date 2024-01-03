@@ -180,6 +180,9 @@ Description: 32-bit boolean.
 - *[positive integer, optional]
     - Indicates that value is passed in by pointer or is an array.
     - Integer indicates how many boolean values to write.
+- *_
+    - Indicates that value is passed in by pointer.
+    - Number of items to print is passed in before pointer and must be of type int.
 - [positive integer]
     - Left side padding, only one type of padding is allowed.
 - [negative integer]
@@ -200,6 +203,9 @@ Description: 8-bit ASCII character.
 - *[positive integer, optional]
     - Indicates that value is passed in by pointer or is an array.
     - Integer indicates how many chars to write.
+- *_
+    - Indicates that value is passed in by pointer.
+    - Number of items to print is passed in before pointer and must be of type int.
 - [positive integer]
     - Left side padding, only one type of padding is allowed.
 - [negative integer]
@@ -221,6 +227,8 @@ Description: Null-terminated ASCII C-String.
 
 - *[positive integer]
     - Only print up to n characters or null-terminator.
+- *_
+    - Number of characters to print is passed in first and is of type int.
 - [positive integer]
     - Left side padding, only one type of padding is allowed.
 - [negative integer]
@@ -247,6 +255,9 @@ Description: 32-bit or 64-bit IEEE-754 floating point number.
 - *[positive integer, optional]
     - Indicates that value is passed in by pointer or is an array.
     - Integer indicates how many floats to write.
+- *_
+    - Indicates that value is passed in by pointer.
+    - Number of items to print is passed in before pointer and must be of type int.
 - [positive integer]
     - Left side padding, only one type of padding is allowed.
 - [negative integer]
@@ -276,6 +287,9 @@ Description: 32-bit IEEE-754 floating point vector.
 - *[positive integer, optional]
     - Indicates that value is passed in by pointer or is an array.
     - Integer indicates how many vectors to write.
+- *_
+    - Indicates that value is passed in by pointer.
+    - Number of items to print is passed in before pointer and must be of type int.
 - [positive integer]
     - Left side padding, only one type of padding is allowed.
 - [negative integer]
@@ -323,6 +337,9 @@ Description: 8-bit, 16-bit, 32-bit, 64-bit or pointer sized signed or unsigned i
 - *[positive integer, optional]
     - Indicates that value is passed in by pointer or is an array.
     - Integer indicates how many integers to write.
+- *_
+    - Indicates that value is passed in by pointer.
+    - Number of items to print is passed in before pointer and must be of type int.
 - [positive integer]
     - Left side padding, only one type of padding is allowed.
 - [negative integer]

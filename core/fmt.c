@@ -71,7 +71,7 @@ typedef enum : u32 {
 } FMTFormatCase;
 
 struct FMTIdentifierArguments {
-    u32 count; // 0 = no pointer, 1 = pointer
+    u32 count; // 0 = no pointer, 1 = pointer, U32_MAX = pointer with count as arg
     union {
         FMTFormat format;
         b32       is_binary;
@@ -501,6 +501,14 @@ internal b32 ___process_arguments(
                     } else {
                         failed();
                     }
+                } else if( *at == '_' ) {
+                    args.count = U32_MAX;
+                    switch( identifier ) {
+                        case FMT_IDENT_STRING_SLICE: {
+                            failed();
+                        } break;
+                        default: break;
+                    }
                 } else {
                     args.count = 1;
                 }
@@ -716,6 +724,9 @@ CORE_API usize ___internal_fmt_write_va(
             #define ___write_int( prefix, is_signed, size, arg_type ) do {\
                 prefix##size value   = 0;\
                 prefix##size * values = &value;\
+                if( args.count == U32_MAX ) {\
+                    args.count = va_arg( va, usize );\
+                }\
                 if( args.count ) {\
                     values = va_arg( va, void* );\
                 } else {\
@@ -755,6 +766,9 @@ CORE_API usize ___internal_fmt_write_va(
                 struct FMT##prefix##size##_##component_count value = {};\
                 struct FMT##prefix##size##_##component_count* value_ptr = &value;\
                 if( args.count ) {\
+                    if( args.count == U32_MAX ) {\
+                        args.count = va_arg( va, int );\
+                    }\
                     value_ptr = va_arg( va, void* );\
                 } else {\
                     value = va_arg(\
@@ -799,6 +813,9 @@ CORE_API usize ___internal_fmt_write_va(
                 struct FMTv##component_count  value = {};\
                 struct FMTv##component_count* values = &value;\
                 if( args.count ) {\
+                    if( args.count == U32_MAX ) {\
+                        args.count = va_arg( va, int );\
+                    }\
                     values = va_arg( va, void* );\
                 } else {\
                     value = va_arg( va, struct FMTv##component_count );\
@@ -844,6 +861,9 @@ CORE_API usize ___internal_fmt_write_va(
                     b32  local_value = false;
                     b32* value       = &local_value;
                     if( args.count ) {
+                        if( args.count == U32_MAX ) {
+                            args.count = va_arg( va, int );
+                        }
                         value = va_arg( va, void* );
                     } else {
                         local_value = va_arg( va, int ) != 0;
@@ -881,6 +901,9 @@ CORE_API usize ___internal_fmt_write_va(
                     char  local_value = 0;
                     char* value = &local_value;
                     if( args.count ) {
+                        if( args.count == U32_MAX ) {
+                            args.count = va_arg( va, int );
+                        }
                         value = va_arg( va, void* );
                     } else {
                         local_value = va_arg( va, int );
@@ -921,6 +944,9 @@ CORE_API usize ___internal_fmt_write_va(
                     StringSlice output = {};
 
                     if( identifier == FMT_IDENT_CSTR ) {
+                        if( args.count == U32_MAX ) {
+                            args.count = va_arg( va, int );
+                        }
                         output.buffer = va_arg( va, void* );
                         if( !output.buffer ) {
                             output.buffer = "";
@@ -1032,6 +1058,9 @@ CORE_API usize ___internal_fmt_write_va(
                     FMTStorage storage = 0;
 
                     if( args.count ) {
+                        if( args.count == U32_MAX ) {
+                            args.count = va_arg( va, int );
+                        }
                         values = va_arg( va, void* );
                     } else {
                         value = va_arg( va, f64 );
