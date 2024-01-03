@@ -18,13 +18,10 @@ LDFLAGS := $(LINKER_FLAGS_PRELUDE) $(LOCAL_LDFLAGS) $(LINKER_FLAGS_PLATFORM)
 
 INCLUDE := $(INCLUDE_FLAGS)
 
-MAIN := ../testbed/entry.cpp
-
 C := $(call recurse,../testbed,*.cpp)
 H := $(call recurse,../testbed,*.h)
 
-GENERATED_DEP := $(filter-out $(MAIN),$(C))
-GENERATED_DEP := $(addsuffix \",$(GENERATED_DEP))
+GENERATED_DEP := $(addsuffix \",$(C))
 GENERATED_DEP := $(addprefix "#include \"",$(GENERATED_DEP))
 
 all: $(TARGET)
@@ -45,8 +42,6 @@ config:
 	@echo "include:    include"
 	@echo
 	@echo "ldflags:    linker_prelude, "$(LOCAL_LDFLAGS)", linker_platform"
-	@echo
-	@echo "main:       "$(MAIN)
 
 $(GENERATED_DEP_PATH): $(C)
 	@echo "Make: generating dependencies for lib testbed . . ."
@@ -58,10 +53,10 @@ $(GENERATED_DEP_PATH): $(C)
 	@echo "" >> $(GENERATED_DEP_PATH)
 	for i in $(GENERATED_DEP); do echo $$i >> $(GENERATED_DEP_PATH); done
 
-$(TARGET): $(GENERATED_DEP_PATH) $(C) $(H) $(DEP_SHARED_H) $(DEP_CORE_H)
+$(TARGET): $(GENERATED_DEP_PATH) $(C) $(H) $(DEP_SHARED_H) $(DEP_CORE_H) $(DEP_ENGINE_H)
 	@echo "Make: compiling "$(TARGET)" . . ."
 	@mkdir -p $(OBJ_PATH)
-	@$(CXX) $(CXXSTD) -x c++ $(MAIN) $(DLLMAIN) -o $(TARGET) $(CXXFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
+	@$(CXX) $(CXXSTD) -x c++ $(GENERATED_DEP_PATH) $(DLLMAIN) -o $(TARGET) $(CXXFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
 
 generate_compile_flags:
 	@echo "Make: generating testbed "$(COMPILE_COMMANDS_PATH)". . ."

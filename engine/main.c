@@ -1,6 +1,8 @@
-// * Description:  Liquid Engine Core Main
-// * Author:       Alicia Amarilla (smushyaa@gmail.com)
-// * File Created: September 23, 2023
+/**
+ * Description:  Liquid Engine Core Main
+ * Author:       Alicia Amarilla (smushyaa@gmail.com)
+ * File Created: September 23, 2023
+*/
 #include "shared/defines.h"
 #include "core/print.h"
 #include "core/string.h"
@@ -76,23 +78,23 @@ struct PlatformAPI* platform = NULL;
     #define GAME_LIBRARY_PATH_DEFAULT "game.so"
 #endif
 
-#define CORE_SUCCESS                              (0)
-#define CORE_ERROR_PARSE                          (128)
-#define CORE_ERROR_RENDERER_BACKEND_NOT_SUPPORTED (129)
-#define CORE_ERROR_OPEN_GAME_LIBRARY              (130)
-#define CORE_ERROR_LOAD_GAME_MEMORY_REQUIREMENT   (131)
-#define CORE_ERROR_LOAD_GAME_INITIALIZE           (132)
-#define CORE_ERROR_LOAD_GAME_RUN                  (133)
-#define CORE_ERROR_ENGINE_MEMORY_ALLOCATION       (134)
-#define CORE_ERROR_LOGGING_SUBSYSTEM_INITIALIZE   (135)
-#define CORE_ERROR_THREAD_SUBSYSTEM_INITIALIZE    (136)
-#define CORE_ERROR_RENDERER_SUBSYSTEM_INITIALIZE  (137)
-#define CORE_ERROR_AUDIO_SUBSYSTEM_INITIALIZE     (138)
-#define CORE_ERROR_APPLICATION_INITIALIZE         (139)
-#define CORE_ERROR_CREATE_SURFACE                 (140)
-#define CORE_ERROR_APPLICATION_RUN                (141)
-#define CORE_ERROR_RENDERER_DRAW                  (142)
-#define CORE_ERROR_MISSING_INSTRUCTIONS           (143)
+#define ENGINE_SUCCESS                              (0)
+#define ENGINE_ERROR_PARSE                          (128)
+#define ENGINE_ERROR_RENDERER_BACKEND_NOT_SUPPORTED (129)
+#define ENGINE_ERROR_OPEN_GAME_LIBRARY              (130)
+#define ENGINE_ERROR_LOAD_GAME_MEMORY_REQUIREMENT   (131)
+#define ENGINE_ERROR_LOAD_GAME_INITIALIZE           (132)
+#define ENGINE_ERROR_LOAD_GAME_RUN                  (133)
+#define ENGINE_ERROR_ENGINE_MEMORY_ALLOCATION       (134)
+#define ENGINE_ERROR_LOGGING_SUBSYSTEM_INITIALIZE   (135)
+#define ENGINE_ERROR_THREAD_SUBSYSTEM_INITIALIZE    (136)
+#define ENGINE_ERROR_RENDERER_SUBSYSTEM_INITIALIZE  (137)
+#define ENGINE_ERROR_AUDIO_SUBSYSTEM_INITIALIZE     (138)
+#define ENGINE_ERROR_APPLICATION_INITIALIZE         (139)
+#define ENGINE_ERROR_CREATE_SURFACE                 (140)
+#define ENGINE_ERROR_APPLICATION_RUN                (141)
+#define ENGINE_ERROR_RENDERER_DRAW                  (142)
+#define ENGINE_ERROR_MISSING_INSTRUCTIONS           (143)
 
 typedef struct SurfaceCallbackData {
     b32* surface_is_active;
@@ -188,7 +190,7 @@ LD_API int application_main( int argc, char** argv ) {
 
     if( !logging_file ) {
         println_err( "[FATAL] Failed to open logging file!" );
-        return CORE_ERROR_LOGGING_SUBSYSTEM_INITIALIZE;
+        return ENGINE_ERROR_LOGGING_SUBSYSTEM_INITIALIZE;
     }
 
     logging_subsystem_initialize( logging_file );
@@ -201,12 +203,12 @@ LD_API int application_main( int argc, char** argv ) {
     media_initialize();
 
     if( !check_instructions( &system_info ) ) {
-        return CORE_ERROR_MISSING_INSTRUCTIONS;
+        return ENGINE_ERROR_MISSING_INSTRUCTIONS;
     }
 
     struct SettingsParse settings = ___settings_parse_default();
     if( !parse_settings( &settings ) ) {
-        return CORE_ERROR_PARSE;
+        return ENGINE_ERROR_PARSE;
     }
 
     f32 audio_volume_master = settings.audio_volume_master;
@@ -504,7 +506,7 @@ LD_API int application_main( int argc, char** argv ) {
         
         if( parse_error ) {
             print_help();
-            return CORE_ERROR_PARSE;
+            return ENGINE_ERROR_PARSE;
         }
 
 #if defined(LD_PLATFORM_WINDOWS) && defined(LD_DEVELOPER_MODE)
@@ -518,7 +520,7 @@ LD_API int application_main( int argc, char** argv ) {
         string_slice_fmt(
             &fatal_error_title,
             "Fatal Error ({u8}){c}",
-            CORE_ERROR_RENDERER_BACKEND_NOT_SUPPORTED, 0 );
+            ENGINE_ERROR_RENDERER_BACKEND_NOT_SUPPORTED, 0 );
         string_slice_fmt(
             &fatal_error_message,
             "Renderer backend '{cc}' is not supported on current platform!{c}",
@@ -526,7 +528,7 @@ LD_API int application_main( int argc, char** argv ) {
         fatal_log( "{s}", fatal_error_message );
         media_fatal_message_box_blocking(
             fatal_error_title_buffer, fatal_error_message_buffer );
-        return CORE_ERROR_RENDERER_BACKEND_NOT_SUPPORTED;
+        return ENGINE_ERROR_RENDERER_BACKEND_NOT_SUPPORTED;
     }
 
     note_log( "Engine Configuration:" );
@@ -594,7 +596,7 @@ LD_API int application_main( int argc, char** argv ) {
         string_slice_fmt(
             &fatal_error_title,
             "Fatal Error ({u8}){c}",
-            CORE_ERROR_OPEN_GAME_LIBRARY, 0 );
+            ENGINE_ERROR_OPEN_GAME_LIBRARY, 0 );
         string_slice_fmt(
             &fatal_error_message,
             "Failed to load game library! Game library path: {s}{c}",
@@ -602,7 +604,7 @@ LD_API int application_main( int argc, char** argv ) {
         fatal_log("{s}", fatal_error_message);
         media_fatal_message_box_blocking(
             fatal_error_title_buffer, fatal_error_message_buffer );
-        return CORE_ERROR_OPEN_GAME_LIBRARY;
+        return ENGINE_ERROR_OPEN_GAME_LIBRARY;
     }
 
     ApplicationQueryMemoryRequirementFN*
@@ -620,7 +622,7 @@ LD_API int application_main( int argc, char** argv ) {
         string_slice_fmt(
             &fatal_error_title,
             "Fatal Error ({u8}){c}",
-            CORE_ERROR_LOAD_GAME_MEMORY_REQUIREMENT, 0 );
+            ENGINE_ERROR_LOAD_GAME_MEMORY_REQUIREMENT, 0 );
         string_slice_fmt(
             &fatal_error_message,
             "Failed to load game memory requirement!{c}",
@@ -628,13 +630,13 @@ LD_API int application_main( int argc, char** argv ) {
         fatal_log("{s}", fatal_error_message);
         media_fatal_message_box_blocking(
             fatal_error_title_buffer, fatal_error_message_buffer );
-        return CORE_ERROR_LOAD_GAME_MEMORY_REQUIREMENT;
+        return ENGINE_ERROR_LOAD_GAME_MEMORY_REQUIREMENT;
     }
     if( !application_initialize ) {
         string_slice_fmt(
             &fatal_error_title,
             "Fatal Error ({u8}){c}",
-            CORE_ERROR_LOAD_GAME_INITIALIZE, 0 );
+            ENGINE_ERROR_LOAD_GAME_INITIALIZE, 0 );
         string_slice_fmt(
             &fatal_error_message,
             "Failed to load game initialize function!{c}",
@@ -642,13 +644,13 @@ LD_API int application_main( int argc, char** argv ) {
         fatal_log("{s}", fatal_error_message);
         media_fatal_message_box_blocking(
             fatal_error_title_buffer, fatal_error_message_buffer );
-        return CORE_ERROR_LOAD_GAME_INITIALIZE;
+        return ENGINE_ERROR_LOAD_GAME_INITIALIZE;
     }
     if( !application_run ) {
         string_slice_fmt(
             &fatal_error_title,
             "Fatal Error ({u8}){c}",
-            CORE_ERROR_LOAD_GAME_RUN, 0 );
+            ENGINE_ERROR_LOAD_GAME_RUN, 0 );
         string_slice_fmt(
             &fatal_error_message,
             "Failed to load game run function!{c}",
@@ -656,7 +658,7 @@ LD_API int application_main( int argc, char** argv ) {
         fatal_log("{s}", fatal_error_message);
         media_fatal_message_box_blocking(
             fatal_error_title_buffer, fatal_error_message_buffer );
-        return CORE_ERROR_LOAD_GAME_RUN;
+        return ENGINE_ERROR_LOAD_GAME_RUN;
     }
 
 #if 0
@@ -664,9 +666,9 @@ LD_API int application_main( int argc, char** argv ) {
         fatal_log( "Failed to initialize audio subsystem!" );
         media_fatal_message_box_blocking(
             "Fatal Error "
-            macro_value_to_string( CORE_ERROR_AUDIO_SUBSYSTEM_INITIALIZE ),
+            macro_value_to_string( ENGINE_ERROR_AUDIO_SUBSYSTEM_INITIALIZE ),
             "Failed to initialize audio subsystem!" );
-        return CORE_ERROR_AUDIO_SUBSYSTEM_INITIALIZE;
+        return ENGINE_ERROR_AUDIO_SUBSYSTEM_INITIALIZE;
     }
 #endif
 
@@ -714,7 +716,7 @@ LD_API int application_main( int argc, char** argv ) {
             string_slice_fmt(
                 &fatal_error_title,
                 "Fatal Error ({u8}){c}",
-                CORE_ERROR_ENGINE_MEMORY_ALLOCATION, 0 );
+                ENGINE_ERROR_ENGINE_MEMORY_ALLOCATION, 0 );
             string_slice_fmt(
                 &fatal_error_message,
                 "Out of Memory!{c}",
@@ -722,7 +724,7 @@ LD_API int application_main( int argc, char** argv ) {
             fatal_log("{s}", fatal_error_message);
             media_fatal_message_box_blocking(
                 fatal_error_title_buffer, fatal_error_message_buffer );
-            return CORE_ERROR_ENGINE_MEMORY_ALLOCATION;
+            return ENGINE_ERROR_ENGINE_MEMORY_ALLOCATION;
         }
 
     }
@@ -755,9 +757,9 @@ LD_API int application_main( int argc, char** argv ) {
             media_fatal_message_box_blocking(
                 "Fatal Error "
                 macro_value_to_string(
-                    CORE_ERROR_THREAD_SUBSYSTEM_INITIALIZE ),
+                    ENGINE_ERROR_THREAD_SUBSYSTEM_INITIALIZE ),
                 "Failed to initialize thread subsystem!" );
-            return CORE_ERROR_THREAD_SUBSYSTEM_INITIALIZE;
+            return ENGINE_ERROR_THREAD_SUBSYSTEM_INITIALIZE;
         }
     }
 
@@ -776,7 +778,7 @@ LD_API int application_main( int argc, char** argv ) {
             flags, surface_callback, &surface_callback_data, backend, &surface
         ) ) {
             media_fatal_message_box_blocking( "Fatal Error", "Failed to create window!" );
-            return CORE_ERROR_CREATE_SURFACE;
+            return ENGINE_ERROR_CREATE_SURFACE;
         }
         media_surface_set_hidden( &surface, false );
     }
@@ -803,9 +805,9 @@ LD_API int application_main( int argc, char** argv ) {
             fatal_log( "Failed to initialize renderer subsystem!" );
             media_fatal_message_box_blocking(
                 "Fatal Error "
-                macro_value_to_string( CORE_ERROR_RENDERER_SUBSYSTEM_INITIALIZE ),
+                macro_value_to_string( ENGINE_ERROR_RENDERER_SUBSYSTEM_INITIALIZE ),
                 "Failed to initialize renderer subsystem!" );
-            return CORE_ERROR_RENDERER_SUBSYSTEM_INITIALIZE;
+            return ENGINE_ERROR_RENDERER_SUBSYSTEM_INITIALIZE;
         }
     }
 
@@ -815,9 +817,9 @@ LD_API int application_main( int argc, char** argv ) {
         fatal_log( "Failed to initialize application!" );
         media_fatal_message_box_blocking(
             "Fatal Error "
-            macro_value_to_string( CORE_ERROR_APPLICATION_INITIALIZE ),
+            macro_value_to_string( ENGINE_ERROR_APPLICATION_INITIALIZE ),
             "Failed to initialize application!" );
-        return CORE_ERROR_APPLICATION_INITIALIZE;
+        return ENGINE_ERROR_APPLICATION_INITIALIZE;
     }
 
     while( global_application_is_running ) {
@@ -848,9 +850,9 @@ LD_API int application_main( int argc, char** argv ) {
             fatal_log( "Failed to run application!" );
             media_fatal_message_box_blocking(
                 "Fatal Error "
-                macro_value_to_string( CORE_ERROR_APPLICATION_RUN ),
+                macro_value_to_string( ENGINE_ERROR_APPLICATION_RUN ),
                 "Failed to run application!" );
-            return CORE_ERROR_APPLICATION_RUN;
+            return ENGINE_ERROR_APPLICATION_RUN;
         }
 
 #if 0
@@ -861,9 +863,9 @@ LD_API int application_main( int argc, char** argv ) {
             fatal_log( "Renderer failed!" );
             media_fatal_message_box_blocking(
                 "Fatal Error "
-                macro_value_to_string( CORE_ERROR_RENDERER_DRAW ),
+                macro_value_to_string( ENGINE_ERROR_RENDERER_DRAW ),
                 "Renderer failed!" );
-            return CORE_ERROR_RENDERER_DRAW;
+            return ENGINE_ERROR_RENDERER_DRAW;
         }
 
         list_clear( &render_data.list_commands );
@@ -887,7 +889,7 @@ LD_API int application_main( int argc, char** argv ) {
 #endif
 
     shared_object_close( game );
-    return CORE_SUCCESS;
+    return ENGINE_SUCCESS;
 }
 
 internal void print_help(void) {

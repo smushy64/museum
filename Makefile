@@ -183,6 +183,9 @@ export DEP_SHARED_C := $(addprefix .,$(SHARED_C))
 export DEP_CORE_H := $(addprefix .,$(call recurse,./core,*.h))
 export DEP_CORE_C := $(addprefix .,$(call recurse,./core,*.c))
 
+export DEP_ENGINE_H := $(addprefix .,$(call recurse,./engine,*.h))
+export DEP_ENGINE_C := $(addprefix .,$(call recurse,./engine,*.c))
+
 export PLATFORM_DEP_C := $(addprefix .,$(filter-out ./platform/platform_dllmain.c,$(call recurse,./platform,*.c)))
 
 all: build_platform build_core build_engine build_shaders build_package build_hash

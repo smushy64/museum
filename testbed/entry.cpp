@@ -182,5 +182,3 @@ c_linkage b32 application_run( void* in_memory ) {
     return true;
 }
 
-#include "generated_dependencies.inl"
-
