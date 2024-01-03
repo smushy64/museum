@@ -12,6 +12,7 @@ struct MediaSurface;
 struct MediaSurfaceCallbackData;
 
 /// Opaque Handle to a surface.
+/// On Win32, this is HWND.
 typedef void MediaSurfaceHandle;
 
 /// Opaque (Platform) data size.
@@ -28,6 +29,9 @@ typedef u32 MediaSurfaceFlags;
 /// Surface callback prototype.
 typedef void MediaSurfaceCallbackFN(
     struct MediaSurface* surface, struct MediaSurfaceCallbackData* data, void* params );
+
+/// Prototype for loading OpenGL functions.
+typedef void* MediaOpenGLLoadFN( const char* function_name );
 
 /// Media Surface.
 typedef struct MediaSurface {
@@ -88,6 +92,30 @@ enum : u32 {
 /// Media surface graphics backends.
 typedef u32 MediaSurfaceGraphicsBackend;
 
+/// Types of message boxes.
+typedef enum MediaMessageBoxType: u32 {
+    MEDIA_MESSAGE_BOX_TYPE_INFO,
+    MEDIA_MESSAGE_BOX_TYPE_WARNING,
+    MEDIA_MESSAGE_BOX_TYPE_ERROR
+} MediaMessageBoxType;
+
+/// Options to display in message box.
+typedef enum MediaMessageBoxOptions : u32 {
+    MEDIA_MESSAGE_BOX_OPTIONS_OK,
+    MEDIA_MESSAGE_BOX_OPTIONS_OK_CANCEL,
+    MEDIA_MESSAGE_BOX_OPTIONS_YES_NO,
+} MediaMessageBoxOptions;
+
+/// What user selected in message box or error if
+/// failed to create message box.
+typedef enum MediaMessageBoxResult : u32 {
+    MEDIA_MESSAGE_BOX_RESULT_ERROR,
+    MEDIA_MESSAGE_BOX_RESULT_OK,
+    MEDIA_MESSAGE_BOX_RESULT_CANCEL,
+    MEDIA_MESSAGE_BOX_RESULT_YES,
+    MEDIA_MESSAGE_BOX_RESULT_NO
+} MediaMessageBoxResult;
+
 /// Create a media surface.
 MEDIA_API b32 media_surface_create(
     i32 width, i32 height, u32 name_len, const char* name, MediaSurfaceFlags flags,
@@ -146,5 +174,22 @@ MEDIA_API void media_surface_gl_swap_interval(
     MediaSurfaceHandle* surface_handle, int interval );
 /// Function for loading OpenGL functions.
 MEDIA_API void* media_gl_load_proc( const char* function_name );
+
+/// Create a message box.
+/// Blocks calling thread until user dismisses message box.
+/// Strings provided MUST be null-terminated.
+MEDIA_API MediaMessageBoxResult media_message_box_blocking(
+    const char* title, const char* message,
+    MediaMessageBoxType type, MediaMessageBoxOptions options );
+
+/// Create a message box.
+/// Blocks calling thread until user dismisses message box.
+/// Strings provided MUST be null-terminated.
+header_only MediaMessageBoxResult media_fatal_message_box_blocking(
+    const char* title, const char* message
+) {
+    return media_message_box_blocking(
+        title, message, MEDIA_MESSAGE_BOX_TYPE_ERROR, MEDIA_MESSAGE_BOX_OPTIONS_OK );
+}
 
 #endif /* header guard */

@@ -6,15 +6,16 @@
 #include "shared/defines.h"
 
 #if defined(LD_API_INTERNAL)
-#include "engine/internal/platform.h"
 #include "engine/graphics/types.h"
 #include "engine/graphics/internal.h"
 #include "engine/graphics/internal/opengl/types.h"
 
+#include "media/surface.h"
+
 /// Initialize OpenGL subsystem.
 b32 gl_subsystem_init(void);
 /// Loader
-b32 gl_load_functions( PlatformGLLoadProcFN* proc );
+b32 gl_load_functions( MediaOpenGLLoadFN* proc );
 
 /// OpenGL Subsystem.
 struct OpenGLSubsystem;

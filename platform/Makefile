@@ -34,7 +34,6 @@ ifeq ($(TARGET_PLATFORM), win32)
 endif
 
 C := $(PLATFORM_DEP_C)
-H := $(PLATFORM_DEP_H)
 
 all: $(TARGET)
 
@@ -56,7 +55,7 @@ $(RESOURCES_WIN32): $(WIN32_RC_PATH)
 	@mkdir -p $(OBJ_PATH)
 	@windres $(WIN32_RC_PATH) -o $(RESOURCES_WIN32)
 
-$(TARGET): $(if $(IS_WINDOWS),$(RESOURCES_WIN32),) $(C) $(H) $(DEP_SHARED_H) $(DEP_SHARED_C)
+$(TARGET): $(if $(IS_WINDOWS),$(RESOURCES_WIN32),) $(C) $(DEP_SHARED_H) $(DEP_SHARED_C)
 	@echo "Make: compiling "$(TARGET)" . . ."
 	@mkdir -p $(OBJ_PATH)
 	@$(CC) $(CSTD) $(C) $(RESOURCES_WIN32) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)

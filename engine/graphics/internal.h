@@ -9,7 +9,6 @@
 #include "core/math.h"
 #include "core/collections.h"
 #include "engine/graphics/types.h"
-#include "engine/internal/platform.h"
 
 struct MediaSurface;
 extern struct RendererSubsystem* global_renderer;

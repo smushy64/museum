@@ -12,7 +12,8 @@
 
 #include "engine/audio.h"
 #include "engine/logging.h"
-#include "engine/internal/platform.h"
+
+#include "media/audio.h"
 
 // TODO(alicia): start debug code!!!!
 
@@ -223,7 +224,7 @@ load_audio_fail:
 
 #define AUDIO_BUFFER_LENGTH_MS (250)
 
-global PlatformAudioContext* global_audio_ctx;
+global MediaAudioContext global_audio_ctx;
 global b32 global_audio_is_playing = false;
 
 struct AudioMixer {
@@ -233,7 +234,7 @@ struct AudioMixer {
 
     void* buffer;
     usize buffer_size;
-    PlatformAudioBufferFormat format;
+    MediaAudioBufferFormat format;
 };
 
 global struct AudioMixer global_audio_mixer  = {};
@@ -384,22 +385,16 @@ internal no_inline int on_buffer_fill( void* user_params ) {
             continue;
         }
 
-        usize out_sample_count = 0;
-        usize out_buffer_size  = 0;
-        void* out_buffer       = NULL;
-
-        if( !platform->audio.lock_buffer(
-            global_audio_ctx, &out_sample_count,
-            &out_buffer_size, &out_buffer
-        ) ) {
+        MediaAudioBuffer out_buffer = {};
+        if( !media_audio_buffer_lock( &global_audio_ctx, &out_buffer ) ) {
             continue;
         }
 
-        ___audio_fill_buffer( out_sample_count );
-        i16* out_sample = (i16*)out_buffer;
+        ___audio_fill_buffer( out_buffer.sample_count );
+        i16* out_sample = (i16*)out_buffer.buffer;
 
         f32* in_sample = (f32*)global_audio_mixer.buffer;
-        for( usize i = 0; i < out_sample_count; ++i ) {
+        for( usize i = 0; i < out_buffer.sample_count; ++i ) {
             f32* current_sample = in_sample + (i * 2);
 
             i16 left_sample  = normalize_range_f32_i16( *(current_sample + 0) );
@@ -409,15 +404,15 @@ internal no_inline int on_buffer_fill( void* user_params ) {
             *out_sample++ = right_sample;
         }
 
-        platform->audio.unlock_buffer( global_audio_ctx, out_sample_count );
+        media_audio_buffer_unlock( &global_audio_ctx, &out_buffer );
     }
 
     return 0;
 }
 
 b32 audio_subsystem_initialize(void) {
-    global_audio_ctx = platform->audio.initialize( AUDIO_BUFFER_LENGTH_MS );
-    if( !global_audio_ctx ) {
+
+    if( !media_audio_initialize( AUDIO_BUFFER_LENGTH_MS, &global_audio_ctx ) ) {
         fatal_log( "Failed to initialize audio subsystem!" );
         return false;
     }
@@ -428,8 +423,7 @@ b32 audio_subsystem_initialize(void) {
 
     global_audio_is_playing = true;
 
-    global_audio_mixer.format =
-        platform->audio.query_buffer_format( global_audio_ctx );
+    global_audio_mixer.format = media_audio_query_buffer_format( &global_audio_ctx );
 
     if( !___debug_load_audio(
         "./resources.lpkg",
@@ -476,7 +470,7 @@ b32 audio_subsystem_initialize(void) {
 
 usize audio_subsystem_query_memory_requirement(void) {
     usize sample_size =
-        global_audio_mixer.format.number_of_channels * sizeof(f32);
+        global_audio_mixer.format.channel_count * sizeof(f32);
 
     usize sample_count = global_audio_mixer.format.buffer_sample_count;
     usize buffer_size  = sample_count * sample_size;
@@ -489,22 +483,28 @@ void audio_subsystem_submit_buffer_memory( void* buffer ) {
 }
 
 void audio_subsystem_shutdown(void) {
-    platform->audio.shutdown( global_audio_ctx );
+    media_audio_shutdown( &global_audio_ctx );
     info_log( "Audio subsystem shutdown." );
 }
 
 void audio_subsystem_resume(void) {
-    if( global_audio_ctx && !global_audio_is_playing ) {
+    if(
+        media_audio_is_context_valid( &global_audio_ctx ) &&
+        !global_audio_is_playing
+    ) {
         global_audio_is_playing = true;
         read_write_fence();
-        platform->audio.start( global_audio_ctx );
+        media_audio_start( &global_audio_ctx );
     }
 }
 void audio_subsystem_pause(void) {
-    if( global_audio_ctx && global_audio_is_playing ) {
+    if(
+        media_audio_is_context_valid( &global_audio_ctx ) &&
+        global_audio_is_playing
+    ) {
         global_audio_is_playing = false;
         read_write_fence();
-        platform->audio.stop( global_audio_ctx );
+        media_audio_stop( &global_audio_ctx );
     }
 }
 

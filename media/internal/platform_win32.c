@@ -8,16 +8,24 @@
 #if defined(LD_PLATFORM_WINDOWS)
 #include "media/input.h"
 #include "media/surface.h"
+#include "media/audio.h"
 #include "media/internal/logging.h"
 
 #include "core/memory.h"
 #include "core/string.h"
+#include "core/thread.h"
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
 #include <windowsx.h>
 #include <hidusage.h>
+#include <xinput.h>
+#include <psapi.h>
+#include <initguid.h>
+#include <mmdeviceapi.h>
+#include <dshow.h>
+#include <audioclient.h>
 
 typedef struct Win32Surface {
     HWND  hwnd;
@@ -40,6 +48,26 @@ typedef struct Win32Surface {
     };
 } Win32Surface;
 static_assert( sizeof(Win32Surface) <= sizeof(MediaSurface) );
+#define get_surface(surface) Win32Surface* win32_surface = (Win32Surface*)surface
+
+typedef struct Win32AudioContext {
+    IAudioClient*        client;
+    IAudioRenderClient*  render_client;
+    IMMDeviceEnumerator* device_enumerator;
+    IMMDevice*           device;
+
+    WAVEFORMATEX format;
+
+    UINT32 buffer_frame_count;
+    u32    buffer_size;
+
+    HMODULE OLE32;
+} Win32AudioContext;
+static_assert( sizeof(Win32AudioContext) <= sizeof(MediaAudioContext) );
+#define get_audio(context) Win32AudioContext* ctx = (Win32AudioContext*)in_ctx
+
+global b32 global_xinput_gamepad_active[XUSER_MAX_COUNT] = {};
+global XINPUT_VIBRATION global_xinput_vibration[XUSER_MAX_COUNT] = {};
 
 #define WGL_CONTEXT_MAJOR_VERSION_ARB             0x2091
 #define WGL_CONTEXT_MINOR_VERSION_ARB             0x2092
@@ -142,6 +170,9 @@ declare( BOOL, GetMonitorInfoA, HMONITOR hMonitor, LPMONITORINFO lpmi );
 declare( BOOL, ClientToScreen, HWND hwnd, LPPOINT lpPoint );
 #define ClientToScreen ___internal_ClientToScreen
 
+declare( int, ShowCursor, BOOL bShow );
+#define ShowCursor ___internal_ShowCursor
+
 declare( BOOL, SetCursorPos, int X, int Y );
 #define SetCursorPos ___internal_SetCursorPos
 
@@ -156,6 +187,9 @@ declare( BOOL, ShowWindow, HWND hwnd, int nCmdShow );
 
 declare( UINT, MapVirtualKeyA, UINT uCode, UINT uMapType );
 #define MapVirtualKeyA ___internal_MapVirtualKeyA
+
+declare( int, MessageBoxA, HWND hwnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType );
+#define MessageBoxA ___internal_MessageBoxA
 
 // Gdi32
 
@@ -208,9 +242,35 @@ declare(
     HWND hwnd, DWORD dwAttribute, LPCVOID pvAttribute, DWORD cbAttribute );
 #define DwmSetWindowAttribute ___internal_DwmSetWindowAttribute
 
-// NOTE(alicia): internal functions!
+// xinput
 
-#define get_surface(surface) Win32Surface* win32_surface = (Win32Surface*)surface
+declare( DWORD, XInputGetState, DWORD dwUserIndex, XINPUT_STATE* pState );
+#define XInputGetState ___internal_XInputGetState
+
+declare( DWORD, XInputSetState, DWORD dwUserIndex, XINPUT_VIBRATION* pVibration );
+#define XInputSetState ___internal_XInputSetState
+
+declare( void, XInputEnable, BOOL enable );
+#define XInputEnable ___internal_XInputEnable
+
+// OLE32
+
+declare( HRESULT, CoInitialize, LPVOID pvReserved );
+#define CoInitialize ___internal_CoInitialize
+
+declare( void, CoUninitialize, void );
+#define CoUninitialize ___internal_CoUninitialize
+
+declare(
+    HRESULT, CoCreateInstance,
+    REFCLSID rclsid, LPUNKNOWN pUnkOuter,
+    DWORD dwClsContext, REFIID riid, LPVOID* ppv );
+#define CoCreateInstance ___internal_CoCreateInstance
+
+declare( void, CoTaskMemFree, LPVOID pv );
+#define CoTaskMemFree ___internal_CoTaskMemFree
+
+// NOTE(alicia): internal functions!
 
 internal MONITORINFO get_monitor_info( HWND opt_hwnd );
 
@@ -491,7 +551,9 @@ MEDIA_API void media_surface_set_hidden( MediaSurface* surface, b32 is_hidden ) 
         bitfield_clear( win32_surface->flags, MEDIA_SURFACE_FLAG_HIDDEN );
     }
 
-    ShowWindow( win32_surface->hwnd, !is_hidden );
+    int nCmdShow = is_hidden ? SW_HIDE : SW_SHOW;
+
+    ShowWindow( win32_surface->hwnd, nCmdShow );
 }
 MEDIA_API b32 media_surface_query_hidden( MediaSurface* surface ) {
     get_surface( surface );
@@ -670,6 +732,339 @@ MEDIA_API void* media_gl_load_proc( const char* function_name ) {
     }
     return result;
 }
+
+MEDIA_API b32 media_input_query_gamepad_state(
+    u32 gamepad_index, MediaGamepadState* out_state
+) {
+    XINPUT_STATE state = {};
+    // NOTE(alicia): this is to prevent several ms stall
+    // when polling a gamepad that is currently inactive.
+    if( !global_xinput_gamepad_active[gamepad_index] ) {
+        return false;
+    }
+    if( XInputGetState( gamepad_index, &state ) != ERROR_SUCCESS ) {
+        global_xinput_gamepad_active[gamepad_index] = false;
+        return false;
+    }
+
+    XINPUT_GAMEPAD gamepad = state.Gamepad;
+
+    out_state->buttons = gamepad.wButtons;
+    out_state->buttons &= ~(
+        MEDIA_GAMEPAD_EXT_BUTTON_TRIGGER_LEFT |
+        MEDIA_GAMEPAD_EXT_BUTTON_TRIGGER_RIGHT );
+    out_state->trigger_left  = gamepad.bLeftTrigger;
+    out_state->trigger_right = gamepad.bRightTrigger;
+    out_state->stick_left_x  = gamepad.sThumbLX;
+    out_state->stick_left_y  = gamepad.sThumbLY;
+    out_state->stick_right_x = gamepad.sThumbRX;
+    out_state->stick_right_y = gamepad.sThumbRY;
+
+    out_state->buttons |= ( ( gamepad.bLeftTrigger > 25 ) << 2 );
+    out_state->buttons |= ( ( gamepad.bRightTrigger > 25 ) << 3 );
+
+    return true;
+}
+MEDIA_API b32 media_input_set_gamepad_rumble(
+    u32 gamepad_index, u16 motor_left, u16 motor_right
+) {
+    b32 is_active = global_xinput_gamepad_active[gamepad_index];
+    if( !is_active ) {
+        return false;
+    }
+
+    XINPUT_VIBRATION* gamepad_vibration = global_xinput_vibration + gamepad_index;
+    gamepad_vibration->wLeftMotorSpeed  = motor_left;
+    gamepad_vibration->wRightMotorSpeed = motor_right;
+
+    XInputSetState( gamepad_index, gamepad_vibration );
+
+    return is_active;
+}
+MEDIA_API void media_input_query_gamepad_rumble(
+    u32 gamepad_index, u16* out_motor_left, u16* out_motor_right
+) {
+    XINPUT_VIBRATION* gamepad_vibration = global_xinput_vibration + gamepad_index;
+
+    *out_motor_left  = gamepad_vibration->wLeftMotorSpeed;
+    *out_motor_right = gamepad_vibration->wRightMotorSpeed;
+}
+MEDIA_API void media_input_set_cursor_visible( b32 is_visible ) {
+    ShowCursor( is_visible ? TRUE : FALSE );
+}
+
+MEDIA_API MediaMessageBoxResult media_message_box_blocking(
+    const char* title, const char* message,
+    MediaMessageBoxType type, MediaMessageBoxOptions options
+) {
+    UINT uType = 0;
+    
+    switch( type ) {
+        case MEDIA_MESSAGE_BOX_TYPE_INFO: {
+            uType |= MB_ICONINFORMATION;
+        } break;
+        case MEDIA_MESSAGE_BOX_TYPE_WARNING: {
+            uType |= MB_ICONWARNING;
+        } break;
+        case MEDIA_MESSAGE_BOX_TYPE_ERROR: {
+            uType |= MB_ICONERROR;
+        } break;
+    }
+
+    switch( options ) {
+        case MEDIA_MESSAGE_BOX_OPTIONS_OK: {
+            uType |= MB_OK;
+        } break;
+        case MEDIA_MESSAGE_BOX_OPTIONS_OK_CANCEL: {
+            uType |= MB_OKCANCEL;
+        } break;
+        case MEDIA_MESSAGE_BOX_OPTIONS_YES_NO: {
+            uType |= MB_YESNO;
+        } break;
+    }
+
+    int result = MessageBoxA( NULL, message, title, uType );
+
+    switch( result ) {
+        case IDCANCEL: return MEDIA_MESSAGE_BOX_RESULT_CANCEL;
+        case IDOK:     return MEDIA_MESSAGE_BOX_RESULT_OK;
+        case IDYES:    return MEDIA_MESSAGE_BOX_RESULT_YES;
+        case IDNO:     return MEDIA_MESSAGE_BOX_RESULT_NO;
+        default: {
+            if( !result ) {
+                win32_error( "message box returned error!" );
+            } else {
+                // NOTE(alicia): should never happen
+                panic();
+            }
+        } return MEDIA_MESSAGE_BOX_RESULT_ERROR;
+    }
+}
+
+#define safe_call( fn ) do {\
+    HRESULT hresult = fn;\
+    if( FAILED( hresult ) ) {\
+        media_log_error( "'" #fn "' failed!" );\
+        return false;\
+    }\
+} while(0)
+
+#define DeviceEnumeratorGetDefaultAudioEndpoint( dataFlow, role, ppEndpoint )\
+ctx->device_enumerator->lpVtbl->GetDefaultAudioEndpoint( ctx->device_enumerator, dataFlow, role, ppEndpoint )
+
+#define DeviceActivate( iid, dwClsCtx, pActivationParams, ppInterface )\
+ctx->device->lpVtbl->Activate( ctx->device, iid, dwClsCtx, pActivationParams, ppInterface )
+
+#define AudioClientInitialize( ShareMode, StreamFlags, hnsBufferDuration, hnsPeriodicity, pFormat, AudioSessionGuid )\
+ctx->client->lpVtbl->Initialize( ctx->client, ShareMode, StreamFlags, hnsBufferDuration, hnsPeriodicity, pFormat, AudioSessionGuid )
+
+#define AudioClientGetBufferSize( pNumBufferFrames )\
+ctx->client->lpVtbl->GetBufferSize( ctx->client, pNumBufferFrames )
+
+#define AudioClientGetService( riid, ppv )\
+ctx->client->lpVtbl->GetService( ctx->client, riid, ppv )
+
+#define AudioClientStart()\
+ctx->client->lpVtbl->Start( ctx->client )
+
+#define AudioClientStop()\
+ctx->client->lpVtbl->Stop( ctx->client )
+
+#define AudioClientGetCurrentPadding( pNumPaddingFrames )\
+ctx->client->lpVtbl->GetCurrentPadding( ctx->client, pNumPaddingFrames )
+
+#define AudioRenderClientGetBuffer( NumFramesRequested, ppData )\
+ctx->render_client->lpVtbl->GetBuffer( ctx->render_client, NumFramesRequested, ppData )
+
+#define AudioRenderClientReleaseBuffer( NumFramesWritten, dwFlags )\
+ctx->render_client->lpVtbl->ReleaseBuffer( ctx->render_client, NumFramesWritten, dwFlags )
+
+MEDIA_API b32 media_audio_initialize( u64 buffer_length_ms, MediaAudioContext* out_ctx ) {
+    Win32AudioContext* ctx = (Win32AudioContext*)out_ctx;
+    
+    ctx->OLE32 = LoadLibraryA( "OLE32.DLL" );
+    if( !ctx->OLE32 ) {
+        win32_error( "failed to load ole32.dll!" );
+        return false;
+    }
+
+    #define load_fn( fn ) do {\
+        fn = (___internal_##fn##FN*)GetProcAddress( ctx->OLE32, #fn );\
+        if( !fn ) {\
+            win32_error( "failed to load audio function '" #fn "'!" );\
+            return false;\
+        }\
+    } while(0)
+
+    load_fn( CoInitialize );
+    load_fn( CoUninitialize );
+    load_fn( CoCreateInstance );
+    load_fn( CoTaskMemFree );
+
+    // NOTE(alicia): initialize COM.
+    safe_call( CoInitialize( NULL ) );
+    safe_call( CoCreateInstance(
+        &CLSID_MMDeviceEnumerator, NULL,
+        CLSCTX_ALL, &IID_IMMDeviceEnumerator,
+        (void**)&ctx->device_enumerator ) );
+
+    // NOTE(alicia): Get default device.
+    safe_call( DeviceEnumeratorGetDefaultAudioEndpoint(
+        eRender, eConsole, &ctx->device ) );
+
+    // NOTE(alicia): Activate audio client.
+    safe_call( DeviceActivate(
+        &IID_IAudioClient, CLSCTX_ALL, NULL, (void**)&ctx->client ) );
+
+    // NOTE(alicia): Define audio buffer format.
+    ctx->format.nChannels       = 2;
+    ctx->format.wFormatTag      = WAVE_FORMAT_PCM;
+    ctx->format.nSamplesPerSec  = 44100;
+    ctx->format.wBitsPerSample  = 16;
+    ctx->format.nBlockAlign     =
+        ( ctx->format.nChannels * ctx->format.wBitsPerSample ) / 8;
+    ctx->format.nAvgBytesPerSec =
+        ctx->format.nSamplesPerSec * ctx->format.nBlockAlign;
+    ctx->format.cbSize          = 0;
+
+    // NOTE(alicia): Create audio buffer.
+    #define REFTIMES_PER_MS (10000)
+    REFTIME buffer_length_reftime = buffer_length_ms * REFTIMES_PER_MS;
+    DWORD initialize_stream_flags =
+        AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY;
+
+    safe_call( AudioClientInitialize(
+        AUDCLNT_SHAREMODE_SHARED, initialize_stream_flags,
+        buffer_length_reftime, 0, &ctx->format, NULL ) );
+
+    // NOTE(alicia): Calculate buffer size.   
+    safe_call( AudioClientGetBufferSize( &ctx->buffer_frame_count ) );
+
+    ctx->buffer_size = ctx->buffer_frame_count *
+        ( ctx->format.nChannels * ( ctx->format.wBitsPerSample / 8 ) );
+
+    // NOTE(alicia): Get render client.
+    safe_call( AudioClientGetService(
+        &IID_IAudioRenderClient, (void**)&ctx->render_client ) );
+
+    // NOTE(alicia): Clear audio buffer.
+    BYTE* buffer = NULL;
+    safe_call( AudioRenderClientGetBuffer( ctx->buffer_frame_count, &buffer ) );
+
+    memory_zero( buffer, ctx->buffer_size );
+
+    safe_call( AudioRenderClientReleaseBuffer( ctx->buffer_frame_count, 0 ) );
+
+    // NOTE(alicia): Start playing buffer.
+    safe_call( AudioClientStart() );
+
+    #undef REFTIMES_PER_MS
+    #undef load_fn
+    return true;
+}
+MEDIA_API void media_audio_shutdown( MediaAudioContext* in_ctx ) {
+#if defined(LD_DEVELOPER_MODE)
+    if( !media_audio_is_context_valid( in_ctx ) ) {
+        return;
+    }
+#endif
+    get_audio();
+
+    #define com_release( punk ) do {\
+        if( (punk) != NULL ) {\
+            (punk)->lpVtbl->Release( (punk) );\
+            (punk) = NULL;\
+        }\
+    } while(0)
+
+    AudioClientStop();
+
+    com_release( ctx->device_enumerator );
+    com_release( ctx->device );
+    com_release( ctx->client );
+    com_release( ctx->render_client );
+
+    CoUninitialize();
+
+    FreeLibrary( ctx->OLE32 );
+
+    memory_zero( in_ctx, sizeof(*in_ctx) );
+}
+MEDIA_API b32 media_audio_is_context_valid( MediaAudioContext* in_ctx ) {
+    get_audio();
+    return ctx->OLE32 != NULL;
+}
+MEDIA_API MediaAudioBufferFormat media_audio_query_buffer_format( MediaAudioContext* in_ctx ) {
+    get_audio();
+    MediaAudioBufferFormat format = {};
+
+    format.channel_count       = ctx->format.nChannels;
+    format.bits_per_sample     = ctx->format.wBitsPerSample;
+    format.samples_per_second  = ctx->format.nSamplesPerSec;
+    format.buffer_sample_count = ctx->buffer_frame_count;
+    format.buffer_size         = ctx->buffer_size;
+
+    return format;
+}
+
+MEDIA_API b32 media_audio_buffer_lock(
+    MediaAudioContext* in_ctx, MediaAudioBuffer* out_buffer
+) {
+    get_audio();
+    UINT32 buffer_frame_padding_count = 0;
+    
+    safe_call( AudioClientGetCurrentPadding( &buffer_frame_padding_count ) );
+    if( buffer_frame_padding_count > ctx->buffer_frame_count ) {
+        // TODO(alicia): err?
+        return false;
+    }
+
+    UINT32 buffer_frames_to_request =
+        ctx->buffer_frame_count - buffer_frame_padding_count;
+    if( !buffer_frames_to_request ) {
+        return false;
+    }
+
+    BYTE* buffer = NULL;
+    safe_call( AudioRenderClientGetBuffer( buffer_frames_to_request, &buffer ) );
+
+    if( !buffer ) {
+        return false;
+    }
+
+    out_buffer->buffer       = buffer;
+    out_buffer->sample_count = buffer_frames_to_request;
+    out_buffer->buffer_size  = out_buffer->sample_count * ctx->format.nBlockAlign;
+
+    return true;
+}
+MEDIA_API void media_audio_buffer_unlock(
+    MediaAudioContext* in_ctx, MediaAudioBuffer* buffer
+) {
+    get_audio();
+    AudioRenderClientReleaseBuffer( buffer->sample_count, 0 );
+    memory_zero( buffer, sizeof(*buffer) );
+}
+MEDIA_API void media_audio_start( MediaAudioContext* in_ctx ) {
+    get_audio();
+    AudioClientStart();
+}
+MEDIA_API void media_audio_stop( MediaAudioContext* in_ctx ) {
+    get_audio();
+    AudioClientStop();
+}
+
+#undef safe_call
+#undef DeviceEnumeratorGetDefaultAudioEndpoint
+#undef DeviceActivate
+#undef AudioClientInitialize
+#undef AudioClientGetBufferSize
+#undef AudioClientGetService
+#undef AudioClientGetCurrentPadding
+#undef AudioClientStart
+#undef AudioClientStop
+#undef AudioRenderClientGetBuffer
+#undef AudioRenderClientReleaseBuffer
 
 LRESULT win32_winproc( HWND hwnd, UINT Msg, WPARAM wParam, LPARAM lParam ) {
     Win32Surface* win32_surface =
@@ -915,10 +1310,40 @@ HRESULT DwmSetWindowAttribute_STUB(
     return 0;
 }
 
+void XInputEnable_STUB( BOOL enable ) {
+    unused(enable);
+}
+
+internal int xinput_poll_thread( void* params ) {
+    unused(params);
+
+    loop {
+        Sleep( MEDIA_WIN32_XINPUT_POLL_RATE );
+
+#if defined(LD_DEVELOPER_MODE)
+        if( !XInputGetState ) {
+            continue;
+        }
+#endif
+
+        for( DWORD i = 0; i < XUSER_MAX_COUNT; ++i ) {
+            XINPUT_STATE dummy = {};
+            DWORD result = XInputGetState( i, &dummy );
+
+            global_xinput_gamepad_active[i] = result == ERROR_SUCCESS;
+        }
+    }
+}
+
 MEDIA_API b32 media_initialize(void) {
 
+    if( !thread_create( xinput_poll_thread, NULL ) ) {
+        media_log_error( "failed to create xinput polling thread!" );
+        return false;
+    }
+
     #define open_dll( dll )\
-        HMODULE dll = LoadLibraryA( #dll ".DLL" );\
+        LoadLibraryA( #dll ".DLL" );\
     do {\
         if( ! dll ) {\
             win32_error( "failed to open library '" #dll "'!" );\
@@ -930,11 +1355,27 @@ MEDIA_API b32 media_initialize(void) {
         ___internal_##fn = ( ___internal_##fn##FN *)GetProcAddress( dll, #fn );\
         if( !___internal_##fn ) {\
             win32_error( "failed to load fn '" #fn "' from '" #dll "'!" );\
+            return false;\
         }\
     } while(0)
 
-    open_dll( User32 );
-    open_dll( Gdi32 );
+    HMODULE User32 = GetModuleHandleA( "USER32.DLL" );
+    if( !User32 ) {
+        User32 = open_dll( User32 );
+    }
+    HMODULE Gdi32 = open_dll( Gdi32 );
+
+    HMODULE XInput = LoadLibraryA( "XINPUT1_4.DLL" );
+    if( !XInput ) {
+        XInput = LoadLibraryA( "XINPUT9_1_0.DLL" );
+        if( !XInput ) {
+            XInput = LoadLibraryA( "XINPUT1_3.DLL" );
+            if( !XInput ) {
+                win32_error( "failed to open any XInput library!" );
+                return false;
+            }
+        }
+    }
 
     HMODULE Dwmapi = LoadLibraryA( "Dwmapi.DLL" );
 
@@ -960,21 +1401,34 @@ MEDIA_API b32 media_initialize(void) {
     load_fn( User32, MonitorFromPoint );
     load_fn( User32, GetMonitorInfoA );
     load_fn( User32, ClientToScreen );
+    load_fn( User32, ShowCursor );
     load_fn( User32, SetCursorPos );
     load_fn( User32, GetDC );
     load_fn( User32, ReleaseDC );
     load_fn( User32, ShowWindow );
     load_fn( User32, MapVirtualKeyA );
+    load_fn( User32, MessageBoxA );
 
     load_fn( Gdi32, GetStockObject );
 
-    ___internal_DwmSetWindowAttribute =
-        (___internal_DwmSetWindowAttributeFN*)GetProcAddress(
-            Dwmapi, "DwmSetWindowAttribute" );
-    if( !___internal_DwmSetWindowAttribute ) {
-        ___internal_DwmSetWindowAttribute = DwmSetWindowAttribute_STUB;
+    load_fn( XInput, XInputGetState );
+    load_fn( XInput, XInputSetState );
+
+    XInputEnable = (___internal_XInputEnableFN*)GetProcAddress(
+        XInput, "XInputEnable" );
+    if( !XInputEnable ) {
+        XInputEnable = XInputEnable_STUB;
     }
 
+    DwmSetWindowAttribute =
+        (___internal_DwmSetWindowAttributeFN*)GetProcAddress(
+            Dwmapi, "DwmSetWindowAttribute" );
+    if( !DwmSetWindowAttribute ) {
+        DwmSetWindowAttribute = DwmSetWindowAttribute_STUB;
+    }
+
+    #undef open_dll
+    #undef load_fn
     return true;
 }
 
@@ -1012,7 +1466,7 @@ DWORD ___win32_report_last_error( usize format_len, const char* format, ... ) {
         dwLanguageId, error.buffer + error.len, error.capacity,
         NULL );
 
-    ___internal_media_log( MEDIA_LOGGING_LEVEL_ERROR, error.len, error.buffer );
+    ___internal_media_log( LOGGING_LEVEL_ERROR, error.len, error.buffer );
 
     return error_code;
 }

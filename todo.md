@@ -17,6 +17,7 @@
     println( "{u8,*_}", 2, foo );
     "{ 1, 2 }"
 - [ ] fmt: more accurate float formatting (grisu3 or errol?)
+- [ ] engine: hash command line arguments
 - [ ] audio subsystem
 - [ ] resource/asset subsystem
 - [ ] entity subsystem

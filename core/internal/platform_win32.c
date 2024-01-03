@@ -10,6 +10,8 @@
 #include "core/time.h"
 #include "core/internal/platform.h"
 #include "core/internal/logging.h"
+#include "core/system.h"
+#include "core/memory.h"
 
 #define win32_log_note( format, ... )\
     ___internal_core_log(\
@@ -35,6 +37,7 @@
 #define NOMINMAX
 #include <windows.h>
 #include <shlwapi.h>
+#include <intrin.h>
 
 #define WIN32_DECLARE_FUNCTION( ret, fn, ... )\
     typedef ret ___internal_##fn##FN( __VA_ARGS__ );\
@@ -513,6 +516,87 @@ void platform_time_record( struct TimeRecord* out_record ) {
     out_record->hour   = (u32)system_time.wHour;
     out_record->minute = (u32)system_time.wMinute;
     out_record->second = (u32)system_time.wSecond;
+}
+
+CORE_API void system_info_query( SystemInfo* out_info ) {
+    SYSTEM_INFO info = {};
+    GetSystemInfo( &info );
+
+    out_info->page_size = info.dwPageSize;
+    out_info->cpu_count = info.dwNumberOfProcessors;
+
+    if( IsProcessorFeaturePresent(
+        PF_XMMI_INSTRUCTIONS_AVAILABLE
+    ) ) {
+        out_info->feature_flags |= CPU_FEATURE_SSE;
+    }
+    if( IsProcessorFeaturePresent(
+        PF_XMMI64_INSTRUCTIONS_AVAILABLE
+    ) ) {
+        out_info->feature_flags |= CPU_FEATURE_SSE2;
+    }
+    if( IsProcessorFeaturePresent(
+        PF_SSE3_INSTRUCTIONS_AVAILABLE
+    ) ) {
+        out_info->feature_flags |= CPU_FEATURE_SSE3;
+    }
+    if( IsProcessorFeaturePresent(
+        PF_SSSE3_INSTRUCTIONS_AVAILABLE
+    ) ) {
+        out_info->feature_flags |= CPU_FEATURE_SSSE3;
+    }
+    if( IsProcessorFeaturePresent(
+        PF_SSE4_1_INSTRUCTIONS_AVAILABLE
+    ) ) {
+        out_info->feature_flags |= CPU_FEATURE_SSE4_1;
+    }
+    if( IsProcessorFeaturePresent(
+        PF_SSE4_2_INSTRUCTIONS_AVAILABLE
+    ) ) {
+        out_info->feature_flags |= CPU_FEATURE_SSE4_2;
+    }
+    if( IsProcessorFeaturePresent(
+        PF_AVX_INSTRUCTIONS_AVAILABLE
+    ) ) {
+        out_info->feature_flags |= CPU_FEATURE_AVX;
+    }
+    if( IsProcessorFeaturePresent(
+        PF_AVX2_INSTRUCTIONS_AVAILABLE
+    ) ) {
+        out_info->feature_flags |= CPU_FEATURE_AVX2;
+    }
+    if( IsProcessorFeaturePresent(
+        PF_AVX512F_INSTRUCTIONS_AVAILABLE
+    ) ) {
+        out_info->feature_flags |= CPU_FEATURE_AVX_512;
+    }
+
+    MEMORYSTATUSEX memory_status = {};
+    memory_status.dwLength = sizeof( memory_status );
+    GlobalMemoryStatusEx( &memory_status );
+
+    out_info->total_memory = memory_status.ullTotalPhys;
+
+#if defined(LD_ARCH_X86)
+    {
+        memory_set( out_info->cpu_name, ' ', SYSTEM_INFO_CPU_NAME_CAPACITY - 1 );
+
+        int cpu_info[4] = {};
+        char* chunk = out_info->cpu_name;
+
+        __cpuid( cpu_info, 0x80000002 );
+        memory_copy( chunk, cpu_info, sizeof(cpu_info) );
+        chunk += sizeof(cpu_info);
+
+        __cpuid( cpu_info, 0x80000003 );
+        memory_copy( chunk, cpu_info, sizeof(cpu_info) );
+        chunk += sizeof(cpu_info);
+
+        __cpuid( cpu_info, 0x80000004 );
+        memory_copy( chunk, cpu_info, sizeof(cpu_info) );
+    }
+#endif /* Arch x86 */
+
 }
 
 #endif /* Platform Windows */

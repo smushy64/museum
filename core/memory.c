@@ -11,7 +11,7 @@
 
 #define LOG_MEMORY_SUCCESS( title, format, ... )\
     ___internal_core_log(\
-        CORE_LOGGING_TYPE_MEMORY_SUCCESS,\
+        LOGGING_LEVEL_MEMORY,\
         sizeof("[CORE] " "[" title " | {cc}:{u} > {cc}()] " format),\
         "[CORE] " "[" title " | {cc}:{u} > {cc}()] " format,\
         file, line, function, ##__VA_ARGS__\
@@ -19,7 +19,7 @@
 
 #define LOG_MEMORY_ERROR( title, format, ... )\
     ___internal_core_log(\
-        CORE_LOGGING_TYPE_MEMORY_ERROR,\
+        LOGGING_LEVEL_ERROR,\
         sizeof("[" title " | {cc}:{u} > {cc}()] " format),\
         "[" title " | {cc}:{u} > {cc}()] " format,\
         file, line, function, ##__VA_ARGS__\

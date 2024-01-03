@@ -9,7 +9,8 @@
 
 #include "engine/input.h"
 #include "engine/logging.h"
-#include "engine/internal/platform.h"
+
+#include "media/input.h"
 
 struct GamepadState {
     GamepadCode buttons;
@@ -81,11 +82,11 @@ void input_subsystem_swap_state(void) {
 
     if( global_input->mouse.is_locked ) {
         if( global_input->mouse.was_locked != global_input->mouse.is_locked ) {
-            platform->io.set_mouse_visible( false );
+            media_input_set_cursor_visible( false );
         }
     } else {
         if( global_input->mouse.was_locked != global_input->mouse.is_locked ) {
-            platform->io.set_mouse_visible( true );
+            media_input_set_cursor_visible( true );
         }
     }
 
@@ -94,25 +95,27 @@ void input_subsystem_swap_state(void) {
     global_input->mouse.was_locked = global_input->mouse.is_locked;
 }
 void input_subsystem_update_gamepads(void) {
-    PlatformGamepad platform_gamepads[INPUT_GAMEPAD_COUNT];
-    platform->io.read_gamepads( platform_gamepads );
-
-    for( usize i = 0; i < INPUT_GAMEPAD_COUNT; ++i ) {
-        PlatformGamepad* platform_current = platform_gamepads + i;
+    for( u32 i = 0; i < INPUT_GAMEPAD_COUNT; ++i ) {
+        MediaGamepadState    state   = {};
         struct GamepadState* current = global_input->gamepad + i;
 
-        if( !platform_current->is_active ) {
+        if( !media_input_query_gamepad_state( i, &state ) ) {
             if( current->is_active ) {
-                memory_zero( current, sizeof(struct GamepadState) );
+                memory_zero( current, sizeof(*current) );
             }
             current->is_active = false;
+            continue;
         }
-        current->is_active              = true;
-        current->last_buttons           = current->buttons;
-        current->buttons                = platform_current->buttons;
-        current->normalized_stick_left  = platform_current->stick_left;
-        current->normalized_stick_right = platform_current->stick_right;
-        current->normalized_triggers    = platform_current->triggers;
+
+        current->is_active                = true;
+        current->last_buttons             = current->buttons;
+        current->buttons                  = state.buttons;
+        current->normalized_stick_left_x  = state.stick_left_x;
+        current->normalized_stick_left_y  = state.stick_left_y;
+        current->normalized_stick_right_x = state.stick_right_x;
+        current->normalized_stick_right_y = state.stick_right_y;
+        current->normalized_trigger_left  = state.trigger_left;
+        current->normalized_trigger_right = state.trigger_right;
     }
 }
 void input_subsystem_set_key( KeyCode code, b32 is_down ) {
@@ -120,22 +123,22 @@ void input_subsystem_set_key( KeyCode code, b32 is_down ) {
         global_input->keyboard.buttons[code] = is_down;
     }
 }
-void input_subsystem_set_mouse_button( enum PlatformMouseCode code, b32 is_down ) {
+void input_subsystem_set_mouse_button( enum MediaMouseButton code, b32 is_down ) {
     MouseCode mouse_code = 0;
     switch( code ) {
-        case PLATFORM_MOUSE_BUTTON_LEFT: {
+        case MEDIA_MOUSE_BUTTON_LEFT: {
             mouse_code = MOUSE_BUTTON_LEFT;
         } break;
-        case PLATFORM_MOUSE_BUTTON_MIDDLE: {
+        case MEDIA_MOUSE_BUTTON_MIDDLE: {
             mouse_code = MOUSE_BUTTON_MIDDLE;
         } break;
-        case PLATFORM_MOUSE_BUTTON_RIGHT: {
+        case MEDIA_MOUSE_BUTTON_RIGHT: {
             mouse_code = MOUSE_BUTTON_RIGHT;
         } break;
-        case PLATFORM_MOUSE_BUTTON_EXTRA_1: {
+        case MEDIA_MOUSE_BUTTON_EXTRA_1: {
             mouse_code = MOUSE_BUTTON_X1;
         } break;
-        case PLATFORM_MOUSE_BUTTON_EXTRA_2: {
+        case MEDIA_MOUSE_BUTTON_EXTRA_2: {
             mouse_code = MOUSE_BUTTON_X2;
         } break;
     }
@@ -300,21 +303,20 @@ LD_API f32 input_gamepad_trigger_right( usize gamepad ) {
 }
 
 LD_API void input_gamepad_set_rumble(
-    usize gamepad, f32 rumble_left, f32 rumble_right
+    usize gamepad, f32 rumble_left_f, f32 rumble_right_f
 ) {
     if( !global_input->gamepad[gamepad].is_active ) {
         warn_log( "Attempted to rumble disconnected gamepad {usize}!", gamepad );
         return;
     }
-    global_input->gamepad[gamepad].rumble_left  =
-        normalize_range_f32_u16( rumble_left );
-    global_input->gamepad[gamepad].rumble_right =
-        normalize_range_f32_u16( rumble_right );
 
-    platform->io.set_gamepad_rumble(
-        gamepad,
-        global_input->gamepad[gamepad].rumble_left,
-        global_input->gamepad[gamepad].rumble_right );
+    u16 rumble_left  = normalize_range_f32_u16( rumble_left_f );
+    u16 rumble_right = normalize_range_f32_u16( rumble_right_f );
+
+    if( media_input_set_gamepad_rumble( gamepad, rumble_left, rumble_right ) ) {
+        global_input->gamepad[gamepad].rumble_left  = rumble_left;
+        global_input->gamepad[gamepad].rumble_right = rumble_right;
+    }
 }
 LD_API void input_gamepad_query_rumble(
     usize gamepad, f32* out_rumble_left, f32* out_rumble_right

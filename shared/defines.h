@@ -174,6 +174,27 @@ typedef double f64;
 /// names using type names
 typedef void* pvoid;
 
+/// Logging levels.
+typedef u32 LoggingLevel;
+#define LOGGING_LEVEL_NONE   (0)
+#define LOGGING_LEVEL_FATAL  (0)
+#define LOGGING_LEVEL_ERROR  (1 << 0)
+#define LOGGING_LEVEL_WARN   (1 << 1)
+#define LOGGING_LEVEL_DEBUG  (1 << 2)
+#define LOGGING_LEVEL_INFO   (1 << 3)
+#define LOGGING_LEVEL_NOTE   (1 << 4)
+#define LOGGING_LEVEL_TRACE  (1 << 5)
+#define LOGGING_LEVEL_MEMORY (1 << 6)
+
+#define LOGGING_LEVEL_ALL ( LOGGING_LEVEL_ERROR | LOGGING_LEVEL_WARN | LOGGING_LEVEL_DEBUG | LOGGING_LEVEL_INFO | LOGGING_LEVEL_NOTE | LOGGING_LEVEL_TRACE | LOGGING_LEVEL_MEMORY )
+
+/// Logging Callback prototype.
+typedef void LoggingCallbackFN(
+    LoggingLevel level, usize message_len, const char* message, void* params );
+
+/// sizeof string literal followed by string literal
+#define text( string ) sizeof( string ), string
+
 #if !defined( __cplusplus )
     #define true  1
     #define false 0

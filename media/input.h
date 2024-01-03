@@ -42,7 +42,6 @@ typedef u16 MediaGamepadButtons;
 /// Media Gamepad State.
 typedef struct MediaGamepadState {
     MediaGamepadButtons buttons;
-    b8 is_active;
     u16 trigger_left;
     u16 trigger_right;
 
@@ -52,5 +51,20 @@ typedef struct MediaGamepadState {
     i16 stick_right_x;
     i16 stick_right_y;
 } MediaGamepadState;
+
+/// Query state of a gamepad.
+/// Returns true if gamepad is active and reading state was successful.
+/// Returns false if gamepad is inactive.
+MEDIA_API b32 media_input_query_gamepad_state(
+    u32 gamepad_index, MediaGamepadState* out_state );
+/// Set rumble for gamepad.
+/// Returns true if successful (gamepad is connected).
+MEDIA_API b32 media_input_set_gamepad_rumble(
+    u32 gamepad_index, u16 motor_left, u16 motor_right );
+/// Query a gamepad's rumble state.
+MEDIA_API void media_input_query_gamepad_rumble(
+    u32 gamepad_index, u16* out_motor_left, u16* out_motor_right );
+/// Set cursor visible or invisible.
+MEDIA_API void media_input_set_cursor_visible( b32 is_visible );
 
 #endif /* header guard */

@@ -32,9 +32,7 @@ internal void print_help(void);
 #define HASH_DEFAULT_OUTPUT_PATH "./generated_hashes.h"
 global const char* global_program_name = "lhash";
 
-struct PlatformAPI;
-c_linkage int core_init( int argc, char** argv, struct PlatformAPI* in_platform ) {
-    unused( in_platform );
+c_linkage int application_main( int argc, char** argv ) {
     global_program_name = argv[0];
 
     if( argc <= 1 ) {

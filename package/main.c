@@ -4,7 +4,6 @@
  * File Created: December 06, 2023
 */
 #include "shared/defines.h"
-#include "platform/api.h"
 #include "logging.h"
 #include "manifest.h"
 #include "resource_header.h"
@@ -18,7 +17,7 @@
 #include "core/sync.h"
 #include "core/memory.h"
 #include "core/jobs.h"
-#include "core/misc.h"
+#include "core/lib.h"
 
 #include "core/compression.h"
 
@@ -75,9 +74,7 @@ internal void print_supported(void);
 internal PackageError parse_arguments( int argc, char** argv, PackageParams* out_params );
 internal PackageError package_create( PackageParams* params );
 
-c_linkage int core_init( int argc, char** argv, struct PlatformAPI* in_platform ) {
-    unused( in_platform );
-
+c_linkage int application_main( int argc, char** argv ) {
     PackageParams params = {};
     PackageError error = parse_arguments( argc, argv, &params );
 

@@ -125,7 +125,7 @@ export DLLMAIN               := ../platform/platform_dllmain.c
 
 export ENGINE_FLAGS := -DLIQUID_ENGINE_VERSION_MAJOR=$(LD_MAJOR) \
 	-DLIQUID_ENGINE_VERSION_MINOR=$(LD_MINOR) \
-	-DLIQUID_ENGINE_PATH=\"$(LIB_ENGINE)\"\
+	-DLD_APPLICATION_PATH=\"$(LIB_ENGINE)\"\
 	-DLIQUID_ENGINE_VERSION=\""$(LD_NAME) $(LD_VERSION)"\"\
 	-DSTACK_SIZE=$(PROGRAM_STACK_SIZE)
 
@@ -183,7 +183,6 @@ export DEP_SHARED_C := $(addprefix .,$(SHARED_C))
 export DEP_CORE_H := $(addprefix .,$(call recurse,./core,*.h))
 export DEP_CORE_C := $(addprefix .,$(call recurse,./core,*.c))
 
-export PLATFORM_DEP_H := $(addprefix .,$(call recurse,./platform,*.h))
 export PLATFORM_DEP_C := $(addprefix .,$(filter-out ./platform/platform_dllmain.c,$(call recurse,./platform,*.c)))
 
 all: build_platform build_core build_engine build_shaders build_package build_hash
@@ -194,7 +193,7 @@ build_platform:
 build_core:
 	@$(MAKE) --directory=core --no-print-directory
 
-build_media:
+build_media: build_core
 	@$(MAKE) --directory=media --no-print-directory
 
 build_engine: build_core build_hash build_media

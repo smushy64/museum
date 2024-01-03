@@ -591,10 +591,7 @@ b32 gl_subsystem_init(void) {
         ((u8*)global_renderer + sizeof(struct RendererSubsystem));
 
     if( !media_surface_gl_init( global_renderer->surface ) ) {
-        StringSlice last_error;
-        platform->last_error( &last_error.len, (const char**)&last_error.buffer );
         fatal_log_gl( "Failed to initialize OpenGL!" );
-        fatal_log_gl( "{s}", last_error );
         return false;
     }
 

@@ -12,9 +12,9 @@
 #include "core/shared_object.h"
 #include "core/time.h"
 #include "core/jobs.h"
-#include "core/misc.h"
+#include "core/system.h"
+#include "core/lib.h"
 
-#include "engine/internal/platform.h"
 #include "engine/audio.h"
 #include "engine/logging.h"
 #include "engine/input.h"
@@ -22,7 +22,7 @@
 #include "engine/graphics/internal.h"
 
 #include "media/surface.h"
-#include "media/media.h"
+#include "media/lib.h"
 
 global const char* global_executable_name = "";
 
@@ -92,6 +92,7 @@ struct PlatformAPI* platform = NULL;
 #define CORE_ERROR_CREATE_SURFACE                 (140)
 #define CORE_ERROR_APPLICATION_RUN                (141)
 #define CORE_ERROR_RENDERER_DRAW                  (142)
+#define CORE_ERROR_MISSING_INSTRUCTIONS           (143)
 
 typedef struct SurfaceCallbackData {
     b32* surface_is_active;
@@ -127,7 +128,7 @@ internal no_inline void surface_callback(
         } break;
         case MEDIA_SURFACE_CALLBACK_TYPE_MOUSE_BUTTON: {
             input_subsystem_set_mouse_button(
-                (PlatformMouseCode)data->mouse_button.button,
+                data->mouse_button.button,
                 data->mouse_button.is_down );
         } break;
         case MEDIA_SURFACE_CALLBACK_TYPE_MOUSE_MOVE: {
@@ -156,21 +157,20 @@ internal no_inline void surface_callback(
 }
 
 internal b32 parse_settings( struct SettingsParse* out_parse_result );
+internal b32 check_instructions( SystemInfo* info );
 
 global MediaSurface* ENGINE_SURFACE = NULL;
 
 #define DEFAULT_LOGGING_FILE_PATH "./museum-logging.txt"
 
-internal void core_logging(
-    usize message_len, const char* message, CoreLoggingType type );
+internal void lib_logging(
+    LoggingLevel level, usize message_len, const char* message, void* params );
 internal void print_help(void);
-LD_API int core_init(
-    int argc, char** argv,
-    struct PlatformAPI* in_platform
-) {
-    assert( in_platform );
-    platform = in_platform;
+LD_API int application_main( int argc, char** argv ) {
     global_executable_name = argv[0];
+
+    SystemInfo system_info = {};
+    system_info_query( &system_info );
 
     time_initialize();
 
@@ -194,11 +194,15 @@ LD_API int core_init(
     logging_subsystem_initialize( logging_file );
     logging_set_level( LOGGING_LEVEL_ALL );
 
-    core_logging_callback_set( core_logging );
+    core_logging_callback_set( lib_logging, NULL );
+    media_logging_callback_set( lib_logging, NULL );
 
 #endif
-
     media_initialize();
+
+    if( !check_instructions( &system_info ) ) {
+        return CORE_ERROR_MISSING_INSTRUCTIONS;
+    }
 
     struct SettingsParse settings = ___settings_parse_default();
     if( !parse_settings( &settings ) ) {
@@ -520,7 +524,7 @@ LD_API int core_init(
             "Renderer backend '{cc}' is not supported on current platform!{c}",
             renderer_backend_to_string( backend ), 0 );
         fatal_log( "{s}", fatal_error_message );
-        platform->fatal_message_box(
+        media_fatal_message_box_blocking(
             fatal_error_title_buffer, fatal_error_message_buffer );
         return CORE_ERROR_RENDERER_BACKEND_NOT_SUPPORTED;
     }
@@ -578,7 +582,7 @@ LD_API int core_init(
     #endif
 #endif
     note_log( "Platform:          {s}, {s}", os, arch );
-    note_log( "Page Size:         {usize}", platform->query_info()->page_size );
+    note_log( "Page Size:         {usize}", system_info.page_size );
     note_log( "Game Library Path: {s}", game_library_path );
     note_log( "Renderer Backend:  {cc}",
         renderer_backend_to_string( backend ) );
@@ -596,7 +600,7 @@ LD_API int core_init(
             "Failed to load game library! Game library path: {s}{c}",
             game_library_path, 0 );
         fatal_log("{s}", fatal_error_message);
-        platform->fatal_message_box(
+        media_fatal_message_box_blocking(
             fatal_error_title_buffer, fatal_error_message_buffer );
         return CORE_ERROR_OPEN_GAME_LIBRARY;
     }
@@ -622,7 +626,7 @@ LD_API int core_init(
             "Failed to load game memory requirement!{c}",
             0 );
         fatal_log("{s}", fatal_error_message);
-        platform->fatal_message_box(
+        media_fatal_message_box_blocking(
             fatal_error_title_buffer, fatal_error_message_buffer );
         return CORE_ERROR_LOAD_GAME_MEMORY_REQUIREMENT;
     }
@@ -636,7 +640,7 @@ LD_API int core_init(
             "Failed to load game initialize function!{c}",
             0 );
         fatal_log("{s}", fatal_error_message);
-        platform->fatal_message_box(
+        media_fatal_message_box_blocking(
             fatal_error_title_buffer, fatal_error_message_buffer );
         return CORE_ERROR_LOAD_GAME_INITIALIZE;
     }
@@ -650,7 +654,7 @@ LD_API int core_init(
             "Failed to load game run function!{c}",
             0 );
         fatal_log("{s}", fatal_error_message);
-        platform->fatal_message_box(
+        media_fatal_message_box_blocking(
             fatal_error_title_buffer, fatal_error_message_buffer );
         return CORE_ERROR_LOAD_GAME_RUN;
     }
@@ -658,7 +662,7 @@ LD_API int core_init(
 #if 0
     if( !audio_subsystem_initialize() ) {
         fatal_log( "Failed to initialize audio subsystem!" );
-        platform->fatal_message_box(
+        media_fatal_message_box_blocking(
             "Fatal Error "
             macro_value_to_string( CORE_ERROR_AUDIO_SUBSYSTEM_INITIALIZE ),
             "Failed to initialize audio subsystem!" );
@@ -669,7 +673,7 @@ LD_API int core_init(
     usize audio_subsystem_memory_requirement =
         audio_subsystem_query_memory_requirement();
 
-    u32 thread_count = platform->query_info()->logical_processor_count;
+    u32 thread_count = system_info.cpu_count;
     thread_count = max( thread_count, 1 );
 
     usize stack_size                       = 0;
@@ -716,7 +720,7 @@ LD_API int core_init(
                 "Out of Memory!{c}",
                 0 );
             fatal_log("{s}", fatal_error_message);
-            platform->fatal_message_box(
+            media_fatal_message_box_blocking(
                 fatal_error_title_buffer, fatal_error_message_buffer );
             return CORE_ERROR_ENGINE_MEMORY_ALLOCATION;
         }
@@ -748,7 +752,7 @@ LD_API int core_init(
 
         if( !job_system_initialize( thread_count, jobs_subsystem_buffer ) ) {
             fatal_log( "Failed to initialize thread subsystem!" );
-            platform->fatal_message_box(
+            media_fatal_message_box_blocking(
                 "Fatal Error "
                 macro_value_to_string(
                     CORE_ERROR_THREAD_SUBSYSTEM_INITIALIZE ),
@@ -771,7 +775,7 @@ LD_API int core_init(
             width, height, sizeof("liquid engine"), "liquid engine",
             flags, surface_callback, &surface_callback_data, backend, &surface
         ) ) {
-            platform->fatal_message_box( "Fatal Error", "Failed to create window!" );
+            media_fatal_message_box_blocking( "Fatal Error", "Failed to create window!" );
             return CORE_ERROR_CREATE_SURFACE;
         }
         media_surface_set_hidden( &surface, false );
@@ -797,7 +801,7 @@ LD_API int core_init(
             renderer_subsystem_buffer
         ) ) {
             fatal_log( "Failed to initialize renderer subsystem!" );
-            platform->fatal_message_box(
+            media_fatal_message_box_blocking(
                 "Fatal Error "
                 macro_value_to_string( CORE_ERROR_RENDERER_SUBSYSTEM_INITIALIZE ),
                 "Failed to initialize renderer subsystem!" );
@@ -809,7 +813,7 @@ LD_API int core_init(
         stack_allocator_push( &stack, application_memory_requirement );
     if( !application_initialize( application_memory ) ) {
         fatal_log( "Failed to initialize application!" );
-        platform->fatal_message_box(
+        media_fatal_message_box_blocking(
             "Fatal Error "
             macro_value_to_string( CORE_ERROR_APPLICATION_INITIALIZE ),
             "Failed to initialize application!" );
@@ -819,7 +823,7 @@ LD_API int core_init(
     while( global_application_is_running ) {
         input_subsystem_swap_state();
         input_subsystem_update_gamepads();
-        platform->surface.pump_events();
+        media_surface_pump_events( &surface );
 
 #if 0
         if( !surface_is_active ) {
@@ -842,7 +846,7 @@ LD_API int core_init(
 
         if( !application_run( application_memory ) ) {
             fatal_log( "Failed to run application!" );
-            platform->fatal_message_box(
+            media_fatal_message_box_blocking(
                 "Fatal Error "
                 macro_value_to_string( CORE_ERROR_APPLICATION_RUN ),
                 "Failed to run application!" );
@@ -855,7 +859,7 @@ LD_API int core_init(
 
         if( !renderer_subsystem_draw() ) {
             fatal_log( "Renderer failed!" );
-            platform->fatal_message_box(
+            media_fatal_message_box_blocking(
                 "Fatal Error "
                 macro_value_to_string( CORE_ERROR_RENDERER_DRAW ),
                 "Renderer failed!" );
@@ -1208,59 +1212,146 @@ LD_API void engine_exit(void) {
 }
 LD_API void engine_set_fullscreen( b32 is_fullscreen ) {
     assert( ENGINE_SURFACE );
-    PlatformSurfaceMode mode =
-        is_fullscreen ? PLATFORM_SURFACE_FULLSCREEN : PLATFORM_SURFACE_WINDOWED;
-    platform->surface.set_mode( ENGINE_SURFACE, mode );
+    media_surface_set_fullscreen( ENGINE_SURFACE, is_fullscreen );
 }
 LD_API b32 engine_query_fullscreen(void) {
     assert( ENGINE_SURFACE );
-    return
-        platform->surface.query_mode( ENGINE_SURFACE ) == PLATFORM_SURFACE_FULLSCREEN;
+    return media_surface_query_fullscreen( ENGINE_SURFACE );
 }
 LD_API void engine_toggle_fullscreen(void) {
     engine_set_fullscreen( !engine_query_fullscreen() );
 }
 
-internal void core_logging(
-    usize message_len, const char* message, CoreLoggingType type
+internal void lib_logging(
+    LoggingLevel level, usize message_len, const char* message, void* params
 ) {
-    b32 trace      = false;
-    b32 always_log = false;
-    const char* console_color = NULL;
-    LoggingType logging_type  = LOGGING_TYPE_NOTE;
+    unused(params);
 
-    switch( type ) {
-        case CORE_LOGGING_TYPE_NOTE: break;
-        case CORE_LOGGING_TYPE_INFO: {
-            trace         = true;
-            logging_type  = LOGGING_TYPE_INFO;
-            console_color = CONSOLE_COLOR_WHITE;
-        } break;
-        case CORE_LOGGING_TYPE_WARN: {
-            logging_type  = LOGGING_TYPE_WARN;
-            console_color = CONSOLE_COLOR_YELLOW;
-        } break;
-        case CORE_LOGGING_TYPE_MEMORY_ERROR:
-        case CORE_LOGGING_TYPE_ERROR: {
-            logging_type  = LOGGING_TYPE_ERROR;
-            console_color = CONSOLE_COLOR_RED;
-        } break;
-        case CORE_LOGGING_TYPE_FATAL: {
-            logging_type  = LOGGING_TYPE_FATAL;
-            console_color = CONSOLE_COLOR_MAGENTA;
-            trace         = true;
-            always_log    = true;
-        } break;
-        case CORE_LOGGING_TYPE_MEMORY_SUCCESS: {
-            logging_type  = LOGGING_TYPE_DEBUG;
-            console_color = CONSOLE_COLOR_GREEN;
-        } break;
+    b32 trace      = bitfield_check( level, LOGGING_LEVEL_TRACE );
+    b32 always_log = !level;
+
+    const char* console_color = CONSOLE_COLOR_RESET;
+
+    b32 is_error = bitfield_check( level, LOGGING_LEVEL_ERROR );
+
+    LoggingType type = LOGGING_TYPE_NOTE;
+
+    if( !level ) {
+        console_color = CONSOLE_COLOR_MAGENTA;
+        type          = LOGGING_TYPE_FATAL;
+    } else if( is_error ) {
+        console_color = CONSOLE_COLOR_RED;
+        type          = LOGGING_TYPE_ERROR;
+    } else if( bitfield_check( level, LOGGING_LEVEL_WARN ) ) {
+        console_color = CONSOLE_COLOR_YELLOW;
+        type          = LOGGING_TYPE_WARN;
+    } else if( bitfield_check( level, LOGGING_LEVEL_INFO ) ) {
+        console_color = CONSOLE_COLOR_WHITE;
+        type          = LOGGING_TYPE_INFO;
+    }
+
+    if( bitfield_check( level, LOGGING_LEVEL_MEMORY ) && !is_error ) {
+        console_color = CONSOLE_COLOR_CYAN;
+        type          = LOGGING_TYPE_INFO;
     }
 
     ___internal_logging_output_fmt_locked(
-        logging_type, console_color,
+        type, console_color,
         trace, always_log, true, true, message_len, message );
 }
 
+internal b32 check_instructions( SystemInfo* system_info ) {
+#if defined(LD_ARCH_X86)
+    CPUFeatureFlags missing_features = 0;
+
+    #if LD_SIMD_WIDTH >= 4
+
+        missing_features = system_info_feature_check_x86_sse( system_info );
+
+        if( missing_features ) {
+            print_err( CONSOLE_COLOR_MAGENTA );
+            println_err( "fatal error: SSE instructions are missing!" );
+
+            string_slice_mut_capacity( missing_names, 64 );
+            StringSlice missing_names_append = string_slice_clone( &missing_names );
+            
+            if( bitfield_check( missing_features, CPU_FEATURE_SSE ) ) {
+                string_slice_fmt( &missing_names_append, "SSE, " );
+                missing_names_append.buffer += missing_names_append.len;
+                missing_names_append.len = 0;
+            }
+            if( bitfield_check( missing_features, CPU_FEATURE_SSE2 ) ) {
+                string_slice_fmt( &missing_names_append, "SSE2, " );
+                missing_names_append.buffer += missing_names_append.len;
+                missing_names_append.len = 0;
+            }
+            if( bitfield_check( missing_features, CPU_FEATURE_SSE3 ) ) {
+                string_slice_fmt( &missing_names_append, "SSE3, " );
+                missing_names_append.buffer += missing_names_append.len;
+                missing_names_append.len = 0;
+            }
+            if( bitfield_check( missing_features, CPU_FEATURE_SSSE3 ) ) {
+                string_slice_fmt( &missing_names_append, "SSSE3, " );
+                missing_names_append.buffer += missing_names_append.len;
+                missing_names_append.len = 0;
+            }
+            if( bitfield_check( missing_features, CPU_FEATURE_SSE4_1 ) ) {
+                string_slice_fmt( &missing_names_append, "SSE4.1, " );
+                missing_names_append.buffer += missing_names_append.len;
+                missing_names_append.len = 0;
+            }
+            if( bitfield_check( missing_features, CPU_FEATURE_SSE4_2 ) ) {
+                string_slice_fmt( &missing_names_append, "SSE4.2, " );
+                missing_names_append.buffer += missing_names_append.len;
+                missing_names_append.len = 0;
+            }
+            missing_names.len = missing_names_append.buffer - missing_names.buffer;
+
+            println_err( "missing instructions: {s}", missing_names );
+            print_err( CONSOLE_COLOR_RESET );
+
+            media_fatal_message_box_blocking( "Fatal Error", missing_names.buffer );
+
+            return false;
+        }
+
+    #endif /* SIMD >= 4 */
+
+    #if LD_SIMD_WIDTH < 8
+        missing_features = system_info_feature_check_x86_avx( system_info );
+
+        if( missing_features ) {
+            print_err( CONSOLE_COLOR_MAGENTA );
+            println_err( "fatal error: SSE instructions are missing!" );
+
+            string_slice_mut_capacity( missing_names, 64 );
+            StringSlice missing_names_append = string_slice_clone( &missing_names );
+
+            if( bitfield_check( missing_features, CPU_FEATURE_AVX ) ) {
+                string_slice_fmt( &missing_names_append, "AVX, " );
+                missing_names_append.buffer += missing_names_append.len;
+                missing_names_append.len     = 0;
+            }
+            if( bitfield_check( missing_features, CPU_FEATURE_AVX2 ) ) {
+                string_slice_fmt( &missing_names_append, "AVX2, " );
+                missing_names_append.buffer += missing_names_append.len;
+                missing_names_append.len     = 0;
+            }
+            missing_names.len = missing_names_append.buffer - missing_names.buffer;
+
+            println_err( "missing instructions: {s}", missing_names );
+            print_err( CONSOLE_COLOR_RESET );
+
+            media_fatal_message_box_blocking( "Fatal Error", missing_names.buffer );
+
+            return false;
+        }
+
+    #endif /* SIMD >= 8 */
+
+#endif /* Arch x86 */
+    
+    return true;
+}
 
 #include "engine/generated_dependencies.inl"

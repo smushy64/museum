@@ -9,33 +9,6 @@
 #include "shared/defines.h"
 #include "core/print.h"
 
-/// Logging levels.
-/// Used to define what log messages should be permitted.
-typedef u32 LoggingLevel;
-#define LOGGING_LEVEL_NONE  0
-#define LOGGING_LEVEL_ERROR (1 << 0)
-#define LOGGING_LEVEL_WARN  (1 << 1)
-#define LOGGING_LEVEL_DEBUG (1 << 2)
-#define LOGGING_LEVEL_INFO  (1 << 3)
-#define LOGGING_LEVEL_NOTE  (1 << 4)
-#define LOGGING_LEVEL_TRACE (1 << 5)
-
-#define LOGGING_LEVEL_ALL_NO_TRACE (\
-    LOGGING_LEVEL_ERROR |\
-    LOGGING_LEVEL_WARN  |\
-    LOGGING_LEVEL_DEBUG |\
-    LOGGING_LEVEL_INFO  |\
-    LOGGING_LEVEL_NOTE\
-)
-#define LOGGING_LEVEL_ALL (\
-    LOGGING_LEVEL_ERROR |\
-    LOGGING_LEVEL_WARN  |\
-    LOGGING_LEVEL_DEBUG |\
-    LOGGING_LEVEL_INFO  |\
-    LOGGING_LEVEL_NOTE  |\
-    LOGGING_LEVEL_TRACE\
-)
-
 /// Log types.
 /// Used to define what type of log a message is.
 typedef enum LoggingType : u32 {

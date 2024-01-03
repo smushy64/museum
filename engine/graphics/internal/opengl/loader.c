@@ -5,7 +5,6 @@
 #include "engine/logging.h"
 #include "engine/graphics/internal/opengl/functions.h"
 #include "engine/graphics/internal/opengl.h"
-#include "engine/internal/platform.h"
 
 #include "media/surface.h"
 
@@ -182,10 +181,7 @@ DEFINE_GL_FUNCTION(glDeleteVertexArrays);
 // Debug ---------------------------------------------------------------
 DEFINE_GL_FUNCTION(glDebugMessageCallback);
 
-typedef void* GetProcAddressFN( const char* name );
-
-b32 gl_load_functions( PlatformGLLoadProcFN* in_get_proc_address ) {
-    GetProcAddressFN* get_proc_address = in_get_proc_address;
+b32 gl_load_functions( MediaOpenGLLoadFN* get_proc_address ) {
 
     LOAD_PROC_REQUIRED( glCreateTextures );
     LOAD_PROC_REQUIRED( glBindTextureUnit );
@@ -350,5 +346,4 @@ void glSwapBuffers( void* surface ) {
 void glSwapInterval( void* surface, int interval ) {
     media_surface_gl_swap_interval( surface, interval );
 }
-
 
