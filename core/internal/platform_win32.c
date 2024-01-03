@@ -64,8 +64,6 @@ global LARGE_INTEGER global_performance_counter   = {};
 // - Logging
 // - file_read_offset
 
-global SYSTEM_INFO global_system_info  = {};
-global b32 global_system_info_obtained = false;
 global HANDLE global_shlwapi_object    = NULL;
 
 struct Win32ThreadParams {
@@ -477,24 +475,6 @@ void platform_sleep( u32 ms ) {
     Sleep( (DWORD)ms );
 }
 
-internal void ___internal_win32_get_system_info(void) {
-    GetSystemInfo( &global_system_info );
-    global_system_info_obtained = true;
-}
-
-usize platform_query_page_size(void) {
-    if( !global_system_info_obtained ) {
-        ___internal_win32_get_system_info();
-    }
-    return global_system_info.dwPageSize;
-}
-usize platform_query_processor_count(void) {
-    if( !global_system_info_obtained ) {
-        ___internal_win32_get_system_info();
-    }
-    return (usize)global_system_info.dwNumberOfProcessors;
-}
-
 void platform_time_initialize(void) {
     QueryPerformanceFrequency( &global_performance_frequency );
     QueryPerformanceCounter( &global_performance_counter );
@@ -518,7 +498,7 @@ void platform_time_record( struct TimeRecord* out_record ) {
     out_record->second = (u32)system_time.wSecond;
 }
 
-CORE_API void system_info_query( SystemInfo* out_info ) {
+void platform_system_info_query( SystemInfo* out_info ) {
     SYSTEM_INFO info = {};
     GetSystemInfo( &info );
 

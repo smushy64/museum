@@ -25,6 +25,8 @@
         file, line, function, ##__VA_ARGS__\
     )
 
+global usize global_page_size = 0;
+
 internal force_inline usize ___aligned_size( usize size, usize alignment ) {
     assert( alignment % 2 == 0 );
     return size + sizeof(void*) + ( alignment - 1 );
@@ -237,14 +239,25 @@ CORE_API void stack_allocator_clear( StackAllocator* allocator ) {
     memory_zero( allocator->buffer, allocator->buffer_size );
 }
 
+internal usize ___get_page_size(void) {
+    if( global_page_size ) {
+        return global_page_size;
+    }
+    SystemInfo system_info = {};
+    platform_system_info_query( &system_info );
+
+    global_page_size = system_info.page_size;
+    return global_page_size;
+}
+
 CORE_API usize memory_size_to_page_count( usize size ) {
-    usize page_size = platform_query_page_size();
+    usize page_size = ___get_page_size();
     usize result = size / page_size;
     result += ( size % page_size ) ? 1 : 0;
     return result;
 }
 CORE_API usize page_count_to_memory_size( usize pages ) {
-    usize page_size = platform_query_page_size();
+    usize page_size = ___get_page_size();
     return pages * page_size;
 }
 

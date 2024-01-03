@@ -47,8 +47,11 @@ endif
 ifeq ($(TARGET_PLATFORM), win32)
 	export EXE_EXT := exe
 	export SO_EXT  := dll
+endif
 
-	export LD_PLATFORM_MAIN := liquid_platform/platform_win32.c
+ifeq ($(TARGET_PLATFORM), linux)
+	export EXE_EXT :=
+	export SO_EXT := so
 endif
 
 LOCAL_BUILD_PATH := build/$(if $(RELEASE),release,debug)
@@ -158,8 +161,14 @@ endif
 export LINKER_FLAGS_PRELUDE_WIN32 := -fuse-ld=lld -nostdlib -lkernel32\
 	-mstack-probe-size=999999999 -Wl,//stack:$(PROGRAM_STACK_SIZE)
 
+export LINKER_FLAGS_PRELUDE_LINUX := -fPIC
+
 ifeq ($(TARGET_PLATFORM), win32)
 	export LINKER_FLAGS_PRELUDE := $(LINKER_FLAGS_PRELUDE_WIN32)
+endif
+
+ifeq ($(TARGET_PLATFORM), linux)
+	export LINKER_FLAGS_PRELUDE := $(LINKER_FLAGS_PRELUDE_LINUX)
 endif
 
 ifeq ($(TARGET_PLATFORM), win32)

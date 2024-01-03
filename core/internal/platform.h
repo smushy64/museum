@@ -8,6 +8,8 @@
 #include "shared/defines.h"
 #include "shared/constants.h"
 
+#include "core/system.h"
+
 struct TimeRecord;
 
 /// Opaque handle to a shared object.
@@ -91,9 +93,6 @@ void* platform_shared_object_load(
 PlatformThread* platform_thread_create(
     PlatformThreadProc* thread_proc, void* thread_proc_params, usize stack_size );
 
-/// Query how many processors the system has.
-usize platform_query_processor_count(void);
-
 /// Create a semaphore.
 PlatformSemaphore* platform_semaphore_create( const char* name, u32 initial_count );
 /// Destroy a semaphore.
@@ -133,7 +132,7 @@ void platform_time_record( struct TimeRecord* out_record );
 /// Query elapsed time since initialization.
 f64 platform_time_query_elapsed_seconds(void);
 
-/// Query the current system's page size.
-usize platform_query_page_size(void);
+/// Query system info.
+void platform_system_info_query( SystemInfo* out_info );
 
 #endif /* header guard */

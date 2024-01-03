@@ -96,7 +96,3 @@ CORE_API void thread_sleep( u32 ms ) {
     platform_sleep( ms );
 }
 
-CORE_API usize core_query_processor_count(void) {
-    return platform_query_processor_count();
-}
-

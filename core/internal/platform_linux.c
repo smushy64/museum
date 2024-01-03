@@ -6,7 +6,7 @@
 #include "shared/defines.h"
 
 #if defined(LD_PLATFORM_LINUX)
-#include "constants.h"
+#include "shared/constants.h"
 #include "core/time.h"
 #include "core/string.h"
 #include "core/memory.h"
@@ -17,29 +17,9 @@
 // TODO(alicia): get rid of C standard and use
 // linux libraries instead
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <dlfcn.h>
-
-#define linux_log_note( format, ... )\
-    ___internal_core_log(\
-        CORE_LOGGING_TYPE_NOTE,\
-        sizeof( "[LINUX] " format), "[LINUX] " format, ##__VA_ARGS__ )
-#define linux_log_info( format, ... )\
-    ___internal_core_log(\
-        CORE_LOGGING_TYPE_INFO,\
-        sizeof( "[LINUX] " format), "[LINUX] " format, ##__VA_ARGS__ )
-#define linux_log_warn( format, ... )\
-    ___internal_core_log(\
-        CORE_LOGGING_TYPE_WARN,\
-        sizeof( "[LINUX] " format), "[LINUX] " format, ##__VA_ARGS__ )
-#define linux_log_error( format, ... )\
-    ___internal_core_log(\
-        CORE_LOGGING_TYPE_ERROR,\
-        sizeof( "[LINUX] " format), "[LINUX] " format, ##__VA_ARGS__ )
-#define linux_log_fatal( format, ... )\
-    ___internal_core_log(\
-        CORE_LOGGING_TYPE_FATAL,\
-        sizeof( "[LINUX] " format), "[LINUX] " format, ##__VA_ARGS__ )   
 
 PlatformFile* platform_get_stdout(void) {
     return stdout;
@@ -95,7 +75,7 @@ void platform_file_set_offset( PlatformFile* file, usize offset ) {
 }
 usize platform_file_query_size( PlatformFile* file ) {
     usize current_offset = platform_file_query_offset( file );
-    fseeko( file, 0, SEEK_END );
+    fseeko64( file, 0, SEEK_END );
     usize size = platform_file_query_offset( file );
     platform_file_set_offset( file, current_offset );
 
@@ -140,7 +120,7 @@ b32 platform_file_copy(
     const char* dst_path, const char* src_path, b32 fail_if_dst_exists
 ) {
     #define copy_err( format, ... )\
-        linux_log_error(\
+        core_log_error(\
             "failed to copy '{cc}' to '{cc}'! " format,\
             src_path, dst_path, ##__VA_ARGS__ )
 
@@ -211,7 +191,7 @@ b32 platform_file_move(
 ) {
     b32 dst_exists = platform_file_check_if_exists( dst_path );
     if( fail_if_dst_exists && dst_exists ) {
-        linux_log_error(
+        core_log_error(
             "failed to move '{cc}' to '{cc}' because dst already exists!",
             src_path, dst_path );
         return false;
@@ -242,12 +222,104 @@ b32 platform_file_check_if_exists( const char* path ) {
 }
 
 PlatformSharedObject* platform_shared_object_open( const char* path ) {
-    dlopen( path );
+    return dlopen( path, RTLD_NOW );
 }
-void platform_shared_object_close( PlatformSharedObject* object );
+void platform_shared_object_close( PlatformSharedObject* object ) {
+    dlclose( object );
+}
 void* platform_shared_object_load(
-    PlatformSharedObject* object, const char* function_name );
+    PlatformSharedObject* object, const char* function_name
+) {
+    return dlsym( object, function_name );
+}
 
+PlatformThread* platform_thread_create(
+    PlatformThreadProc* thread_proc, void* thread_proc_params, usize stack_size
+) {
+    // TODO(alicia): 
+    unused(thread_proc);
+    unused(thread_proc_params);
+    unused(stack_size);
+    return NULL;
+}
+
+PlatformSemaphore* platform_semaphore_create( const char* name, u32 initial_count ) {
+    // TODO(alicia): 
+    unused(name + initial_count);
+    return NULL;
+}
+void platform_semaphore_destroy( PlatformSemaphore* semaphore ) {
+    // TODO(alicia): 
+    unused(semaphore);
+}
+void platform_semaphore_signal( PlatformSemaphore* semaphore ) {
+    // TODO(alicia): 
+    unused(semaphore);
+}
+b32 platform_semaphore_wait( PlatformSemaphore* semaphore, u32 timeout_ms ) {
+    // TODO(alicia): 
+    unused(semaphore);
+    unused(timeout_ms);
+    return false;
+}
+
+PlatformMutex* platform_mutex_create( const char* name ) {
+    // TODO(alicia): 
+    unused(name);
+    return NULL;
+}
+void platform_mutex_destroy( PlatformMutex* mutex ) {
+    // TODO(alicia): 
+    unused(mutex);
+}
+b32 platform_mutex_lock( PlatformMutex* mutex, u32 timeout_ms ) {
+    // TODO(alicia): 
+    unused(mutex);
+    unused(timeout_ms);
+    return false;
+}
+void platform_mutex_unlock( PlatformMutex* mutex ) {
+    // TODO(alicia): 
+    unused(mutex);
+}
+
+void platform_sleep( u32 ms ) {
+    // TODO(alicia): 
+    unused(ms);
+}
+
+void* platform_heap_alloc( usize size ) {
+    // TODO(alicia): replace with mmap
+    return malloc( size );
+}
+void* platform_heap_realloc( void* memory, usize old_size, usize new_size ) {
+    // TODO(alicia): replace with mmap
+    unused(old_size);
+    return realloc( memory, new_size );
+}
+void platform_heap_free( void* memory, usize size ) {
+    // TODO(alicia): replace with mmap
+    unused(size);
+    free( memory );
+}
+
+void platform_time_initialize(void) {
+    // TODO(alicia): 
+}
+void platform_time_record( struct TimeRecord* out_record ) {
+    // TODO(alicia): 
+    unused(out_record);
+}
+f64 platform_time_query_elapsed_seconds(void) {
+    // TODO(alicia): 
+    return 0.0;
+}
+
+void platform_system_info_query( SystemInfo* out_info ) {
+    // TODO(alicia): 
+    unused(out_info);
+}
 
 #endif /* Platform Linux */
+
 

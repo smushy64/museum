@@ -12,7 +12,4 @@ CORE_API void core_logging_callback_set( LoggingCallbackFN* callback, void* para
 /// Clear the logging callback function.
 CORE_API void core_logging_callback_clear(void);
 
-/// Query how many processors the system has.
-CORE_API usize core_query_processor_count(void);
-
 #endif /* header guard */

@@ -62,7 +62,11 @@ CORE_API void ___internal_print_err_va(
         platform_get_stderr(), format_len, format, va );
 }
 
+#if defined(LD_PLATFORM_WINDOWS)
+
 CORE_API void output_debug_string( const char* cstr ) {
     platform_win32_output_debug_string( cstr );
 }
+
+#endif
 
