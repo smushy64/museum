@@ -22,13 +22,6 @@ LDFLAGS := $(LOCAL_LDFLAGS) $(LINKER_FLAGS)
 
 MAIN := main.c
 
-C := $(call recurse,,*.c)
-H := $(call recurse,,*.h)
-
-GENERATED_DEP := $(filter-out $(MAIN),$(C))
-GENERATED_DEP := $(addsuffix \",$(GENERATED_DEP))
-GENERATED_DEP := $(addprefix "#include \"",$(GENERATED_DEP))
-
 all: $(TARGET)
 
 config:
@@ -46,20 +39,6 @@ config:
 	@echo
 	@echo "main:       "$(MAIN)
 
-$(GENERATED_DEP_PATH): $(C)
-	@echo "Make: generating dependencies for util hash . . ."
-	@echo "// * Description:  Generated file containing dependencies" > $(GENERATED_DEP_PATH)
-	@echo "// * Author:       Alicia Amarilla (smushyaa@gmail.com)" >> $(GENERATED_DEP_PATH)
-	@echo "// * Generated on: "$(shell date) >> $(GENERATED_DEP_PATH)
-	@echo "" >> $(GENERATED_DEP_PATH)
-	@echo "// IMPORTANT(alicia): This file should only ever be included in the current directory and it should only be included ONCE." >> $(GENERATED_DEP_PATH)
-	@echo "" >> $(GENERATED_DEP_PATH)
-	for i in $(GENERATED_DEP); do echo $$i >> $(GENERATED_DEP_PATH); done
-
-clean_dep:
-	@echo "Make: cleaning util hash dependencies . . ."
-	@rm -f $(GENERATED_DEP_PATH) 2> /dev/null || true
-
 generate_compile_flags:
 	@echo "Make: generating hash "$(COMPILE_COMMANDS_PATH)". . ."
 	@echo $(CC) > $(COMPILE_COMMANDS_PATH)
@@ -69,7 +48,7 @@ generate_compile_flags:
 	@echo "-I.." >> $(COMPILE_COMMANDS_PATH)
 	for i in $(LDFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
 
-$(TARGET): $(GENERATED_DEP_PATH) $(C) $(H) $(DEP_CORE_H) $(DEP_SHARED_H) $(PLATFORM_DEP_C)
+$(TARGET): $(DEP_CORE_H) $(DEP_SHARED_H) $(PLATFORM_DEP_C)
 	@echo "Make: compiling "$(TARGET)" . . ."
 	@mkdir -p $(OBJ_PATH)
 	@$(CC) $(CSTD) -xc $(PLATFORM_DEP_C) $(MAIN) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)

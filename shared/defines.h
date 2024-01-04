@@ -109,19 +109,20 @@
 #endif
 
 #if defined(LD_ARCH_X86)
-    typedef unsigned char       u8;
-    typedef unsigned short     u16;
-    typedef unsigned int       u32;
+    typedef unsigned char   u8;
+    typedef unsigned short u16;
+    typedef unsigned int   u32;
 
-    typedef signed char       i8;
-    typedef signed short     i16;
-    typedef signed int       i32;
-#if defined(LD_PLATFORM_LINUX)
+    typedef signed char   i8;
+    typedef signed short i16;
+    typedef signed int   i32;
+
+#if defined(__LP64__)
     typedef unsigned long u64;
     typedef signed long   i64;
 #else
     typedef unsigned long long u64;
-    typedef signed long long i64;
+    typedef signed long long   i64;
 #endif
 
 #else // other

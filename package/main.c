@@ -4,13 +4,14 @@
  * File Created: December 06, 2023
 */
 #include "shared/defines.h"
-#include "logging.h"
-#include "manifest.h"
-#include "resource_header.h"
-#include "resource_package.h"
-
 #include "shared/liquid_package.h"
 
+#include "package/logging.h"
+#include "package/manifest.h"
+#include "package/resource_header.h"
+#include "package/resource_package.h"
+
+#include "core/rand.h"
 #include "core/string.h"
 #include "core/fs.h"
 #include "core/math.h"
@@ -18,9 +19,6 @@
 #include "core/memory.h"
 #include "core/jobs.h"
 #include "core/system.h"
-#include "core/lib.h"
-
-#include "core/compression.h"
 
 #include "generated/package_hashes.h"
 
@@ -76,6 +74,8 @@ internal PackageError parse_arguments( int argc, char** argv, PackageParams* out
 internal PackageError package_create( PackageParams* params );
 
 c_linkage int application_main( int argc, char** argv ) {
+    rand_reset_global_state();
+
     PackageParams params = {};
     PackageError error = parse_arguments( argc, argv, &params );
 
@@ -118,7 +118,6 @@ package_end:
 internal PackageError package_create( PackageParams* params ) {
 
     /* apply defaults */ {
-
         SystemInfo system_info = {};
         system_info_query( &system_info );
 
@@ -190,14 +189,11 @@ internal PackageError package_create( PackageParams* params ) {
 
     job_system_push( job_generate_header, &generate_header_params );
 
-    // TODO(alicia): maybe there's a better way to do this?
     string_slice_mut_capacity( tmp_path, 32 );
     u32 count = 0;
     #define MAX_CHECK_TMP (9999)
     do {
-        if( count ) {
-            tmp_path.len = 0;
-        }
+        tmp_path.len = 0;
         string_slice_fmt( &tmp_path, "lpkg_tmp_{u,04}.tmp{0}", count++ );
         if( count >= MAX_CHECK_TMP ) {
             break;

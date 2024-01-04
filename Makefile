@@ -272,7 +272,6 @@ clean_dep:
 	@$(MAKE) --directory=engine clean_dep
 	@$(MAKE) --directory=testbed clean_dep
 	@$(MAKE) --directory=package clean_dep
-	@$(MAKE) --directory=hash clean_dep
 
 clean_shaders:
 	@echo "Make: cleaning "$(if $(RELEASE),release,debug)" shaders . . ."
