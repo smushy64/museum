@@ -15,11 +15,14 @@ typedef enum FormatInteger : u32 {
     FORMAT_INTEGER_HEXADECIMAL_UPPER,
 } FormatInteger;
 
+#if !defined(FORMAT_WRITE_FN_DEFINED)
+#define FORMAT_WRITE_FN_DEFINED
 /// Formatting write function.
 /// Target is a pointer to where-ever the formatted string should be written to.
 /// Returns 0 if successful, otherwise returns number of characters
 /// that could not be written.
 typedef usize FormatWriteFN( void* target, usize count, char* characters );
+#endif
 
 /// Parse integer from string.
 CORE_API b32 fmt_read_int( usize len, char* buffer, i64* out_parsed_int );

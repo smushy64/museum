@@ -199,6 +199,10 @@ CORE_API void memory_copy( void* restricted dst, const void* restricted src, usi
 CORE_API void memory_copy_overlapped( void* dst, const void* src, usize size );
 /// Set bytes in destination to given value.
 CORE_API void memory_set( void* dst, u8 value, usize size );
+/// Repeat the provided chunk of memory into the destination buffer.
+/// Destination must be able to hold chunk_size * chunk_count.
+CORE_API void memory_set_chunks(
+    void* dst, usize chunk_size, void* chunk, usize chunk_count );
 /// Set all bytes in destination to zero.
 header_only void memory_zero( void* dst, usize size ) {
     memory_set( dst, 0, size );

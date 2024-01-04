@@ -7,19 +7,20 @@
 #include "core/string.h"
 #include "core/memory.h"
 #include "core/fmt.h"
+#include "core/collections.h"
 
 #if defined(LD_ARCH_X86) && LD_SIMD_WIDTH != 1
     #include <immintrin.h>
 #endif
 
-CORE_API Iterator string_slice_iterator( StringSlice* slice ) {
+CORE_API void string_slice_iterator( StringSlice* slice, Iterator* out_iter ) {
     Iterator result = {0};
     result.buffer    = slice->buffer;
     result.current   = 0;
     result.count     = slice->len;
     result.item_size = sizeof(char);
 
-    return result;
+    *out_iter = result;
 }
 
 CORE_API usize cstr_len( const char* cstr ) {
@@ -766,7 +767,7 @@ CORE_API u64 ___internal_hash( usize len, const char* str ) {
     return result;
 }
 
-usize ___internal_write_string_slice( void* target, usize count, char* characters ) {
+CORE_API usize string_slice_write( void* target, usize count, char* characters ) {
     StringSlice* slice = target;
     if( count == 1 ) {
         return !string_slice_push( slice, *characters );
@@ -784,7 +785,7 @@ CORE_API usize ___internal_string_slice_fmt_va(
     StringSlice* slice, usize format_len, const char* format, va_list va
 ) {
     return ___internal_fmt_write_va(
-        ___internal_write_string_slice, slice, format_len, format, va );
+        string_slice_write, slice, format_len, format, va );
 }
 CORE_API usize ___internal_string_slice_fmt(
     StringSlice* slice, usize format_len, const char* format, ...
@@ -793,50 +794,50 @@ CORE_API usize ___internal_string_slice_fmt(
     va_start( va, format );
 
     usize result = ___internal_fmt_write_va(
-        ___internal_write_string_slice, slice, format_len, format, va );
+        string_slice_write, slice, format_len, format, va );
 
     va_end( va );
 
     return result;
 }
 CORE_API usize string_slice_fmt_bool( StringSlice* slice, b32 b, b32 binary ) {
-    return fmt_write_bool( ___internal_write_string_slice, slice, b, binary );
+    return fmt_write_bool( string_slice_write, slice, b, binary );
 }
 CORE_API usize string_slice_fmt_float( StringSlice* slice, f64 f, u32 precision ) {
-    return fmt_write_float( ___internal_write_string_slice, slice, f, precision );
+    return fmt_write_float( string_slice_write, slice, f, precision );
 }
 CORE_API usize string_slice_fmt_i8( StringSlice* slice, i8 i, enum FormatInteger format ) {
-    return fmt_write_i8( ___internal_write_string_slice, slice, i, format );
+    return fmt_write_i8( string_slice_write, slice, i, format );
 }
 CORE_API usize string_slice_fmt_u8( StringSlice* slice, u8 i, enum FormatInteger format ) {
-    return fmt_write_u8( ___internal_write_string_slice, slice, i, format );
+    return fmt_write_u8( string_slice_write, slice, i, format );
 }
 CORE_API usize string_slice_fmt_i16( StringSlice* slice, i16 i, enum FormatInteger format ) {
-    return fmt_write_i16( ___internal_write_string_slice, slice, i, format );
+    return fmt_write_i16( string_slice_write, slice, i, format );
 }
 CORE_API usize string_slice_fmt_u16( StringSlice* slice, u16 i, enum FormatInteger format ) {
-    return fmt_write_u16( ___internal_write_string_slice, slice, i, format );
+    return fmt_write_u16( string_slice_write, slice, i, format );
 }
 CORE_API usize string_slice_fmt_i32( StringSlice* slice, i32 i, enum FormatInteger format ) {
-    return fmt_write_i32( ___internal_write_string_slice, slice, i, format );
+    return fmt_write_i32( string_slice_write, slice, i, format );
 }
 CORE_API usize string_slice_fmt_u32( StringSlice* slice, u32 i, enum FormatInteger format ) {
-    return fmt_write_u32( ___internal_write_string_slice, slice, i, format );
+    return fmt_write_u32( string_slice_write, slice, i, format );
 }
 CORE_API usize string_slice_fmt_i64( StringSlice* slice, i64 i, enum FormatInteger format ) {
-    return fmt_write_i64( ___internal_write_string_slice, slice, i, format );
+    return fmt_write_i64( string_slice_write, slice, i, format );
 }
 CORE_API usize string_slice_fmt_u64( StringSlice* slice, u64 i, enum FormatInteger format ) {
-    return fmt_write_u64( ___internal_write_string_slice, slice, i, format );
+    return fmt_write_u64( string_slice_write, slice, i, format );
 }
 CORE_API usize string_slice_fmt_isize(
     StringSlice* slice, isize i, enum FormatInteger format
 ) {
-    return fmt_write_isize( ___internal_write_string_slice, slice, i, format );
+    return fmt_write_isize( string_slice_write, slice, i, format );
 }
 CORE_API usize string_slice_fmt_usize(
     StringSlice* slice, usize i, enum FormatInteger format
 ) {
-    return fmt_write_usize( ___internal_write_string_slice, slice, i, format );
+    return fmt_write_usize( string_slice_write, slice, i, format );
 }
 

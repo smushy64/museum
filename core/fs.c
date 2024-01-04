@@ -7,6 +7,8 @@
 #include "core/fs.h"
 #include "core/fmt.h"
 #include "core/internal/platform.h"
+#include "core/string.h"
+#include "core/rand.h"
 
 CORE_API FSFile* fs_file_open( const char* path, FSFileFlags flags ) {
     return platform_file_open( path, flags );
@@ -52,6 +54,50 @@ CORE_API b32 fs_file_delete( const char* path ) {
     return platform_file_delete( path );
 }
 CORE_API b32 fs_file_copy(
+    FSFile* dst, FSFile* src, usize size,
+    usize intermediate_buffer_size, void* intermediate_buffer
+) {
+    usize remaining = size;
+
+    while( remaining ) {
+        usize max_copy = intermediate_buffer_size;
+        if( max_copy > size ) {
+            max_copy = size;
+        }
+
+        if( !fs_file_read( src, max_copy, intermediate_buffer ) ) {
+            return false;
+        }
+
+        if( !fs_file_write( dst, max_copy, intermediate_buffer ) ) {
+            return false;
+        }
+
+        remaining -= max_copy;
+    }
+
+    return true;
+}
+CORE_API b32 fs_file_copy_offset(
+    FSFile* dst, usize dst_offset,
+    FSFile* src, usize src_offset, usize size,
+    usize intermediate_buffer_size, void* intermediate_buffer
+) {
+    usize previous_dst_offset = fs_file_query_offset( dst );
+    usize previous_src_offset = fs_file_query_offset( src );
+
+    fs_file_set_offset( dst, dst_offset );
+    fs_file_set_offset( src, src_offset );
+
+    b32 result = fs_file_copy(
+        dst, src, size, intermediate_buffer_size, intermediate_buffer );
+
+    fs_file_set_offset( dst, previous_dst_offset );
+    fs_file_set_offset( src, previous_src_offset );
+
+    return result;
+}
+CORE_API b32 fs_file_copy_by_path(
     const char* dst, const char* src, b32 fail_if_exists
 ) {
     return platform_file_copy( dst, src, fail_if_exists );
@@ -64,6 +110,37 @@ CORE_API b32 fs_file_move(
 CORE_API b32 fs_file_exists( const char* path ) {
     return platform_file_check_if_exists( path );
 }
+CORE_API usize fs_file_generate_temp_path(
+    FormatWriteFN* write, void* target,
+    const char* opt_prefix, const char* opt_suffix
+) {
+    usize result = 0;
+    if( opt_prefix ) {
+        usize prefix_len = cstr_len( opt_prefix );
+        result += write( target, prefix_len, (char*)opt_prefix );
+    }
+
+    u32 random = rand_xor_u32();
+
+    result += fmt_write_u32( write, target, random, FORMAT_INTEGER_DECIMAL );
+
+    if( opt_suffix ) {
+        usize suffix_len = cstr_len( opt_suffix );
+        result += write( target, suffix_len, (char*)opt_suffix );
+    }
+
+    #define TEMP_EXT ".tmp"
+    #define TEMP_EXT_LEN sizeof(TEMP_EXT)
+
+    // NOTE(alicia): TEMP_EXT_LEN includes null-terminator
+    result += write( target, TEMP_EXT_LEN, TEMP_EXT );
+
+    #undef TEMP_EXT
+    #undef TEMP_EXT_LEN
+
+    return result;
+}
+
 
 struct FSWriteParams {
     FSFile* file;

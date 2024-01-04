@@ -7,6 +7,15 @@
 */
 #include "shared/defines.h"
 
+#if !defined(FORMAT_WRITE_FN_DEFINED)
+#define FORMAT_WRITE_FN_DEFINED
+/// Formatting write function.
+/// Target is a pointer to where-ever the formatted string should be written to.
+/// Returns 0 if successful, otherwise returns number of characters
+/// that could not be written.
+typedef usize FormatWriteFN( void* target, usize count, char* characters );
+#endif
+
 /// Opaque handle to a file.
 typedef void FSFile;
 /// Flags for how to open a file.
@@ -50,14 +59,27 @@ CORE_API void fs_file_set_offset( FSFile* file, usize offset );
 CORE_API void fs_file_set_offset_relative( FSFile* file, usize offset );
 /// Delete file by path.
 CORE_API b32 fs_file_delete( const char* path );
-/// Copy source to destination file by path.
+/// Copy source file to destination file.
 CORE_API b32 fs_file_copy(
+    FSFile* dst, FSFile* src, usize size,
+    usize intermediate_buffer_size, void* intermediate_buffer );
+/// Copy source file to destination file from source offset to destination offset.
+CORE_API b32 fs_file_copy_offset(
+    FSFile* dst, usize dst_offset,
+    FSFile* src, usize src_offset, usize size,
+    usize intermediate_buffer_size, void* intermediate_buffer );
+/// Copy source to destination file by path.
+CORE_API b32 fs_file_copy_by_path(
     const char* dst_path, const char* src_path, b32 fail_if_exists );
 /// Move source to destination file by path.
 CORE_API b32 fs_file_move(
     const char* dst_path, const char* src_path, b32 fail_if_exists );
 /// Check if file exists.
 CORE_API b32 fs_file_exists( const char* path );
+/// Generate a temporary file path.
+CORE_API usize fs_file_generate_temp_path(
+    FormatWriteFN* write, void* target,
+    const char* opt_prefix, const char* opt_suffix );
 
 /// Write formatted string to file.
 CORE_API b32 ___internal_fs_file_write_fmt(

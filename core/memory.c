@@ -439,6 +439,15 @@ CORE_API void memory_copy_overlapped( void* dst, const void* src, usize size ) {
 CORE_API void memory_set( void* dst, u8 value, usize size ) {
     (void)memset( dst, value, size );
 }
+CORE_API void memory_set_chunks(
+    void* in_dst, usize chunk_size, void* chunk, usize chunk_count
+) {
+    u8* dst = in_dst;
+    for( usize i = 0; i < chunk_count; ++i ) {
+        memory_copy( dst, chunk, chunk_size );
+        dst += chunk_size;
+    }
+}
 CORE_API b32 memory_cmp( const void* a, const void* b, usize size ) {
     usize size64 = size / sizeof(u64);
     for( usize i = 0; i < size64; ++i ) {

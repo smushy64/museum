@@ -9,7 +9,6 @@
 #include "package/manifest.h"
 #include "package/logging.h"
 #include "package/resource_audio.h"
-#include "package/fs_ex.h"
 
 #include "shared/constants.h"
 #include "core/sync.h"
@@ -50,7 +49,13 @@ void job_package_resource( usize thread_index, void* user_params ) {
     }
 
     char temp_path_buffer[U8_MAX] = {};
-    fs_ex_generate_tmp_file_name( "resource", NULL, temp_path_buffer );
+    StringSlice temp_path_slice = {};
+    temp_path_slice.buffer   = temp_path_buffer;
+    temp_path_slice.capacity = U8_MAX;
+
+    fs_file_generate_temp_path(
+        string_slice_write, &temp_path_slice, "resource", NULL );
+
     FSFile* file_intermediate =
         fs_file_open( temp_path_buffer, FS_FILE_WRITE );
     if( !file_intermediate ) {
@@ -79,19 +84,19 @@ void job_package_resource( usize thread_index, void* user_params ) {
     }
 
     /* copy intermediate file to output file */{
-        usize intermdiate_file_size = fs_file_query_size( file_intermediate );
+        usize intermediate_file_size = fs_file_query_size( file_intermediate );
         usize buffer_start_offset =
             sizeof( struct LiquidPackageHeader ) +
             (sizeof( struct LiquidPackageResource ) * params.manifest->item_count);
-        usize dst_offset = output_file_allocate( intermdiate_file_size );
+        usize dst_offset = output_file_allocate( intermediate_file_size );
         dst_offset += buffer_start_offset;
 
         fs_file_set_offset( file_intermediate, 0 );
-        if( !fs_ex_file_copy_to_file(
-            params.buffer_size, buffer,
-            &dst_offset, file_output,
-            NULL, file_intermediate,
-            intermdiate_file_size
+        fs_file_set_offset( file_output, dst_offset );
+
+        if( !fs_file_copy(
+            file_output, file_intermediate,
+            intermediate_file_size, params.buffer_size, buffer
         ) ) {
             lp_error( "failed to copy from intermediate file to output file!" );
         }

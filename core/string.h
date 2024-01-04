@@ -6,8 +6,9 @@
  * File Created: April 28, 2023
 */
 #include "shared/defines.h"
-#include "core/collections.h"
+// #include "core/collections.h"
 
+struct Iterator;
 enum FormatInteger : u32;
 
 /// Slice of string buffer.
@@ -105,7 +106,7 @@ header_only StringSlice string_slice_clone( StringSlice* slice ) {
     return result;
 }
 /// Create an iterator for a string slice.
-CORE_API Iterator string_slice_iterator( StringSlice* slice );
+CORE_API void string_slice_iterator( StringSlice* slice, struct Iterator* out_iter );
 /// Create a string slice from null-terminated string buffer.
 /// Optionally takes in length of the string buffer.
 CORE_API StringSlice string_slice_from_cstr( usize opt_len, const char* cstr );
@@ -238,6 +239,9 @@ CORE_API b32 string_slice_parse_float( StringSlice* slice, f64* out_float );
 /// Output string slice to standard error.
 #define string_slice_output_stderr( slice )\
     print_string_stderr( (slice)->len, (slice)->buffer )
+
+/// FormatWriteFN function for string slice.
+CORE_API usize string_slice_write( void* target, usize count, char* characters );
 
 /// Write a formatted string to string slice using variadic list.
 /// Returns number of bytes necessary to complete write operation if

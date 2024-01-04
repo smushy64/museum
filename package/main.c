@@ -17,6 +17,7 @@
 #include "core/sync.h"
 #include "core/memory.h"
 #include "core/jobs.h"
+#include "core/system.h"
 #include "core/lib.h"
 
 #include "core/compression.h"
@@ -117,6 +118,10 @@ package_end:
 internal PackageError package_create( PackageParams* params ) {
 
     /* apply defaults */ {
+
+        SystemInfo system_info = {};
+        system_info_query( &system_info );
+
         if( !params->create.output_path ) {
             params->create.output_path = PACKAGE_DEFAULT_OUTPUT_PATH;
         }
@@ -124,12 +129,11 @@ internal PackageError package_create( PackageParams* params ) {
             params->create.header_output_path = PACKAGE_DEFAULT_HEADER_OUTPUT_PATH;
         }
 
-        usize system_threads = core_query_processor_count();
         if( !params->create.max_threads ) {
-            params->create.max_threads = system_threads;
+            params->create.max_threads = system_info.cpu_count;
         } else {
             params->create.max_threads =
-                min( params->create.max_threads, system_threads );
+                min( params->create.max_threads, system_info.cpu_count );
         }
     }
 
