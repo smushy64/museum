@@ -74,7 +74,7 @@ generate_compile_flags:
 	@echo "-I.." >> $(COMPILE_COMMANDS_PATH)
 	for i in $(LDFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
 
-$(OUTPUT_HASHES_PATH): $(INPUT_HASHES_PATH)
+$(OUTPUT_HASHES_PATH): $(INPUT_HASHES_PATH) $(BUILD_PATH)/$(UTIL_HASH)
 	@echo "Make: "$(shell $(BUILD_PATH)/$(UTIL_HASH) --output-path $(OUTPUT_HASHES_PATH) --file $(INPUT_HASHES_PATH) )
 
 $(TARGET): $(GENERATED_DEP_PATH) $(OUTPUT_HASHES_PATH) $(C) $(H) $(DEP_CORE_H) $(DEP_SHARED_H) $(PLATFORM_DEP_C)

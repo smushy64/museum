@@ -215,7 +215,8 @@ c_linkage int application_main( int argc, char** argv ) {
             }
 
             hash = string_slice_hash( &string );
-            output_write( "#define HASH_{s,u} ({u64}ULL)", identifier, hash );
+            output_write( "// \"{s}\"", string );
+            output_write( "#define HASH_{s,u} ({u64}ULL)\n", identifier, hash );
 
 skip_line:
             file_contents.buffer += line.len;

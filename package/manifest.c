@@ -14,36 +14,7 @@
 #include "core/memory.h"
 #include "core/fs.h"
 
-global b32 global_manifest_hashes_generated = false;
-
-global u64 global_hash_path;
-
-global u64 global_hash_type;
-global u64 global_hash_type_audio;
-global u64 global_hash_type_model;
-global u64 global_hash_type_texture;
-global u64 global_hash_type_text;
-global u64 global_hash_type_map;
-
-global u64 global_hash_compression;
-global u64 global_hash_compression_rle;
-
-void ___generate_manifest_hashes(void) {
-    if( global_manifest_hashes_generated ) {
-        return;
-    }
-    global_manifest_hashes_generated = true;
-    global_hash_path         = cstr_hash( "path" );
-    global_hash_type         = cstr_hash( "type" );
-    global_hash_type_audio   = cstr_hash( "audio" );
-    global_hash_type_model   = cstr_hash( "model" );
-    global_hash_type_texture = cstr_hash( "texture" );
-    global_hash_type_text    = cstr_hash( "text" );
-    global_hash_type_map     = cstr_hash( "map" );
-
-    global_hash_compression     = cstr_hash( "compression" );
-    global_hash_compression_rle = cstr_hash( "rle" );
-}
+#include "generated/package_hashes.h"
 
 b32 ___check_for_tab( StringSlice* line ) {
     if( line->buffer[0] == '\t' ) {
@@ -260,8 +231,6 @@ b32 manifest_parse( const char* path, Manifest* out_manifest ) {
     u32 running_placeholder_index = 0;
     string_slice_mut_capacity( placeholder_c_identifier, 64 );
 
-    ___generate_manifest_hashes();
-
     #define try_next_line() if( !next_line() ) break
 
     ManifestItem item  = {};
@@ -320,39 +289,54 @@ b32 manifest_parse( const char* path, Manifest* out_manifest ) {
                     u64 token_left_hash  = string_slice_hash( &token_left );
                     u64 token_right_hash = string_slice_hash( &token_right );
 
-                    if( token_left_hash == global_hash_type ) {
-                        if( token_right_hash == global_hash_type_audio ) {
-                            item.type = LIQUID_PACKAGE_RESOURCE_TYPE_AUDIO;
-                        } else if( token_right_hash == global_hash_type_model ) {
-                            item.type = LIQUID_PACKAGE_RESOURCE_TYPE_MODEL;
-                        } else if( token_right_hash == global_hash_type_texture ) {
-                            item.type = LIQUID_PACKAGE_RESOURCE_TYPE_TEXTURE;
-                        } else if( token_right_hash == global_hash_type_text ) {
-                            item.type = LIQUID_PACKAGE_RESOURCE_TYPE_TEXT;
-                        } else if( token_right_hash == global_hash_type_map ) {
-                            item.type = LIQUID_PACKAGE_RESOURCE_TYPE_MAP;
-                        } else {
-                            m_error( "unrecognized token '{s}'!", token_right );
-                        }
-                    } else if( token_left_hash == global_hash_path ) {
-                        if( token_right.len < 2 ) {
-                            m_error( "invalid path: '{s}'!", token_right );
-                            break;
-                        }
-                        string_slice_pop( &token_right, NULL );
-                        string_slice_pop_start( &token_right, NULL );
+                    switch( token_left_hash ) {
+                        case HASH_TOKEN_MANIFEST_PATH: {
+                            if( token_right.len < 2 ) {
+                                m_error( "invalid path: '{s}'!", token_right );
+                                break;
+                            }
+                            string_slice_pop( &token_right, NULL );
+                            string_slice_pop_start( &token_right, NULL );
 
-                        text_push( &token_right, true );
+                            text_push( &token_right, true );
 
-                        item.path = token_right.buffer;
-                    } else if( token_left_hash == global_hash_compression ) {
-                        if( token_right_hash == global_hash_compression_rle ) {
-                            item.compression = LIQUID_PACKAGE_COMPRESSION_RLE;
-                        } else {
-                            m_error( "unrecognized token '{s}'!", token_right );
-                        }
-                    } else {
-                        m_error( "unrecognized token '{s}'!", token_left );
+                            item.path = token_right.buffer;
+                        } break;
+                        case HASH_TOKEN_MANIFEST_TYPE: {
+                            switch( token_right_hash ) {
+                                case HASH_TOKEN_MANIFEST_TYPE_AUDIO: {
+                                    item.type = LIQUID_PACKAGE_RESOURCE_TYPE_AUDIO;
+                                } break;
+                                case HASH_TOKEN_MANIFEST_TYPE_MODEL: {
+                                    item.type = LIQUID_PACKAGE_RESOURCE_TYPE_MODEL;
+                                } break;
+                                case HASH_TOKEN_MANIFEST_TYPE_TEXTURE: {
+                                    item.type = LIQUID_PACKAGE_RESOURCE_TYPE_TEXTURE;
+                                } break;
+                                case HASH_TOKEN_MANIFEST_TYPE_TEXT: {
+                                    item.type = LIQUID_PACKAGE_RESOURCE_TYPE_TEXT;
+                                } break;
+                                case HASH_TOKEN_MANIFEST_TYPE_MAP: {
+                                    item.type = LIQUID_PACKAGE_RESOURCE_TYPE_MAP;
+                                } break;
+                                default: {
+                                    m_error( "unrecognized token '{s}'!", token_right );
+                                } break;
+                            }
+                        } break;
+                        case HASH_TOKEN_MANIFEST_COMPRESSION: {
+                            switch( token_right_hash ) {
+                                case HASH_TOKEN_MANIFEST_COMPRESSION_RLE: {
+                                    item.compression = LIQUID_PACKAGE_COMPRESSION_RLE;
+                                } break;
+                                default: {
+                                    m_error( "unrecognized token '{s}'!", token_right );
+                                } break;
+                            }
+                        } break;
+                        default: {
+                            m_error( "unrecognized token '{s}'!", token_left );
+                        } break;
                     }
 
                 } else {
