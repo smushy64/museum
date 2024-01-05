@@ -189,12 +189,12 @@ internal PackageError package_create( PackageParams* params ) {
 
     job_system_push( job_generate_header, &generate_header_params );
 
-    string_slice_mut_capacity( tmp_path, 32 );
+    string_buffer_empty( tmp_path, 32 );
     u32 count = 0;
     #define MAX_CHECK_TMP (9999)
     do {
         tmp_path.len = 0;
-        string_slice_fmt( &tmp_path, "lpkg_tmp_{u,04}.tmp{0}", count++ );
+        string_buffer_fmt( &tmp_path, "lpkg_tmp_{u,04}.tmp{0}", count++ );
         if( count >= MAX_CHECK_TMP ) {
             break;
         }
@@ -265,7 +265,7 @@ internal PackageError package_create( PackageParams* params ) {
 }
 
 internal PackageMode parse_mode( StringSlice* slice ) {
-    u64 slice_hash = string_slice_hash( slice );
+    u64 slice_hash = string_slice_hash( *slice );
 
     switch( slice_hash ) {
         case HASH_TOKEN_MODE_CREATE: return PACKAGE_MODE_CREATE;
@@ -301,9 +301,9 @@ internal PackageError parse_arguments(
 
     PackageParams params = {};
 
-    string_slice_const( token_create_output, "--output" );
-    string_slice_const( token_create_header_output, "--header-output" );
-    string_slice_const( token_create_max_threads, "--max-threads" );
+    StringSlice token_create_output        = string_slice( "--output" );
+    StringSlice token_create_header_output = string_slice( "--header-output" );
+    StringSlice token_create_max_threads   = string_slice( "--max-threads" );
 
     for( int i = 1; i < argc; ++i ) {
         StringSlice arg = string_slice_from_cstr( 0, argv[i] );
@@ -321,7 +321,7 @@ internal PackageError parse_arguments(
                 PackageMode parsed_mode = parse_mode( &arg );
                 switch( parsed_mode ) {
                     case PACKAGE_MODE_INVALID: {
-                        u64 arg_hash = string_slice_hash( &arg );
+                        u64 arg_hash = string_slice_hash( arg );
                         switch( arg_hash ) {
                             case HASH_TOKEN_HELP_SUPPORTED: {
                                 params.help.supported_files = true;
@@ -348,7 +348,7 @@ internal PackageError parse_arguments(
                         continue;
                     }
                 }
-                u64 arg_hash = string_slice_hash( &arg );
+                u64 arg_hash = string_slice_hash( arg );
 
                 switch( arg_hash ) {
                     case HASH_TOKEN_CREATE_OUTPUT: {
@@ -369,7 +369,7 @@ internal PackageError parse_arguments(
                         arg = string_slice_from_cstr( 0, argv[++i] );
 
                         u64 parsed_int = 0;
-                        if( !string_slice_parse_uint( &arg, &parsed_int ) ) {
+                        if( !string_slice_parse_uint( arg, &parsed_int ) ) {
                             arg_error(
                                 "{s} requires an unsigned integer after it!",
                                 token_create_max_threads );

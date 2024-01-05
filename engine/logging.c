@@ -35,9 +35,9 @@ void ___log_unlock(void) {
 
 global FSFile* LOGGING_FILE = NULL;
 internal force_inline
-void ___log_output_file( StringSlice* message ) {
+void ___log_output_file( StringSlice message ) {
     if( LOGGING_FILE ) {
-        fs_file_write( LOGGING_FILE, message->len, message->buffer );
+        fs_file_write( LOGGING_FILE, message.len, message.buffer );
     }
 }
 
@@ -48,8 +48,8 @@ void logging_subsystem_initialize( FSFile* output_file ) {
         usize file_size = fs_file_query_size( LOGGING_FILE );
         fs_file_set_offset( LOGGING_FILE, file_size - 1 );
 
-        string_slice_mut( logging_file_header, "\n\n[PROGRAM START] --------\n\n" );
-        ___log_output_file( &logging_file_header );
+        StringSlice header = string_slice( "\n\n[PROGRAM START]\n\n" );
+        ___log_output_file( header );
     }
 
     assert( mutex_create( &LOGGING_MUTEX ) );
@@ -91,11 +91,11 @@ LD_API LoggingLevel logging_query_level(void) {
         return LOGGING_OUTPUT_DEBUG_STRING_ENABLED;
     }
 
-    void ___log_output_debug_string_fn( StringSlice* message ) {
+    void ___log_output_debug_string_fn( StringSlice message ) {
         if( !LOGGING_OUTPUT_DEBUG_STRING_ENABLED ) {
             return;
         }
-        output_debug_string( message->buffer );
+        output_debug_string( message.buffer );
     }
 
     #define ___log_output_debug_string( message )\
@@ -136,7 +136,6 @@ internal force_inline
 StringSlice ___logging_color( LoggingType type ) {
     StringSlice result;
     result.len      = sizeof( CONSOLE_COLOR_BLACK );
-    result.capacity = result.len;
 
     ConsoleColor* colors[] = {
         CONSOLE_COLOR_MAGENTA,
@@ -153,7 +152,7 @@ StringSlice ___logging_color( LoggingType type ) {
 }
 
 internal force_inline
-void ___log_output_console( LoggingType type, struct StringSlice* message ) {
+void ___log_output_console( LoggingType type, StringSlice message ) {
     switch( type ) {
         case LOGGING_TYPE_FATAL:
         case LOGGING_TYPE_ERROR: {
@@ -167,15 +166,11 @@ void ___log_output_console( LoggingType type, struct StringSlice* message ) {
 
 internal force_inline
 void ___log_console_color_reset( LoggingType type ) {
-    StringSlice console_color;
-    console_color.buffer = CONSOLE_COLOR_RESET;
-    console_color.len    = sizeof( CONSOLE_COLOR_RESET );
-
-    ___log_output_console( type, &console_color );
+    ___log_output_console( type, string_slice( CONSOLE_COLOR_RESET ) );
 }
 
 internal force_inline
-void ___log_generate_timestamp( StringSlice* slice ) {
+void ___log_generate_timestamp( StringBuffer* buffer ) {
 
     TimeRecord record = time_record();
 
@@ -183,8 +178,8 @@ void ___log_generate_timestamp( StringSlice* slice ) {
     u32 hour;
     time_hour_24_to_hour_12( record.hour, &hour, &is_am );
 
-    string_slice_fmt(
-        slice, "[{u,02}/{u,02}/{u,04} {u,02}:{u,02}:{u,02} {cc}] ",
+    string_buffer_fmt(
+        buffer, "[{u,02}/{u,02}/{u,04} {u,02}:{u,02}:{u,02} {cc}] ",
         record.month, record.day, record.year,
         hour, record.minute, record.second,
         is_am ? "AM" : "PM" );
@@ -193,7 +188,7 @@ void ___log_generate_timestamp( StringSlice* slice ) {
 LD_API void logging_output(
     LoggingType type, ConsoleColor* opt_color_override,
     b32 trace, b32 always_log, b32 new_line, b32 timestamped,
-    struct StringSlice* message
+    StringSlice message
 ) {
     if( !always_log ) {
         if( !___is_log_allowed( type, trace ) ) {
@@ -208,19 +203,21 @@ LD_API void logging_output(
         console_color = ___logging_color( type );
     }
 
-    ___log_output_console( type, &console_color );
+    ___log_output_console( type, console_color );
 
     if( timestamped ) {
         char timestamp_buffer[LOGGING_TIMESTAMP_BUFFER_SIZE] = {0};
-        StringSlice timestamp;
+        StringBuffer timestamp;
         timestamp.buffer   = timestamp_buffer;
         timestamp.len      = 0;
         timestamp.capacity = LOGGING_TIMESTAMP_BUFFER_SIZE;
 
         ___log_generate_timestamp( &timestamp );
 
-        ___log_output_file( &timestamp );
-        ___log_output_debug_string( &timestamp );
+        StringSlice timestamp_slice = string_buffer_to_slice( &timestamp );
+
+        ___log_output_file( timestamp_slice );
+        ___log_output_debug_string( timestamp_slice );
     }
 
     ___log_output_console( type, message );
@@ -231,11 +228,10 @@ LD_API void logging_output(
         StringSlice nl;
         nl.buffer   = "\n";
         nl.len      = 1;
-        nl.capacity = 2;
 
-        ___log_output_console( type, &nl );
-        ___log_output_file( &nl );
-        ___log_output_debug_string( &nl );
+        ___log_output_console( type, nl );
+        ___log_output_file( nl );
+        ___log_output_debug_string( nl );
     }
 
     ___log_console_color_reset( type );
@@ -243,7 +239,7 @@ LD_API void logging_output(
 LD_API void logging_output_locked(
     LoggingType type, ConsoleColor* opt_color_override,
     b32 trace, b32 always_log, b32 new_line, b32 timestamped,
-    struct StringSlice* message
+    StringSlice message
 ) {
     ___log_lock();
     read_write_fence();
@@ -267,19 +263,20 @@ LD_API void ___internal_logging_output_fmt_va(
         }
     }
 
-    StringSlice format_buffer;
+    StringBuffer format_buffer;
     format_buffer.buffer   = LOGGING_BUFFER;
     format_buffer.len      = 0;
     format_buffer.capacity = LOGGING_BUFFER_SIZE;
 
-    ___internal_string_slice_fmt_va( &format_buffer, format_len, format, va );
-    if( !string_slice_push( &format_buffer, 0 ) ) {
+    ___internal_string_buffer_fmt_va( &format_buffer, format_len, format, va );
+    if( !string_buffer_push( &format_buffer, 0 ) ) {
         format_buffer.buffer[format_buffer.len - 1] = 0;
     }
 
     logging_output(
         type, opt_color_override, trace,
-        always_log, new_line, timestamped, &format_buffer );
+        always_log, new_line, timestamped,
+        string_buffer_to_slice( &format_buffer ) );
 }
 LD_API void ___internal_logging_output_fmt_locked_va(
     LoggingType type, ConsoleColor* opt_color_override,

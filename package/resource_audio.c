@@ -80,7 +80,7 @@ b32 package_audio(
 
     struct AudioInfo audio_info = {};
 
-    u64 ext_hash = string_slice_hash( &ext );
+    u64 ext_hash = string_slice_hash( ext );
     if( ext_hash == global_hash_ext_wav ) {
         if( !___get_wave_info( input_file, &audio_info ) ) {
             return false;

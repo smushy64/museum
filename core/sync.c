@@ -13,13 +13,16 @@ global volatile u32 global_running_mutex_counter     = 0;
 
 CORE_API b32 semaphore_create( Semaphore* out_semaphore ) {
     u32 next_number = interlocked_increment( &global_running_semaphore_counter );
-    char small_buffer[64] = {};
-    StringSlice slice;
-    slice.buffer   = small_buffer;
-    slice.capacity = 64;
-    slice.len      = 0;
 
-    string_slice_fmt( &slice, "sem{u,x}{c}", next_number, 0 );
+    #define SEMAPHORE_NAME_BUFFER_CAPACITY (64)
+    char small_buffer[SEMAPHORE_NAME_BUFFER_CAPACITY] = {};
+
+    StringBuffer buffer;
+    buffer.buffer   = small_buffer;
+    buffer.capacity = SEMAPHORE_NAME_BUFFER_CAPACITY;
+    buffer.len      = 0;
+
+    string_buffer_fmt( &buffer, "sem{u,x}{0}", next_number );
 
     void* handle = platform_semaphore_create( small_buffer, 0 );
     if( !handle ) {
@@ -27,6 +30,8 @@ CORE_API b32 semaphore_create( Semaphore* out_semaphore ) {
     }
 
     out_semaphore->handle = handle;
+
+    #undef SEMAPHORE_NAME_BUFFER_CAPACITY
     return true;
 }
 CORE_API b32 semaphore_create_named( const char* name, Semaphore* out_semaphore ) {
@@ -62,13 +67,15 @@ CORE_API b32 mutex_create_named( const char* name, Mutex* out_mutex ) {
 }
 CORE_API b32 mutex_create( Mutex* out_mutex ) {
     u32 next_number = interlocked_increment( &global_running_mutex_counter );
-    char small_buffer[64] = {};
-    StringSlice slice;
-    slice.buffer   = small_buffer;
-    slice.capacity = 64;
-    slice.len      = 0;
 
-    string_slice_fmt( &slice, "mtx{u,x}{c}", next_number, 0 );
+    #define MUTEX_NAME_BUFFER_CAPACITY (64)
+    char small_buffer[MUTEX_NAME_BUFFER_CAPACITY] = {};
+    StringBuffer buffer;
+    buffer.buffer   = small_buffer;
+    buffer.capacity = MUTEX_NAME_BUFFER_CAPACITY;
+    buffer.len      = 0;
+
+    string_buffer_fmt( &buffer, "mtx{u,x}{c}", next_number, 0 );
 
     void* handle = platform_mutex_create( small_buffer );
     if( !handle ) {
@@ -76,6 +83,8 @@ CORE_API b32 mutex_create( Mutex* out_mutex ) {
     }
 
     out_mutex->handle = handle;
+
+    #undef MUTEX_NAME_BUFFER_CAPACITY
     return true;
 }
 CORE_API void mutex_destroy( Mutex* mutex ) {

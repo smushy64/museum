@@ -82,9 +82,7 @@ struct PlatformAPI* platform = NULL;
 #define ENGINE_ERROR_PARSE                          (128)
 #define ENGINE_ERROR_RENDERER_BACKEND_NOT_SUPPORTED (129)
 #define ENGINE_ERROR_OPEN_GAME_LIBRARY              (130)
-#define ENGINE_ERROR_LOAD_GAME_MEMORY_REQUIREMENT   (131)
-#define ENGINE_ERROR_LOAD_GAME_INITIALIZE           (132)
-#define ENGINE_ERROR_LOAD_GAME_RUN                  (133)
+#define ENGINE_ERROR_LOAD_GAME_FUNCTIONS            (131)
 #define ENGINE_ERROR_ENGINE_MEMORY_ALLOCATION       (134)
 #define ENGINE_ERROR_LOGGING_SUBSYSTEM_INITIALIZE   (135)
 #define ENGINE_ERROR_THREAD_SUBSYSTEM_INITIALIZE    (136)
@@ -176,13 +174,6 @@ LD_API int application_main( int argc, char** argv ) {
 
     time_initialize();
 
-    char fatal_error_title_buffer[255];
-    char fatal_error_message_buffer[255];
-    StringSlice fatal_error_title =
-        string_slice( 255, fatal_error_title_buffer );
-    StringSlice fatal_error_message =
-        string_slice( 255, fatal_error_message_buffer );
-
 #if defined(LD_LOGGING)
 
     FSFile* logging_file = fs_file_open(
@@ -219,38 +210,39 @@ LD_API int application_main( int argc, char** argv ) {
     i32 height = settings.resolution_height;
     global_resolution_scale = settings.resolution_scale;
     RendererBackend backend = settings.backend;
-    string_slice_const( game_library_path, GAME_LIBRARY_PATH_DEFAULT );
+
+    StringSlice game_library_path = string_slice( GAME_LIBRARY_PATH_DEFAULT );
 
     /* parse arguments */ {
-        string_slice_const( set_master_volume, "--master-volume=" );
-        string_slice_const( set_music_volume, "--music-volume=" );
-        string_slice_const( set_sfx_volume, "--sfx-volume=" );
-        string_slice_const( set_width, "--width=" );
-        string_slice_const( set_height, "--height=" );
-        string_slice_const( set_resolution_scale, "--resolution_scale=" );
-        string_slice_const( help, "--help" );
-        string_slice_const( h, "-h" );
+        StringSlice set_master_volume    = string_slice( "--master-volume=" );
+        StringSlice set_music_volume     = string_slice( "--music-volume=" );
+        StringSlice set_sfx_volume       = string_slice( "--sfx-volume=" );
+        StringSlice set_width            = string_slice( "--width=" );
+        StringSlice set_height           = string_slice( "--height=" );
+        StringSlice set_resolution_scale = string_slice( "--resolution_scale=" );
+        StringSlice help                 = string_slice( "--help" );
+        StringSlice h                    = string_slice( "-h" );
 
 #if defined(LD_DEVELOPER_MODE)
-        string_slice_const( libload, "--libload=" );
-        string_slice_const( clear_log, "--clear-log" );
+        StringSlice libload   = string_slice( "--libload=" );
+        StringSlice clear_log = string_slice( "--clear-log" );
 #endif
 #if defined(LD_PLATFORM_WINDOWS)
 
 #if defined(LD_DEVELOPER_MODE)
-        string_slice_const( output_debug_string, "--output-debug-string" );
-        b32 enable_output_debug_string = false;
+        StringSlice output_debug_string = string_slice( "--output-debug-string" );
+        b32 enable_output_debug_string  = false;
 #endif
-        string_slice_const( dx11,   "--directx11" );
-        string_slice_const( dx12,   "--directx12" );
+        StringSlice dx11 = string_slice( "--directx11" );
+        StringSlice dx12 = string_slice( "--directx12" );
 #endif
-        string_slice_const( opengl, "--opengl" );
-        string_slice_const( vulkan, "--vulkan" );
+        StringSlice opengl = string_slice( "--opengl" );
+        StringSlice vulkan = string_slice( "--vulkan" );
 #if defined(LD_PLATFORM_MACOS) || defined(LD_PLATFORM_IOS)
-        string_slice_const( metal,  "--metal" );
+        StringSlice metal = string_slice( "--metal" );
 #endif
 #if defined(LD_PLATFORM_WASM)
-        string_slice_const( webgl,  "--webgl" );
+        StringSlice webgl = string_slice( "--webgl" );
 #endif
 
         b32 parse_error = false;
@@ -259,9 +251,9 @@ LD_API int application_main( int argc, char** argv ) {
             StringSlice current = string_slice_from_cstr( 0, argv[i] );
 
 #if defined(LD_DEVELOPER_MODE)
-            if( string_slice_find( &current, &libload, NULL ) ) {
+            if( string_slice_find( current, libload, NULL ) ) {
                 if( current.len - libload.len < 1 ) {
-                    StringSlice path = string_slice_clone( &current );
+                    StringSlice path = string_slice_clone( current );
                     path.buffer += libload.len;
                     path.len    -= libload.len;
                     println_err(
@@ -277,7 +269,7 @@ LD_API int application_main( int argc, char** argv ) {
                 game_library_path.len    = current.len - libload.len;
                 continue;
             }
-            if( string_slice_cmp( &current, &clear_log ) ) {
+            if( string_slice_cmp( current, clear_log ) ) {
                 logging_subsystem_detach_file();
                 fs_file_close( logging_file );
 
@@ -297,7 +289,7 @@ LD_API int application_main( int argc, char** argv ) {
             }
 #endif
 
-            if( string_slice_find( &current, &set_width, NULL ) ) {
+            if( string_slice_find( current, set_width, NULL ) ) {
                 if( current.len - set_width.len < 1 ) {
                     println_err(
                         CONSOLE_COLOR_RED
@@ -310,7 +302,7 @@ LD_API int application_main( int argc, char** argv ) {
                 current.buffer += set_width.len;
                 current.len    -= set_width.len;
                 u64 parse_result = 0;
-                if( !string_slice_parse_uint( &current, &parse_result ) ) {
+                if( !string_slice_parse_uint( current, &parse_result ) ) {
                     println_err(
                         CONSOLE_COLOR_RED
                         "invalid width {s}!"
@@ -324,7 +316,7 @@ LD_API int application_main( int argc, char** argv ) {
                 continue;
             }
 
-            if( string_slice_find( &current, &set_height, NULL ) ) {
+            if( string_slice_find( current, set_height, NULL ) ) {
                 if( current.len - set_height.len < 1 ) {
                     println_err(
                         CONSOLE_COLOR_RED
@@ -337,7 +329,7 @@ LD_API int application_main( int argc, char** argv ) {
                 current.buffer += set_height.len;
                 current.len    -= set_height.len;
                 u64 parse_result = 0;
-                if( !string_slice_parse_uint( &current, &parse_result ) ) {
+                if( !string_slice_parse_uint( current, &parse_result ) ) {
                     println_err(
                         CONSOLE_COLOR_RED
                         "invalid height {s}!"
@@ -351,7 +343,7 @@ LD_API int application_main( int argc, char** argv ) {
                 continue;
             }
 
-            if( string_slice_find( &current, &set_resolution_scale, NULL ) ) {
+            if( string_slice_find( current, set_resolution_scale, NULL ) ) {
                 if( current.len - set_resolution_scale.len < 1 ) {
                     println_err(
                         CONSOLE_COLOR_RED
@@ -364,7 +356,7 @@ LD_API int application_main( int argc, char** argv ) {
                 current.buffer += set_resolution_scale.len;
                 current.len    -= set_resolution_scale.len;
                 f64 parse_result = 0.0;
-                if( !string_slice_parse_float( &current, &parse_result ) ) {
+                if( !string_slice_parse_float( current, &parse_result ) ) {
                     println_err(
                         CONSOLE_COLOR_RED
                         "invalid resolution scale '{s}'!"
@@ -378,7 +370,7 @@ LD_API int application_main( int argc, char** argv ) {
                 continue;
             }
 
-            if( string_slice_find( &current, &set_master_volume, NULL ) ) {
+            if( string_slice_find( current, set_master_volume, NULL ) ) {
                 if( current.len - set_master_volume.len < 1 ) {
                     println_err(
                         CONSOLE_COLOR_RED
@@ -390,7 +382,7 @@ LD_API int application_main( int argc, char** argv ) {
                 current.buffer += set_master_volume.len;
                 current.len    -= set_master_volume.len;
                 f64 parse_result = 0.0;
-                if( !string_slice_parse_float( &current, &parse_result ) ) {
+                if( !string_slice_parse_float( current, &parse_result ) ) {
                     println_err(
                         CONSOLE_COLOR_RED
                         "invalid master volume '{s}'!"
@@ -402,7 +394,7 @@ LD_API int application_main( int argc, char** argv ) {
                 continue;
             }
 
-            if( string_slice_find( &current, &set_music_volume, NULL ) ) {
+            if( string_slice_find( current, set_music_volume, NULL ) ) {
                 if( current.len - set_music_volume.len < 1 ) {
                     println_err(
                         CONSOLE_COLOR_RED
@@ -414,7 +406,7 @@ LD_API int application_main( int argc, char** argv ) {
                 current.buffer += set_music_volume.len;
                 current.len    -= set_music_volume.len;
                 f64 parse_result = 0.0;
-                if( !string_slice_parse_float( &current, &parse_result ) ) {
+                if( !string_slice_parse_float( current, &parse_result ) ) {
                     println_err(
                         CONSOLE_COLOR_RED
                         "invalid music volume '{s}'!"
@@ -426,7 +418,7 @@ LD_API int application_main( int argc, char** argv ) {
                 continue;
             }
 
-            if( string_slice_find( &current, &set_sfx_volume, NULL ) ) {
+            if( string_slice_find( current, set_sfx_volume, NULL ) ) {
                 if( current.len - set_sfx_volume.len < 1 ) {
                     println_err(
                         CONSOLE_COLOR_RED
@@ -438,7 +430,7 @@ LD_API int application_main( int argc, char** argv ) {
                 current.buffer += set_sfx_volume.len;
                 current.len    -= set_sfx_volume.len;
                 f64 parse_result = 0.0;
-                if( !string_slice_parse_float( &current, &parse_result ) ) {
+                if( !string_slice_parse_float( current, &parse_result ) ) {
                     println_err(
                         CONSOLE_COLOR_RED
                         "invalid sfx volume '{s}'!"
@@ -450,12 +442,12 @@ LD_API int application_main( int argc, char** argv ) {
                 continue;
             }
 
-            if( string_slice_cmp( &current, &opengl ) ) {
+            if( string_slice_cmp( current, opengl ) ) {
                 backend = RENDERER_BACKEND_OPENGL;
                 continue;
             }
 
-            if( string_slice_cmp( &current, &vulkan ) ) {
+            if( string_slice_cmp( current, vulkan ) ) {
                 backend = RENDERER_BACKEND_VULKAN;
                 continue;
             }
@@ -463,34 +455,37 @@ LD_API int application_main( int argc, char** argv ) {
 #if defined(LD_PLATFORM_WINDOWS)
 
 #if defined(LD_DEVELOPER_MODE)
-            if( string_slice_cmp( &current, &output_debug_string ) ) {
+            if( string_slice_cmp( current, output_debug_string ) ) {
                 enable_output_debug_string = true;
                 continue;
             }
 #endif
 
-            if( string_slice_cmp( &current, &dx11 ) ) {
+            if( string_slice_cmp( current, dx11 ) ) {
                 backend = RENDERER_BACKEND_DX11;
                 continue;
             }
-            if( string_slice_cmp( &current, &dx12 ) ) {
+            if( string_slice_cmp( current, dx12 ) ) {
                 backend = RENDERER_BACKEND_DX12;
                 continue;
             }
 #endif
 #if defined(LD_PLATFORM_MACOS) || defined(LD_PLATFORM_IOS)
-            if( string_slice_cmp( &current, &metal ) ) {
+            if( string_slice_cmp( current, metal ) ) {
                 backend = RENDERER_BACKEND_METAL;
                 continue;
             }
 #endif
 #if defined(LD_PLATFORM_WASM)
-            if( string_slice_cmp( &current, &webgl ) ) {
+            if( string_slice_cmp( current, webgl ) ) {
                 backend = RENDERER_BACKEND_WEBGL;
                 continue;
             }
 #endif
-            if( string_slice_cmp( &current, &help ) || string_slice_cmp( &current, &h ) ) {
+            if(
+                string_slice_cmp( current, help ) ||
+                string_slice_cmp( current, h )
+            ) {
                 print_help();
                 return 0;
             }
@@ -517,70 +512,74 @@ LD_API int application_main( int argc, char** argv ) {
     }
 
     if( !renderer_backend_is_supported( backend ) ) {
-        string_slice_fmt(
-            &fatal_error_title,
-            "Fatal Error ({u8}){c}",
-            ENGINE_ERROR_RENDERER_BACKEND_NOT_SUPPORTED, 0 );
-        string_slice_fmt(
-            &fatal_error_message,
-            "Renderer backend '{cc}' is not supported on current platform!{c}",
-            renderer_backend_to_string( backend ), 0 );
-        fatal_log( "{s}", fatal_error_message );
+        string_buffer_empty( error_title, 64 );
+        string_buffer_empty( error_message, 255 );
+
+        string_buffer_fmt(
+            &error_title,
+            "Fatal Error ({u8}){0}",
+            ENGINE_ERROR_RENDERER_BACKEND_NOT_SUPPORTED );
+        string_buffer_fmt(
+            &error_message,
+            "Renderer backend '{cc}' is not supported on this platform!{0}",
+            renderer_backend_to_string( backend ) );
+
+        fatal_log( "{s}", string_buffer_to_slice( &error_message ) );
         media_fatal_message_box_blocking(
-            fatal_error_title_buffer, fatal_error_message_buffer );
+            error_title.buffer, error_message.buffer );
         return ENGINE_ERROR_RENDERER_BACKEND_NOT_SUPPORTED;
     }
 
     note_log( "Engine Configuration:" );
     note_log( "Version:           {i}.{i}", LIQUID_ENGINE_VERSION_MAJOR, LIQUID_ENGINE_VERSION_MINOR );
 #if defined(LD_PLATFORM_WINDOWS)
-    string_slice_const(os, "win32");
+    StringSlice os = string_slice( "win32" );
 #endif
 #if defined(LD_PLATFORM_MACOS)
-    string_slice_const(os, "macos");
+    StringSlice os = string_slice( "macos" );
 #endif
 #if defined(LD_PLATFORM_IOS)
-    string_slice_const(os, "ios");
+    StringSlice os = string_slice( "ios" );
 #endif
 #if defined(LD_PLATFORM_ANDROID)
-    string_slice_const(os, "android");
+    StringSlice os = string_slice( "android" );
 #endif
 #if defined(LD_PLATFORM_LINUX)
-    string_slice_const(os, "linux");
+    StringSlice os = string_slice( "linux" );
 #endif
 #if defined(LD_PLATFORM_WASM)
-    string_slice_const(os, "wasm");
+    StringSlice os = string_slice( "wasm" );
 #endif
 #if defined(LD_ARCH_32_BIT)
     #if defined(LD_ARCH_X86)
-        string_slice_const(arch, "x86");
+        StringSlice arch = string_slice( "x86" );
     #endif
     #if defined(LD_ARCH_ARM)
         #if defined(LD_ARCH_LITTLE_ENDIAN)
-            string_slice_const(arch, "arm little-endian 32-bit");
+            StringSlice arch = string_slice( "arm little-endian 32-bit" );
         #endif
         #if defined(LD_ARCH_BIG_ENDIAN)
-            string_slice_const(arch, "arm big-endian 32-bit");
+            StringSlice arch = string_slice( "arm big-endian 32-bit" );
         #endif
     #endif
     #if defined(LD_ARCH_WASM)
-        string_slice_const(arch, "wasm 32-bit");
+        StringSlice arch = string_slice( "wasm 32-bit" );
     #endif
 #endif
 #if defined(LD_ARCH_64_BIT)
     #if defined(LD_ARCH_X86)
-        string_slice_const(arch, "x86_64");
+        StringSlice arch = string_slice( "x86_64" );
     #endif
     #if defined(LD_ARCH_ARM)
         #if defined(LD_ARCH_LITTLE_ENDIAN)
-            string_slice_const(arch, "arm little-endian 64-bit");
+            StringSlice arch = string_slice( "arm little-endian 64-bit" );
         #endif
         #if defined(LD_ARCH_BIG_ENDIAN)
-            string_slice_const(arch, "arm big-endian 64-bit");
+            StringSlice arch = string_slice( "arm big-endian 64-bit" );
         #endif
     #endif
     #if defined(LD_ARCH_WASM)
-        string_slice_const(arch, "wasm 64-bit");
+        StringSlice arch = string_slice( "wasm 64-bit" );
     #endif
 #endif
     note_log( "Platform:          {s}, {s}", os, arch );
@@ -593,17 +592,21 @@ LD_API int application_main( int argc, char** argv ) {
 
     SharedObject* game = shared_object_open( game_library_path.buffer );
     if( !game ) {
-        string_slice_fmt(
-            &fatal_error_title,
-            "Fatal Error ({u8}){c}",
-            ENGINE_ERROR_OPEN_GAME_LIBRARY, 0 );
-        string_slice_fmt(
-            &fatal_error_message,
-            "Failed to load game library! Game library path: {s}{c}",
-            game_library_path, 0 );
-        fatal_log("{s}", fatal_error_message);
+        string_buffer_empty( error_title, 64 );
+        string_buffer_empty( error_message, 255 );
+
+        string_buffer_fmt(
+            &error_title,
+            "Fatal Error ({u8}){0}",
+            ENGINE_ERROR_OPEN_GAME_LIBRARY );
+        string_buffer_fmt(
+            &error_message,
+            "Failed to open game library! Game library path: {s}{0}",
+            game_library_path );
+
+        fatal_log( "{s}", string_buffer_to_slice( &error_message ) );
         media_fatal_message_box_blocking(
-            fatal_error_title_buffer, fatal_error_message_buffer );
+            error_title.buffer, error_message.buffer );
         return ENGINE_ERROR_OPEN_GAME_LIBRARY;
     }
 
@@ -618,47 +621,26 @@ LD_API int application_main( int argc, char** argv ) {
         (ApplicationRunFN*)shared_object_load(
             game, "application_run" );
 
-    if( !application_query_memory_requirement ) {
-        string_slice_fmt(
-            &fatal_error_title,
-            "Fatal Error ({u8}){c}",
-            ENGINE_ERROR_LOAD_GAME_MEMORY_REQUIREMENT, 0 );
-        string_slice_fmt(
-            &fatal_error_message,
-            "Failed to load game memory requirement!{c}",
-            0 );
-        fatal_log("{s}", fatal_error_message);
+    if( !(
+        application_query_memory_requirement &&
+        application_initialize &&
+        application_run
+    ) ) {
+        string_buffer_empty( error_title, 64 );
+        string_buffer_empty( error_message, 255 );
+
+        string_buffer_fmt(
+            &error_title,
+            "Fatal Error ({u8}){0}",
+            ENGINE_ERROR_LOAD_GAME_FUNCTIONS );
+        string_buffer_fmt(
+            &error_message,
+            "Failed to load game library functions!{0}" );
+
+        fatal_log( "{s}", string_buffer_to_slice( &error_message ) );
         media_fatal_message_box_blocking(
-            fatal_error_title_buffer, fatal_error_message_buffer );
-        return ENGINE_ERROR_LOAD_GAME_MEMORY_REQUIREMENT;
-    }
-    if( !application_initialize ) {
-        string_slice_fmt(
-            &fatal_error_title,
-            "Fatal Error ({u8}){c}",
-            ENGINE_ERROR_LOAD_GAME_INITIALIZE, 0 );
-        string_slice_fmt(
-            &fatal_error_message,
-            "Failed to load game initialize function!{c}",
-            0 );
-        fatal_log("{s}", fatal_error_message);
-        media_fatal_message_box_blocking(
-            fatal_error_title_buffer, fatal_error_message_buffer );
-        return ENGINE_ERROR_LOAD_GAME_INITIALIZE;
-    }
-    if( !application_run ) {
-        string_slice_fmt(
-            &fatal_error_title,
-            "Fatal Error ({u8}){c}",
-            ENGINE_ERROR_LOAD_GAME_RUN, 0 );
-        string_slice_fmt(
-            &fatal_error_message,
-            "Failed to load game run function!{c}",
-            0 );
-        fatal_log("{s}", fatal_error_message);
-        media_fatal_message_box_blocking(
-            fatal_error_title_buffer, fatal_error_message_buffer );
-        return ENGINE_ERROR_LOAD_GAME_RUN;
+            error_title.buffer, error_message.buffer );
+        return ENGINE_ERROR_LOAD_GAME_FUNCTIONS;
     }
 
 #if 0
@@ -713,17 +695,20 @@ LD_API int application_main( int argc, char** argv ) {
             "Stack Size: {usize}({f,.2,m}) Stack Pages: {usize}",
             stack_size, (f64)stack_size, stack_page_count );
         if( !stack_buffer ) {
-            string_slice_fmt(
-                &fatal_error_title,
-                "Fatal Error ({u8}){c}",
-                ENGINE_ERROR_ENGINE_MEMORY_ALLOCATION, 0 );
-            string_slice_fmt(
-                &fatal_error_message,
-                "Out of Memory!{c}",
-                0 );
-            fatal_log("{s}", fatal_error_message);
+            string_buffer_empty( error_title, 64 );
+            string_buffer_empty( error_message, 255 );
+
+            string_buffer_fmt(
+                &error_title,
+                "Fatal Error ({u8}){0}",
+                ENGINE_ERROR_ENGINE_MEMORY_ALLOCATION );
+            string_buffer_fmt(
+                &error_message,
+                "Out of Memory!{0}" );
+
+            fatal_log( "{s}", string_buffer_to_slice( &error_message ) );
             media_fatal_message_box_blocking(
-                fatal_error_title_buffer, fatal_error_message_buffer );
+                error_title.buffer, error_message.buffer );
             return ENGINE_ERROR_ENGINE_MEMORY_ALLOCATION;
         }
 
@@ -938,11 +923,11 @@ internal void print_help(void) {
 }
 
 internal b32 ___settings_parse_uint(
-    StringSlice* line, StringSlice* token, u64* out_result
+    StringSlice line, StringSlice token, u64* out_result
 ) {
     StringSlice number = {};
-    number.buffer = line->buffer + token->len;
-    number.len    = line->len    - token->len;
+    number.buffer = line.buffer + token.len;
+    number.len    = line.len    - token.len;
 
     for( usize i = 0; i < number.len; ++i ) {
         char current = number.buffer[i];
@@ -952,7 +937,7 @@ internal b32 ___settings_parse_uint(
             number.len    -= i;
 
             u64 int_parse = 0;
-            if( !string_slice_parse_uint( &number, &int_parse ) ) {
+            if( !string_slice_parse_uint( number, &int_parse ) ) {
                 return false;
             }
 
@@ -964,11 +949,11 @@ internal b32 ___settings_parse_uint(
     return true;
 }
 internal b32 ___settings_parse_float(
-    StringSlice* line, StringSlice* token, f64* out_result
+    StringSlice line, StringSlice token, f64* out_result
 ) {
     StringSlice number = {};
-    number.buffer = line->buffer + token->len;
-    number.len    = line->len    - token->len;
+    number.buffer = line.buffer + token.len;
+    number.len    = line.len    - token.len;
 
     for( usize i = 0; i < number.len; ++i ) {
         char current = number.buffer[i];
@@ -978,11 +963,11 @@ internal b32 ___settings_parse_float(
             number.len    -= i;
 
             while( number.len && !char_is_digit( number.buffer[number.len - 1] ) ) {
-                string_slice_pop( &number, NULL );
+                string_slice_pop( number, &number, NULL );
             }
 
             f64 float_parse = 0.0;
-            if( !string_slice_parse_float( &number, &float_parse ) ) {
+            if( !string_slice_parse_float( number, &float_parse ) ) {
                 return false;
             }
 
@@ -1019,8 +1004,6 @@ b32 parse_settings( struct SettingsParse* out_parse_result ) {
             fatal_log( "Failed to open settings file at all!" );
             return false;
         }
-
-        string_slice_mut_capacity( default_settings, 128 );
 
         #define settings_output_string( format, ... )\
             fs_file_write_fmt( settings_file, format, ##__VA_ARGS__ )
@@ -1080,40 +1063,39 @@ b32 parse_settings( struct SettingsParse* out_parse_result ) {
     StringSlice settings;
     settings.buffer   = settings_file_buffer;
     settings.len      = settings_file_size;
-    settings.capacity = settings_file_size;
 
     enum Section section = SECTION_UNKNOWN;
 
-    string_slice_const( token_section_resolution, "[graphics]" );
-    string_slice_const( token_width, "width" );
-    string_slice_const( token_height, "height" );
-    string_slice_const( token_resolution_scale, "resolution_scale" );
-    string_slice_const( token_backend, "backend" );
+    StringSlice token_section_graphics          = string_slice( "[graphics]" );
+    StringSlice token_graphics_width            = string_slice( "width" );
+    StringSlice token_graphics_height           = string_slice( "height" );
+    StringSlice token_graphics_resolution_scale = string_slice( "resolution_scale" );
+    StringSlice token_graphics_backend          = string_slice( "backend" );
+    StringSlice token_graphics_opengl           = string_slice( "opengl" );
+    StringSlice token_graphics_vulkan           = string_slice( "vulkan" );
+    StringSlice token_graphics_metal            = string_slice( "metal" );
+    StringSlice token_graphics_webgl            = string_slice( "webgl" );
+    StringSlice token_graphics_directx11        = string_slice( "directx11" );
+    StringSlice token_graphics_directx12        = string_slice( "directx12" );
 
-    string_slice_const( token_section_audio, "[audio]" );
-    string_slice_const( token_audio_volume_master, "master" );
-    string_slice_const( token_audio_volume_music, "music" );
-    string_slice_const( token_audio_volume_sfx, "sfx" );
+    StringSlice token_section_audio       = string_slice( "[audio]" );
+    StringSlice token_audio_volume_master = string_slice( "master" );
+    StringSlice token_audio_volume_music  = string_slice( "music" );
+    StringSlice token_audio_volume_sfx    = string_slice( "sfx" );
 
-    string_slice_const( token_opengl, "opengl" );
-    string_slice_const( token_vulkan, "vulkan" );
-    string_slice_const( token_metal, "metal" );
-    string_slice_const( token_webgl, "webgl" );
-    string_slice_const( token_directx11, "directx11" );
-    string_slice_const( token_directx12, "directx12" );
 
     usize eol = 0;
-    StringSlice line = string_slice_clone( &settings );
+    StringSlice line = string_slice_clone( settings );
 
-    while( string_slice_find_char( &line, '\n', &eol ) ) {
-        StringSlice temp = string_slice_clone( &line );
+    while( string_slice_find_char( line, '\n', &eol ) ) {
+        StringSlice temp = string_slice_clone( line );
         temp.len = eol + 1;
 
         switch( temp.buffer[0] ) {
             case '[': {
-                if( string_slice_find( &temp, &token_section_resolution, NULL ) ) {
+                if( string_slice_find( temp, token_section_graphics, NULL ) ) {
                     section = SECTION_GRAPHICS;
-                } else if( string_slice_find( &temp, &token_section_audio, NULL ) ) {
+                } else if( string_slice_find( temp, token_section_audio, NULL ) ) {
                     section = SECTION_AUDIO;
                 }
             } break;
@@ -1132,54 +1114,54 @@ b32 parse_settings( struct SettingsParse* out_parse_result ) {
 
         switch( section ) {
             case SECTION_GRAPHICS: {
-                if( string_slice_find( &temp, &token_width, NULL ) ) {
-                    if( ___settings_parse_uint( &temp, &token_width, &int_parse ) ) {
+                if( string_slice_find( temp, token_graphics_width, NULL ) ) {
+                    if( ___settings_parse_uint( temp, token_graphics_width, &int_parse ) ) {
                         parse_result.resolution_width = max( int_parse, 1 );
                     }
-                } else if( string_slice_find( &temp, &token_height, NULL ) ) {
-                    if( ___settings_parse_uint( &temp, &token_height, &int_parse ) ) {
+                } else if( string_slice_find( temp, token_graphics_height, NULL ) ) {
+                    if( ___settings_parse_uint( temp, token_graphics_height, &int_parse ) ) {
                         parse_result.resolution_height = max( int_parse, 1 );
                     }
-                } else if( string_slice_find( &temp, &token_resolution_scale, NULL ) ) {
+                } else if( string_slice_find( temp, token_graphics_resolution_scale, NULL ) ) {
                     if( ___settings_parse_float(
-                        &temp, &token_resolution_scale, &float_parse
+                        temp, token_graphics_resolution_scale, &float_parse
                     ) ) {
                         parse_result.resolution_scale = max( float_parse, 0.1 );
                     }
-                } else if( string_slice_find( &temp, &token_backend, NULL ) ) {
+                } else if( string_slice_find( temp, token_graphics_backend, NULL ) ) {
                     StringSlice backend;
-                    backend.buffer = temp.buffer + token_backend.len;
-                    backend.len    = temp.len    - token_backend.len;
+                    backend.buffer = temp.buffer + token_graphics_backend.len;
+                    backend.len    = temp.len    - token_graphics_backend.len;
 
-                    if( string_slice_find( &backend, &token_opengl, NULL ) ) {
+                    if( string_slice_find( backend, token_graphics_opengl, NULL ) ) {
                         parse_result.backend = RENDERER_BACKEND_OPENGL;
-                    } else if( string_slice_find( &backend, &token_vulkan, NULL ) ) {
+                    } else if( string_slice_find( backend, token_graphics_vulkan, NULL ) ) {
                         parse_result.backend = RENDERER_BACKEND_VULKAN;
-                    } else if( string_slice_find( &backend, &token_metal, NULL ) ) {
+                    } else if( string_slice_find( backend, token_graphics_metal, NULL ) ) {
                         parse_result.backend = RENDERER_BACKEND_METAL;
-                    } else if( string_slice_find( &backend, &token_webgl, NULL ) ) {
+                    } else if( string_slice_find( backend, token_graphics_webgl, NULL ) ) {
                         parse_result.backend = RENDERER_BACKEND_WEBGL;
-                    } else if( string_slice_find( &backend, &token_directx11, NULL ) ) {
+                    } else if( string_slice_find( backend, token_graphics_directx11, NULL ) ) {
                         parse_result.backend = RENDERER_BACKEND_DX11;
-                    } else if( string_slice_find( &backend, &token_directx12, NULL ) ) {
+                    } else if( string_slice_find( backend, token_graphics_directx12, NULL ) ) {
                         parse_result.backend = RENDERER_BACKEND_DX12;
                     }
                 }
             } break;
             case SECTION_AUDIO: {
-                if( string_slice_find( &temp, &token_audio_volume_master, NULL ) ) {
+                if( string_slice_find( temp, token_audio_volume_master, NULL ) ) {
                     if( ___settings_parse_float(
-                        &temp, &token_audio_volume_master, &float_parse
+                        temp, token_audio_volume_master, &float_parse
                     ) ) {
                         parse_result.audio_volume_master = clamp01( float_parse );
                     }
-                } else if( string_slice_find( &temp, &token_audio_volume_music, NULL ) ) {
-                    if( ___settings_parse_float( &temp, &token_audio_volume_music, &float_parse ) ) {
+                } else if( string_slice_find( temp, token_audio_volume_music, NULL ) ) {
+                    if( ___settings_parse_float( temp, token_audio_volume_music, &float_parse ) ) {
                         parse_result.audio_volume_music = clamp01( float_parse );
                     }
-                } else if( string_slice_find( &temp, &token_audio_volume_sfx, NULL ) ) {
+                } else if( string_slice_find( temp, token_audio_volume_sfx, NULL ) ) {
                     if( ___settings_parse_float(
-                        &temp, &token_audio_volume_sfx, &float_parse
+                        temp, token_audio_volume_sfx, &float_parse
                     ) ) {
                         parse_result.audio_volume_sfx = clamp01( float_parse );
                     }
@@ -1268,87 +1250,78 @@ internal b32 check_instructions( SystemInfo* system_info ) {
 
     #if LD_SIMD_WIDTH >= 4
 
-        missing_features = system_info_feature_check_x86_sse( system_info );
+    missing_features = system_info_feature_check_x86_sse( system_info );
 
-        if( missing_features ) {
-            print_err( CONSOLE_COLOR_MAGENTA );
-            println_err( "fatal error: SSE instructions are missing!" );
+    if( missing_features ) {
+        print_err( CONSOLE_COLOR_MAGENTA );
+        println_err( "fatal error: SSE instructions are missing!" );
 
-            string_slice_mut_capacity( missing_names, 64 );
-            StringSlice missing_names_append = string_slice_clone( &missing_names );
-            
-            if( bitfield_check( missing_features, CPU_FEATURE_SSE ) ) {
-                string_slice_fmt( &missing_names_append, "SSE, " );
-                missing_names_append.buffer += missing_names_append.len;
-                missing_names_append.len = 0;
-            }
-            if( bitfield_check( missing_features, CPU_FEATURE_SSE2 ) ) {
-                string_slice_fmt( &missing_names_append, "SSE2, " );
-                missing_names_append.buffer += missing_names_append.len;
-                missing_names_append.len = 0;
-            }
-            if( bitfield_check( missing_features, CPU_FEATURE_SSE3 ) ) {
-                string_slice_fmt( &missing_names_append, "SSE3, " );
-                missing_names_append.buffer += missing_names_append.len;
-                missing_names_append.len = 0;
-            }
-            if( bitfield_check( missing_features, CPU_FEATURE_SSSE3 ) ) {
-                string_slice_fmt( &missing_names_append, "SSSE3, " );
-                missing_names_append.buffer += missing_names_append.len;
-                missing_names_append.len = 0;
-            }
-            if( bitfield_check( missing_features, CPU_FEATURE_SSE4_1 ) ) {
-                string_slice_fmt( &missing_names_append, "SSE4.1, " );
-                missing_names_append.buffer += missing_names_append.len;
-                missing_names_append.len = 0;
-            }
-            if( bitfield_check( missing_features, CPU_FEATURE_SSE4_2 ) ) {
-                string_slice_fmt( &missing_names_append, "SSE4.2, " );
-                missing_names_append.buffer += missing_names_append.len;
-                missing_names_append.len = 0;
-            }
-            missing_names.len = missing_names_append.buffer - missing_names.buffer;
+        string_buffer_empty( missing_names, 64 );
 
-            println_err( "missing instructions: {s}", missing_names );
-            print_err( CONSOLE_COLOR_RESET );
-
-            media_fatal_message_box_blocking( "Fatal Error", missing_names.buffer );
-
-            return false;
+        if( bitfield_check( missing_features, CPU_FEATURE_SSE ) ) {
+            string_buffer_fmt( &missing_names, "SSE, " );
         }
+        if( bitfield_check( missing_features, CPU_FEATURE_SSE2 ) ) {
+            string_buffer_fmt( &missing_names, "SSE2, " );
+        }
+        if( bitfield_check( missing_features, CPU_FEATURE_SSE3 ) ) {
+            string_buffer_fmt( &missing_names, "SSE3, " );
+        }
+        if( bitfield_check( missing_features, CPU_FEATURE_SSSE3 ) ) {
+            string_buffer_fmt( &missing_names, "SSSE3, " );
+        }
+        if( bitfield_check( missing_features, CPU_FEATURE_SSE4_1 ) ) {
+            string_buffer_fmt( &missing_names, "SSE4.1, " );
+        }
+        if( bitfield_check( missing_features, CPU_FEATURE_SSE4_2 ) ) {
+            string_buffer_fmt( &missing_names, "SSE4.2, " );
+        }
+
+        // NOTE(alicia): gets rid of trailing comma
+        string_buffer_pop( &missing_names, NULL );
+        string_buffer_pop( &missing_names, NULL );
+
+        println_err(
+            "missing instructions: {s}",
+            string_buffer_to_slice( &missing_names ) );
+        print_err( CONSOLE_COLOR_RESET );
+
+        media_fatal_message_box_blocking( "Fatal Error", missing_names.buffer );
+
+        return false;
+    }
 
     #endif /* SIMD >= 4 */
 
     #if LD_SIMD_WIDTH < 8
-        missing_features = system_info_feature_check_x86_avx( system_info );
+    missing_features = system_info_feature_check_x86_avx( system_info );
 
-        if( missing_features ) {
-            print_err( CONSOLE_COLOR_MAGENTA );
-            println_err( "fatal error: SSE instructions are missing!" );
+    if( missing_features ) {
+        print_err( CONSOLE_COLOR_MAGENTA );
+        println_err( "fatal error: SSE instructions are missing!" );
 
-            string_slice_mut_capacity( missing_names, 64 );
-            StringSlice missing_names_append = string_slice_clone( &missing_names );
+        string_buffer_empty( missing_names, 64 );
 
-            if( bitfield_check( missing_features, CPU_FEATURE_AVX ) ) {
-                string_slice_fmt( &missing_names_append, "AVX, " );
-                missing_names_append.buffer += missing_names_append.len;
-                missing_names_append.len     = 0;
-            }
-            if( bitfield_check( missing_features, CPU_FEATURE_AVX2 ) ) {
-                string_slice_fmt( &missing_names_append, "AVX2, " );
-                missing_names_append.buffer += missing_names_append.len;
-                missing_names_append.len     = 0;
-            }
-            missing_names.len = missing_names_append.buffer - missing_names.buffer;
-
-            println_err( "missing instructions: {s}", missing_names );
-            print_err( CONSOLE_COLOR_RESET );
-
-            media_fatal_message_box_blocking( "Fatal Error", missing_names.buffer );
-
-            return false;
+        if( bitfield_check( missing_features, CPU_FEATURE_AVX ) ) {
+            string_buffer_fmt( &missing_names, "AVX, " );
+        }
+        if( bitfield_check( missing_features, CPU_FEATURE_AVX2 ) ) {
+            string_buffer_fmt( &missing_names, "AVX2, " );
         }
 
+        // NOTE(alicia): gets rid of trailing comma
+        string_buffer_pop( &missing_names, NULL );
+        string_buffer_pop( &missing_names, NULL );
+
+        println_err(
+            "missing instructions: {s}",
+            string_buffer_to_slice( &missing_names ) );
+        print_err( CONSOLE_COLOR_RESET );
+
+        media_fatal_message_box_blocking( "Fatal Error", missing_names.buffer );
+
+        return false;
+    }
     #endif /* SIMD >= 8 */
 
 #endif /* Arch x86 */

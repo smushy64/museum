@@ -87,7 +87,7 @@ b32 manifest_parse( const char* path, Manifest* out_manifest ) {
     StringSlice token_left = {}, token_right = {};
 
     #define next_line()\
-        string_slice_split_char( &manifest, '\n', &line, &manifest )
+        string_slice_split_char( manifest, '\n', &line, &manifest )
 
     #define missing_token( token )\
         lp_error( "file '{cc}' is missing token: '{s}'!", token )
@@ -96,17 +96,18 @@ b32 manifest_parse( const char* path, Manifest* out_manifest ) {
         lp_error( "file '{cc}' is not a valid manifest!", path )
 
     #define trim_whitespace( slice )\
-        string_slice_trim_leading_whitespace( (slice), (slice) );\
-        string_slice_trim_trailing_whitespace( (slice), (slice) )
+        slice = string_slice_trim_leading_whitespace( slice );\
+        slice = string_slice_trim_trailing_whitespace( slice )
 
     #define split_line( char )\
-        string_slice_split_char( &line, char, &token_left, &token_right )
+        string_slice_split_char( line, char, &token_left, &token_right )
 
     b32 identifier_found  = false;
     b32 item_count_parsed = false;
     u64 item_count = 0;
-    string_slice_const( token_manifest_identifier, "manifest" );
-    string_slice_const( token_count, "count" );
+
+    StringSlice token_manifest_identifier = string_slice( "manifest" );
+    StringSlice token_count               = string_slice( "count" );
 
     while( !(identifier_found && item_count_parsed) && next_line() ) {
         if( !line.len || line.buffer[0] == '#' ) {
@@ -118,22 +119,22 @@ b32 manifest_parse( const char* path, Manifest* out_manifest ) {
                 break;
             }
 
-            trim_whitespace( &token_left );
-            trim_whitespace( &token_right );
+            trim_whitespace( token_left );
+            trim_whitespace( token_right );
 
-            if( !string_slice_cmp( &token_left, &token_count ) ) {
+            if( !string_slice_cmp( token_left, token_count ) ) {
                 break;
             }
 
             u64 parsed_count = 0;
-            if( !string_slice_parse_uint( &token_right, &parsed_count ) ) {
+            if( !string_slice_parse_uint( token_right, &parsed_count ) ) {
                 break;
             }
 
             item_count = parsed_count;
             item_count_parsed = true;
         } else {
-            if( string_slice_cmp( &line, &token_manifest_identifier ) ) {
+            if( string_slice_cmp( line, token_manifest_identifier ) ) {
                 identifier_found = true;
             } else {
                 break;
@@ -196,7 +197,7 @@ b32 manifest_parse( const char* path, Manifest* out_manifest ) {
         system_free( text_buffer_stack.buffer, text_buffer_stack.buffer_size )
 
     #define text_push( slice, with_null ) do {\
-        usize buffer_size = (slice)->len + (with_null ? 1 : 0);\
+        usize buffer_size = slice.len + (with_null ? 1 : 0);\
         void* buffer = stack_allocator_push( &text_buffer_stack, buffer_size );\
         if( !buffer ) {\
             usize new_stack_size   = text_buffer_stack.buffer_size + buffer_size + 256;\
@@ -212,8 +213,8 @@ b32 manifest_parse( const char* path, Manifest* out_manifest ) {
             text_buffer_stack.buffer_size = new_stack_size;\
             buffer = stack_allocator_push( &text_buffer_stack, buffer_size );\
         }\
-        memory_copy( buffer, (slice)->buffer, (slice)->len );\
-        (slice)->buffer = buffer;\
+        memory_copy( buffer, slice.buffer, slice.len );\
+        slice.buffer = buffer;\
     } while(0)
 
     typedef enum : u32 {
@@ -229,7 +230,7 @@ b32 manifest_parse( const char* path, Manifest* out_manifest ) {
     ManifestContext ctx = CTX_NONE;
 
     u32 running_placeholder_index = 0;
-    string_slice_mut_capacity( placeholder_c_identifier, 64 );
+    string_buffer_empty( placeholder_c_identifier, 64 );
 
     #define try_next_line() if( !next_line() ) break
 
@@ -246,26 +247,25 @@ b32 manifest_parse( const char* path, Manifest* out_manifest ) {
         switch( ctx ) {
             case CTX_NONE: {
                 usize position = 0;
-                if( string_slice_find_char( &line, ':', &position ) ) {
+                if( string_slice_find_char( line, ':', &position ) ) {
                     token_left.buffer   = line.buffer;
                     token_left.len      = position;
-                    token_left.capacity = token_left.len;
 
                     if( ___validate_c_identifier( &token_left ) ) {
-                        text_push( &token_left, false );
+                        text_push( token_left, false );
                         item.identifier = token_left;
                     } else {
                         m_warn( "'{s}' is not a valid C identifier!", token_left );
-                        string_slice_fmt(
+                        string_buffer_fmt(
                             &placeholder_c_identifier,
                             "ITEM_{u}", running_placeholder_index++ );
-                        StringSlice placeholder =
-                            string_slice_clone( &placeholder_c_identifier );
-                        text_push( &placeholder, false );
 
+                        text_push( placeholder_c_identifier, false );
+
+                        item.identifier =
+                            string_buffer_to_slice( &placeholder_c_identifier );
                         placeholder_c_identifier.len = 0;
 
-                        item.identifier = placeholder;
                     }
                     ctx = CTX_PARSE_FIELDS;
                 }
@@ -283,11 +283,11 @@ b32 manifest_parse( const char* path, Manifest* out_manifest ) {
                 }
 
                 if( split_line( ':' ) ) {
-                    trim_whitespace( &token_left );
-                    trim_whitespace( &token_right );
+                    trim_whitespace( token_left );
+                    trim_whitespace( token_right );
 
-                    u64 token_left_hash  = string_slice_hash( &token_left );
-                    u64 token_right_hash = string_slice_hash( &token_right );
+                    u64 token_left_hash  = string_slice_hash( token_left );
+                    u64 token_right_hash = string_slice_hash( token_right );
 
                     switch( token_left_hash ) {
                         case HASH_TOKEN_MANIFEST_PATH: {
@@ -295,10 +295,10 @@ b32 manifest_parse( const char* path, Manifest* out_manifest ) {
                                 m_error( "invalid path: '{s}'!", token_right );
                                 break;
                             }
-                            string_slice_pop( &token_right, NULL );
-                            string_slice_pop_start( &token_right, NULL );
+                            string_slice_pop( token_right, &token_right, NULL );
+                            string_slice_pop_start( token_right, &token_right, NULL );
 
-                            text_push( &token_right, true );
+                            text_push( token_right, true );
 
                             item.path = token_right.buffer;
                         } break;
@@ -371,13 +371,12 @@ b32 manifest_parse( const char* path, Manifest* out_manifest ) {
 
     if( last_slash_position ) {
         path_slice.len      = last_slash_position;
-        path_slice.capacity = path_slice.len;
     } else {
         path_slice.buffer = (char*)global_local_directory;
-        path_slice.len = path_slice.capacity = 2;
+        path_slice.len    = 2;
     }
 
-    out_manifest->directory = string_slice_clone( &path_slice );
+    out_manifest->directory = path_slice;
 
     out_manifest->item_count       = item_count;
     out_manifest->items            = item_buffer;

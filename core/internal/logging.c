@@ -19,18 +19,18 @@ void ___internal_core_log(
         return;
     }
 
-    char buffer[CORE_LOGGING_BUFFER_SIZE] = {};
-    StringSlice slice = {};
-    slice.buffer   = buffer;
-    slice.len      = 0;
-    slice.capacity = CORE_LOGGING_BUFFER_SIZE;
+    char logging_buffer[CORE_LOGGING_BUFFER_SIZE] = {};
+    StringBuffer buffer = {};
+    buffer.buffer   = logging_buffer;
+    buffer.len      = 0;
+    buffer.capacity = CORE_LOGGING_BUFFER_SIZE;
 
     va_list va;
     va_start( va, format );
-    ___internal_string_slice_fmt_va( &slice, format_len, format, va );
+    ___internal_string_buffer_fmt_va( &buffer, format_len, format, va );
     va_end( va );
 
-    global_logging_callback( level, slice.len, slice.buffer, global_logging_params );
+    global_logging_callback( level, buffer.len, buffer.buffer, global_logging_params );
 }
 
 CORE_API void core_logging_callback_set( LoggingCallbackFN* callback, void* params ) {

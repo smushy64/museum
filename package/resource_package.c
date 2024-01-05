@@ -32,11 +32,11 @@ void job_package_resource( usize thread_index, void* user_params ) {
 
     char new_path_buffer[U8_MAX]  = {};
 
-    StringSlice new_path = {};
+    StringBuffer new_path = {};
     new_path.buffer   = new_path_buffer;
     new_path.capacity = U8_MAX;
 
-    string_slice_fmt(
+    string_buffer_fmt(
         &new_path, "{s}/{cc}{0}", params.manifest->directory, item->path );
 
     item->path = new_path.buffer;
@@ -49,12 +49,12 @@ void job_package_resource( usize thread_index, void* user_params ) {
     }
 
     char temp_path_buffer[U8_MAX] = {};
-    StringSlice temp_path_slice = {};
-    temp_path_slice.buffer   = temp_path_buffer;
-    temp_path_slice.capacity = U8_MAX;
+    StringBuffer temp_path = {};
+    temp_path.buffer   = temp_path_buffer;
+    temp_path.capacity = U8_MAX;
 
     fs_file_generate_temp_path(
-        string_slice_write, &temp_path_slice, "resource", NULL );
+        string_buffer_write, &temp_path, "resource", NULL );
 
     FSFile* file_intermediate =
         fs_file_open( temp_path_buffer, FS_FILE_WRITE );

@@ -47,16 +47,16 @@ c_linkage int application_main( int argc, char** argv ) {
     int hash_count = 0;
     b32 is_silent  = false;
 
-    string_slice_const( arg_output_path, "--output-path" );
-    string_slice_const( arg_help, "--help" );
-    string_slice_const( arg_silent, "--silent" );
-    string_slice_const( arg_list, "--list" );
-    string_slice_const( arg_file, "--file" );
+    StringSlice arg_output_path = string_slice( "--output-path" );
+    StringSlice arg_help        = string_slice( "--help" );
+    StringSlice arg_silent      = string_slice( "--silent" );
+    StringSlice arg_list        = string_slice( "--list" );
+    StringSlice arg_file        = string_slice( "--file" );
 
     for( int i = 1; i < argc; ++i ) {
         StringSlice arg = string_slice_from_cstr( 0, argv[i] );
 
-        if( string_slice_cmp( &arg, &arg_output_path ) ) {
+        if( string_slice_cmp( arg, arg_output_path ) ) {
             if( i + 1 >= argc ) {
                 hash_error( "--output-path must be followed by a path!" );
                 print_help();
@@ -66,13 +66,13 @@ c_linkage int application_main( int argc, char** argv ) {
 
             output_path = arg.buffer;
             continue;
-        } else if( string_slice_cmp( &arg, &arg_help ) ) {
+        } else if( string_slice_cmp( arg, arg_help ) ) {
             print_help();
             return HASH_SUCCESS;
-        } else if( string_slice_cmp( &arg, &arg_silent ) ) {
+        } else if( string_slice_cmp( arg, arg_silent ) ) {
             is_silent = true;
             continue;
-        } else if( string_slice_cmp( &arg, &arg_file ) ) {
+        } else if( string_slice_cmp( arg, arg_file ) ) {
             if( i + 1 >= argc ) {
                 hash_error( "--file must be followed by a path!" );
                 print_help();
@@ -82,7 +82,7 @@ c_linkage int application_main( int argc, char** argv ) {
 
             list_path = arg.buffer;
             continue;
-        } else if( string_slice_cmp( &arg, &arg_list ) ) {
+        } else if( string_slice_cmp( arg, arg_list ) ) {
             if( i + 1 >= argc ) {
                 hash_error( "--list must be followed by a list!" );
                 print_help();
@@ -175,7 +175,7 @@ c_linkage int application_main( int argc, char** argv ) {
 
         while( file_contents.len ) {
             StringSlice line = {};
-            if( !string_slice_split_char( &file_contents, '\n', &line, NULL ) ) {
+            if( !string_slice_split_char( file_contents, '\n', &line, NULL ) ) {
                 line.buffer = file_contents.buffer;
                 line.len    = file_contents.len;
             }
@@ -193,12 +193,12 @@ c_linkage int application_main( int argc, char** argv ) {
 
             u64 hash = 0;
 
-            string_slice_split_whitespace( &line, &identifier, &string );
+            string_slice_split_whitespace( line, &identifier, &string );
             if( !(identifier.len || string.len) ) {
                 goto skip_line;
             }
 
-            string_slice_trim_trailing_whitespace( &string, &string );
+            string = string_slice_trim_trailing_whitespace( string );
 
             if( !string.len ) {
                 goto skip_line;
@@ -214,7 +214,9 @@ c_linkage int application_main( int argc, char** argv ) {
                 }
             }
 
-            hash = string_slice_hash( &string );
+            hash = string_slice_hash( string );
+            println( "// \"{s}\"", string );
+            println( "#define HASH_{s,u} ({u64}ULL)\n", identifier, hash );
             output_write( "// \"{s}\"", string );
             output_write( "#define HASH_{s,u} ({u64}ULL)\n", identifier, hash );
 

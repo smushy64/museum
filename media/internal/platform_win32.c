@@ -1436,7 +1436,7 @@ DWORD ___win32_report_last_error( usize format_len, const char* format, ... ) {
     #define WIN32_ERROR_BUFFER_MAX_CAPACITY (512)
     char error_buffer[WIN32_ERROR_BUFFER_MAX_CAPACITY] = {};
 
-    StringSlice error = {};
+    StringBuffer error = {};
     error.buffer   = error_buffer;
     error.capacity = WIN32_ERROR_BUFFER_MAX_CAPACITY;
 
@@ -1447,7 +1447,7 @@ DWORD ___win32_report_last_error( usize format_len, const char* format, ... ) {
 
     va_list va;
     va_start( va, format );
-    ___internal_string_slice_fmt_va( &error, format_len, format, va );
+    ___internal_string_buffer_fmt_va( &error, format_len, format, va );
     va_end( va );
     // NOTE(alicia): get rid of trailing null
     if( error.len ) {

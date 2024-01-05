@@ -7,6 +7,7 @@
  * Notes:        define LD_LOGGING to enable logging
 */
 #include "shared/defines.h"
+#include "core/string.h"
 #include "core/print.h"
 
 /// Log types.
@@ -19,8 +20,6 @@ typedef enum LoggingType : u32 {
     LOGGING_TYPE_INFO,
     LOGGING_TYPE_NOTE,
 } LoggingType;
-
-struct StringSlice;
 
 #if defined(LD_API_INTERNAL)
 
@@ -53,13 +52,13 @@ LD_API LoggingLevel logging_query_level(void);
 LD_API void logging_output(
     LoggingType type, ConsoleColor* opt_color_override,
     b32 trace, b32 always_log, b32 new_line, b32 timestamped,
-    struct StringSlice* message );
+    StringSlice message );
 /// Output logging message.
 /// Uses a mutex to make sure there is no cross-talk between threads.
 LD_API void logging_output_locked(
     LoggingType type, ConsoleColor* opt_color_override,
     b32 trace, b32 always_log, b32 new_line, b32 timestamped,
-    struct StringSlice* message );
+    StringSlice message );
 /// Output formatted logging message.
 /// Is not thread-safe, use logging_output_fmt_locked instead.
 LD_API void ___internal_logging_output_fmt(

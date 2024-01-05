@@ -538,7 +538,7 @@ internal b32 ___process_arguments(
             argument.buffer = at;
             argument.len    = argument_len;
 
-            if( string_slice_find_char( &argument, '.', &dot_position ) ) {
+            if( string_slice_find_char( argument, '.', &dot_position ) ) {
                 switch( identifier ) {
                     case FMT_IDENT_FLOAT ... FMT_IDENT_VECTOR_4: break;
                     default: failed();
@@ -688,7 +688,7 @@ CORE_API usize ___internal_fmt_write_va(
         StringSlice remaining_slice = {};
         remaining_slice.buffer = at;
         remaining_slice.len    = remaining;
-        if( !string_slice_find_char( &remaining_slice, '{', &brace_index ) ) {
+        if( !string_slice_find_char( remaining_slice, '{', &brace_index ) ) {
             write_string( remaining, at );
             break;
         }
@@ -959,14 +959,8 @@ CORE_API usize ___internal_fmt_write_va(
                         output = va_arg( va, StringSlice );
 
                         if( args.count ) {
-                            if( output.capacity ) {
-                                if( args.count < output.capacity ) {
-                                    output.len = args.count;
-                                }
-                            } else {
-                                if( args.count < output.len ) {
-                                    output.len = args.count;
-                                }
+                            if( args.count < output.len ) {
+                                output.len = args.count;
                             }
                         }
                     }
