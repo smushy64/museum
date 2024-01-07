@@ -5,6 +5,7 @@
 */
 #include "shared/defines.h"
 #include "core/print.h"
+#include "core/path.h"
 #include "core/string.h"
 #include "core/memory.h"
 #include "core/math.h"
@@ -176,8 +177,9 @@ LD_API int application_main( int argc, char** argv ) {
 
 #if defined(LD_LOGGING)
 
-    FSFile* logging_file = fs_file_open(
-        DEFAULT_LOGGING_FILE_PATH, FS_FILE_WRITE | FS_FILE_SHARE_READ );
+    PathSlice default_logging_path = path_slice( DEFAULT_LOGGING_FILE_PATH );
+    FileHandle* logging_file = fs_file_open(
+        default_logging_path, FILE_OPEN_FLAG_WRITE | FILE_OPEN_FLAG_SHARE_ACCESS_READ );
 
     if( !logging_file ) {
         println_err( "[FATAL] Failed to open logging file!" );
@@ -253,7 +255,7 @@ LD_API int application_main( int argc, char** argv ) {
 #if defined(LD_DEVELOPER_MODE)
             if( string_slice_find( current, libload, NULL ) ) {
                 if( current.len - libload.len < 1 ) {
-                    StringSlice path = string_slice_clone( current );
+                    StringSlice path = current;
                     path.buffer += libload.len;
                     path.len    -= libload.len;
                     println_err(
@@ -273,13 +275,13 @@ LD_API int application_main( int argc, char** argv ) {
                 logging_subsystem_detach_file();
                 fs_file_close( logging_file );
 
-                if( !fs_file_delete( DEFAULT_LOGGING_FILE_PATH ) ) {
+                if( !fs_delete_file( default_logging_path ) ) {
                     warn_log( "Unable to delete logging file!" );
                 }
 
                 logging_file = fs_file_open(
-                    DEFAULT_LOGGING_FILE_PATH,
-                    FS_FILE_WRITE | FS_FILE_SHARE_READ );
+                    default_logging_path,
+                    FILE_OPEN_FLAG_WRITE | FILE_OPEN_FLAG_SHARE_ACCESS_READ );
 
                 read_write_fence();
                 logging_subsystem_attach_file( logging_file );
@@ -988,18 +990,15 @@ internal
 b32 parse_settings( struct SettingsParse* out_parse_result ) {
     struct SettingsParse parse_result = {};
 
-    FSFileFlags flags =
-        FS_FILE_READ |
-        FS_FILE_READ |
-        FS_FILE_ONLY_EXISTING;
-    #define SETTINGS_PATH "./settings.ini"
+    FileOpenFlags flags = FILE_OPEN_FLAG_READ;
+    PathSlice settings_path = path_slice( "./settings.ini" );
 
-    FSFile* settings_file = fs_file_open(
-        SETTINGS_PATH, flags | FS_FILE_ONLY_EXISTING );
+    FileHandle* settings_file = fs_file_open(
+        settings_path, flags );
 
     if( !settings_file ) {
         settings_file = fs_file_open(
-            SETTINGS_PATH, FS_FILE_WRITE );
+            settings_path, FILE_OPEN_FLAG_WRITE );
         if( !settings_file ) {
             fatal_log( "Failed to open settings file at all!" );
             return false;
@@ -1021,7 +1020,7 @@ b32 parse_settings( struct SettingsParse* out_parse_result ) {
 
         fs_file_close( settings_file );
 
-        settings_file = fs_file_open( SETTINGS_PATH, flags );
+        settings_file = fs_file_open( settings_path, flags );
 
         if( !settings_file ) {
             fatal_log( "Failed to reopen settings file for reading!" );
@@ -1085,10 +1084,10 @@ b32 parse_settings( struct SettingsParse* out_parse_result ) {
 
 
     usize eol = 0;
-    StringSlice line = string_slice_clone( settings );
+    StringSlice line = settings;
 
     while( string_slice_find_char( line, '\n', &eol ) ) {
-        StringSlice temp = string_slice_clone( line );
+        StringSlice temp = line;
         temp.len = eol + 1;
 
         switch( temp.buffer[0] ) {

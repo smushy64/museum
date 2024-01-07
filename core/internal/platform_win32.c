@@ -12,6 +12,9 @@
 #include "core/internal/logging.h"
 #include "core/system.h"
 #include "core/memory.h"
+#include "core/string.h"
+#include "core/path.h"
+#include "core/fs.h"
 
 #define win32_log_note( format, ... )\
     ___internal_core_log(\
@@ -36,26 +39,7 @@
 
 #define NOMINMAX
 #include <windows.h>
-#include <shlwapi.h>
 #include <intrin.h>
-
-#define WIN32_DECLARE_FUNCTION( ret, fn, ... )\
-    typedef ret ___internal_##fn##FN( __VA_ARGS__ );\
-    global ___internal_##fn##FN* ___internal_##fn = NULL
-
-WIN32_DECLARE_FUNCTION( BOOL, PathFileExistsA, LPCSTR pszPath );
-#define PathFileExistsA ___internal_PathFileExistsA
-
-#define WIN32_CHECK_FUNC( fn, module ) do {\
-    if( !fn ) {\
-        if( !global_##module##_object ) {\
-            global_##module##_object = LoadLibraryA( #module ".dll" );\
-            assert( global_##module##_object );\
-        }\
-        fn = (___internal_##fn##FN*)GetProcAddress( global_##module##_object, #fn );\
-        assert( fn );\
-    }\
-} while(0)
 
 global LARGE_INTEGER global_performance_frequency = {};
 global LARGE_INTEGER global_performance_counter   = {};
@@ -63,8 +47,6 @@ global LARGE_INTEGER global_performance_counter   = {};
 // TODO(alicia): 
 // - Logging
 // - file_read_offset
-
-global HANDLE global_shlwapi_object    = NULL;
 
 struct Win32ThreadParams {
     PlatformThreadProc* thread_proc;
@@ -86,95 +68,99 @@ PlatformFile* platform_get_stdin(void) {
     return (PlatformFile*)GetStdHandle( STD_INPUT_HANDLE );
 }
 
-PlatformFile* platform_file_open( const char* path, PlatformFileFlags flags ) {
+void ___format_message( char* buffer, usize buffer_size, DWORD error_code );
+
+const char* ___make_win32_path( PathSlice path, usize* out_length ) {
+    if( path.len <= MAX_PATH && ( !path.buffer[path.len] || !path.buffer[path.len - 1] ) ) {
+        *out_length = 0;
+        return path.buffer;
+    }
+
+
+    #define PREPEND "\\\\?\\"
+    usize buffer_size = path.len + 1 + sizeof(PREPEND);
+    char* buffer = HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, buffer_size );
+    memory_copy( buffer, PREPEND, sizeof(PREPEND) - 1 );
+
+    PathBuffer path_buffer = {};
+    path_buffer.buffer   = (buffer + (sizeof(PREPEND) - 1));
+    path_buffer.capacity = path.len;
+
+    path_slice_convert_separators( string_buffer_write, &path_buffer, path, false );
+
+    #undef PREPEND
+
+    *out_length = buffer_size;
+    return buffer;
+}
+void ___free_win32_path( usize length, const char* path ) {
+    if( !length ) {
+        return;
+    }
+
+    HeapFree( GetProcessHeap(), 0, (void*)path );
+}
+
+PlatformFile* platform_file_open( PathSlice path, u32 flags ) {
+    usize win32_path_length = 0;
+    const char* win32_path = ___make_win32_path( path, &win32_path_length );
+
+    PlatformFile* result = NULL;
+
     DWORD dwDesiredAccess = 0;
-    if( bitfield_check( flags, PLATFORM_FILE_READ ) ) {
+    if( bitfield_check( flags, FILE_OPEN_FLAG_READ ) ) {
         dwDesiredAccess |= GENERIC_READ;
     }
-    if( bitfield_check( flags, PLATFORM_FILE_WRITE ) ) {
+    if( bitfield_check( flags, FILE_OPEN_FLAG_WRITE ) ) {
         dwDesiredAccess |= GENERIC_WRITE;
     }
-
     DWORD dwShareMode = 0;
-    if( bitfield_check( flags, PLATFORM_FILE_SHARE_READ ) ) {
-        dwShareMode |= FILE_SHARE_READ;
-    }
-    if( bitfield_check( flags, PLATFORM_FILE_SHARE_WRITE ) ) {
+    if( bitfield_check( flags, FILE_OPEN_FLAG_SHARE_ACCESS_WRITE ) ) {
         dwShareMode |= FILE_SHARE_WRITE;
     }
-
-    DWORD dwCreationDisposition = 0;
-    if( bitfield_check( flags, PLATFORM_FILE_ONLY_EXISTING ) ) {
-        dwCreationDisposition |= OPEN_EXISTING;
-    } else {
-        dwCreationDisposition |= OPEN_ALWAYS;
+    if( bitfield_check( flags, FILE_OPEN_FLAG_SHARE_ACCESS_READ ) ) {
+        dwShareMode |= FILE_SHARE_READ;
     }
 
     LPSECURITY_ATTRIBUTES lpSecurityAttributes = NULL;
 
-    DWORD dwFlagsAndAttributes = 0;
+    DWORD dwCreationDisposition = OPEN_EXISTING;
+    if( bitfield_check( flags, FILE_OPEN_FLAG_WRITE ) ) {
+        dwCreationDisposition = CREATE_ALWAYS;
+    }
+    if( bitfield_check( flags, FILE_OPEN_FLAG_CREATE ) ) {
+        dwCreationDisposition = CREATE_ALWAYS;
+    }
+    if( bitfield_check( flags, FILE_OPEN_FLAG_TRUNCATE ) ) {
+        dwCreationDisposition = TRUNCATE_EXISTING;
+    }
 
+    DWORD dwFlagsAndAttributes = 0;
     HANDLE hTemplateFile = NULL;
 
     HANDLE handle = CreateFileA(
-        path,
-        dwDesiredAccess,
-        dwShareMode,
-        lpSecurityAttributes,
-        dwCreationDisposition,
-        dwFlagsAndAttributes,
-        hTemplateFile );
+        win32_path, dwDesiredAccess, dwShareMode,
+        lpSecurityAttributes, dwCreationDisposition,
+        dwFlagsAndAttributes, hTemplateFile );
     if( handle == INVALID_HANDLE_VALUE ) {
-        return NULL;
+        if( core_log_enabled() ) {
+            DWORD error = GetLastError();
+            char  error_log[256] = {};
+            ___format_message( error_log, 255, error );
+
+            core_log_error(
+                "failed to open file '{s}' | error: {u32,X} {cc}",
+                path, error, error_log );
+        }
+    } else {
+        result = handle;
     }
 
-    return (PlatformFile*)handle;
+    ___free_win32_path( win32_path_length, win32_path );
+    return result;
 }
 void platform_file_close( PlatformFile* file ) {
-    CloseHandle( (HANDLE)file );
-}
-usize platform_file_query_offset( PlatformFile* file ) {
-#if defined(LD_ARCH_64_BIT)
-    LARGE_INTEGER offset = {};
-    LARGE_INTEGER result = {};
-    SetFilePointerEx(
-        file,
-        offset,
-        &result,
-        FILE_CURRENT
-    );
-
-    return result.QuadPart;
-#else
-    LONG result = 0;
-    SetFilePointer(
-        file,
-        0, &result,
-        FILE_CURRENT
-    );
-
-    return result;
-#endif
-}
-void platform_file_set_offset( PlatformFile* file, usize offset ) {
-#if defined(LD_ARCH_64_BIT)
-    LARGE_INTEGER large_offset = {};
-    large_offset.QuadPart = offset;
-
-    SetFilePointerEx(
-        (HANDLE)file,
-        large_offset,
-        NULL,
-        FILE_BEGIN
-    );
-#else
-    LONG off = offset;
-    SetFilePointer(
-        file,
-        off, NULL,
-        FILE_BEGIN
-    );
-#endif
+    CloseHandle( file );
 }
 usize platform_file_query_size( PlatformFile* file ) {
 #if defined(LD_ARCH_64_BIT)
@@ -185,183 +171,186 @@ usize platform_file_query_size( PlatformFile* file ) {
     return GetFileSize( file, NULL );
 #endif
 }
-b32 platform_file_write( PlatformFile* file, usize buffer_size, void* buffer ) {
+usize platform_file_query_offset( PlatformFile* file ) {
 #if defined(LD_ARCH_64_BIT)
-    LARGE_INTEGER write = {};
-    write.QuadPart      = buffer_size;
-    DWORD bytes_written = 0;
-
-    if( !WriteFile(
-        file, buffer,
-        write.LowPart,
-        &bytes_written,
-        NULL
-    ) ) {
-        return false;
-    }
-
-    if( bytes_written != write.LowPart ) {
-        return false;
-    }
-
-    // early return if no more write.
-    if( !write.HighPart ) {
-        return true;
-    }
-
-    bytes_written = 0;
-    if( !WriteFile(
-        file, (u8*)buffer + write.LowPart,
-        write.HighPart,
-        &bytes_written,
-        NULL
-    ) ) {
-        return false;
-    }
-
-    if( bytes_written != *(DWORD*)&write.HighPart ) {
-        return false;
-    }
-
-    return true;
-#else
-    DWORD bytes_to_write = buffer_size;
-    DWORD bytes_written  = 0;
-
-    if( !WriteFile(
-        file, buffer,
-        bytes_to_write,
-        &bytes_written,
-        NULL
-    ) ) {
-        return false;
-    }
-
-    if( bytes_to_write != bytes_written ) {
-        return false;
-    }
-
-    return true;
-#endif
-}
-b32 platform_file_write_offset(
-    PlatformFile* file, usize offset_from_start, usize buffer_size, void* buffer
-) {
     LARGE_INTEGER offset = {};
-    offset.QuadPart = offset_from_start;
+    LARGE_INTEGER result = {};
+    SetFilePointerEx( file, offset, &result, FILE_CURRENT );
+    return result.QuadPart;
+#else
+    LONG result = 0;
+    SetFilePointer( file, 0, &result, FILE_CURRENT );
+    return result;
+#endif
+}
+void platform_file_set_offset( PlatformFile* file, usize offset ) {
+#if defined(LD_ARCH_64_BIT)
+    LARGE_INTEGER large_offset = {};
+    large_offset.QuadPart = offset;
 
-    OVERLAPPED overlapped = {};
-    overlapped.Offset     = offset.LowPart;
-    overlapped.OffsetHigh = offset.HighPart;
+    SetFilePointerEx( file, large_offset, NULL, FILE_BEGIN );
+#else
+    LONG small_offset = offset;
+    SetFilePointer( file, small_offset, NULL, FILE_BEGIN );
+#endif
+}
 
-    LARGE_INTEGER write = {};
-    write.QuadPart      = buffer_size;
-    DWORD bytes_written = 0;
+b32 ___file_read_32bit( PlatformFile* file, u32 buffer_size, void* buffer ) {
+    DWORD bytes_read = 0;
+    BOOL result = ReadFile(
+        file, buffer, buffer_size,
+        &bytes_read, NULL );
 
-    if( WriteFile(
-        file, buffer,
-        write.LowPart,
-        &bytes_written,
-        &overlapped
-    ) != TRUE ) {
-        if( GetLastError() != ERROR_IO_PENDING ) {
-            return false;
+    if( !result || bytes_read != buffer_size ) {
+        if( core_log_enabled() ) {
+            DWORD error_code = GetLastError();
+            char  error_log[255] = {};
+            ___format_message( error_log, 255, error_code );
+            core_log_error(
+                "failed to read file! | {u32,X} {cc}", error_code, error_log );
         }
-    }
-
-    if( bytes_written != write.LowPart ) {
         return false;
     }
 
     return true;
 }
+
 b32 platform_file_read( PlatformFile* file, usize buffer_size, void* buffer ) {
+    u32 read  = buffer_size;
+    u8* bytes = buffer;
+
 #if defined(LD_ARCH_64_BIT)
-    LARGE_INTEGER read = {};
-    read.QuadPart = buffer_size;
-
-    DWORD bytes_read = 0;
-    if( !ReadFile(
-        file, buffer,
-        read.LowPart,
-        &bytes_read,
-        NULL
-    ) ) {
-        return false;
+    if( buffer_size > U32_MAX ) {
+        read = U32_MAX;
+    } else {
+        read = buffer_size;
     }
 
-    if( bytes_read < read.LowPart ) {
+    if( !___file_read_32bit( file, read, bytes ) ) {
         return false;
     }
-
-    // if less than 4GB, early return 
-    if( !read.HighPart ) {
+    buffer_size -= read;
+    if( !buffer_size ) {
         return true;
     }
 
-    bytes_read = 0;
-    if( !ReadFile(
-        file, (u8*)buffer + read.LowPart,
-        read.HighPart,
-        &bytes_read,
-        NULL
-    ) ) {
-        return false;
-    }
-
-    if( bytes_read < *(DWORD*)&read.HighPart ) {
-        return false;
-    }
-
-#else
-    DWORD bytes_to_read = buffer_size;
-    DWORD bytes_read    = 0;
-    if( !ReadFile(
-        file, buffer,
-        bytes_to_read,
-        &bytes_to_read,
-        NULL
-    ) ) {
-        return false;
-    }
-
-    if( bytes_to_read < bytes_read ) {
-        return false;
-    }
+    bytes += read;
+    read   = buffer_size;
 #endif
+
+    return ___file_read_32bit( file, read, bytes );
+}
+
+b32 ___file_write_32bit( PlatformFile* file, u32 buffer_size, void* buffer ) {
+    DWORD bytes_read = 0;
+    BOOL result = WriteFile(
+        file, buffer, buffer_size,
+        &bytes_read, NULL );
+
+    if( !result || bytes_read != buffer_size ) {
+        if( core_log_enabled() ) {
+            DWORD error_code = GetLastError();
+            char  error_log[255] = {};
+            ___format_message( error_log, 255, error_code );
+            core_log_error(
+                "failed to write file! | {u32,X} {cc}", error_code, error_log );
+        }
+        return false;
+    }
 
     return true;
 }
-b32 platform_file_read_offset(
-    PlatformFile* file, usize offset, usize buffer_size, void* buffer );
-b32 platform_file_delete( const char* path ) {
-    return DeleteFileA( path ) > 0;
+
+b32 platform_file_write( PlatformFile* file, usize buffer_size, void* buffer ) {
+    u32 write = buffer_size;
+    u8* bytes = buffer;
+#if defined(LD_ARCH_64_BIT)
+    if( buffer_size > U32_MAX ) {
+        write = U32_MAX;
+    } else {
+        write = buffer_size;
+    }
+
+    if( !___file_write_32bit( file, write, bytes ) ) {
+        return false;
+    }
+    buffer_size -= write;
+    if( !buffer_size ) {
+        return true;
+    }
+
+    bytes += write;
+    write  = buffer_size;
+#endif
+    return ___file_write_32bit( file, write, bytes );
 }
-b32 platform_file_copy(
-    const char* dst_path, const char* src_path, b32 fail_if_dst_exists
-) {
-    return CopyFileA( src_path, dst_path, fail_if_dst_exists ) > 0;
+b32 platform_delete_file( PathSlice path ) {
+    usize path_len = 0;
+    const char* win32_path = ___make_win32_path( path, &path_len );
+
+    WINBOOL result = DeleteFileA( win32_path );
+
+    ___free_win32_path( path_len, win32_path );
+    return result > 0;
 }
-b32 platform_file_move(
-    const char* dst_path, const char* src_path, b32 fail_if_dst_exists
-) {
-    b32 dst_exists = platform_file_check_if_exists( dst_path );
+b32 platform_file_copy_by_path( PathSlice dst, PathSlice src, b32 fail_if_dst_exists ) {
+    usize dst_path_len = 0;
+    usize src_path_len = 0;
+    const char* dst_path = ___make_win32_path( dst, &dst_path_len );
+    const char* src_path = ___make_win32_path( src, &src_path_len );
+
+    WINBOOL result = CopyFileA( src_path, dst_path, fail_if_dst_exists );
+
+    ___free_win32_path( dst_path_len, dst_path );
+    ___free_win32_path( src_path_len, src_path );
+
+    return result > 0;
+}
+b32 platform_file_move_by_path( PathSlice dst, PathSlice src, b32 fail_if_dst_exists ) {
+    b32 dst_exists = fs_check_if_file_exists( dst );
     if( dst_exists ) {
         if( fail_if_dst_exists ) {
             return false;
         } else {
-            if( !platform_file_delete( dst_path ) ) {
+            if( !platform_delete_file( dst ) ) {
                 return false;
             }
         }
     }
 
-    return MoveFileA( src_path, dst_path ) > 0;
+    usize dst_path_len = 0;
+    usize src_path_len = 0;
+    const char* dst_path = ___make_win32_path( dst, &dst_path_len );
+    const char* src_path = ___make_win32_path( src, &src_path_len );
+
+    WINBOOL result = MoveFileA( src_path, dst_path );
+
+    ___free_win32_path( dst_path_len, dst_path );
+    ___free_win32_path( src_path_len, src_path );
+
+    return result > 0;
 }
-b32 platform_file_check_if_exists( const char* path ) {
-    WIN32_CHECK_FUNC( PathFileExistsA, shlwapi );
-    return PathFileExistsA( path ) == TRUE;
+b32 platform_path_is_file( PathSlice path ) {
+    usize path_len = 0;
+    const char* win32_path = ___make_win32_path( path, &path_len );
+
+    DWORD attributes = GetFileAttributesA( win32_path );
+
+    ___free_win32_path( path_len, win32_path );
+
+    return !bitfield_check( attributes, FILE_ATTRIBUTE_DIRECTORY );
 }
+b32 platform_path_is_directory( PathSlice path ) {
+    usize path_len = 0;
+    const char* win32_path = ___make_win32_path( path, &path_len );
+
+    DWORD attributes = GetFileAttributesA( win32_path );
+
+    ___free_win32_path( path_len, win32_path );
+
+    return bitfield_check( attributes, FILE_ATTRIBUTE_DIRECTORY );
+}
+
 void platform_win32_output_debug_string( const char* cstr ) {
     OutputDebugStringA( cstr );
 }
@@ -578,6 +567,15 @@ void platform_system_info_query( SystemInfo* out_info ) {
 #endif /* Arch x86 */
 
 }
+
+void ___format_message( char* buffer, usize buffer_size, DWORD error_code ) {
+    FormatMessageA(
+        FORMAT_MESSAGE_FROM_SYSTEM    |
+        FORMAT_MESSAGE_IGNORE_INSERTS |
+        FORMAT_MESSAGE_MAX_WIDTH_MASK,
+        NULL, error_code, 0, buffer, buffer_size, NULL );
+}
+
 
 #endif /* Platform Windows */
 

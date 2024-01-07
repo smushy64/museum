@@ -4,7 +4,8 @@
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
-TARGET := $(BUILD_PATH)/$(LIB_CORE)
+TARGET      := $(BUILD_PATH)/$(LIB_CORE)
+TEST_TARGET := $(BUILD_PATH)/$(LIB_CORE_NAME)-test
 
 CFLAGS := $(WARNING_FLAGS) $(OPTIMIZATION_FLAGS) $(ARCH_FLAGS) $(PLATFORM_FLAGS)
 
@@ -29,13 +30,15 @@ endif
 
 LDFLAGS := $(LINKER_FLAGS_PRELUDE) $(LOCAL_LDFLAGS) $(LINKER_FLAGS_PLATFORM)
 
-C := $(DEP_CORE_C)
+TEST_FILE := ../core/test.c
+
+C := $(filter-out $(TEST_FILE),$(DEP_CORE_C))
 H := $(DEP_CORE_H)
 
 GENERATED_DEP := $(addsuffix \",$(C))
 GENERATED_DEP := $(addprefix "#include \"",$(GENERATED_DEP))
 
-all: $(TARGET)
+all: $(TEST_TARGET)
 
 clean_dep:
 	@echo "Make: cleaning lib core dependencies . . ."
@@ -53,6 +56,7 @@ config:
 	@echo "include:    include"
 	@echo
 	@echo "ldflags:    linker_prelude, "$(LOCAL_LDFLAGS)", linker_platform"
+	@echo "c:          "$(C)
 
 $(GENERATED_DEP_PATH): $(C)
 	@echo "Make: generating dependencies for lib core . . ."
@@ -68,6 +72,12 @@ $(TARGET) : $(GENERATED_DEP_PATH) $(C) $(H)
 	@echo "Make: compiling "$(TARGET)" . . ."
 	@mkdir -p $(OBJ_PATH)
 	@$(CC) $(CSTD) -xc $(GENERATED_DEP_PATH) $(DLLMAIN) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
+
+$(TEST_TARGET): $(TARGET) $(TEST_FILE)
+	@echo "Make: testing "$(TARGET)" . . ."
+	@$(CC) $(CSTD) -xc $(TEST_FILE) -o $(TEST_TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) -L$(BUILD_PATH) -l$(LIB_CORE_NAME)
+	@echo -n "Make: core: "
+	$(TEST_TARGET)
 
 generate_compile_flags:
 	@echo "Make: generating core "$(COMPILE_COMMANDS_PATH)". . ."

@@ -48,7 +48,7 @@ generate_compile_flags:
 	@echo "-I.." >> $(COMPILE_COMMANDS_PATH)
 	for i in $(LDFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
 
-$(TARGET): $(DEP_CORE_H) $(DEP_SHARED_H) $(PLATFORM_DEP_C)
+$(TARGET): $(MAIN) $(DEP_CORE_H) $(DEP_SHARED_H) $(PLATFORM_DEP_C)
 	@echo "Make: compiling "$(TARGET)" . . ."
 	@mkdir -p $(OBJ_PATH)
 	@$(CC) $(CSTD) -xc $(PLATFORM_DEP_C) $(MAIN) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)

@@ -6,6 +6,7 @@
  * File Created: November 22, 2023
 */
 #include "shared/defines.h"
+#include "core/path.h"
 
 #if !defined(FORMAT_WRITE_FN_DEFINED)
 #define FORMAT_WRITE_FN_DEFINED
@@ -17,90 +18,125 @@ typedef usize FormatWriteFN( void* target, usize count, char* characters );
 #endif
 
 /// Opaque handle to a file.
-typedef void FSFile;
-/// Flags for how to open a file.
-typedef u32 FSFileFlags;
+typedef void FileHandle;
 
-/// Open file for reading.
-#define FS_FILE_READ          (1 << 0)
-/// Open file for writing.
-#define FS_FILE_WRITE         (1 << 1)
-/// Allow other processes and threads to read.
-#define FS_FILE_SHARE_READ    (1 << 2) 
-/// Allow other processes and threads to write.
-#define FS_FILE_SHARE_WRITE   (1 << 3)
-/// Only open file if it already exists.
-#define FS_FILE_ONLY_EXISTING (1 << 4)
+/// Flags for opening a file.
+typedef u32 FileOpenFlags;
+#define FILE_OPEN_FLAG_READ               (1 << 0)
+#define FILE_OPEN_FLAG_WRITE              (1 << 1)
+#define FILE_OPEN_FLAG_SHARE_ACCESS_READ  (1 << 2)
+#define FILE_OPEN_FLAG_SHARE_ACCESS_WRITE (1 << 3)
+#define FILE_OPEN_FLAG_CREATE             (1 << 4)
+#define FILE_OPEN_FLAG_TRUNCATE           (1 << 5)
 
-/// Open or create file if it doesn't exist.
-/// Returns handle to file, otherwise NULL if failed.
-CORE_API FSFile* fs_file_open( const char* path, FSFileFlags flags );
+/// Open a file at a given path.
+/// Flags determine if file is to be opened for reading/writing,
+/// access rights for other threads/processes and if file should be
+/// created or truncated on open.
+/// By default, write only will create and
+/// open the file for writing from the first byte.
+/// Read only requires an existing file.
+/// Read and write will create and open the file for writing from the first byte.
+CORE_API FileHandle* fs_file_open( PathSlice path, FileOpenFlags flags );
 /// Close a file handle.
-CORE_API void fs_file_close( FSFile* file );
-/// Read a file at the current offset.
-CORE_API b32 fs_file_read( FSFile* file, usize buffer_size, void* buffer );
-/// Read a file at a given offset.
-/// Does not modify file offset.
+CORE_API void fs_file_close( FileHandle* file );
+/// Query the size of a file.
+CORE_API usize fs_file_query_size( FileHandle* file );
+/// Query where the file offset is inside the file.
+CORE_API usize fs_file_query_offset( FileHandle* file );
+/// Set the file's offset.
+CORE_API void fs_file_set_offset( FileHandle* file, usize offset );
+/// Read from a file from the current offset.
+/// Modifies the file's offset to be at the end of the read.
+CORE_API b32 fs_file_read( FileHandle* file, usize buffer_size, void* buffer );
+/// Read from a file from a specified offset.
+/// Does not modify the file's offset after reading.
 CORE_API b32 fs_file_read_offset(
-    FSFile* file, usize buffer_size, void* buffer, usize offset );
-/// Write in file at current offset.
-CORE_API b32 fs_file_write( FSFile* file, usize buffer_size, void* buffer );
-/// Write in file at given offset.
-/// Does not modify file offset.
+    FileHandle* file, usize offset, usize buffer_size, void* buffer );
+/// Write to a file from the current offset.
+/// Modifies the file's offset to be at the end of the write.
+CORE_API b32 fs_file_write( FileHandle* file, usize buffer_size, void* buffer );
+/// Write to a file from a specified offset.
+/// Does not modify the file's offset after reading.
 CORE_API b32 fs_file_write_offset(
-    FSFile* file, usize buffer_size, void* buffer, usize offset );
-/// Query the size of the given file.
-CORE_API usize fs_file_query_size( FSFile* file );
-/// Query the current file offset.
-CORE_API usize fs_file_query_offset( FSFile* file );
-/// Set file offset from start of file.
-CORE_API void fs_file_set_offset( FSFile* file, usize offset );
-/// Set file offset relative to the current offset.
-CORE_API void fs_file_set_offset_relative( FSFile* file, usize offset );
-/// Delete file by path.
-CORE_API b32 fs_file_delete( const char* path );
-/// Copy source file to destination file.
-CORE_API b32 fs_file_copy(
-    FSFile* dst, FSFile* src, usize size,
-    usize intermediate_buffer_size, void* intermediate_buffer );
-/// Copy source file to destination file from source offset to destination offset.
-CORE_API b32 fs_file_copy_offset(
-    FSFile* dst, usize dst_offset,
-    FSFile* src, usize src_offset, usize size,
-    usize intermediate_buffer_size, void* intermediate_buffer );
-/// Copy source to destination file by path.
-CORE_API b32 fs_file_copy_by_path(
-    const char* dst_path, const char* src_path, b32 fail_if_exists );
-/// Move source to destination file by path.
-CORE_API b32 fs_file_move(
-    const char* dst_path, const char* src_path, b32 fail_if_exists );
-/// Check if file exists.
-CORE_API b32 fs_file_exists( const char* path );
-/// Generate a temporary file path.
-CORE_API usize fs_file_generate_temp_path(
-    FormatWriteFN* write, void* target,
-    const char* opt_prefix, const char* opt_suffix );
+    FileHandle* file, usize offset, usize buffer_size, void* buffer );
+/// Copy contents from src to dst.
+/// Source file must have range of offset + size available to read and
+/// must be opened with read flag.
+/// Destination file must be opened with write flag.
+/// intermediate_buffer must be able to hold intermediate_size.
+CORE_API b32 fs_file_to_file_copy(
+    FileHandle* dst, usize dst_offset,
+    FileHandle* src, usize src_offset,
+    usize intermediate_size, void* intermediate_buffer, usize size );
+/// Delete a file pointed to by path.
+CORE_API b32 fs_delete_file( PathSlice path );
+/// Copy the file at source path to destination path.
+CORE_API b32 fs_copy_by_path( PathSlice dst, PathSlice src, b32 fail_if_dst_exists );
+/// Move the file at source path to destination path.
+CORE_API b32 fs_move_by_path( PathSlice dst, PathSlice src, b32 fail_if_dst_exists );
+/// Check if file at specified path exists.
+/// Returns true if it does, returns false if it doesn't or if
+/// path does not point to a file.
+header_only b32 fs_check_if_file_exists( PathSlice path ) {
+    FileHandle* file = fs_file_open(
+        path, FILE_OPEN_FLAG_READ |
+        FILE_OPEN_FLAG_SHARE_ACCESS_READ |
+        FILE_OPEN_FLAG_SHARE_ACCESS_WRITE );
+    b32 exists = file != NULL;
+    fs_file_close( file );
 
-/// Write formatted string to file.
-CORE_API b32 ___internal_fs_file_write_fmt(
-    FSFile* file, usize format_len, const char* format, ... );
-/// Write formatted string to file using variadic list.
-CORE_API b32 ___internal_fs_file_write_fmt_va(
-    FSFile* file, usize format_len, const char* format, va_list va );
-/// Write formatted string to file at offset.
-CORE_API b32 ___internal_fs_file_write_offset_fmt(
-    FSFile* file, usize offset, usize format_len, const char* format, ... );
-/// Write formatted string to file at offset using variadic list.
-CORE_API b32 ___internal_fs_file_write_offset_fmt_va(
-    FSFile* file, usize offset, usize format_len, const char* format, va_list va );
+    return exists;
+}
+
+/// Write a formatted string directly to a file using variadic arguments.
+/// Writes at the file's current offset and modifies offset.
+CORE_API b32 ___internal_file_write_fmt_va(
+    FileHandle* file, usize format_len, const char* format, va_list va );
+/// Write a formatted string directly to a file.
+/// Writes at the file's current offset and modifies offset.
+header_only b32 ___internal_file_write_fmt(
+    FileHandle* file, usize format_len, const char* format, ...
+) {
+    va_list va;
+    va_start( va, format );
+    b32 result = ___internal_file_write_fmt_va( file, format_len, format, va );
+    va_end( va );
+    return result;
+}
+/// Write a formatted string directly to a file using variadic arguments.
+/// Writes at the specified offset and does not modify offset.
+header_only b32 ___internal_file_write_offset_fmt_va(
+    FileHandle* file, usize offset, usize format_len, const char* format, va_list va
+) {
+    usize former_offset = fs_file_query_offset( file );
+    fs_file_set_offset( file, offset );
+    b32 result = ___internal_file_write_fmt_va( file, format_len, format, va );
+    fs_file_set_offset( file, former_offset );
+    return result;
+}
+/// Write a formatted string directly to a file.
+/// Writes at the specified offset and does not modify offset.
+header_only b32 ___internal_file_write_offset_fmt(
+    FileHandle* file, usize offset, usize format_len, const char* format, ...
+) {
+    va_list va;
+    va_start( va, format );
+    b32 result = ___internal_file_write_offset_fmt_va(
+        file, offset, format_len, format, va );
+    va_end( va );
+    return result;
+}
 
 #define fs_file_write_fmt( file, format, ... )\
-    ___internal_fs_file_write_fmt( file, sizeof(format) - 1, format, ##__VA_ARGS__ )
+    ___internal_file_write_fmt( file, sizeof(format) - 1, format, ##__VA_ARGS__ )
 #define fs_file_write_fmt_va( file, format, va )\
-    ___internal_fs_file_write_fmt_va( file, sizeof(format) - 1, format, va )
+    ___internal_file_write_fmt_va( file, sizeof(format) - 1, format, va )
 #define fs_file_write_offset_fmt( file, offset, format, ... )\
-    ___internal_fs_file_write_offset_fmt( file, offset, sizeof(format) - 1, format, ##__VA_ARGS__ )
+    ___internal_file_write_fmt_offset(\
+        file, offset, sizeof(format) - 1, format, ##__VA_ARGS__ )
 #define fs_file_write_offset_fmt_va( file, offset, format, va )\
-    ___internal_fs_file_write_offset_fmt_va( file, offset, sizeof( format ) - 1, format, va )
+    ___internal_file_write_offset_fmt_va(\
+        file, offset, sizeof(format) - 1, format, va )
 
 #endif /* header guard */

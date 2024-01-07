@@ -6,7 +6,6 @@
  * File Created: April 28, 2023
 */
 #include "shared/defines.h"
-// #include "core/collections.h"
 
 struct Iterator;
 enum FormatInteger : u32;
@@ -95,14 +94,6 @@ CORE_API void cstr_copy(
 CORE_API void cstr_copy_overlapped(
     char* dst, const char* src, usize opt_src_len );
 
-/// Clone a String Slice.
-/// Does not copy buffer, just creates another slice with identical data.
-header_only StringSlice string_slice_clone( StringSlice slice ) {
-    StringSlice result;
-    result.buffer = slice.buffer;
-    result.len    = slice.len;
-    return result;
-}
 /// Create a String Slice from null-terminated string.
 /// Optionally provide length to skip calculating it.
 header_only StringSlice string_slice_from_cstr( usize opt_len, const char* cstr ) {
@@ -226,15 +217,10 @@ header_only StringBuffer string_buffer( usize capacity, char* buffer ) {
 
     return result;
 }
-/// Clone a String Buffer.
-/// Does not copy buffer, just creates another buffer with identical
-/// data in its fields.
-header_only StringBuffer string_buffer_clone( StringBuffer buffer ) {
-    StringBuffer result = {};
-    result.buffer   = buffer.buffer;
-    result.capacity = buffer.capacity;
-    result.len      = buffer.len;
-    return result;
+/// Clear a String Buffer's content.
+/// Does not zero-out content, just sets length to zero.
+header_only void string_buffer_clear( StringBuffer* buffer ) {
+    buffer->len = 0;
 }
 /// Returns true if String Buffer is full.
 header_only b32 string_buffer_is_full( StringBuffer buffer ) {

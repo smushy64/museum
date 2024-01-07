@@ -12,6 +12,7 @@
 
 #include "core/collections.h"
 #include "core/memory.h"
+#include "core/path.h"
 #include "core/fs.h"
 
 #include "generated/package_hashes.h"
@@ -52,10 +53,10 @@ b32 ___validate_c_identifier( StringSlice* identifier ) {
 
 global const char* global_local_directory = "./";
 
-b32 manifest_parse( const char* path, Manifest* out_manifest ) {
+b32 manifest_parse( PathSlice path, Manifest* out_manifest ) {
 
-    FSFile* file = fs_file_open(
-        path, FS_FILE_READ | FS_FILE_SHARE_READ | FS_FILE_ONLY_EXISTING );
+    FileHandle* file = fs_file_open(
+        path, FILE_OPEN_FLAG_READ | FILE_OPEN_FLAG_SHARE_ACCESS_READ );
     if( !file ) {
         lp_error( "failed to open manifest '{cc}'!", path );
         return false;
@@ -300,7 +301,7 @@ b32 manifest_parse( const char* path, Manifest* out_manifest ) {
 
                             text_push( token_right, true );
 
-                            item.path = token_right.buffer;
+                            item.path = reinterpret_cast( PathSlice, &token_right );
                         } break;
                         case HASH_TOKEN_MANIFEST_TYPE: {
                             switch( token_right_hash ) {
@@ -359,7 +360,7 @@ b32 manifest_parse( const char* path, Manifest* out_manifest ) {
     }
 
     // extract directory of manifest
-    StringSlice path_slice = string_slice_from_cstr( 0, path );
+    StringSlice path_slice = path_slice_to_string( &path );
 
     usize last_slash_position = 0;
     for( usize i = path_slice.len; i-- > 0; ) {

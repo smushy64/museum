@@ -41,9 +41,9 @@ c_linkage int application_main( int argc, char** argv ) {
         return HASH_ERROR_NO_ARGUMENTS;
     }
 
-    const char*  output_path = HASH_DEFAULT_OUTPUT_PATH;
+    PathSlice output_path = path_slice( HASH_DEFAULT_OUTPUT_PATH );
+    PathSlice list_path   = {};
     const char** list_start  = NULL;
-    const char*  list_path   = NULL;
     int hash_count = 0;
     b32 is_silent  = false;
 
@@ -64,7 +64,7 @@ c_linkage int application_main( int argc, char** argv ) {
             }
             arg = string_slice_from_cstr( 0, argv[++i] );
 
-            output_path = arg.buffer;
+            output_path = reinterpret_cast( PathSlice, &arg );
             continue;
         } else if( string_slice_cmp( arg, arg_help ) ) {
             print_help();
@@ -80,7 +80,7 @@ c_linkage int application_main( int argc, char** argv ) {
             }
             arg = string_slice_from_cstr( 0, argv[++i] );
 
-            list_path = arg.buffer;
+            list_path = reinterpret_cast( PathSlice, &arg );
             continue;
         } else if( string_slice_cmp( arg, arg_list ) ) {
             if( i + 1 >= argc ) {
@@ -108,34 +108,35 @@ c_linkage int application_main( int argc, char** argv ) {
         return HASH_ERROR_INVALID_ARGUMENT;
     }
 
-    if( !( list_start || list_path ) ) {
+    if( !( list_start || list_path.buffer ) ) {
         hash_error( "no file path or list provided!" );
         print_help();
         return HASH_ERROR_INVALID_ARGUMENT;
     }
 
-    if( fs_file_exists( output_path ) ) {
-        fs_file_delete( output_path );
+    if( fs_check_if_file_exists( output_path ) ) {
+        fs_delete_file( output_path );
     }
 
-    FSFile* output_file = fs_file_open( output_path, FS_FILE_WRITE );
+    FileHandle* output_file = fs_file_open( output_path, FILE_OPEN_FLAG_WRITE );
     if( !output_file ) {
-        hash_error( "failed to open output path '{cc}'!", output_path );
+        hash_error( "failed to open output path '{s}'!", output_path );
         return HASH_ERROR_FILE_OPEN;
     }
 
-    FSFile* input_file = NULL;
-    if( list_path ) {
-        input_file = fs_file_open( list_path, FS_FILE_READ | FS_FILE_SHARE_READ );
+    FileHandle* input_file = NULL;
+    if( list_path.buffer ) {
+        input_file = fs_file_open(
+            list_path, FILE_OPEN_FLAG_READ | FILE_OPEN_FLAG_SHARE_ACCESS_READ );
         if( !input_file ) {
-            hash_error( "failed to open list path '{cc}'!", list_path );
+            hash_error( "failed to open list path '{s}'!", list_path );
             return HASH_ERROR_FILE_OPEN;
         }
     }
 
     #define output_write( format, ... ) do {\
         if( !fs_file_write_fmt( output_file, format "\n", ##__VA_ARGS__ ) ) {\
-            hash_error( "failed to write to output file '{cc}'!", output_path );\
+            hash_error( "failed to write to output file '{s}'!", output_path );\
             return HASH_ERROR_FILE_WRITE;\
         }\
     } while(0)
@@ -163,7 +164,7 @@ c_linkage int application_main( int argc, char** argv ) {
             return HASH_ERROR_OUT_OF_MEMORY;
         }
         if( !fs_file_read( input_file, file_size, file_buffer ) ) {
-            hash_error( "failed to read file at path '{cc}'!", list_path );
+            hash_error( "failed to read file at path '{s}'!", list_path );
             return HASH_ERROR_FILE_READ;
         }
 
@@ -215,8 +216,6 @@ c_linkage int application_main( int argc, char** argv ) {
             }
 
             hash = string_slice_hash( string );
-            println( "// \"{s}\"", string );
-            println( "#define HASH_{s,u} ({u64}ULL)\n", identifier, hash );
             output_write( "// \"{s}\"", string );
             output_write( "#define HASH_{s,u} ({u64}ULL)\n", identifier, hash );
 
@@ -236,7 +235,7 @@ skip_line:
     }
     output_write( "\n#endif /* header guard */" );
 
-    hash_info( "generated hashes at path '{cc}'", output_path );
+    hash_info( "generated hashes at path '{s}'", output_path );
     fs_file_close( output_file );
     return HASH_SUCCESS;
 }

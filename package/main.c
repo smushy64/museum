@@ -54,9 +54,9 @@ typedef struct PackageParams {
     b32 is_verbose;
     union {
         struct {
-            const char* manifest_path;
-            const char* output_path;
-            const char* header_output_path;
+            PathSlice manifest_path;
+            PathSlice output_path;
+            PathSlice header_output_path;
             usize max_threads;
         } create;
         struct {
@@ -121,11 +121,13 @@ internal PackageError package_create( PackageParams* params ) {
         SystemInfo system_info = {};
         system_info_query( &system_info );
 
-        if( !params->create.output_path ) {
-            params->create.output_path = PACKAGE_DEFAULT_OUTPUT_PATH;
+        if( !params->create.output_path.buffer ) {
+            params->create.output_path =
+                path_slice( PACKAGE_DEFAULT_OUTPUT_PATH );
         }
-        if( !params->create.header_output_path ) {
-            params->create.header_output_path = PACKAGE_DEFAULT_HEADER_OUTPUT_PATH;
+        if( !params->create.header_output_path.buffer ) {
+            params->create.header_output_path =
+                path_slice( PACKAGE_DEFAULT_HEADER_OUTPUT_PATH );
         }
 
         if( !params->create.max_threads ) {
@@ -189,16 +191,19 @@ internal PackageError package_create( PackageParams* params ) {
 
     job_system_push( job_generate_header, &generate_header_params );
 
-    string_buffer_empty( tmp_path, 32 );
+    string_buffer_empty( tmp_path_buffer, 32 );
     u32 count = 0;
     #define MAX_CHECK_TMP (9999)
     do {
-        tmp_path.len = 0;
-        string_buffer_fmt( &tmp_path, "lpkg_tmp_{u,04}.tmp{0}", count++ );
+        tmp_path_buffer.len = 0;
+        string_buffer_fmt( &tmp_path_buffer, "lpkg_tmp_{u,04}.tmp{0}", count++ );
         if( count >= MAX_CHECK_TMP ) {
             break;
         }
-    } while( fs_file_exists( tmp_path.buffer ) );
+    } while( fs_check_if_file_exists(
+        reinterpret_cast( PathSlice, &tmp_path_buffer ) ) );
+
+    PathSlice tmp_path = reinterpret_cast( PathSlice, &tmp_path_buffer );
 
     if( count >= MAX_CHECK_TMP ) {
         lp_error( "no temp file paths available!" );
@@ -212,7 +217,7 @@ internal PackageError package_create( PackageParams* params ) {
 
     for( usize i = 0; i < manifest.item_count; ++i ) {
         ResourcePackageParams resource_package_params = {};
-        resource_package_params.tmp_path     = tmp_path.buffer;
+        resource_package_params.tmp_path     = tmp_path;
         resource_package_params.manifest     = &manifest;
         resource_package_params.index        = i;
         resource_package_params.ready_signal = &signal;
@@ -229,8 +234,8 @@ internal PackageError package_create( PackageParams* params ) {
         last_signal = signal;
     }
 
-    FSFile* tmp_file = fs_file_open(
-        tmp_path.buffer, FS_FILE_WRITE | FS_FILE_SHARE_WRITE );
+    FileHandle* tmp_file = fs_file_open( tmp_path,
+        FILE_OPEN_FLAG_WRITE | FILE_OPEN_FLAG_SHARE_ACCESS_WRITE );
     if( !tmp_file ) {
         lp_error( "failed to open temp file!" );
         return PACKAGE_ERROR_OPEN_TMP_PATH;
@@ -250,13 +255,13 @@ internal PackageError package_create( PackageParams* params ) {
     read_write_fence();
     semaphore_destroy( &generate_header_params.finished );
 
-    if( fs_file_move( params->create.output_path, tmp_path.buffer, false ) ) {
-        lp_note( "created liquid package at path '{cc}'", params->create.output_path );
+    if( fs_move_by_path( params->create.output_path, tmp_path, false ) ) {
+        lp_note( "created liquid package at path '{s}'", params->create.output_path );
     } else {
         lp_error(
-            "failed to move temp package to path '{cc}'!",
+            "failed to move temp package to path '{s}'!",
             params->create.output_path );
-        lp_error( "temp file path: '{cc}'", tmp_path.buffer );
+        lp_error( "temp file path: '{s}'", tmp_path );
     }
 
     job_system_shutdown();
@@ -341,10 +346,11 @@ internal PackageError parse_arguments(
             } break;
             case PACKAGE_MODE_CREATE: {
                 if( arg.buffer[0] != '-' )  {
-                    if( params.create.manifest_path ) {
+                    if( params.create.manifest_path.buffer ) {
                         break;
                     } else {
-                        params.create.manifest_path = arg.buffer;
+                        params.create.manifest_path =
+                            reinterpret_cast( PathSlice, &arg );
                         continue;
                     }
                 }
@@ -354,14 +360,15 @@ internal PackageError parse_arguments(
                     case HASH_TOKEN_CREATE_OUTPUT: {
                         check_next_exists( token_create_output );
                         const char* next = check_next( path, token_create_output );
-                        params.create.output_path = next;
+                        params.create.output_path = path_slice_from_cstr( 0, next );
                         continue;
                     } break;
                     case HASH_TOKEN_CREATE_HEADER_OUTPUT: {
                         check_next_exists( token_create_header_output );
                         const char* next =
                             check_next( path, token_create_header_output );
-                        params.create.header_output_path = next;
+                        params.create.header_output_path =
+                            path_slice_from_cstr( 0, next );
                         continue;
                     } break;
                     case HASH_TOKEN_CREATE_MAX_THREADS: {
@@ -397,11 +404,11 @@ internal PackageError parse_arguments(
     }
 
     if( params.mode == PACKAGE_MODE_CREATE ) {
-        if( !params.create.manifest_path ) {
+        if( !params.create.manifest_path.buffer ) {
             arg_error( "no manifest path provided!" );
             return PACKAGE_ERROR_ARGS_MISSING_MANIFEST_PATH;
         }
-        if( !fs_file_exists( params.create.manifest_path ) ) {
+        if( !fs_check_if_file_exists( params.create.manifest_path ) ) {
             arg_error(
                 "path to manifest is invalid! '{cc}'", params.create.manifest_path );
             return PACKAGE_ERROR_ARGS_MISSING_MANIFEST_PATH;

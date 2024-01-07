@@ -884,9 +884,9 @@ b32 gl_subsystem_init(void) {
         usize buffer_size = 0;
 
         #define GL_OPEN_SHADER( path, name )\
-            FSFile* file_##name = fs_file_open(\
-                path, FS_FILE_READ | FS_FILE_SHARE_READ |\
-                FS_FILE_ONLY_EXISTING );\
+            FileHandle* file_##name = fs_file_open(\
+                path_slice( path ), FILE_OPEN_FLAG_READ |\
+                FILE_OPEN_FLAG_SHARE_ACCESS_READ );\
             assert( file_##name );\
             usize name##_size   = fs_file_query_size( file_##name );\
             usize name##_offset = buffer_size;\

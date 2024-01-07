@@ -10,6 +10,7 @@
 #include "package/manifest.h"
 #include "package/logging.h"
 
+#include "core/path.h"
 #include "core/fs.h"
 #include "core/time.h"
 
@@ -19,16 +20,17 @@ void job_generate_header( usize thread_index, void* user_params ) {
     unused(thread_index);
 
     GenerateHeaderParams* params = user_params;
+    PathSlice tmp_path = path_slice( GENERATE_HEADER_TMP_FILE_PATH );
 
-    if( fs_file_exists( GENERATE_HEADER_TMP_FILE_PATH ) ) {
-        if( !fs_file_delete( GENERATE_HEADER_TMP_FILE_PATH ) ) {
+    if( fs_check_if_file_exists( tmp_path ) ) {
+        if( !fs_delete_file( tmp_path ) ) {
             lp_error( "failed to delete existing temp header!" );
             goto generate_header_end;
         }
     }
 
-    FSFile* tmp_file = fs_file_open(
-        GENERATE_HEADER_TMP_FILE_PATH, FS_FILE_WRITE | FS_FILE_SHARE_READ );
+    FileHandle* tmp_file = fs_file_open(
+        tmp_path, FILE_OPEN_FLAG_WRITE | FILE_OPEN_FLAG_SHARE_ACCESS_READ );
     if( !tmp_file ) {
         lp_error( "failed to open temp file for generating resource header!" );
         goto generate_header_end;
@@ -73,12 +75,12 @@ void job_generate_header( usize thread_index, void* user_params ) {
 
     fs_file_close( tmp_file );
 
-    if( fs_file_move(
+    if( fs_move_by_path(
         params->header_output_path,
-        GENERATE_HEADER_TMP_FILE_PATH, false
+        tmp_path, false
     ) ) {
         lp_note( "generated header written to '{cc}'", params->header_output_path );
-        fs_file_delete( GENERATE_HEADER_TMP_FILE_PATH );
+        fs_delete_file( tmp_path );
     } else {
         lp_error(
             "failed to move temp header to path '{cc}'!", params->header_output_path );

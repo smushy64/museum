@@ -11,6 +11,8 @@
 void ___internal_core_log(
      LoggingLevel level, usize format_len, const char* format, ... );
 
+b32 core_log_enabled(void);
+
 #define core_log_note( format, ... )\
     ___internal_core_log(\
         LOGGING_LEVEL_NOTE,\

@@ -6,12 +6,12 @@
  * File Created: December 11, 2023
 */
 #include "shared/defines.h"
-#include "core/fs.h"
+#include "core/path.h"
 
 struct Manifest;
 
 typedef struct ResourcePackageParams {
-    const char*         tmp_path;
+    PathSlice           tmp_path;
     struct Manifest*    manifest;
     usize               index;
     volatile u32*       ready_signal;

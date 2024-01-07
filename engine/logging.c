@@ -33,7 +33,7 @@ void ___log_unlock(void) {
     }
 }
 
-global FSFile* LOGGING_FILE = NULL;
+global FileHandle* LOGGING_FILE = NULL;
 internal force_inline
 void ___log_output_file( StringSlice message ) {
     if( LOGGING_FILE ) {
@@ -42,7 +42,7 @@ void ___log_output_file( StringSlice message ) {
 }
 
 
-void logging_subsystem_initialize( FSFile* output_file ) {
+void logging_subsystem_initialize( FileHandle* output_file ) {
     LOGGING_FILE  = output_file;
     if( LOGGING_FILE ) {
         usize file_size = fs_file_query_size( LOGGING_FILE );
@@ -54,7 +54,7 @@ void logging_subsystem_initialize( FSFile* output_file ) {
 
     assert( mutex_create( &LOGGING_MUTEX ) );
 }
-void logging_subsystem_attach_file( FSFile* file ) {
+void logging_subsystem_attach_file( FileHandle* file ) {
     ___log_lock();
     read_write_fence();
 

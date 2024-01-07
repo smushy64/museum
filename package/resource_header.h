@@ -7,10 +7,11 @@
 */
 #include "shared/defines.h"
 #include "core/sync.h"
+#include "core/path.h"
 
 struct Manifest;
 typedef struct GenerateHeaderParams {
-    const char*      header_output_path;
+    PathSlice        header_output_path;
     struct Manifest* manifest;
     Semaphore        finished;
 } GenerateHeaderParams;

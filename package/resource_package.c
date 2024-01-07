@@ -12,8 +12,10 @@
 
 #include "shared/constants.h"
 #include "core/sync.h"
+#include "core/path.h"
 #include "core/fs.h"
 #include "core/memory.h"
+#include "core/rand.h"
 
 void job_package_resource( usize thread_index, void* user_params ) {
     ResourcePackageParams params = *(ResourcePackageParams*)user_params;
@@ -23,10 +25,10 @@ void job_package_resource( usize thread_index, void* user_params ) {
     void* buffer = (u8*)params.buffer + (params.buffer_size * thread_index);
     ManifestItem* item = params.manifest->items + params.index;
 
-    FSFile* file_output =
-        fs_file_open( params.tmp_path, FS_FILE_WRITE | FS_FILE_SHARE_WRITE );
+    FileHandle* file_output = fs_file_open(
+        params.tmp_path, FILE_OPEN_FLAG_WRITE | FILE_OPEN_FLAG_SHARE_ACCESS_WRITE );
     if( !file_output ) {
-        lp_error( "failed to open temp resource file '{cc}'!", params.tmp_path );
+        lp_error( "failed to open temp resource file '{s}'!", params.tmp_path );
         return;
     }
 
@@ -37,29 +39,30 @@ void job_package_resource( usize thread_index, void* user_params ) {
     new_path.capacity = U8_MAX;
 
     string_buffer_fmt(
-        &new_path, "{s}/{cc}{0}", params.manifest->directory, item->path );
+        &new_path, "{s}/{s}{0}", params.manifest->directory, item->path );
 
-    item->path = new_path.buffer;
-    FSFile* file_input =
-        fs_file_open( item->path, FS_FILE_READ | FS_FILE_SHARE_READ );
+    item->path = reinterpret_cast( PathSlice, &new_path );
+    FileHandle* file_input = fs_file_open(
+        item->path, FILE_OPEN_FLAG_READ | FILE_OPEN_FLAG_SHARE_ACCESS_READ );
     if( !file_input ) {
-        lp_error( "failed to open resource file '{cc}'!", item->path );
+        lp_error( "failed to open resource file '{s}'!", item->path );
         fs_file_close( file_output );
         return;
     }
 
-    char temp_path_buffer[U8_MAX] = {};
-    StringBuffer temp_path = {};
-    temp_path.buffer   = temp_path_buffer;
-    temp_path.capacity = U8_MAX;
+    char tmp_path_buffer[U8_MAX] = {};
+    StringBuffer tmp_path_string_buffer = {};
+    tmp_path_string_buffer.buffer   = tmp_path_buffer;
+    tmp_path_string_buffer.capacity = U8_MAX;
 
-    fs_file_generate_temp_path(
-        string_buffer_write, &temp_path, "resource", NULL );
+    string_buffer_fmt( &tmp_path_string_buffer, "resource_{u32}.tmp", rand_xor_u32() );
 
-    FSFile* file_intermediate =
-        fs_file_open( temp_path_buffer, FS_FILE_WRITE );
+    PathSlice tmp_path = reinterpret_cast( PathSlice, &tmp_path_string_buffer );
+
+    FileHandle* file_intermediate =
+        fs_file_open( tmp_path, FILE_OPEN_FLAG_WRITE );
     if( !file_intermediate ) {
-        lp_error( "failed to open intermediate file '{cc}'!", temp_path_buffer );
+        lp_error( "failed to open intermediate file '{s}'!", tmp_path );
         fs_file_close( file_input );
         fs_file_close( file_output );
         return;
@@ -91,21 +94,12 @@ void job_package_resource( usize thread_index, void* user_params ) {
         usize dst_offset = output_file_allocate( intermediate_file_size );
         dst_offset += buffer_start_offset;
 
-        fs_file_set_offset( file_intermediate, 0 );
-        fs_file_set_offset( file_output, dst_offset );
-
-        if( !fs_file_copy(
-            file_output, file_intermediate,
-            intermediate_file_size, params.buffer_size, buffer
-        ) ) {
-            lp_error( "failed to copy from intermediate file to output file!" );
-        }
+        unused(dst_offset);
     }
 
     fs_file_close( file_input );
     fs_file_close( file_output );
     fs_file_close( file_intermediate );
-    assert( fs_file_delete( temp_path_buffer ) );
     memory_zero( buffer, params.buffer_size );
 }
 

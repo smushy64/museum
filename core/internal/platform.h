@@ -9,6 +9,7 @@
 #include "shared/constants.h"
 
 #include "core/system.h"
+#include "core/path.h"
 
 struct TimeRecord;
 
@@ -27,15 +28,6 @@ typedef void PlatformMutex;
 
 #define PLATFORM_INFINITE_TIMEOUT (U32_MAX)
 
-/// File open flags.
-typedef enum PlatformFileFlags : u32 {
-    PLATFORM_FILE_READ          = (1 << 0),
-    PLATFORM_FILE_WRITE         = (1 << 1),
-    PLATFORM_FILE_SHARE_READ    = (1 << 2),
-    PLATFORM_FILE_SHARE_WRITE   = (1 << 3),
-    PLATFORM_FILE_ONLY_EXISTING = (1 << 4),
-} PlatformFileFlags;
-
 /// Get stdout handle.
 PlatformFile* platform_get_stdout(void);
 /// Get stderr handle.
@@ -44,35 +36,29 @@ PlatformFile* platform_get_stderr(void);
 PlatformFile* platform_get_stdin(void);
 
 /// Open a file.
-PlatformFile* platform_file_open( const char* path, PlatformFileFlags flags );
-/// Close a file.
+PlatformFile* platform_file_open( PathSlice path, u32 flags );
+/// Close file.
 void platform_file_close( PlatformFile* file );
-/// Query current offset into file.
-usize platform_file_query_offset( PlatformFile* file );
-/// Set offset into file, from start of file.
-void platform_file_set_offset( PlatformFile* file, usize offset );
 /// Query file size.
 usize platform_file_query_size( PlatformFile* file );
-/// Write into file at current offset.
-b32 platform_file_write( PlatformFile* file, usize buffer_size, void* buffer );
-/// Write into file at custom offset, does not affect current offset.
-b32 platform_file_write_offset(
-    PlatformFile* file, usize offset, usize buffer_size, void* buffer );
-/// Read file at current offset.
+/// Query file offset.
+usize platform_file_query_offset( PlatformFile* file );
+/// Set file offset.
+void platform_file_set_offset( PlatformFile* file, usize offset );
+/// Read file.
 b32 platform_file_read( PlatformFile* file, usize buffer_size, void* buffer );
-/// Read file at custom offset, does not affect current offset.
-b32 platform_file_read_offset(
-    PlatformFile* file, usize offset, usize buffer_size, void* buffer );
-/// Delete a file by its path.
-b32 platform_file_delete( const char* path );
-/// Copy a file to another path.
-b32 platform_file_copy(
-    const char* dst_path, const char* src_path, b32 fail_if_dst_exists );
-/// Move a file to another path.
-b32 platform_file_move(
-    const char* dst_path, const char* src_path, b32 fail_if_dst_exists );
-/// Check if a file exists.
-b32 platform_file_check_if_exists( const char* path );
+/// Write file.
+b32 platform_file_write( PlatformFile* file, usize buffer_size, void* buffer );
+/// Delete file.
+b32 platform_delete_file( PathSlice path );
+/// Copy by path.
+b32 platform_file_copy_by_path( PathSlice dst, PathSlice src, b32 fail_if_dst_exists );
+/// Move by path.
+b32 platform_file_move_by_path( PathSlice dst, PathSlice src, b32 fail_if_dst_exists );
+/// Check if path is file.
+b32 platform_path_is_file( PathSlice path );
+/// Check if path is directory.
+b32 platform_path_is_directory( PathSlice path );
 
 #if defined(LD_PLATFORM_WINDOWS)
 /// Output debug string.

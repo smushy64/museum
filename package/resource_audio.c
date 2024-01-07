@@ -37,10 +37,10 @@ internal void ___generate_audio_file_format_hashes(void) {
     global_hash_ext_wav = cstr_hash( ".wav" );
 }
 
-internal b32 ___get_wave_info( FSFile* input, struct AudioInfo* out_info );
+internal b32 ___get_wave_info( FileHandle* input, struct AudioInfo* out_info );
 
 b32 package_audio(
-    FSFile* output_file, usize buffer_start_offset,
+    FileHandle* output_file, usize buffer_start_offset,
     usize index, struct ManifestItem* item,
     usize buffer_size, void* buffer,
     struct LiquidPackageResource* out_resource
@@ -48,31 +48,17 @@ b32 package_audio(
     unused(index);
 
     // determine audio file type
-    const char* input_file_path = item->path;
-    StringSlice ext = string_slice_from_cstr( 0, input_file_path );
-
-    /* clip ext down to just file extension */ {
-        usize dot_position = 0;
-        for( usize i = ext.len; i-- > 0; ) {
-            if( ext.buffer[i] == '.' ) {
-                dot_position = i;
-                break;
-            }
-        }
-
-        if( !dot_position ) {
-            lp_error( "unrecognized file type: '{cc}'", input_file_path );
-            return false;
-        }
-
-        ext.buffer += dot_position;
-        ext.len    -= dot_position;
+    PathSlice input_file_path = item->path;
+    PathSlice ext = {};
+    if( !path_slice_get_extension( input_file_path, &ext ) ) {
+        lp_error( "unrecognized file extension: '{s}'", ext );
+        return false;
     }
 
     ___generate_audio_file_format_hashes();
 
-    FSFile* input_file =
-        fs_file_open( input_file_path, FS_FILE_READ | FS_FILE_SHARE_READ );
+    FileHandle* input_file = fs_file_open(
+        input_file_path, FILE_OPEN_FLAG_READ | FILE_OPEN_FLAG_SHARE_ACCESS_READ );
     if( !input_file ) {
         lp_error( "failed to open file at path '{cc}'!", input_file_path );
         return false;
@@ -80,7 +66,7 @@ b32 package_audio(
 
     struct AudioInfo audio_info = {};
 
-    u64 ext_hash = string_slice_hash( ext );
+    u64 ext_hash = string_slice_hash( path_slice_to_string( &ext ) );
     if( ext_hash == global_hash_ext_wav ) {
         if( !___get_wave_info( input_file, &audio_info ) ) {
             return false;
@@ -152,7 +138,7 @@ struct WaveFMTHeader {
 };
 
 internal b32 ___get_wave_info(
-    FSFile* input, struct AudioInfo* out_info
+    FileHandle* input, struct AudioInfo* out_info
 ) {
     struct AudioInfo audio_info = {};
 

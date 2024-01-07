@@ -12,7 +12,7 @@ struct ManifestItem;
 struct LiquidPackageResource;
 
 b32 package_audio(
-    FSFile* file, usize buffer_start_offset,
+    FileHandle* file, usize buffer_start_offset,
     usize index, struct ManifestItem* item,
     usize buffer_size, void* buffer, struct LiquidPackageResource* out_resource );
 

@@ -7,6 +7,7 @@
 #include "core/sync.h"
 #include "core/memory.h"
 #include "core/math.h"
+#include "core/path.h"
 #include "core/fs.h"
 #include "core/thread.h"
 
@@ -98,13 +99,12 @@ struct no_padding WaveFileHeader {
 
 internal
 b32 ___debug_load_audio(
-    const char* audio_test_path, struct AudioBuffer* out_buffer
+    PathSlice audio_test_path, struct AudioBuffer* out_buffer
 ) {
-    FSFile* file = fs_file_open(
+    FileHandle* file = fs_file_open(
         audio_test_path,
-        FS_FILE_READ |
-        FS_FILE_SHARE_READ |
-        FS_FILE_ONLY_EXISTING );
+        FILE_OPEN_FLAG_READ |
+        FILE_OPEN_FLAG_SHARE_ACCESS_READ );
     if( !file ) {
         return false;
     }
@@ -426,7 +426,7 @@ b32 audio_subsystem_initialize(void) {
     global_audio_mixer.format = media_audio_query_buffer_format( &global_audio_ctx );
 
     if( !___debug_load_audio(
-        "./resources.lpkg",
+        path_slice( "./resources.lpkg" ),
         &global_tmp_music_buffer
     ) ) {
         return false;

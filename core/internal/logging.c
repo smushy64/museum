@@ -12,6 +12,10 @@
 global LoggingCallbackFN* global_logging_callback = NULL;
 global void*              global_logging_params   = NULL;
 
+b32 core_log_enabled(void) {
+    return global_logging_callback != NULL;
+}
+
 void ___internal_core_log(
     LoggingLevel level, usize format_len, const char* format, ...
 ) {

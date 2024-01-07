@@ -237,7 +237,7 @@ CORE_API b32 string_slice_find_char_count(
     StringSlice slice, char character,
     usize* opt_out_first_index, usize* out_count
 ) {
-    StringSlice sub_slice = string_slice_clone( slice );
+    StringSlice sub_slice = slice;
     usize count = 0;
     loop {
         usize index = 0;
@@ -291,7 +291,7 @@ CORE_API void string_slice_reverse( StringSlice slice ) {
 CORE_API StringSlice string_slice_trim_leading_whitespace(
     StringSlice slice
 ) {
-    StringSlice result = string_slice_clone( slice );
+    StringSlice result = slice;
     for( usize i = 0; i < result.len; ++i ) {
         char current = result.buffer[i];
         if( char_is_whitespace( current ) ) {
@@ -445,7 +445,7 @@ CORE_API b32 string_slice_parse_int( StringSlice slice, i64* out_integer ) {
     i64 result = 0;
 
     usize at = 0;
-    StringSlice parse = string_slice_clone( slice );
+    StringSlice parse = slice;
     if( parse.buffer[at] == '-' ) {
         if( !___safe_increment( &at, parse.len ) ) {
             return false;
@@ -476,7 +476,7 @@ CORE_API b32 string_slice_parse_uint( StringSlice slice, u64* out_integer ) {
     u64 result = 0;
 
     usize at = 0;
-    StringSlice parse = string_slice_clone( slice );
+    StringSlice parse = slice;
 
     do {
         if( !char_is_digit( parse.buffer[at] ) ) {
