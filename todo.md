@@ -15,6 +15,12 @@
     u8 foo[2] = { 1, 2 };
     println( "{u8,*_}", 2, foo );
     "{ 1, 2 }"
+- [x] fmt: repeat argument for char
+    - ex:
+    println( "'{c}' '{c,r4}'", 'x', 'x' );
+    "'x' 'xxxx'"
+    println( "{c,r_}", 4, 'x' );
+    "xxxx"
 - [ ] engine: hash command line arguments
 - [ ] audio subsystem
 - [ ] resource/asset subsystem
@@ -26,6 +32,8 @@
 - [ ] fmt: more accurate float formatting (grisu3 or errol?)
 ## Optimizations
 ## Bug fixes
+- [x] fmt: len argument for pointer argument was failing end brace check
+    - fix: advance 'at' pointer after checking for _
 - [ ] math: make sure atan produces good results
     - it diverges heavily outside the -1 -> 1 range
 

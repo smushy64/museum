@@ -41,6 +41,7 @@ typedef enum FMTIdentifier : u32 {
     FMT_IDENT_UINT_VECTOR_3,
     FMT_IDENT_UINT_VECTOR_4,
     FMT_IDENT_STRING_SLICE,
+    FMT_IDENT_PATH_SLICE,
     FMT_IDENT_NULL,
 } FMTIdentifier;
 typedef enum : u32 {
@@ -77,7 +78,10 @@ struct FMTIdentifierArguments {
         b32       is_binary;
     };
     FMTFormatWidth width;
-    u32 precision;
+    union {
+        u32 precision;
+        u32 repeat_count;
+    };
     union {
         b32           zero_padding;
         FMTFormatCase casing;
@@ -352,6 +356,10 @@ internal FMTIdentifier ___determine_identifier(
             _advance();
             identifier = FMT_IDENT_STRING_SLICE;
         } break;
+        case 'p': {
+            _advance();
+            identifier = FMT_IDENT_PATH_SLICE;
+        } break;
     }
 
     if( !(*at == ',' || *at == '}') ) {
@@ -482,6 +490,36 @@ internal b32 ___process_arguments(
                 _advance();
                 continue;
             } break;
+            // repeat count
+            case 'r': {
+                if( identifier != FMT_IDENT_CHAR ) {
+                    failed();
+                }
+                _advance();
+                if( ___char_is_number( *at ) ) {
+                    usize argument_len = 0;
+                    if( ___collect_argument(
+                        *remaining, at, &argument_len
+                    ) ) {
+                        u64 parsed_int = 0;
+                        if( !fmt_read_uint(
+                            argument_len, at, &parsed_int
+                        ) ) {
+                            failed();
+                        }
+                        args.repeat_count = parsed_int;
+                        _advance_by( argument_len );
+                    } else {
+                        failed();
+                    }
+                } else if( *at == '_' ) {
+                    args.repeat_count = U32_MAX;
+                    _advance();
+                } else {
+                    args.repeat_count = 1;
+                }
+                continue;
+            } break;
             // count
             case '*': {
                 _advance();
@@ -509,9 +547,11 @@ internal b32 ___process_arguments(
                         } break;
                         default: break;
                     }
+                    _advance();
                 } else {
                     args.count = 1;
                 }
+
                 continue;
             } break;
             // memory formatting
@@ -553,15 +593,8 @@ internal b32 ___process_arguments(
                     if( !fmt_read_int( left_side_len, left_side, &args.padding ) ) {
                         failed();
                     }
-                    switch( identifier ) {
-                        case FMT_IDENT_CHAR:
-                        case FMT_IDENT_CSTR:
-                        case FMT_IDENT_STRING_SLICE: break;
-                        default: {
-                            if( at[0] == '0' ) {
-                                args.zero_padding = true;
-                            }
-                        } break;
+                    if( at[0] == '0' ) {
+                        args.zero_padding = true;
                     }
                 }
 
@@ -577,6 +610,7 @@ internal b32 ___process_arguments(
                 switch( identifier ) {
                     case FMT_IDENT_CHAR:
                     case FMT_IDENT_CSTR:
+                    case FMT_IDENT_PATH_SLICE:
                     case FMT_IDENT_STRING_SLICE: break;
                     default: {
                         if( at[0] == '0' ) {
@@ -597,6 +631,12 @@ internal b32 ___process_arguments(
 
     if( args.format == FMT_FORMAT_MEMORY && args.count > 1 ) {
         failed();
+    }
+
+    if( identifier == FMT_IDENT_CHAR ) {
+        if( args.repeat_count && args.count ) {
+            failed();
+        }
     }
 
     *out_args = args;
@@ -902,43 +942,74 @@ CORE_API usize ___internal_fmt_write_va(
                     char* value = &local_value;
                     if( args.count ) {
                         if( args.count == U32_MAX ) {
-                            args.count = va_arg( va, int );
+                            args.count = va_arg( va, u32 );
                         }
                         value = va_arg( va, void* );
                     } else {
+                        if( args.repeat_count == U32_MAX ) {
+                            args.repeat_count = va_arg( va, u32 );
+                            if( !args.repeat_count ) {
+                                args.repeat_count = 1;
+                            }
+                        }
                         local_value = va_arg( va, int );
                     }
 
-                    if( args.count > 1 ) {
-                        write_string_literal( "{ " );
-                    }
+                    if( args.repeat_count ) {
+                        usize len = args.repeat_count + 1;
+                        if( args.padding > 0 ) {
+                            apply_padding( ' ', args.padding, len );
+                        }
 
-                    usize loop_count = args.count ? args.count : 1;
-                    for( usize i = 0; i < loop_count; ++i ) {
-                        char current = value[i];
                         switch( args.casing ) {
                             case FMT_FORMAT_CASE_UPPER: {
-                                current = ___char_to_upper( current );
+                                local_value = ___char_to_upper( local_value );
                             } break;
                             case FMT_FORMAT_CASE_LOWER: {
-                                current = ___char_to_lower( current );
+                                local_value = ___char_to_lower( local_value );
                             } break;
                             default: break;
                         }
-                        i64 padding = args.padding;
-                        write_string_padded( ' ', 1, &current );
 
-                        if( i + 1 < loop_count ) {
-                            write_string_literal( ", " );
-                            args.padding = padding;
+                        for( usize i = 0; i < args.repeat_count; ++i ) {
+                            write_char( local_value );
                         }
-                    }
+                        if( args.padding < 0 ) {
+                            apply_padding( ' ', args.padding, len );
+                        }
+                    } else {
+                        if( args.count > 1 ) {
+                            write_string_literal( "{ " );
+                        }
 
-                    if( args.count > 1 ) {
-                        write_string_literal( " }" );
+                        usize loop_count = args.count ? args.count : 1;
+                        for( usize i = 0; i < loop_count; ++i ) {
+                            char current = value[i];
+                            switch( args.casing ) {
+                                case FMT_FORMAT_CASE_UPPER: {
+                                    current = ___char_to_upper( current );
+                                } break;
+                                case FMT_FORMAT_CASE_LOWER: {
+                                    current = ___char_to_lower( current );
+                                } break;
+                                default: break;
+                            }
+                            i64 padding = args.padding;
+                            write_string_padded( ' ', 1, &current );
+
+                            if( i + 1 < loop_count ) {
+                                write_string_literal( ", " );
+                                args.padding = padding;
+                            }
+                        }
+
+                        if( args.count > 1 ) {
+                            write_string_literal( " }" );
+                        }
                     }
                 } break;
 
+                case FMT_IDENT_PATH_SLICE:
                 case FMT_IDENT_STRING_SLICE:
                 case FMT_IDENT_CSTR: {
                     StringSlice output = {};

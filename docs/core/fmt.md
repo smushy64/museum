@@ -184,9 +184,11 @@ Description: 32-bit boolean.
     - Indicates that value is passed in by pointer.
     - Number of items to print is passed in before pointer and must be of type int.
 - [positive integer]
-    - Left side padding, only one type of padding is allowed.
+    - Left side padding
+	- Only the last padding argument will be used.
 - [negative integer]
-    - Right side padding, only one type of padding is allowed.
+    - Right side padding
+	- Only the last padding argument will be used.
 - b
     - Write boolean as a binary number rather than text.
 
@@ -206,10 +208,20 @@ Description: 8-bit ASCII character.
 - *_
     - Indicates that value is passed in by pointer.
     - Number of items to print is passed in before pointer and must be of type int.
+- r[positive integer, optional]
+    - Value will be repeated either once or provided number of times.
+    - Integer indicates how many times to repeat character.
+    - CANNOT be used with * or *_ argument!.
+- r_
+    - Value will be repeated.
+    - Number of times to repeat is passed in before character.
+    - CANNOT be used with * or *_ argument!.
 - [positive integer]
-    - Left side padding, only one type of padding is allowed.
+    - Left side padding
+	- Only the last padding argument will be used.
 - [negative integer]
-    - Right side padding, only one type of padding is allowed.
+    - Right side padding
+	- Only the last padding argument will be used.
 - u
     - Convert letter to upper-case.
 - l
@@ -230,9 +242,11 @@ Description: Null-terminated ASCII C-String.
 - *_
     - Number of characters to print is passed in first and is of type int.
 - [positive integer]
-    - Left side padding, only one type of padding is allowed.
+    - Left side padding
+	- Only the last padding argument will be used.
 - [negative integer]
-    - Right side padding, only one type of padding is allowed.
+    - Right side padding
+	- Only the last padding argument will be used.
 - u
     - Convert letters to upper-case.
 - l
@@ -259,9 +273,11 @@ Description: 32-bit or 64-bit IEEE-754 floating point number.
     - Indicates that value is passed in by pointer.
     - Number of items to print is passed in before pointer and must be of type int.
 - [positive integer]
-    - Left side padding, only one type of padding is allowed.
+    - Left side padding
+	- Only the last padding argument will be used.
 - [negative integer]
-    - Right side padding, only one type of padding is allowed.
+    - Right side padding
+	- Only the last padding argument will be used.
 - [0 followed by positive integer]
     - Left side padding with 0 as the padding character.
 - s
@@ -291,9 +307,11 @@ Description: 32-bit IEEE-754 floating point vector.
     - Indicates that value is passed in by pointer.
     - Number of items to print is passed in before pointer and must be of type int.
 - [positive integer]
-    - Left side padding, only one type of padding is allowed.
+    - Left side padding
+	- Only the last padding argument will be used.
 - [negative integer]
-    - Right side padding, only one type of padding is allowed.
+    - Right side padding
+	- Only the last padding argument will be used.
 - [0 followed by positive integer]
     - Left side padding with 0 as the padding character.
 - s
@@ -341,9 +359,11 @@ Description: 8-bit, 16-bit, 32-bit, 64-bit or pointer sized signed or unsigned i
     - Indicates that value is passed in by pointer.
     - Number of items to print is passed in before pointer and must be of type int.
 - [positive integer]
-    - Left side padding, only one type of padding is allowed.
+    - Left side padding
+	- Only the last padding argument will be used.
 - [negative integer]
-    - Right side padding, only one type of padding is allowed.
+    - Right side padding
+	- Only the last padding argument will be used.
 - [0 followed by positive integer]
     - Left side padding with 0 as the padding character.
 - x
@@ -370,13 +390,34 @@ Description: Slice of character buffer.
 ### String Slice - Arguments
 
 - *[positive integer]
-    - Only print up to n characters or capacity.
+    - Only print up to n characters or length.
 - [positive integer]
-    - Left side padding, only one type of padding is allowed.
+    - Left side padding
+	- Only the last padding argument will be used.
 - [negative integer]
-    - Right side padding, only one type of padding is allowed.
+    - Right side padding
+	- Only the last padding argument will be used.
 - u
     - Convert letters to upper-case.
 - l
     - Convert letters to lower-case.
+
+## Path Slice
+
+Description: Slice of path buffer.
+
+### Path Slice - Specifiers
+
+{p} - struct PathSlice passed by value.
+
+### Path Slice - Arguments
+
+- *[positive integer]
+    - Only print up to n characters or length.
+- [positive integer]
+    - Left side padding
+	- Only the last padding argument will be used.
+- [negative integer]
+    - Right side padding
+	- Only the last padding argument will be used.
 
