@@ -55,6 +55,8 @@ CORE_API void time_hour_24_to_hour_12(
     hour_12 = hour_12 ? hour_12 : 12;
 
     *out_hour_12 = hour_12;
-    *out_is_am   = hour_24 < 12;
+    if( out_is_am ) {
+        *out_is_am = hour_24 < 12;
+    }
 }
 

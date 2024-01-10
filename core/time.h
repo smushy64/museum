@@ -63,7 +63,8 @@ header_only const char* time_month_to_cstr( u32 month ) {
     return strings[month];
 }
 /// Convert 24-hour time to 12-hour.
-CORE_API void time_hour_24_to_hour_12( u32 hour_24, u32* out_hour_12, b32* out_is_am );
+CORE_API void time_hour_24_to_hour_12(
+    u32 hour_24, u32* out_hour_12, b32* opt_out_is_am );
 /// Convert whole nanoseconds to fractional milliseconds.
 header_only f64 time_whole_ns_to_fract_ms( u64 ns ) {
     return (f64)ns / 1000000.0;
