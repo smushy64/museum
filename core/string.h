@@ -150,6 +150,13 @@ CORE_API StringSlice string_slice_trim_leading_whitespace( StringSlice slice );
 /// Trim trailing whitespace from String Slice.
 /// Returns trimmed String Slice.
 CORE_API StringSlice string_slice_trim_trailing_whitespace( StringSlice slice );
+/// Trim leading and trailing whitespace from StringSlice.
+/// Returns trimmed String Slice.
+header_only StringSlice string_slice_trim_whitespace( StringSlice slice ) {
+    StringSlice result = slice;
+    result = string_slice_trim_leading_whitespace( result );
+    return string_slice_trim_trailing_whitespace( result );
+}
 /// Set all characters in String Slice to provided character.
 CORE_API void string_slice_set( StringSlice slice, char character );
 /// Convert all lower case ASCII characters to upper case.

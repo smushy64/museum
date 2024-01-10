@@ -746,8 +746,14 @@ CORE_API usize string_buffer_write( void* target, usize count, char* characters 
 CORE_API usize ___internal_string_buffer_fmt_va(
     StringBuffer* buffer, usize format_len, const char* format, va_list va
 ) {
-    return ___internal_fmt_write_va(
+    usize result = ___internal_fmt_write_va(
         string_buffer_write, buffer, format_len, format, va );
+    if( buffer->len ) {
+        if( !buffer->buffer[buffer->len - 1] ) {
+            buffer->len--;
+        }
+    }
+    return result;
 }
 CORE_API usize ___internal_string_buffer_fmt(
     StringBuffer* buffer, usize format_len, const char* format, ...
