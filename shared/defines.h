@@ -261,8 +261,6 @@ typedef void LoggingCallbackFN(
 /// Path is unreachable.
 #define unreachable() __builtin_unreachable()
 
-/// Mark value as unused.
-#define unused(x) (void)((x))
 
 /// Compile-time assertion
 #if !defined(__cplusplus)
@@ -454,5 +452,9 @@ static_assert(sizeof(f64) == 8, "Expected f64 to be 8 bytes!");
     static_assert(sizeof(isize) == sizeof(i64), "Expected to be running on 64 bit architecture!");
     static_assert(sizeof(usize) == sizeof(u64), "Expected to be running on 64 bit architecture!");
 #endif // if arch64/32
+
+static inline __attribute__((always_inline)) void _0(int a,...){(void)(a);}
+/// Mark value as unused.
+#define unused(...) _0( 0, __VA_ARGS__ )
 
 #endif
