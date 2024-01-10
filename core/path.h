@@ -49,6 +49,9 @@ typedef usize FormatWriteFN( void* target, usize count, char* characters );
     char buffer_name##_buffer[capacity] = {};\
     PathBuffer buffer_name = (PathBuffer){ buffer_name##_buffer, 0, capacity }
 
+#define path_slice_cmp( a, b )\
+    string_slice_cmp( *(StringSlice*)(a), *(StringSlice*)(b) )
+
 /// Create a path slice from null-terminated string.
 /// Optionally takes in length to avoid calculating it.
 CORE_API PathSlice path_slice_from_cstr( usize opt_len, const char* cstr );
@@ -93,12 +96,6 @@ CORE_API b32 path_slice_get_extension( PathSlice path, PathSlice* out_extension 
 /// opt_out_path receives truncated path.
 CORE_API b32 path_slice_pop(
     PathSlice path, PathSlice* out_path, PathSlice* opt_out_chunk );
-/// Turn relative path into absolute path.
-/// Win32 Only: Converts all forward slashes to backslashes.
-/// Streams formatted result into item pointed to by target.
-/// string_buffer_write can be used to write into PathBuffer.
-CORE_API usize path_slice_canonicalize(
-    FormatWriteFN* write, void* target, PathSlice path );
 /// Converts path separators to either forward or back slashes.
 /// Streams formatted result into item pointed to by target.
 /// If forward_slash is true, converts backslashes to forward slashes and vice versa.

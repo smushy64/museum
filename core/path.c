@@ -187,8 +187,6 @@ CORE_API b32 path_slice_pop(
 
     return true;
 }
-CORE_API usize path_slice_canonicalize(
-    FormatWriteFN* write, void* target, PathSlice path );
 CORE_API usize path_slice_convert_separators(
     FormatWriteFN* write, void* target, PathSlice path, b32 forward_slash
 ) {
@@ -225,24 +223,40 @@ CORE_API usize path_slice_convert_separators(
 }
 
 CORE_API b32 path_buffer_push( PathBuffer* path, PathSlice chunk ) {
-    if( path->capacity < path->len + chunk.len ) {
-        return false;
-    }
+    if( path_slice_is_absolute( chunk ) ) {
+        if( path->capacity < chunk.len ) {
+            return false;
+        }
 
-    if( chunk.len == 1 ) {
-        path->buffer[path->len++] = chunk.buffer[0];
+        path->len = chunk.len;
+        memory_copy( path->buffer, chunk.buffer, chunk.len );
         return true;
     }
 
-    usize append_len = chunk.len + 1;
-    if( path->capacity < append_len + path->len ) {
+    if( !path->len ) {
+        if( path->capacity < chunk.len ) {
+            return false;
+        }
+
+        memory_copy( path->buffer, chunk.buffer, chunk.len );
+        path->len = chunk.len;
+        return true;
+    }
+
+    b32 separator_needed = !___char_is_separator( path->buffer[path->len - 1] );
+    usize append_len = chunk.len;
+    if( separator_needed ) {
+        append_len += 1;
+    }
+    if( path->capacity < path->len + append_len ) {
         return false;
     }
 
-    path->buffer[path->len++] = '/';
+    if( separator_needed ) {
+        path->buffer[path->len++] = '/';
+    }
     memory_copy( path->buffer + path->len, chunk.buffer, chunk.len );
     path->len += chunk.len;
-
     return true;
 }
 CORE_API b32 path_buffer_pop( PathBuffer* path, PathSlice* opt_out_chunk ) {
@@ -261,7 +275,7 @@ CORE_API b32 path_buffer_pop( PathBuffer* path, PathSlice* opt_out_chunk ) {
 CORE_API b32 path_buffer_set_extension( PathBuffer* path, PathSlice extension ) {
     PathSlice slice = path_buffer_to_slice( path );
     PathSlice ext   = {};
-    if( path_slice_get_extension( slice, &ext ) ) {
+    if( path_slice_get_extension( slice, &ext ) ) { 
         slice.len -= ext.len;
     }
 

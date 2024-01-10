@@ -96,7 +96,7 @@ CORE_API b32 job_system_initialize( u32 thread_count, void* buffer ) {
     read_write_fence();
 
     for( u32 i = 0; i < thread_count; ++i ) {
-        usize thread_index = i;
+        usize thread_index = i + 1;
 
         global_job_stack->threads[i] = platform_thread_create(
             ___internal_job_system_proc, (void*)thread_index, STACK_SIZE );
@@ -129,6 +129,7 @@ CORE_API void job_system_shutdown(void) {
 }
 
 CORE_API b32 job_system_push( JobProcFN* job, void* user_params ) {
+    read_write_fence();
     if( global_job_stack->remaining_entries >= JOB_STACK_MAX_ENTRY_COUNT ) {
         return false;
     }
@@ -145,6 +146,7 @@ CORE_API b32 job_system_push( JobProcFN* job, void* user_params ) {
 
     read_write_fence();
     semaphore_signal( &global_job_stack->wake );
+    read_write_fence();
     return true;
 }
 

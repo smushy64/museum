@@ -22,6 +22,7 @@ CORE_API void job_system_shutdown(void);
 // TODO(alicia): push_wait, push_wait_timed
 
 /// Attempt to add a job to job stack.
+/// Returns false if job buffer is fully saturated.
 CORE_API b32 job_system_push( JobProcFN* job, void* user_params );
 
 /// Wait for all entries to complete.
