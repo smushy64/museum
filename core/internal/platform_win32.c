@@ -43,6 +43,8 @@
 
 global LARGE_INTEGER global_performance_frequency = {};
 global LARGE_INTEGER global_performance_counter   = {};
+global char* global_working_directory = NULL;
+global usize global_working_directory_size = 0;
 
 // TODO(alicia): 
 // - Logging
@@ -57,6 +59,21 @@ struct Win32Thread {
     DWORD  id;
     struct Win32ThreadParams params;
 };
+
+b32 platform_get_current_process_path(
+    char* buffer, usize buffer_size, usize* out_write_size
+) {
+    DWORD buffer_size_32 = buffer_size;
+
+    if( !QueryFullProcessImageNameA(
+        GetCurrentProcess(), 0, buffer, &buffer_size_32
+    ) ) {
+        return false;
+    }
+
+    *out_write_size = buffer_size_32;
+    return true;
+}
 
 PlatformFile* platform_get_stdout(void) {
     return (PlatformFile*)GetStdHandle( STD_OUTPUT_HANDLE );
@@ -76,21 +93,29 @@ const char* ___make_win32_path( PathSlice path, usize* out_length ) {
         return path.buffer;
     }
 
+    HANDLE process_heap = GetProcessHeap();
+
+    usize null_terminated_path_size = path.len + 1;
+    char* null_terminated_path =
+        HeapAlloc( process_heap, HEAP_ZERO_MEMORY, null_terminated_path_size );
+    memory_copy( null_terminated_path, path.buffer, path.len );
 
     #define PREPEND "\\\\?\\"
-    usize buffer_size = path.len + 1 + sizeof(PREPEND);
-    char* buffer = HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, buffer_size );
+    DWORD required_size = GetFullPathNameA( null_terminated_path, 0, 0, 0 );
+    usize buffer_size = path.len + required_size + sizeof(PREPEND) - 1;
+
+    char* buffer = HeapAlloc( process_heap, HEAP_ZERO_MEMORY, buffer_size );
     memory_copy( buffer, PREPEND, sizeof(PREPEND) - 1 );
 
-    PathBuffer path_buffer = {};
-    path_buffer.buffer   = (buffer + (sizeof(PREPEND) - 1));
-    path_buffer.capacity = path.len;
+    GetFullPathNameA(
+        null_terminated_path,
+        buffer_size - (sizeof(PREPEND) - 1),
+        buffer + (sizeof(PREPEND) - 1), NULL );
 
-    path_slice_convert_separators( string_buffer_write, &path_buffer, path, false );
-
-    #undef PREPEND
+    HeapFree( process_heap, 0, null_terminated_path );
 
     *out_length = buffer_size;
+    #undef PREPEND
     return buffer;
 }
 void ___free_win32_path( usize length, const char* path ) {
@@ -149,7 +174,7 @@ PlatformFile* platform_file_open( PathSlice path, u32 flags ) {
             ___format_message( error_log, 255, error );
 
             core_log_error(
-                "failed to open file '{s}' | error: {u32,X} {cc}",
+                "failed to open file '{s}' | WIN32: {u32,X} {cc}",
                 path, error, error_log );
         }
     } else {
@@ -160,7 +185,9 @@ PlatformFile* platform_file_open( PathSlice path, u32 flags ) {
     return result;
 }
 void platform_file_close( PlatformFile* file ) {
-    CloseHandle( file );
+    if( file ) {
+        CloseHandle( file );
+    }
 }
 usize platform_file_query_size( PlatformFile* file ) {
 #if defined(LD_ARCH_64_BIT)
@@ -207,7 +234,7 @@ b32 ___file_read_32bit( PlatformFile* file, u32 buffer_size, void* buffer ) {
             char  error_log[255] = {};
             ___format_message( error_log, 255, error_code );
             core_log_error(
-                "failed to read file! | {u32,X} {cc}", error_code, error_log );
+                "failed to read file! | WIN32: {u32,X} {cc}", error_code, error_log );
         }
         return false;
     }
@@ -253,7 +280,7 @@ b32 ___file_write_32bit( PlatformFile* file, u32 buffer_size, void* buffer ) {
             char  error_log[255] = {};
             ___format_message( error_log, 255, error_code );
             core_log_error(
-                "failed to write file! | {u32,X} {cc}", error_code, error_log );
+                "failed to write file! | WIN32: {u32,X} {cc}", error_code, error_log );
         }
         return false;
     }
@@ -349,6 +376,38 @@ b32 platform_path_is_directory( PathSlice path ) {
     ___free_win32_path( path_len, win32_path );
 
     return bitfield_check( attributes, FILE_ATTRIBUTE_DIRECTORY );
+}
+usize platform_get_working_directory(
+    usize buffer_size, char* buffer, usize* opt_out_written_bytes
+) {
+    if( !global_working_directory ) {
+        DWORD size = GetCurrentDirectoryA( 0, 0 ) + 1;
+        assert( size );
+
+        global_working_directory =
+            HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, size );
+        assert( global_working_directory );
+
+        GetCurrentDirectoryA( size, global_working_directory );
+        global_working_directory_size = size - 1;
+    }
+
+    if( !buffer ) {
+        return global_working_directory_size;
+    }
+
+    usize copy_size = buffer_size;
+    if( buffer_size > global_working_directory_size ) {
+        copy_size = global_working_directory_size;
+    }
+
+    memory_copy( buffer, global_working_directory, copy_size );
+
+    if( opt_out_written_bytes ) {
+        *opt_out_written_bytes = copy_size;
+    }
+
+    return global_working_directory_size - copy_size;
 }
 
 void platform_win32_output_debug_string( const char* cstr ) {

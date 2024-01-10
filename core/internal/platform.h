@@ -60,6 +60,12 @@ b32 platform_path_is_file( PathSlice path );
 /// Check if path is directory.
 b32 platform_path_is_directory( PathSlice path );
 
+/// Get the current working directory.
+/// If buffer is null, returns required size.
+/// If buffer is not large enough, returns bytes not written to buffer.
+usize platform_get_working_directory(
+    usize buffer_size, char* buffer, usize* opt_out_written_bytes );
+
 #if defined(LD_PLATFORM_WINDOWS)
 /// Output debug string.
 void platform_win32_output_debug_string( const char* cstr );
