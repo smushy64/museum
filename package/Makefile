@@ -30,7 +30,7 @@ H := $(call recurse,,*.h)
 
 GENERATED_DEP := $(filter-out $(MAIN),$(C))
 GENERATED_DEP := $(addsuffix \",$(GENERATED_DEP))
-GENERATED_DEP := $(addprefix "#include \"",$(GENERATED_DEP))
+GENERATED_DEP := $(addprefix "#include \"package/",$(GENERATED_DEP))
 
 all: $(TARGET)
 
