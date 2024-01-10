@@ -55,6 +55,10 @@ CORE_API b32 fs_file_to_file_copy(
     FileHandle* src, usize src_offset,
     usize intermediate_size, void* intermediate_buffer, usize size
 ) {
+    if( !size ) {
+        return true;
+    }
+
     usize former_dst_offset = fs_file_query_offset( dst );
     usize former_src_offset = fs_file_query_offset( src );
 
@@ -92,6 +96,18 @@ CORE_API b32 fs_copy_by_path( PathSlice dst, PathSlice src, b32 fail_if_dst_exis
 }
 CORE_API b32 fs_move_by_path( PathSlice dst, PathSlice src, b32 fail_if_dst_exists ) {
     return platform_file_move_by_path( dst, src, fail_if_dst_exists );
+}
+CORE_API usize fs_get_working_directory( PathBuffer* buffer ) {
+    if( !buffer || !buffer->buffer ) {
+        return platform_get_working_directory( 0, 0, 0 );
+    }
+
+    usize bytes_written = 0;
+    usize result = platform_get_working_directory(
+        buffer->capacity, buffer->buffer, &bytes_written );
+
+    buffer->len = bytes_written;
+    return result;
 }
 
 struct FileWriteParams {

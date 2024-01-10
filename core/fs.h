@@ -88,6 +88,11 @@ header_only b32 fs_check_if_file_exists( PathSlice path ) {
 
     return exists;
 }
+/// Get the current working directory.
+/// Returns number of bytes required to write out working directory.
+/// If either path buffer or the path buffer's buffer is null,
+/// returns required size of buffer.
+CORE_API usize fs_get_working_directory( PathBuffer* buffer );
 
 /// Write a formatted string directly to a file using variadic arguments.
 /// Writes at the file's current offset and modifies offset.
