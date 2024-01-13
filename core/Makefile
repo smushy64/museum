@@ -42,7 +42,7 @@ all: $(TEST_TARGET)
 
 clean_dep:
 	@echo "Make: cleaning lib core dependencies . . ."
-	@rm -f $(GENERATED_DEP_PATH) 2> /dev/null || true
+	-@rm -f $(GENERATED_DEP_PATH) 2> /dev/null || true
 
 config:
 	@echo

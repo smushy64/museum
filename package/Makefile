@@ -36,7 +36,7 @@ all: $(TARGET)
 
 clean:
 	@echo "Make: cleaning package generated hashes . . ."
-	@rm -f $(OUTPUT_HASHES_PATH) 2> /dev/null || true
+	-@rm -f $(OUTPUT_HASHES_PATH) 2> /dev/null || true
 
 config:
 	@echo
@@ -63,7 +63,7 @@ $(GENERATED_DEP_PATH): $(C)
 
 clean_dep:
 	@echo "Make: cleaning util pkg dependencies . . ."
-	@rm -f $(GENERATED_DEP_PATH) 2> /dev/null || true
+	-@rm -f $(GENERATED_DEP_PATH) 2> /dev/null || true
 
 generate_compile_flags:
 	@echo "Make: generating package "$(COMPILE_COMMANDS_PATH)". . ."

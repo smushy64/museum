@@ -275,12 +275,12 @@ clean_dep:
 
 clean_shaders:
 	@echo "Make: cleaning "$(if $(RELEASE),release,debug)" shaders . . ."
-	-@rm -f ./$(LOCAL_BUILD_PATH)/resources/shaders/{*,.*} 2> /dev/null || true
+	-@rm -f ./$(LOCAL_BUILD_PATH)/resources/shaders/* 2> /dev/null || true
 
 clean_objects:
 	@echo "Make: cleaning "$(if $(RELEASE),release,debug)" objects . . ."
-	-@rm -f ./$(LOCAL_BUILD_PATH)/{*,.*} 2> /dev/null || true
-	-@rm -f ./$(LOCAL_OBJ_PATH)/{*,.*} 2> /dev/null || true
+	-@rm ./$(LOCAL_BUILD_PATH)/* 2> /dev/null || true
+	-@rm ./$(LOCAL_OBJ_PATH)/* 2> /dev/null || true
 
 help:
 	@echo "Arguments:"
