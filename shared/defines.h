@@ -269,6 +269,31 @@ typedef void LoggingCallbackFN(
 /// Path is unreachable.
 #define unreachable() __builtin_unreachable()
 
+#if defined(LD_DEVELOPER_MODE)
+    #if __has_builtin( __builtin_debugtrap )
+        #undef debug_break
+        /// Break on current line in debugger
+        #define debug_break() __builtin_debugtrap()
+    #else
+        #if defined(LD_ARCH_X86) && defined(LD_ARCH_64_BIT)
+            #undef debug_break
+            /// Break on current line in debugger
+            #define debug_break() __asm__ volatile ("int3" :::)
+        #elif defined(LD_ARCH_ARM)
+            #undef debug_break
+            /// Break on current line in debugger
+            #define debug_break() __asm__ volatile ("brk #0x1" :::)
+        #else
+            #undef debug_break
+            /// Break on current line in debugger
+            #define debug_break()
+        #endif
+    #endif
+#else
+    #undef debug_break
+    /// Break on current line in debugger
+    #define debug_break()
+#endif
 
 /// Compile-time assertion
 #if !defined(__cplusplus)
