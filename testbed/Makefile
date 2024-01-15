@@ -4,7 +4,7 @@
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
-TARGET := $(BUILD_PATH)/$(LIB_TESTBED)
+TARGET := $(BUILD_PATH)/$(LIB_TESTBED_FILE)
 
 CXXFLAGS := $(WARNING_FLAGS) $(OPTIMIZATION_FLAGS) $(ARCH_FLAGS) $(PLATFORM_FLAGS)
 
@@ -12,7 +12,13 @@ LOCAL_CPPFLAGS := -DSTACK_SIZE=$(PROGRAM_STACK_SIZE)
 
 CPPFLAGS := $(DEVELOPER_FLAGS) $(LOCAL_CPPFLAGS)
 
-LOCAL_LDFLAGS := -shared -L$(BUILD_PATH) -l$(LIB_CORE_NAME) -l$(LIB_ENGINE_NAME)
+LOCAL_LDFLAGS := -shared -L$(BUILD_PATH) -l$(LIB_CORE_NAME)
+
+ifeq ($(TARGET_PLATFORM), linux)
+	LOCAL_LDFLAGS += -l:$(ENGINE_FILE) -Wl,-rpath,'$$ORIGIN'
+else
+	LOCAL_LDFLAGS += $(BUILD_PATH)/$(ENGINE_FILE)
+endif
 
 LDFLAGS := $(LINKER_FLAGS_PRELUDE) $(LOCAL_LDFLAGS) $(LINKER_FLAGS_PLATFORM)
 
@@ -35,13 +41,13 @@ config:
 	@echo "-------- lib testbed ---------"
 	@echo "target:     "$(TARGET)
 	@echo
-	@echo "cflags:     warning, optimization, arch, platform"
+	@echo "cflags:     "$(CXXFLAGS)
 	@echo
-	@echo "cppflags:   developer, "$(LOCAL_CPPFLAGS)
+	@echo "cppflags:   "$(CPPFLAGS)
 	@echo
-	@echo "include:    include"
+	@echo "include:    "$(INCLUDE)
 	@echo
-	@echo "ldflags:    linker_prelude, "$(LOCAL_LDFLAGS)", linker_platform"
+	@echo "ldflags:    "$(LDFLAGS)
 
 $(GENERATED_DEP_PATH): $(C)
 	@echo "Make: generating dependencies for lib testbed . . ."
@@ -56,7 +62,7 @@ $(GENERATED_DEP_PATH): $(C)
 $(TARGET): $(GENERATED_DEP_PATH) $(C) $(H) $(DEP_SHARED_H) $(DEP_CORE_H) $(DEP_ENGINE_H)
 	@echo "Make: compiling "$(TARGET)" . . ."
 	@mkdir -p $(OBJ_PATH)
-	@$(CXX) $(CXXSTD) -x c++ $(GENERATED_DEP_PATH) $(DLLMAIN) -o $(TARGET) $(CXXFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
+	@$(CXX) $(CXXSTD) -o $(TARGET) $(CXXFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS) -xc++ $(GENERATED_DEP_PATH) $(DLLMAIN)
 
 generate_compile_flags:
 	@echo "Make: generating testbed "$(COMPILE_COMMANDS_PATH)". . ."

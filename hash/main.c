@@ -32,7 +32,7 @@ internal void print_help(void);
 #define HASH_DEFAULT_OUTPUT_PATH "./generated_hashes.h"
 global const char* global_program_name = "lhash";
 
-c_linkage int application_main( int argc, char** argv ) {
+int main( int argc, char** argv ) {
     global_program_name = argv[0];
 
     if( argc <= 1 ) {
@@ -250,4 +250,5 @@ internal void print_help(void) {
     println( "    --silent                  don't output messages to stdout (still outputs errors to stderr)" );
     println( "    --help                    print this message" );
 }
+
 

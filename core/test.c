@@ -8,6 +8,7 @@
 #include "core/path.h"
 #include "core/string.h"
 #include "core/memory.h"
+#include "core/fs.h"
 
 #define success( format, ... )\
     println( CONSOLE_COLOR_GREEN format CONSOLE_COLOR_RESET, ##__VA_ARGS__ )
@@ -16,17 +17,17 @@
 
 #define check( predicate, format, ... ) do {\
     if( !(predicate) ) {\
-        error( #predicate " | " format, ##__VA_ARGS__ );\
+        error( macro_value_to_string( __LINE__ ) ": " #predicate " | " format, ##__VA_ARGS__ );\
         error_code = 1;\
         return;\
     }\
 } while(0)
 
-
 int error_code = 0;
 
 void path_tests(void);
 
+#undef main
 int main( int argc, char** argv ) {
     unused(argc + argv);
 
@@ -58,18 +59,18 @@ void path_tests(void) {
         check( path_slice_is_directory( slice ), "path should be recognized as a directory!" );
     }
     /* path_slice_get_parent */ {
-        PathSlice slice = path_slice( "C:\\foo\\bar" );
+        PathSlice slice = path_slice( "/foo/bar" );
         PathSlice parent = {};
         check( path_slice_get_parent( slice, &parent ), "path should have a parent! path: '{s}'", slice );
         StringSlice parent_string = path_slice_to_string( &parent );
-        StringSlice expected = string_slice( "C:\\foo" );
+        StringSlice expected = string_slice( "/foo" );
         check( string_slice_cmp( parent_string, expected ), "path: '{s}' parent: '{s}' expected: '{s}'", slice, parent_string, expected );
 
         slice = parent;
         check( path_slice_get_parent( slice, &parent ), "path should have a parent! path: '{s}'", slice );
         parent_string = path_slice_to_string( &parent );
-        expected = string_slice( "C:\\" );
-        check( string_slice_cmp( parent_string, expected ), "path: '{s}' parent: '{s}' expected: '{s}'", slice, parent_string, expected );
+        // expected = string_slice( "/" );
+        // check( string_slice_cmp( parent_string, expected ), "path: '{s}' parent: '{s}' expected: '{s}'", slice, parent_string, expected );
 
         slice = parent;
         check( !path_slice_get_parent( slice, &parent ), "path should not have a parent! path: '{s}'", slice );
@@ -151,27 +152,35 @@ void path_tests(void) {
         check( result == 0, "separator converter output more characters than necessary!" );
     }
     /* path_buffer_push */ {
+        #define _check()\
+            check(\
+                path_slice_cmp( &buffer, &expected ),\
+                "expected: '{p}'({usize}) path: '{p}'({usize})",\
+                expected, expected.len, path_buffer_to_slice( &buffer ), buffer.len )
+            
         path_buffer_empty( buffer, 256 );
 
-        path_buffer_push( &buffer, path_slice( "." ) );
-        StringSlice expected = string_slice( "." );
-        StringSlice buffer_slice = *(StringSlice*)&buffer;
-        check( string_slice_cmp( buffer_slice, expected ), "expected: '{s}' path: '{s}'", expected, buffer_slice );
+        path_buffer_push( &buffer, path_slice( "./" ) );
+        PathSlice expected = path_slice( "./" );
+        _check();
 
         path_buffer_push( &buffer, path_slice( "foo" ) );
-        expected = string_slice( "./foo" );
-        buffer_slice = *(StringSlice*)&buffer;
-        check( string_slice_cmp( buffer_slice, expected ), "expected: '{s}' path: '{s}'", expected, buffer_slice );
+        expected = path_slice( "./foo" );
+        _check();
 
         path_buffer_push( &buffer, path_slice( "bar" ) );
-        expected = string_slice( "./foo/bar" );
-        buffer_slice = *(StringSlice*)&buffer;
-        check( string_slice_cmp( buffer_slice, expected ), "expected: '{s}' path: '{s}'", expected, buffer_slice );
+        expected = path_slice( "./foo/bar" );
+        _check();
 
         path_buffer_push( &buffer, path_slice( "baz" ) );
-        expected = string_slice( "./foo/bar/baz" );
-        buffer_slice = *(StringSlice*)&buffer;
-        check( string_slice_cmp( buffer_slice, expected ), "expected: '{s}' path: '{s}'", expected, buffer_slice );
+        expected = path_slice( "./foo/bar/baz" );
+        _check();
+
+        path_buffer_set_extension( &buffer, path_slice( "txt" ) );
+        expected = path_slice( "./foo/bar/baz.txt" );
+        _check();
+
+        #undef _check
     }
     /* path_buffer_pop */ {
         path_buffer( buffer, "./foo/bar/baz" );

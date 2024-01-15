@@ -33,7 +33,7 @@ typedef struct JobStack {
     PlatformThread* threads[];
 } JobStack;
 
-global JobStack* global_job_stack         = NULL;
+global JobStack* global_job_stack = NULL;
 
 CORE_API usize job_system_query_memory_requirement( u32 thread_count ) {
     return sizeof( JobStack ) + (sizeof( PlatformThread* ) * thread_count);
@@ -114,6 +114,9 @@ CORE_API b32 job_system_initialize( u32 thread_count, void* buffer ) {
     return true;
 }
 CORE_API void job_system_shutdown(void) {
+    if( !global_job_stack ) {
+        return;
+    }
     global_job_stack->end_signal = true;
     read_write_fence();
 

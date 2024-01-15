@@ -39,6 +39,8 @@ typedef u16 MediaGamepadButtons;
 #define MEDIA_GAMEPAD_BUTTON_FACE_LEFT         (1 << 14)
 #define MEDIA_GAMEPAD_BUTTON_FACE_UP           (1 << 15)
 
+#define MEDIA_GAMEPAD_MAX_COUNT   (4)
+#define MEDIA_GAMEPAD_MOTOR_COUNT (2)
 /// Media Gamepad State.
 typedef struct MediaGamepadState {
     MediaGamepadButtons buttons;

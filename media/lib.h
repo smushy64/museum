@@ -12,6 +12,10 @@
 /// Logging functions can be called before initialization.
 MEDIA_API b32 media_initialize(void);
 
+/// Shutdown media library.
+/// This function MUST be called before parent process can exit.
+MEDIA_API void media_shutdown(void);
+
 /// Set logging callback.
 MEDIA_API void media_logging_callback_set(
     LoggingCallbackFN* callback, void* params );

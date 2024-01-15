@@ -4,7 +4,7 @@
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
-TARGET := $(BUILD_PATH)/$(LIB_MEDIA)
+TARGET := $(BUILD_PATH)/$(LIB_MEDIA_FILE)
 
 CFLAGS := $(WARNING_FLAGS) $(OPTIMIZATION_FLAGS) $(ARCH_FLAGS) $(PLATFORM_FLAGS)
 
@@ -17,9 +17,18 @@ CPPFLAGS := $(GRAPHICS_FLAGS) $(DEVELOPER_FLAGS) $(LOCAL_CPPFLAGS)
 
 LOCAL_LDFLAGS := -shared -L$(BUILD_PATH) -l$(LIB_CORE_NAME)
 
+ifeq ($(TARGET_PLATFORM), linux)
+	DEPENDENCIES := $(shell pkg-config --libs sdl2)
+	LOCAL_LDFLAGS := $(DEPENDENCIES) $(LOCAL_LDFLAGS) 
+endif
+
 LDFLAGS := $(LOCAL_LDFLAGS) $(LINKER_FLAGS)
 
 INCLUDE := $(INCLUDE_FLAGS)
+
+ifeq ($(TARGET_PLATFORM), linux)
+	INCLUDE += $(shell pkg-config --cflags-only-I sdl2)
+endif
 
 C := $(call recurse,../media,*.c)
 H := $(call recurse,../media,*.h)
@@ -34,13 +43,13 @@ config:
 	@echo "-------- lib media ---------"
 	@echo "target:     "$(TARGET)
 	@echo
-	@echo "cflags:     warning, optimization, arch, platform"
+	@echo "cflags:     "$(CFLAGS)
 	@echo
-	@echo "cppflags:   engine, graphics, developer, "$(LOCAL_CPPFLAGS)
+	@echo "cppflags:   "$(CPPFLAGS)
 	@echo
-	@echo "include:    include"
+	@echo "include:    "$(INCLUDE)
 	@echo
-	@echo "ldflags:    "$(LOCAL_LDFLAGS)", linker"
+	@echo "ldflags:    "$(LDFLAGS)
 
 clean_dep:
 	@echo "Make: cleaning lib media dependencies . . ."

@@ -447,16 +447,23 @@ MEDIA_API void media_surface_set_name(
         win32_error( "failed to set window title!" );
     }
 }
-MEDIA_API void media_surface_query_name(
+MEDIA_API usize media_surface_query_name(
     MediaSurface* surface, char* buffer, u32 buffer_size
 ) {
     get_surface(surface);
+
+    if( !buffer ) {
+        return win32_surface->name_len;
+    }
+
     u32 max_copy = buffer_size;
     if( max_copy >= win32_surface->name_len ) {
         max_copy = win32_surface->name_len;
     }
 
     memory_copy( buffer, win32_surface->name, max_copy );
+
+    return win32_surface->name_len - max_copy;
 }
 MEDIA_API void media_surface_set_dimensions(
     MediaSurface* surface, i32 new_width, i32 new_height
@@ -1333,6 +1340,10 @@ internal int xinput_poll_thread( void* params ) {
             global_xinput_gamepad_active[i] = result == ERROR_SUCCESS;
         }
     }
+}
+
+MEDIA_API void media_shutdown(void) {
+    return;
 }
 
 MEDIA_API b32 media_initialize(void) {

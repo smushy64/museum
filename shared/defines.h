@@ -41,58 +41,66 @@
 
 // platform defines
 #if defined(_WIN32) || defined(__WIN32__) || defined(_WIN64) || defined(__WIN64__)
+    #undef LD_PLATFORM_WINDOWS
     #define LD_PLATFORM_WINDOWS
 #elif defined(__linux__) || defined(__gnu_linux__)
+    #undef LD_PLATFORM_LINUX
     #define LD_PLATFORM_LINUX
 #elif defined(__ANDROID__)
+    #undef LD_PLATFORM_ANDROID
     #define LD_PLATFORM_ANDROID
 #elif defined(__APPLE__)
     #include <TargetConditionals.h>
     #if TARGET_IPHONE_SIMULATOR || TARGET_OS_IPHONE
+        #undef LD_PLATFORM_IOS
         #define LD_PLATFORM_IOS
     #elif TARGET_OS_MAC
+        #undef LD_PLATFORM_MACOS
         #define LD_PLATFORM_MACOS
     #endif
 #else
+    #undef LD_PLATFORM_UNKNOWN
     #define LD_PLATFORM_UNKNOWN
 #endif
 
 // platform cpu defines
 #if defined(_M_IX86) || defined(__i386__)
+    #undef LD_ARCH_X86
     #define LD_ARCH_X86
+    #undef LD_ARCH_32_BIT
     #define LD_ARCH_32_BIT
 
     #if !defined(LD_ARCH_LITTLE_ENDIAN)
+        #undef LD_ARCH_LITTLE_ENDIAN
         #define LD_ARCH_LITTLE_ENDIAN
     #endif
 #endif
 
 #if defined(__x86_64__) || defined(_M_X64_)
     #if !defined(LD_ARCH_X86)
+        #undef LD_ARCH_X86
         #define LD_ARCH_X86
     #endif
-    #if defined(LD_ARCH_32_BIT)
-        #undef LD_ARCH_32_BIT
-    #endif
+    #undef LD_ARCH_32_BIT
+    #undef LD_ARCH_64_BIT
     #define LD_ARCH_64_BIT
 
-    #if !defined(LD_ARCH_LITTLE_ENDIAN)
-        #define LD_ARCH_LITTLE_ENDIAN
-    #endif
+    #undef LD_ARCH_LITTLE_ENDIAN
+    #define LD_ARCH_LITTLE_ENDIAN
 #endif // if x86
 
 #if defined(__arm__) || defined(_M_ARM_)
+    #undef LD_ARCH_ARM
     #define LD_ARCH_ARM
+    #undef LD_ARCH_32_BIT
     #define LD_ARCH_32_BIT
 #endif // if arm
 
 #if defined(__aarch64__)
-    #if !defined(LD_ARCH_ARM)
-        #define LD_ARCH_ARM
-    #endif
-    #if defined(LD_ARCH_32_BIT)
-        #undef LD_ARCH_32_BIT
-    #endif
+    #undef LD_ARCH_ARM
+    #define LD_ARCH_ARM
+    #undef LD_ARCH_32_BIT
+    #undef LD_ARCH_64_BIT
     #define LD_ARCH_64_BIT
 #endif // if arm64
 

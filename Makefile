@@ -2,7 +2,8 @@
 # * Author:       Alicia Amarilla (smushyaa@gmail.com)
 # * File Created: September 21, 2023
 
-MAKEFLAGS += -j -s
+# MAKEFLAGS += -j4
+MAKEFLAGS += -j4 -s
 
 export CC     := clang
 export CSTD   := -std=c99
@@ -15,8 +16,6 @@ export LD_MAJOR   := 0
 export LD_MINOR   := 2
 export LD_VERSION := $(LD_MAJOR).$(LD_MINOR)
 export LD_NAME    := liquid-engine
-
-export EXE_NAME   := liquid$(if $(RELEASE),,-debug)
 
 export GENERATED_PATH := ../generated
 
@@ -45,13 +44,13 @@ ifndef $(TARGET_PLATFORM)
 endif
 
 ifeq ($(TARGET_PLATFORM), win32)
-	export EXE_EXT := exe
-	export SO_EXT  := dll
+	export EXE_EXT := .exe
+	export SO_EXT  := .dll
 endif
 
 ifeq ($(TARGET_PLATFORM), linux)
 	export EXE_EXT :=
-	export SO_EXT := so
+	export SO_EXT  := .so
 endif
 
 LOCAL_BUILD_PATH := build/$(if $(RELEASE),release,debug)
@@ -70,8 +69,10 @@ export WARNING_FLAGS := -Werror -Wall -Wextra -pedantic -Werror=vla\
 	-Wno-duplicate-decl-specifier -Wno-gnu-empty-initializer\
 	-Wno-c2x-extensions
 
-export OPTIMIZATION_FLAGS_RELEASE := -O2 -ffast-math
-export OPTIMIZATION_FLAGS_DEBUG   := -O0 -g
+export OPTIMIZATION_FLAGS_COMMON := -fno-unwind-tables -fno-asynchronous-unwind-tables
+
+export OPTIMIZATION_FLAGS_RELEASE := -O2 -ffast-math $(OPTIMIZATION_FLAGS_COMMON)
+export OPTIMIZATION_FLAGS_DEBUG   := -O0 -g $(OPTIMIZATION_FLAGS_COMMON)
 
 ifeq ($(RELEASE), true)
 	export OPTIMIZATION_FLAGS := $(OPTIMIZATION_FLAGS_RELEASE)
@@ -81,6 +82,9 @@ endif
 
 ifeq ($(TARGET_ARCH), x86_64)
 	export ARCH_FLAGS += -masm=intel -msse4.2
+	ifeq ($(TARGET_PLATFORM), linux)
+		ARCH_FLAGS += -DLD_PLATFORM_LINUX -DLD_ARCH_X86 -DLD_ARCH_64_BIT
+	endif
 else
 	export ARCH_FLAGS += -mcpu=$(TARGET_ARCH)
 endif
@@ -89,9 +93,9 @@ export PLATFORM_FLAGS_WIN32_RELEASE := -mwindows
 export PLATFORM_FLAGS_WIN32_DEBUG   := -gcodeview
 
 ifeq ($(RELEASE), true)
-	export PLATFORM_FLAGS_WIN32 := $(PLATFORM_FLAGS_WIN32_RELEASE)
+	export PLATFORM_FLAGS_WIN32 := $(PLATFORM_FLAGS_WIN32_RELEASE) -Dmain="application_main"
 else
-	export PLATFORM_FLAGS_WIN32 := $(PLATFORM_FLAGS_WIN32_DEBUG)
+	export PLATFORM_FLAGS_WIN32 := $(PLATFORM_FLAGS_WIN32_DEBUG) -Dmain="application_main"
 endif
 
 ifeq ($(TARGET_PLATFORM), win32)
@@ -106,19 +110,28 @@ export VK_MINOR := 2
 export GL_MAJOR := 4
 export GL_MINOR := 5
 
-export EXE              := $(EXE_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)
-export LIB_CORE_NAME    := liquid-core$(if $(RELEASE),,-debug)
-export LIB_CORE         := $(LIB_CORE_NAME).$(SO_EXT)
-export LIB_ENGINE_NAME  := liquid-engine$(if $(RELEASE),,-debug)
-export LIB_ENGINE       := $(LIB_ENGINE_NAME).$(SO_EXT)
-export LIB_MEDIA_NAME   := liquid-media$(if $(RELEASE),,-debug)
-export LIB_MEDIA        := $(LIB_MEDIA_NAME).$(SO_EXT)
-export LIB_TESTBED_NAME := testbed$(if $(RELEASE),,-debug)
-export LIB_TESTBED      := $(LIB_TESTBED_NAME).$(SO_EXT)
-export UTIL_PKG_NAME    := lpkg
-export UTIL_PKG         := $(UTIL_PKG_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)
-export UTIL_HASH_NAME   := lhash
-export UTIL_HASH        := $(UTIL_HASH_NAME)$(if $(EXE_EXT),.$(EXE_EXT),)
+ifeq ($(TARGET_PLATFORM), win32)
+	export ENGINE_NAME := liquid-engine$(if $(RELEASE),,-debug)
+	export ENGINE_FILE := $(ENGINE_NAME)$(EXE_EXT)
+else
+	export ENGINE_NAME := engine$(if $(RELEASE),,-debug)
+	export ENGINE_FILE := lib$(ENGINE_NAME)$(SO_EXT)
+endif
+
+export LIB_CORE_NAME := core$(if $(RELEASE),,-debug)
+export LIB_CORE_FILE := lib$(LIB_CORE_NAME)$(SO_EXT)
+
+export LIB_MEDIA_NAME := media$(if $(RELEASE),,-debug)
+export LIB_MEDIA_FILE := lib$(LIB_MEDIA_NAME)$(SO_EXT)
+
+export LIB_TESTBED_NAME := testbed
+export LIB_TESTBED_FILE := lib$(LIB_TESTBED_NAME)$(SO_EXT)
+
+export UTIL_PKG_NAME := upkg
+export UTIL_PKG_FILE := $(UTIL_PKG_NAME)$(EXE_EXT)
+
+export UTIL_HASH_NAME := uhash
+export UTIL_HASH_FILE := $(UTIL_HASH_NAME)$(EXE_EXT)
 
 export GENERATED_DEP_PATH    := generated_dependencies.inl
 export COMPILE_COMMANDS_PATH := compile_flags.txt
@@ -161,18 +174,15 @@ endif
 export LINKER_FLAGS_PRELUDE_WIN32 := -fuse-ld=lld -nostdlib -lkernel32\
 	-mstack-probe-size=999999999 -Wl,//stack:$(PROGRAM_STACK_SIZE)
 
-export LINKER_FLAGS_PRELUDE_LINUX := -fPIC
+export LINKER_FLAGS_PRELUDE_LINUX := -fPIC -nostdlib -lc -lgcc -lc
 
 ifeq ($(TARGET_PLATFORM), win32)
-	export LINKER_FLAGS_PRELUDE := $(LINKER_FLAGS_PRELUDE_WIN32)
+	export LINKER_FLAGS_PRELUDE  := $(LINKER_FLAGS_PRELUDE_WIN32)
+	export LINKER_FLAGS_PLATFORM := $(LINKER_FLAGS_WIN32)
 endif
 
 ifeq ($(TARGET_PLATFORM), linux)
 	export LINKER_FLAGS_PRELUDE := $(LINKER_FLAGS_PRELUDE_LINUX)
-endif
-
-ifeq ($(TARGET_PLATFORM), win32)
-	export LINKER_FLAGS_PLATFORM := $(LINKER_FLAGS_WIN32)
 endif
 
 export LINKER_FLAGS := $(LINKER_FLAGS_PRELUDE) $(LINKER_FLAGS_PLATFORM)
@@ -195,12 +205,12 @@ export DEP_CORE_C := $(addprefix .,$(call recurse,./core,*.c))
 export DEP_ENGINE_H := $(addprefix .,$(call recurse,./engine,*.h))
 export DEP_ENGINE_C := $(addprefix .,$(call recurse,./engine,*.c))
 
-export PLATFORM_DEP_C := $(addprefix .,$(filter-out ./platform/platform_dllmain.c,$(call recurse,./platform,*.c)))
+ifeq ($(TARGET_PLATFORM), linux)
+	DEP_PLATFORM_S := $(addprefix .,$(call recurse,./platform,*.s))
+endif
+export DEP_PLATFORM_C := $(addprefix .,$(filter-out ./platform/platform_dllmain.c,$(call recurse,./platform,*.c))) $(DEP_PLATFORM_S)
 
-all: build_platform build_core build_engine build_shaders build_package build_hash
-
-build_platform:
-	@$(MAKE) --directory=platform --no-print-directory
+all: build_core build_engine build_shaders build_package build_hash
 
 build_core:
 	@$(MAKE) --directory=core --no-print-directory
@@ -208,7 +218,7 @@ build_core:
 build_media: build_core
 	@$(MAKE) --directory=media --no-print-directory
 
-build_engine: build_core build_hash build_media
+build_engine: build_core build_media
 	@$(MAKE) --directory=engine --no-print-directory
 
 build_hash: build_core
@@ -231,31 +241,6 @@ config:
 	@echo "c standard:   "$(CSTD)
 	@echo "c++ compiler: "$(CXX)
 	@echo "c++ standard: "$(CXXSTD)
-	@echo
-	@echo "-------- flags --------------"
-	@echo
-	@echo "warning:      "$(WARNING_FLAGS)
-	@echo 
-	@echo "optimization: "$(OPTIMIZATION_FLAGS)
-	@echo
-	@echo "arch:         "$(ARCH_FLAGS)
-	@echo
-	@echo "platform:     "$(PLATFORM_FLAGS)
-	@echo
-	@echo "engine:       "$(ENGINE_FLAGS)
-	@echo
-	@echo "graphics:     "$(GRAPHICS_FLAGS)
-	@echo
-	@echo "developer:    "$(DEVELOPER_FLAGS)
-	@echo
-	@echo "linker_prelude: "$(LINKER_FLAGS_PRELUDE)
-	@echo
-	@echo "linker_platform: "$(LINKER_FLAGS_PLATFORM)
-	@echo
-	@echo "linker:       linker_prelude, linker_platform"
-	@echo
-	@echo "include:      "$(INCLUDE_FLAGS)
-	@$(MAKE) --directory=platform config
 	@$(MAKE) --directory=core config
 	@$(MAKE) --directory=media config
 	@$(MAKE) --directory=engine config
@@ -265,6 +250,7 @@ config:
 
 clean: clean_shaders clean_objects
 	@$(MAKE) --directory=package clean
+	@$(MAKE) --directory=core clean
 
 clean_dep:
 	@$(MAKE) --directory=core clean_dep

@@ -94,11 +94,12 @@ typedef u32 MediaSurfaceGraphicsBackend;
 
 /// Types of message boxes.
 typedef enum MediaMessageBoxType: u32 {
-    MEDIA_MESSAGE_BOX_TYPE_INFO,
+    MEDIA_MESSAGE_BOX_TYPE_ERROR,
     MEDIA_MESSAGE_BOX_TYPE_WARNING,
-    MEDIA_MESSAGE_BOX_TYPE_ERROR
+    MEDIA_MESSAGE_BOX_TYPE_INFO,
 } MediaMessageBoxType;
 
+#define MEDIA_MESSAGE_BOX_MAX_BUTTON_COUNT (2)
 /// Options to display in message box.
 typedef enum MediaMessageBoxOptions : u32 {
     MEDIA_MESSAGE_BOX_OPTIONS_OK,
@@ -135,7 +136,10 @@ MEDIA_API void media_surface_set_name(
     MediaSurface* surface, const char* name, u32 len );
 /// Query media surface name.
 /// Copies up to buffer size.
-MEDIA_API void media_surface_query_name(
+/// If buffer is NULL, returns required buffer size
+/// otherwise, returns required size to receive surface name.
+/// If buffer_size == surface name length, returns 0.
+MEDIA_API usize media_surface_query_name(
     MediaSurface* surface, char* buffer, u32 buffer_size );
 /// Set media surface dimensions.
 /// Calls callback function after setting.

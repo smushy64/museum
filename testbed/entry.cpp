@@ -13,6 +13,8 @@
 #include "engine/logging.h"
 #include "engine/audio.h"
 
+#define API c_linkage api_export
+
 struct GameMemory {
     Transform camera_transform;
     Camera    camera;
@@ -39,11 +41,11 @@ struct Vertex3D triangle_vertices[] = {
 u32 triangle_indices[] = { 0, 1, 2 };
 u8  triangle_diffuse[] = { 255, 255, 255 };
 
-c_linkage usize application_query_memory_requirement() {
+API usize application_query_memory_requirement() {
     return sizeof(GameMemory);
 }
 
-c_linkage b32 application_initialize( void* in_memory ) {
+API b32 application_initialize( void* in_memory ) {
     GameMemory* memory = (GameMemory*)in_memory;
     memory->camera_transform =
         transform_create(
@@ -90,7 +92,7 @@ c_linkage b32 application_initialize( void* in_memory ) {
     return true;
 }
 
-c_linkage b32 application_run( void* in_memory ) {
+API b32 application_run( void* in_memory ) {
     GameMemory* memory = (GameMemory*)in_memory;
     f64 delta_time = time_delta_seconds();
 
@@ -181,4 +183,6 @@ c_linkage b32 application_run( void* in_memory ) {
 
     return true;
 }
+
+#undef API
 

@@ -4,15 +4,32 @@
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
-TARGET := $(BUILD_PATH)/$(LIB_ENGINE)
+TARGET := $(BUILD_PATH)/$(ENGINE_FILE)
 
 CFLAGS := $(WARNING_FLAGS) $(OPTIMIZATION_FLAGS) $(ARCH_FLAGS) $(PLATFORM_FLAGS)
 
 LOCAL_CPPFLAGS := -DLD_SIMD_WIDTH=4 -DLD_EXPORT
 
+ifeq ($(RELEASE),true)
+else
+	LOCAL_CPPFLAGS += -DLD_CONSOLE_APP
+endif
+
 CPPFLAGS := $(ENGINE_FLAGS) $(GRAPHICS_FLAGS) $(DEVELOPER_FLAGS) $(LOCAL_CPPFLAGS)
 
-LOCAL_LDFLAGS := -shared -L$(BUILD_PATH) -l$(LIB_CORE_NAME) -l$(LIB_MEDIA_NAME)
+LOCAL_LDFLAGS := -L$(BUILD_PATH) -l$(LIB_CORE_NAME) -l$(LIB_MEDIA_NAME)
+
+ifeq ($(TARGET_PLATFORM), win32)
+	RESOURCES_WIN32     := $(OBJ_PATH)/resources.o
+	RESOURCES_WIN32_SRC := ../platform/win32/resources.rc
+	LOCAL_LDFLAGS       += -Wl,--out-implib=$(BUILD_PATH)/$(subst exe,lib,$(ENGINE_FILE))
+endif
+
+ifeq ($(TARGET_PLATFORM), linux)
+	LOCAL_LDFLAGS += -shared -Wl,-e,_start -Wl,-soname,$(ENGINE_FILE)
+	LOCAL_LDFLAGS += -Wl,-rpath,'$$ORIGIN' -DSHARED_EXECUTABLE
+	LOCAL_LDFLAGS += -Wl,--out-implib=$(BUILD_PATH)/$(subst so,a,$(ENGINE_FILE))
+endif
 
 LDFLAGS := $(LOCAL_LDFLAGS) $(LINKER_FLAGS)
 
@@ -34,13 +51,13 @@ config:
 	@echo "-------- lib engine ---------"
 	@echo "target:     "$(TARGET)
 	@echo
-	@echo "cflags:     warning, optimization, arch, platform"
+	@echo "cflags:     "$(CFLAGS)
 	@echo
-	@echo "cppflags:   engine, graphics, developer, "$(LOCAL_CPPFLAGS)
+	@echo "cppflags:   "$(CPPFLAGS)
 	@echo
-	@echo "include:    include"
+	@echo "include:    "$(INCLUDE)
 	@echo
-	@echo "ldflags:    "$(LOCAL_LDFLAGS)", linker"
+	@echo "ldflags:    "$(LDFLAGS)
 	@echo
 	@echo "main:       "$(MAIN)
 
@@ -58,10 +75,15 @@ $(GENERATED_DEP_PATH): $(C)
 	@echo "" >> $(GENERATED_DEP_PATH)
 	for i in $(GENERATED_DEP); do echo $$i >> $(GENERATED_DEP_PATH); done
 
-$(TARGET): $(GENERATED_DEP_PATH) $(C) $(H) $(DEP_SHARED_H) $(DEP_SHARED_C) $(DEP_CORE_H)
+$(RESOURCES_WIN32): $(RESOURCES_WIN32_SRC)
+	@echo "Make: compiling "$(RESOURCES_WIN32)" . . ."
+	@mkdir -p $(OBJ_PATH)
+	@windres $(RESOURCES_WIN32_SRC) -o $(RESOURCES_WIN32)
+
+$(TARGET): $(RESOURCES_WIN32) $(GENERATED_DEP_PATH) $(C) $(H) $(DEP_SHARED_H) $(DEP_SHARED_C) $(DEP_CORE_H) $(DEP_PLATFORM_C) $(DLLMAIN)
 	@echo "Make: compiling "$(TARGET)" . . ."
 	@mkdir -p $(OBJ_PATH)
-	@$(CC) $(CSTD) -xc $(DLLMAIN) $(MAIN) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS) 
+	@$(CC) $(CSTD) $(RESOURCES_WIN32) $(DEP_PLATFORM_C) -xc $(MAIN) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS) 
 
 generate_compile_flags:
 	@echo "Make: generating engine "$(COMPILE_COMMANDS_PATH)". . ."

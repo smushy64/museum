@@ -94,6 +94,7 @@ struct PlatformAPI* platform = NULL;
 #define ENGINE_ERROR_APPLICATION_RUN                (141)
 #define ENGINE_ERROR_RENDERER_DRAW                  (142)
 #define ENGINE_ERROR_MISSING_INSTRUCTIONS           (143)
+#define ENGINE_ERROR_UNKNOWN (255)
 
 typedef struct SurfaceCallbackData {
     b32* surface_is_active;
@@ -167,7 +168,13 @@ global MediaSurface* ENGINE_SURFACE = NULL;
 internal void lib_logging(
     LoggingLevel level, usize message_len, const char* message, void* params );
 internal void print_help(void);
-LD_API int application_main( int argc, char** argv ) {
+
+int main( int argc, char** argv ) {
+    #define exit( code )\
+        media_shutdown();\
+        job_system_shutdown();\
+        return code
+
     global_executable_name = argv[0];
 
     SystemInfo system_info = {};
@@ -183,7 +190,7 @@ LD_API int application_main( int argc, char** argv ) {
 
     if( !logging_file ) {
         println_err( "[FATAL] Failed to open logging file!" );
-        return ENGINE_ERROR_LOGGING_SUBSYSTEM_INITIALIZE;
+        exit( ENGINE_ERROR_LOGGING_SUBSYSTEM_INITIALIZE );
     }
 
     logging_subsystem_initialize( logging_file );
@@ -193,15 +200,19 @@ LD_API int application_main( int argc, char** argv ) {
     media_logging_callback_set( lib_logging, NULL );
 
 #endif
-    media_initialize();
+    if( !media_initialize() ) {
+        fatal_log( "failed to initialize media!" );
+        exit( ENGINE_ERROR_UNKNOWN );
+    }
 
     if( !check_instructions( &system_info ) ) {
-        return ENGINE_ERROR_MISSING_INSTRUCTIONS;
+        exit( ENGINE_ERROR_MISSING_INSTRUCTIONS );
     }
 
     struct SettingsParse settings = ___settings_parse_default();
     if( !parse_settings( &settings ) ) {
-        return ENGINE_ERROR_PARSE;
+        fatal_log( "failed to parse settings!" );
+        exit( ENGINE_ERROR_PARSE );
     }
 
     f32 audio_volume_master = settings.audio_volume_master;
@@ -262,8 +273,7 @@ LD_API int application_main( int argc, char** argv ) {
                         CONSOLE_COLOR_RED
                         "invalid game library path: {s}"
                         CONSOLE_COLOR_RESET,
-                        path
-                    );
+                        path );
                     parse_error = true;
                     break;
                 }
@@ -489,7 +499,7 @@ LD_API int application_main( int argc, char** argv ) {
                 string_slice_cmp( current, h )
             ) {
                 print_help();
-                return 0;
+                exit( ENGINE_SUCCESS );
             }
 
             println_err(
@@ -503,7 +513,7 @@ LD_API int application_main( int argc, char** argv ) {
         
         if( parse_error ) {
             print_help();
-            return ENGINE_ERROR_PARSE;
+            exit( ENGINE_ERROR_PARSE );
         }
 
 #if defined(LD_PLATFORM_WINDOWS) && defined(LD_DEVELOPER_MODE)
@@ -529,7 +539,7 @@ LD_API int application_main( int argc, char** argv ) {
         fatal_log( "{s}", string_buffer_to_slice( &error_message ) );
         media_fatal_message_box_blocking(
             error_title.buffer, error_message.buffer );
-        return ENGINE_ERROR_RENDERER_BACKEND_NOT_SUPPORTED;
+        exit( ENGINE_ERROR_RENDERER_BACKEND_NOT_SUPPORTED );
     }
 
     note_log( "Engine Configuration:" );
@@ -609,7 +619,7 @@ LD_API int application_main( int argc, char** argv ) {
         fatal_log( "{s}", string_buffer_to_slice( &error_message ) );
         media_fatal_message_box_blocking(
             error_title.buffer, error_message.buffer );
-        return ENGINE_ERROR_OPEN_GAME_LIBRARY;
+        exit( ENGINE_ERROR_OPEN_GAME_LIBRARY );
     }
 
     ApplicationQueryMemoryRequirementFN*
@@ -642,7 +652,7 @@ LD_API int application_main( int argc, char** argv ) {
         fatal_log( "{s}", string_buffer_to_slice( &error_message ) );
         media_fatal_message_box_blocking(
             error_title.buffer, error_message.buffer );
-        return ENGINE_ERROR_LOAD_GAME_FUNCTIONS;
+        exit( ENGINE_ERROR_LOAD_GAME_FUNCTIONS );
     }
 
 #if 0
@@ -652,7 +662,7 @@ LD_API int application_main( int argc, char** argv ) {
             "Fatal Error "
             macro_value_to_string( ENGINE_ERROR_AUDIO_SUBSYSTEM_INITIALIZE ),
             "Failed to initialize audio subsystem!" );
-        return ENGINE_ERROR_AUDIO_SUBSYSTEM_INITIALIZE;
+        exit( ENGINE_ERROR_AUDIO_SUBSYSTEM_INITIALIZE );
     }
 #endif
 
@@ -711,7 +721,7 @@ LD_API int application_main( int argc, char** argv ) {
             fatal_log( "{s}", string_buffer_to_slice( &error_message ) );
             media_fatal_message_box_blocking(
                 error_title.buffer, error_message.buffer );
-            return ENGINE_ERROR_ENGINE_MEMORY_ALLOCATION;
+            exit( ENGINE_ERROR_ENGINE_MEMORY_ALLOCATION );
         }
 
     }
@@ -746,7 +756,7 @@ LD_API int application_main( int argc, char** argv ) {
                 macro_value_to_string(
                     ENGINE_ERROR_THREAD_SUBSYSTEM_INITIALIZE ),
                 "Failed to initialize thread subsystem!" );
-            return ENGINE_ERROR_THREAD_SUBSYSTEM_INITIALIZE;
+            exit( ENGINE_ERROR_THREAD_SUBSYSTEM_INITIALIZE );
         }
     }
 
@@ -765,7 +775,7 @@ LD_API int application_main( int argc, char** argv ) {
             flags, surface_callback, &surface_callback_data, backend, &surface
         ) ) {
             media_fatal_message_box_blocking( "Fatal Error", "Failed to create window!" );
-            return ENGINE_ERROR_CREATE_SURFACE;
+            exit( ENGINE_ERROR_CREATE_SURFACE );
         }
         media_surface_set_hidden( &surface, false );
     }
@@ -794,7 +804,7 @@ LD_API int application_main( int argc, char** argv ) {
                 "Fatal Error "
                 macro_value_to_string( ENGINE_ERROR_RENDERER_SUBSYSTEM_INITIALIZE ),
                 "Failed to initialize renderer subsystem!" );
-            return ENGINE_ERROR_RENDERER_SUBSYSTEM_INITIALIZE;
+            exit( ENGINE_ERROR_RENDERER_SUBSYSTEM_INITIALIZE );
         }
     }
 
@@ -806,7 +816,7 @@ LD_API int application_main( int argc, char** argv ) {
             "Fatal Error "
             macro_value_to_string( ENGINE_ERROR_APPLICATION_INITIALIZE ),
             "Failed to initialize application!" );
-        return ENGINE_ERROR_APPLICATION_INITIALIZE;
+        exit( ENGINE_ERROR_APPLICATION_INITIALIZE );
     }
 
     while( global_application_is_running ) {
@@ -839,7 +849,7 @@ LD_API int application_main( int argc, char** argv ) {
                 "Fatal Error "
                 macro_value_to_string( ENGINE_ERROR_APPLICATION_RUN ),
                 "Failed to run application!" );
-            return ENGINE_ERROR_APPLICATION_RUN;
+            exit( ENGINE_ERROR_APPLICATION_RUN );
         }
 
 #if 0
@@ -852,7 +862,7 @@ LD_API int application_main( int argc, char** argv ) {
                 "Fatal Error "
                 macro_value_to_string( ENGINE_ERROR_RENDERER_DRAW ),
                 "Renderer failed!" );
-            return ENGINE_ERROR_RENDERER_DRAW;
+            exit( ENGINE_ERROR_RENDERER_DRAW );
         }
 
         list_clear( &render_data.list_commands );
@@ -863,6 +873,7 @@ LD_API int application_main( int argc, char** argv ) {
 
         time_update();
     }
+
 
     audio_subsystem_shutdown();
 
@@ -876,7 +887,9 @@ LD_API int application_main( int argc, char** argv ) {
 #endif
 
     shared_object_close( game );
-    return ENGINE_SUCCESS;
+    exit( ENGINE_SUCCESS );
+
+    #undef exit
 }
 
 internal void print_help(void) {
@@ -998,9 +1011,9 @@ b32 parse_settings( struct SettingsParse* out_parse_result ) {
 
     if( !settings_file ) {
         settings_file = fs_file_open(
-            settings_path, FILE_OPEN_FLAG_WRITE );
+            settings_path, FILE_OPEN_FLAG_WRITE | FILE_OPEN_FLAG_CREATE );
         if( !settings_file ) {
-            fatal_log( "Failed to open settings file at all!" );
+            fatal_log( "failed to open settings file at all!" );
             return false;
         }
 
@@ -1023,7 +1036,7 @@ b32 parse_settings( struct SettingsParse* out_parse_result ) {
         settings_file = fs_file_open( settings_path, flags );
 
         if( !settings_file ) {
-            fatal_log( "Failed to reopen settings file for reading!" );
+            fatal_log( "failed to reopen settings file for reading!" );
             return false;
         }
     }
@@ -1037,14 +1050,14 @@ b32 parse_settings( struct SettingsParse* out_parse_result ) {
     if( !settings_file_size ) {
         fs_file_close( settings_file );
         *out_parse_result = parse_result;
-        warn_log( "Settings file is empty!" );
+        warn_log( "settings file is empty!" );
         return true;
     }
 
     char* settings_file_buffer = system_alloc( settings_file_size );
     if( !settings_file_buffer ) {
         fs_file_close( settings_file );
-        fatal_log( "Failed to allocate settings file buffer!" );
+        fatal_log( "failed to allocate settings file buffer!" );
         return false;
     }
 
@@ -1055,7 +1068,7 @@ b32 parse_settings( struct SettingsParse* out_parse_result ) {
     if( !read_result ) {
         fs_file_close( settings_file );
         system_free( settings_file_buffer, settings_file_size );
-        fatal_log( "Failed to read settings file!" );
+        fatal_log( "failed to read settings file!" );
         return false;
     }
 
@@ -1329,3 +1342,6 @@ internal b32 check_instructions( SystemInfo* system_info ) {
 }
 
 #include "engine/generated_dependencies.inl"
+#define NO_CSTD
+#include "platform/platform_dllmain.c"
+

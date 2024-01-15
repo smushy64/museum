@@ -12,6 +12,8 @@
 #include <windowsx.h>
 #include <intrin.h>
 
+extern int application_main( int argc, char** argv );
+
 #if defined(strcpy)
     #undef strcpy
 #endif
@@ -22,25 +24,11 @@
 
 LPSTR* WINAPI CommandLineToArgvA(LPSTR lpCmdline, int* numargs);
 
-#if defined(LD_APPLICATION_STATIC)
-    extern int application_main( int argc, char** argv );
-#else
-    #if !defined(LD_APPLICATION_PATH)
-        #error "LD_APPLICATION_PATH must be defined!"
-    #endif
-    typedef int MainFN( int argc, char** argv );
-#endif
-
-typedef int MessageBoxAFN( HWND hwnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType );
-global MessageBoxAFN* ___MessageBoxA = NULL;
-#define MessageBoxA ___MessageBoxA
-
 #if defined(LD_CONSOLE_APP)
 _Noreturn void __stdcall mainCRTStartup(void) {
 #else
 _Noreturn void __stdcall WinMainCRTStartup(void) {
 #endif
-
     int    argc = 0;
     char** argv = CommandLineToArgvA( GetCommandLineA(), &argc );
 
@@ -50,29 +38,6 @@ _Noreturn void __stdcall WinMainCRTStartup(void) {
     dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
     SetConsoleMode(
         GetStdHandle( STD_OUTPUT_HANDLE ), dwMode );
-
-    HMODULE user32 = LoadLibraryA( "USER32.DLL" );
-    assert(user32);
-
-    MessageBoxA = (MessageBoxAFN*)GetProcAddress( user32, "MessageBoxA" );
-
-    #define err( message )\
-        MessageBoxA( NULL, message, "Fatal Error", MB_OK | MB_ICONERROR );
-
-#if !defined(LD_APPLICATION_STATIC)
-    HMODULE app = LoadLibraryA( LD_APPLICATION_PATH );
-    if( !app ) {
-        err( "Failed to open application library!" );
-        ExitProcess( WIN32_ERROR_OPEN_APP );
-    }
-
-    MainFN* application_main =
-        (MainFN*)GetProcAddress( app, "application_main" );
-    if( !application_main ) {
-        err( "Failed to load application main!" );
-        ExitProcess( WIN32_ERROR_LOAD_APP_MAIN );
-    }
-#endif /* If application is NOT statically compiled */
 
     int return_code = application_main( argc, argv );
 

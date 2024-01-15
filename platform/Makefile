@@ -4,12 +4,10 @@
 
 recurse = $(wildcard $1$2) $(foreach d,$(wildcard $1*),$(call recurse,$d/,$2))
 
-TARGET := $(BUILD_PATH)/$(EXE)
-
 CFLAGS := $(WARNING_FLAGS) $(OPTIMIZATION_FLAGS) $(ARCH_FLAGS) $(PLATFORM_FLAGS)
 
 LOCAL_CPPFLAGS_RELEASE :=
-LOCAL_CPPFLAGS_DEBUG := -DLD_CONSOLE_APP
+LOCAL_CPPFLAGS_DEBUG   := -DLD_CONSOLE_APP
 
 LOCAL_CPPFLAGS := -DLD_SIMD_WIDTH=4
 LOCAL_CPPFLAGS += -DLD_EXPORT
@@ -27,38 +25,7 @@ LDFLAGS := $(LINKER_FLAGS)
 
 INCLUDE := $(INCLUDE_FLAGS)
 
-ifeq ($(TARGET_PLATFORM), win32)
-	IS_WINDOWS := true
-	RESOURCES_WIN32 := $(OBJ_PATH)/win32_resources.o
-	WIN32_RC_PATH   := ../platform/win32/resources.rc
-endif
-
-C := $(PLATFORM_DEP_C)
-
-all: $(TARGET)
-
-config:
-	@echo
-	@echo "-------- exe ---------------"
-	@echo "target:     "$(TARGET)
-	@echo
-	@echo "cflags:     warning, optimization, arch, platform"
-	@echo
-	@echo "cppflags:   engine, graphics, developer, "$(LOCAL_CPPFLAGS)
-	@echo
-	@echo "include:    include"
-	@echo
-	@echo "ldflags:    linker"
-
-$(RESOURCES_WIN32): $(WIN32_RC_PATH)
-	@echo "Make: compiling "$(RESOURCES_WIN32)". . ."
-	@mkdir -p $(OBJ_PATH)
-	@windres $(WIN32_RC_PATH) -o $(RESOURCES_WIN32)
-
-$(TARGET): $(if $(IS_WINDOWS),$(RESOURCES_WIN32),) $(C) $(DEP_SHARED_H) $(DEP_SHARED_C)
-	@echo "Make: compiling "$(TARGET)" . . ."
-	@mkdir -p $(OBJ_PATH)
-	@$(CC) $(CSTD) $(C) $(RESOURCES_WIN32) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
+all:
 
 generate_compile_flags:
 	@echo "Make: generating platform "$(COMPILE_COMMANDS_PATH)". . ."
@@ -69,5 +36,5 @@ generate_compile_flags:
 	@echo "-I.." >> $(COMPILE_COMMANDS_PATH)
 	for i in $(LDFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
 
-.PHONY: all config generate_compile_flags
+.PHONY: all generate_compile_flags
 

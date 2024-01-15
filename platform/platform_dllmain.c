@@ -10,6 +10,10 @@
 extern "C" {
 #endif
 
+#if defined(LD_PLATFORM_LINUX) && defined(SHARED_EXECUTABLE)
+const char interp[] __attribute__((section(".interp"))) = "/lib64/ld-linux-x86-64.so.2";
+#endif
+
 #if defined(LD_PLATFORM_WINDOWS)
 #include <windows.h>
 
@@ -33,7 +37,9 @@ BOOL WINAPI DllMainCRTStartup(
 
 #endif /* Platform Windows */
 
-#include "shared/custom_cstd.c"
+#if !defined(NO_CSTD)
+    #include "shared/custom_cstd.c"
+#endif
 
 #if defined(__cplusplus)
 } // extern "C"
