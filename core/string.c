@@ -13,9 +13,14 @@
     #include <immintrin.h>
 #endif
 
-CORE_API u64 ___internal_hash( usize len, const char* str ) {
+CORE_API u64 cstr_hash( usize opt_len, const char* str ) {
     // NOTE(alicia): elf-hash implementation
     // may change in the future!
+
+    usize len = opt_len;
+    if( !len ) {
+        len = cstr_len( str );
+    }
 
     u64 x;
     u64 result = x = 0;

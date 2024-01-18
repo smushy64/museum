@@ -6,22 +6,10 @@
  * File Created: April 28, 2023
 */
 #include "shared/defines.h"
+#include "core/internal/slice.h"
 
 struct Iterator;
 enum FormatInteger : u32;
-
-/// Slice of a string buffer.
-struct StringSlice {
-    char* buffer;
-    usize len;
-};
-
-/// String buffer.
-struct StringBuffer {
-    char* buffer;
-    usize len;
-    usize capacity;
-};
 
 /// Slice of a string buffer.
 typedef struct StringSlice StringSlice;
@@ -36,11 +24,8 @@ typedef struct StringBuffer StringBuffer;
 #define string_slice( literal )\
     (StringSlice){ literal, sizeof(literal) - 1 }
 
-/// Create a constant String Buffer from literal.
-#define string_buffer_const( literal )\
-    (StringBuffer){ literal, sizeof(literal) - 1, sizeof(literal) }
 /// Create a stack-allocated mutable String Buffer from literal.
-#define string_buffer_mut( buffer_name, literal )\
+#define string_buffer_text( buffer_name, literal )\
     char buffer_name##_buffer[] = literal;\
     StringBuffer buffer_name = (StringBuffer){ buffer_name##_buffer, sizeof(literal) - 1, sizeof(literal) }
 /// Create a stack-allocated mutable String Buffer with capacity.
@@ -51,7 +36,7 @@ typedef struct StringBuffer StringBuffer;
 /// Check if character is a whitespace character.
 header_only b32 char_is_whitespace( char character ) {
     return
-        character == ' ' || character == '\n' ||
+        character == ' '  || character == '\n' ||
         character == '\r' || character == '\t';
 }
 /// Check if character is a latin alphabet letter.
@@ -72,9 +57,9 @@ header_only b32 char_is_digit_hexadecimal( char character ) {
     return char_is_digit( character ) || upper || lower;
 }
 /// Hash a string.
-CORE_API u64 ___internal_hash( usize len, const char* str );
-/// Hash a string.
-#define cstr_hash( string )\
+CORE_API u64 cstr_hash( usize opt_len, const char* string );
+/// Hash a string literal.
+#define text_hash( string )\
     ___internal_hash( sizeof(string) - 1, string )
 
 /// Calculate length of null-terminated C string.
@@ -108,7 +93,7 @@ header_only b32 string_slice_is_empty( StringSlice slice ) {
 }
 /// Generate hash for given String Slice.
 header_only u64 string_slice_hash( StringSlice slice ) {
-    return ___internal_hash( slice.len, slice.buffer );
+    return cstr_hash( slice.len, slice.buffer );
 }
 /// Create an iterator from String Slice.
 CORE_API void string_slice_iterator( StringSlice slice, struct Iterator* out_iter );

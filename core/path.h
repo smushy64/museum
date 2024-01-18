@@ -6,19 +6,12 @@
  * File Created: January 05, 2024
 */
 #include "shared/defines.h"
+#include "core/internal/slice.h"
 
 /// Slice of a path buffer.
-typedef struct PathSlice {
-    char* buffer;
-    usize len;
-} PathSlice;
-
+typedef struct StringSlice  PathSlice;
 /// Path buffer.
-typedef struct PathBuffer {
-    char* buffer;
-    usize len;
-    usize capacity;
-} PathBuffer;
+typedef struct StringBuffer PathBuffer;
 
 #if !defined(FORMAT_WRITE_FN_DEFINED)
 #define FORMAT_WRITE_FN_DEFINED
@@ -32,15 +25,6 @@ typedef usize FormatWriteFN( void* target, usize count, char* characters );
 #define path_slice( literal )\
     (PathSlice){ literal, sizeof(literal) - 1 }
 
-#define path_buffer_to_slice( buffer )\
-    (*(PathSlice*)(buffer))
-
-#define path_slice_to_string( slice )\
-    (*(StringSlice*)(slice))
-
-#define path_buffer_to_string( buffer )\
-    (*(StringBuffer*)(buffer))
-
 #define path_buffer( buffer_name, literal )\
     char buffer_name##_buffer[] = literal;\
     PathBuffer buffer_name = (PathBuffer){ buffer_name##_buffer, sizeof(literal) - 1, sizeof(literal) }
@@ -50,7 +34,7 @@ typedef usize FormatWriteFN( void* target, usize count, char* characters );
     PathBuffer buffer_name = (PathBuffer){ buffer_name##_buffer, 0, capacity }
 
 #define path_slice_cmp( a, b )\
-    string_slice_cmp( *(StringSlice*)(a), *(StringSlice*)(b) )
+    string_slice_cmp( (a), (b) )
 
 /// Create a path slice from null-terminated string.
 /// Optionally takes in length to avoid calculating it.

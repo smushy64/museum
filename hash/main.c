@@ -118,7 +118,18 @@ int main( int argc, char** argv ) {
         fs_delete_file( output_path );
     }
 
-    FileHandle* output_file = fs_file_open( output_path, FILE_OPEN_FLAG_WRITE );
+    FileOpenFlags open_flags = FILE_OPEN_FLAG_WRITE;
+    /* NOTE(alicia): check if output file exists */ {
+        FileHandle* output_file = fs_file_open( output_path, FILE_OPEN_FLAG_READ );
+        if( !output_file ) {
+            open_flags |= FILE_OPEN_FLAG_CREATE;
+        } else {
+            open_flags |= FILE_OPEN_FLAG_TRUNCATE;
+            fs_file_close( output_file );
+        }
+    }
+
+    FileHandle* output_file = fs_file_open( output_path, open_flags );
     if( !output_file ) {
         hash_error( "failed to open output path '{s}'!", output_path );
         return HASH_ERROR_FILE_OPEN;
@@ -228,7 +239,7 @@ skip_line:
             const char* identifier = *((list_start + i) + 0);
             const char* string     = *((list_start + i) + 1);
 
-            u64 hash = ___internal_hash( cstr_len( string ), string );
+            u64 hash = cstr_hash( 0, string );
 
             output_write( "#define HASH_{cc,u} ({u64}ULL)", identifier, hash );
         }

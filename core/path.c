@@ -260,7 +260,7 @@ CORE_API b32 path_buffer_push( PathBuffer* path, PathSlice chunk ) {
     return true;
 }
 CORE_API b32 path_buffer_pop( PathBuffer* path, PathSlice* opt_out_chunk ) {
-    PathSlice path_slice = path_buffer_to_slice( path );
+    PathSlice path_slice = to_slice( path );
 
     PathSlice new_path = {};
     PathSlice chunk    = {};
@@ -273,7 +273,7 @@ CORE_API b32 path_buffer_pop( PathBuffer* path, PathSlice* opt_out_chunk ) {
     return false;
 }
 CORE_API b32 path_buffer_set_extension( PathBuffer* path, PathSlice extension ) {
-    PathSlice slice = path_buffer_to_slice( path );
+    PathSlice slice = to_slice( path );
     PathSlice ext   = {};
     if( path_slice_get_extension( slice, &ext ) ) { 
         slice.len -= ext.len;
