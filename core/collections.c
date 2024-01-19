@@ -7,6 +7,128 @@
 #include "core/collections.h"
 #include "core/memory.h"
 
+#define HASHMAP_MAX_LINEAR_SEARCH (32)
+CORE_API b32 hashmap_insert_key(
+    Hashmap* hashmap, Key key, KValue value, b32 check_for_duplicate
+) {
+    if( check_for_duplicate ) {
+        if( hashmap_contains_key( hashmap, key ) ) {
+            return true;
+        }
+    }
+
+    if( hashmap->count == hashmap->capacity ) {
+        return false;
+    }
+
+    if( !hashmap->count || key > hashmap->largest_key ) {
+        goto hashmap_insert_push;
+    }
+
+    usize index = 0;
+    if( key > hashmap->keys[0] ) {
+        if( hashmap->count < HASHMAP_MAX_LINEAR_SEARCH ) {
+            usize i = hashmap->count;
+            do {
+                i--;
+                Key k = hashmap->keys[i];
+                if( key > k ) {
+                    index = i + 1;
+                    break;
+                }
+            } while( i );
+        } else {
+            // binary tree approach, maybe faster than linear lookup
+            usize low  = 0;
+            usize high = hashmap->count;
+            while( low < high ) {
+                usize mid = ( low + high ) >> 1;
+                if( hashmap->keys[mid] < key ) {
+                    low = mid + 1;
+                } else {
+                    high = mid;
+                }
+            }
+            index = low;
+        }
+    }
+
+    usize copy_count = hashmap->count - index;
+    if( copy_count ) {
+        usize copy_size  = copy_count * sizeof(Key);
+        memory_copy_overlapped(
+            hashmap->keys + index + 1, hashmap->keys + index, copy_size );
+        hashmap->keys[index] = key;
+
+        copy_size = copy_count * sizeof(KValue);
+        memory_copy_overlapped(
+            hashmap->values + index + 1, hashmap->values + index, copy_size );
+        hashmap->values[index] = value;
+
+        hashmap->count++;
+
+        if( key > hashmap->largest_key ) {
+            hashmap->largest_key = key;
+        }
+    } else {
+hashmap_insert_push:
+        hashmap->keys[hashmap->count]     = key;
+        hashmap->values[hashmap->count++] = value;
+        if( key > hashmap->largest_key ) {
+            hashmap->largest_key = key;
+        }
+    }
+
+    return true;
+}
+CORE_API KValue* hashmap_get( Hashmap* hashmap, Key key ) {
+    if( !hashmap->count || key > hashmap->largest_key ) {
+        return NULL;
+    }
+
+    if( hashmap->count < HASHMAP_MAX_LINEAR_SEARCH ) {
+        for( usize i = 0; i < hashmap->count; ++i ) {
+            if( hashmap->keys[i] == key ) {
+                return hashmap->values + i;
+            }
+        }
+    } else {
+        usize low  = 0;
+        usize high = hashmap->count;
+        while( low < high ) {
+            usize mid = (low + high) >> 1;
+            Key k = hashmap->keys[mid];
+            if( k == key ) {
+                return hashmap->values + mid;
+            } else if( k < key ) {
+                low = mid + 1;
+            } else {
+                high = mid;
+            }
+        }
+    }
+    return NULL;
+}
+CORE_API void hashmap_remove_by_index(
+    Hashmap* hashmap, usize index, KValue* opt_out_value
+) {
+    if( opt_out_value ) {
+        *opt_out_value = hashmap->values[index];
+    }
+
+    usize copy_count = hashmap->count - index;
+    usize copy_size  = copy_count * sizeof(Key);
+    memory_copy_overlapped(
+        hashmap->keys + index, hashmap->keys + index + 1, copy_size );
+    copy_size = copy_count * sizeof(KValue);
+    memory_copy_overlapped(
+        hashmap->values + index, hashmap->values + index + 1, copy_size );
+
+    hashmap->count--;
+}
+
+#undef HASHMAP_MAX_LINEAR_SEARCH
+
 CORE_API void* iterator_next_enumerate( Iterator* iter, usize* out_enumerator ) {
     if( iter->current == iter->count ) {
         return NULL;

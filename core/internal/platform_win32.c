@@ -150,9 +150,6 @@ PlatformFile* platform_file_open( PathSlice path, u32 flags ) {
     LPSECURITY_ATTRIBUTES lpSecurityAttributes = NULL;
 
     DWORD dwCreationDisposition = OPEN_EXISTING;
-    if( bitfield_check( flags, FILE_OPEN_FLAG_WRITE ) ) {
-        dwCreationDisposition = CREATE_ALWAYS;
-    }
     if( bitfield_check( flags, FILE_OPEN_FLAG_CREATE ) ) {
         dwCreationDisposition = CREATE_ALWAYS;
     }

@@ -22,10 +22,12 @@ CORE_API u64 cstr_hash( usize opt_len, const char* str ) {
         len = cstr_len( str );
     }
 
+    unsigned char* ustr = (unsigned char*)str;
+
     u64 x;
     u64 result = x = 0;
     for( usize i = 0; i < len; ++i ) {
-        result = ( result << 4 ) + str[i];
+        result = ( result << 4 ) + ustr[i];
         x = result & 0xF000000000000000;
         if( x ) {
             result ^= x >> 24;
