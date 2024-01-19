@@ -45,29 +45,22 @@ CORE_API usize fs_file_query_size( FileHandle* file );
 /// Query where the file offset is inside the file.
 CORE_API usize fs_file_query_offset( FileHandle* file );
 /// Set the file's offset.
-CORE_API void fs_file_set_offset( FileHandle* file, usize offset );
+/// If is_relative is true, offsets from the current file offset.
+CORE_API void fs_file_set_offset(
+    FileHandle* file, usize offset, b32 is_relative );
 /// Read from a file from the current offset.
 /// Modifies the file's offset to be at the end of the read.
 CORE_API b32 fs_file_read( FileHandle* file, usize buffer_size, void* buffer );
-/// Read from a file from a specified offset.
-/// Does not modify the file's offset after reading.
-CORE_API b32 fs_file_read_offset(
-    FileHandle* file, usize offset, usize buffer_size, void* buffer );
 /// Write to a file from the current offset.
 /// Modifies the file's offset to be at the end of the write.
 CORE_API b32 fs_file_write( FileHandle* file, usize buffer_size, void* buffer );
-/// Write to a file from a specified offset.
-/// Does not modify the file's offset after reading.
-CORE_API b32 fs_file_write_offset(
-    FileHandle* file, usize offset, usize buffer_size, void* buffer );
 /// Copy contents from src to dst.
 /// Source file must have range of offset + size available to read and
 /// must be opened with read flag.
 /// Destination file must be opened with write flag.
 /// intermediate_buffer must be able to hold intermediate_size.
 CORE_API b32 fs_file_to_file_copy(
-    FileHandle* dst, usize dst_offset,
-    FileHandle* src, usize src_offset,
+    FileHandle* dst, FileHandle* src,
     usize intermediate_size, void* intermediate_buffer, usize size );
 /// Delete a file pointed to by path.
 CORE_API b32 fs_delete_file( PathSlice path );
@@ -109,39 +102,10 @@ header_only b32 ___internal_file_write_fmt(
     va_end( va );
     return result;
 }
-/// Write a formatted string directly to a file using variadic arguments.
-/// Writes at the specified offset and does not modify offset.
-header_only b32 ___internal_file_write_offset_fmt_va(
-    FileHandle* file, usize offset, usize format_len, const char* format, va_list va
-) {
-    usize former_offset = fs_file_query_offset( file );
-    fs_file_set_offset( file, offset );
-    b32 result = ___internal_file_write_fmt_va( file, format_len, format, va );
-    fs_file_set_offset( file, former_offset );
-    return result;
-}
-/// Write a formatted string directly to a file.
-/// Writes at the specified offset and does not modify offset.
-header_only b32 ___internal_file_write_offset_fmt(
-    FileHandle* file, usize offset, usize format_len, const char* format, ...
-) {
-    va_list va;
-    va_start( va, format );
-    b32 result = ___internal_file_write_offset_fmt_va(
-        file, offset, format_len, format, va );
-    va_end( va );
-    return result;
-}
 
 #define fs_file_write_fmt( file, format, ... )\
     ___internal_file_write_fmt( file, sizeof(format) - 1, format, ##__VA_ARGS__ )
 #define fs_file_write_fmt_va( file, format, va )\
     ___internal_file_write_fmt_va( file, sizeof(format) - 1, format, va )
-#define fs_file_write_offset_fmt( file, offset, format, ... )\
-    ___internal_file_write_fmt_offset(\
-        file, offset, sizeof(format) - 1, format, ##__VA_ARGS__ )
-#define fs_file_write_offset_fmt_va( file, offset, format, va )\
-    ___internal_file_write_offset_fmt_va(\
-        file, offset, sizeof(format) - 1, format, va )
 
 #endif /* header guard */

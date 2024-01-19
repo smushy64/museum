@@ -20,52 +20,28 @@ CORE_API usize fs_file_query_size( FileHandle* file ) {
 CORE_API usize fs_file_query_offset( FileHandle* file ) {
     return platform_file_query_offset( file );
 }
-CORE_API void fs_file_set_offset( FileHandle* file, usize offset ) {
-    platform_file_set_offset( file, offset );
+CORE_API void fs_file_set_offset(
+    FileHandle* file, usize offset, b32 is_relative
+) {
+    platform_file_set_offset( file, offset, is_relative );
 }
 CORE_API b32 fs_file_read( FileHandle* file, usize buffer_size, void* buffer ) {
     return platform_file_read( file, buffer_size, buffer );
 }
-CORE_API b32 fs_file_read_offset(
-    FileHandle* file, usize offset, usize buffer_size, void* buffer
-) {
-    usize former_offset = fs_file_query_offset( file );
-    fs_file_set_offset( file, offset );
-    b32 result = platform_file_read( file, buffer_size, buffer );
-    fs_file_set_offset( file, former_offset );
-    return result;
-}
 CORE_API b32 fs_file_write( FileHandle* file, usize buffer_size, void* buffer ) {
     return platform_file_write( file, buffer_size, buffer );
-}
-CORE_API b32 fs_file_write_offset(
-    FileHandle* file, usize offset, usize buffer_size, void* buffer
-) {
-    usize former_offset = fs_file_query_offset( file );
-    fs_file_set_offset( file, offset );
-    b32 result = platform_file_write( file, buffer_size, buffer );
-    fs_file_set_offset( file, former_offset );
-    return result;
 }
 CORE_API b32 fs_delete_file( PathSlice path ) {
     return platform_delete_file( path );
 }
 CORE_API b32 fs_file_to_file_copy(
-    FileHandle* dst, usize dst_offset,
-    FileHandle* src, usize src_offset,
+    FileHandle* dst, FileHandle* src,
     usize intermediate_size, void* intermediate_buffer, usize size
 ) {
     if( !size ) {
         return true;
     }
 
-    usize former_dst_offset = fs_file_query_offset( dst );
-    usize former_src_offset = fs_file_query_offset( src );
-
-    fs_file_set_offset( dst, dst_offset );
-    fs_file_set_offset( src, src_offset );
-
-    b32 result = true;
     usize remaining = size;
     while( remaining ) {
         usize max_copy = intermediate_size;
@@ -74,22 +50,17 @@ CORE_API b32 fs_file_to_file_copy(
         }
         
         if( !fs_file_read( src, max_copy, intermediate_buffer ) ) {
-            result = false;
-            goto fs_file_to_file_copy_end;
+            return false;
         }
 
         if( !fs_file_write( dst, max_copy, intermediate_buffer ) ) {
-            result = false;
-            goto fs_file_to_file_copy_end;
+            return false;
         }
 
         remaining -= max_copy;
     }
 
-fs_file_to_file_copy_end:
-    fs_file_set_offset( dst, former_dst_offset );
-    fs_file_set_offset( src, former_src_offset );
-    return result;
+    return true;
 }
 CORE_API b32 fs_copy_by_path( PathSlice dst, PathSlice src, b32 fail_if_dst_exists ) {
     return platform_file_copy_by_path( dst, src, fail_if_dst_exists );
