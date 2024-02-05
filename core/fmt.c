@@ -575,8 +575,8 @@ internal b32 ___process_arguments(
         if( ___collect_argument( *remaining, at, &argument_len ) ) {
             usize dot_position = 0;
             StringSlice argument = {};
-            argument.buffer = at;
-            argument.len    = argument_len;
+            argument.str = at;
+            argument.len = argument_len;
 
             if( string_slice_find_char( argument, '.', &dot_position ) ) {
                 switch( identifier ) {
@@ -660,7 +660,7 @@ usize ___write_intermediate( void* target, usize len, char* string ) {
     return result;
 }
 
-CORE_API usize ___internal_fmt_write_va(
+CORE_API usize fmt_write_va(
     FormatWriteFN* write, void* target,
     usize format_len, const char* format, va_list va
 ) {
@@ -726,8 +726,8 @@ CORE_API usize ___internal_fmt_write_va(
     while( remaining ) {
         usize brace_index = 0;
         StringSlice remaining_slice = {};
-        remaining_slice.buffer = at;
-        remaining_slice.len    = remaining;
+        remaining_slice.str = at;
+        remaining_slice.len = remaining;
         if( !string_slice_find_char( remaining_slice, '{', &brace_index ) ) {
             write_string( remaining, at );
             break;
@@ -1018,11 +1018,11 @@ CORE_API usize ___internal_fmt_write_va(
                         if( args.count == U32_MAX ) {
                             args.count = va_arg( va, int );
                         }
-                        output.buffer = va_arg( va, void* );
-                        if( !output.buffer ) {
-                            output.buffer = "";
+                        output.str = va_arg( va, void* );
+                        if( !output.str ) {
+                            output.str = "";
                         }
-                        output.len = cstr_len( output.buffer );
+                        output.len = cstr_len( output.str );
                         if( args.count && args.count < output.len ) {
                             output.len = args.count;
                         }
@@ -1037,7 +1037,7 @@ CORE_API usize ___internal_fmt_write_va(
                     }
 
                     if( !args.casing ) {
-                        write_string_padded( ' ', output.len, output.buffer );
+                        write_string_padded( ' ', output.len, output.c );
                         break;
                     }
 
@@ -1047,12 +1047,12 @@ CORE_API usize ___internal_fmt_write_va(
                     switch( args.casing ) {
                         case FMT_FORMAT_CASE_UPPER: {
                             for( usize i = 0; i < output.len; ++i ) {
-                                write_char( ___char_to_upper( output.buffer[i] ) );
+                                write_char( ___char_to_upper( output.str[i] ) );
                             }
                         } break;
                         case FMT_FORMAT_CASE_LOWER: {
                             for( usize i = 0; i < output.len; ++i ) {
-                                write_char( ___char_to_lower( output.buffer[i] ) );
+                                write_char( ___char_to_lower( output.str[i] ) );
                             }
                         } break;
                         default: break;
@@ -1225,17 +1225,6 @@ CORE_API usize ___internal_fmt_write_va(
     }
 fmt_end:
 
-    return result;
-}
-CORE_API usize ___internal_fmt_write(
-    FormatWriteFN* write, void* target,
-    usize format_len, const char* format, ...
-) {
-    va_list va;
-    va_start( va, format );
-    usize result =
-        ___internal_fmt_write_va( write, target, format_len, format, va );
-    va_end( va );
     return result;
 }
 

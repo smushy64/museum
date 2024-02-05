@@ -22,16 +22,16 @@ void ___internal_media_log(
 
     char logging_buffer[MEDIA_LOGGING_BUFFER_SIZE] = {};
     StringBuffer buffer = {};
-    buffer.buffer   = logging_buffer;
-    buffer.len      = 0;
-    buffer.capacity = MEDIA_LOGGING_BUFFER_SIZE;
+    buffer.str = logging_buffer;
+    buffer.len = 0;
+    buffer.cap = MEDIA_LOGGING_BUFFER_SIZE;
 
     va_list va;
     va_start( va, format );
-    ___internal_string_buffer_fmt_va( &buffer, format_len, format, va );
+    string_buffer_fmt_cstr_va( &buffer, format_len, format, va );
     va_end( va );
 
-    global_logging_callback( level, buffer.len, buffer.buffer, global_logging_params );
+    global_logging_callback( level, buffer.len, buffer.str, global_logging_params );
 }
 
 MEDIA_API void media_logging_callback_set( LoggingCallbackFN* callback, void* params ) {

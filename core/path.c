@@ -24,7 +24,7 @@ CORE_API PathSlice path_slice_from_cstr( usize opt_len, const char* cstr ) {
 CORE_API b32 path_slice_is_absolute( PathSlice path ) {
 #if defined(LD_PLATFORM_WINDOWS)
     if( path.len > 3 ) {
-        char* buf = path.buffer;
+        char* buf = path.c;
         return
             buf[0] != '.' &&
             buf[1] == ':' &&
@@ -32,7 +32,7 @@ CORE_API b32 path_slice_is_absolute( PathSlice path ) {
     }
     return false;
 #else
-    return path.buffer[0] == '/';
+    return path.c[0] == '/';
 #endif
 }
 CORE_API b32 path_slice_is_file( PathSlice path ) {
@@ -45,9 +45,9 @@ CORE_API b32 path_slice_get_parent( PathSlice path, PathSlice* out_parent ) {
 #if defined(LD_PLATFORM_WINDOWS)
     if(
         path.len == 3 &&
-        path.buffer[0] != '.' &&
-        path.buffer[1] == ':' &&
-        ___char_is_separator( path.buffer[2] )
+        path.c[0] != '.' &&
+        path.c[1] == ':' &&
+        ___char_is_separator( path.c[2] )
     ) {
         return false;
     }
@@ -56,19 +56,19 @@ CORE_API b32 path_slice_get_parent( PathSlice path, PathSlice* out_parent ) {
     PathSlice sub_slice = {};
 
     for( usize i = path.len; i-- > 0; ) {
-        if( ___char_is_separator( path.buffer[i] ) ) {
-            sub_slice.buffer = path.buffer;
+        if( ___char_is_separator( path.c[i] ) ) {
+            sub_slice.c = path.c;
             sub_slice.len    = i;
             break;
         }
     }
 
-    if( !sub_slice.buffer ) {
+    if( !sub_slice.c ) {
         return false;
     }
 
 #if defined(LD_PLATFORM_WINDOWS)
-    if( sub_slice.len == 2 && sub_slice.buffer[1] == ':' ) {
+    if( sub_slice.len == 2 && sub_slice.c[1] == ':' ) {
         sub_slice.len++;
     }
 #endif
@@ -96,20 +96,20 @@ CORE_API void path_slice_fill_ancestors(
     }
 }
 CORE_API b32 path_slice_get_file_name( PathSlice path, PathSlice* out_file_name ) {
-    if( ___char_is_separator( path.buffer[path.len - 1] ) ) {
+    if( ___char_is_separator( path.c[path.len - 1] ) ) {
         return false;
     }
 
     PathSlice file_name = {};
     for( usize i = path.len; i-- > 0; ) {
-        if( ___char_is_separator( path.buffer[i] ) ) {
+        if( ___char_is_separator( path.c[i] ) ) {
             usize index = i + 1;
-            file_name.buffer = path.buffer + index;
+            file_name.c = path.c + index;
             file_name.len    = path.len - index;
             break;
         }
     }
-    if( !file_name.buffer ) {
+    if( !file_name.c ) {
         file_name = path;
     }
 
@@ -136,22 +136,22 @@ CORE_API b32 path_slice_get_file_stem( PathSlice path, PathSlice* out_file_stem 
 CORE_API b32 path_slice_get_extension( PathSlice path, PathSlice* out_extension ) {
     PathSlice ext = {};
     for( usize i = path.len; i-- > 0; ) {
-        if( ___char_is_separator( path.buffer[i] ) ) {
+        if( ___char_is_separator( path.c[i] ) ) {
             break;
         }
-        if( path.buffer[i] == '.' ) {
+        if( path.c[i] == '.' ) {
             usize index = i + 1;
             if( index > path.len ) {
                 break;
             }
 
-            ext.buffer = path.buffer + index;
+            ext.c = path.c + index;
             ext.len    = path.len - index;
             break;
         }
     }
 
-    if( !ext.buffer ) {
+    if( !ext.c ) {
         return false;
     }
 
@@ -173,14 +173,14 @@ CORE_API b32 path_slice_pop(
     *out_path = parent;
 
     if( opt_out_chunk ) {
-        opt_out_chunk->buffer = path.buffer + parent.len;
+        opt_out_chunk->c = path.c + parent.len;
         opt_out_chunk->len    = path.len - parent.len;
 
         if(
             opt_out_chunk->len > 0 &&
-            ___char_is_separator( opt_out_chunk->buffer[0] )
+            ___char_is_separator( opt_out_chunk->c[0] )
         ) {
-            opt_out_chunk->buffer++;
+            opt_out_chunk->c++;
             opt_out_chunk->len--;
         }
     }
@@ -196,12 +196,12 @@ CORE_API usize path_slice_convert_separators(
     usize result = 0;
 
     StringSlice slice = {};
-    slice.buffer = path.buffer;
+    slice.c = path.c;
     slice.len    = path.len;
     while( slice.len ) {
         usize separator_index = 0;
         if( string_slice_find_char( slice, separator_to_search, &separator_index ) ) {
-            result += write( target, separator_index, slice.buffer );
+            result += write( target, separator_index, slice.c );
             result += write( target, 1, &separator_to_write );
 
             usize move_count = separator_index + 1;
@@ -209,11 +209,11 @@ CORE_API usize path_slice_convert_separators(
                 break;
             }
 
-            slice.buffer += move_count;
+            slice.c += move_count;
             slice.len    -= move_count;
         } else {
             if( slice.len ) {
-                result += write( target, slice.len, slice.buffer );
+                result += write( target, slice.len, slice.c );
             }
             break;
         }
@@ -224,38 +224,42 @@ CORE_API usize path_slice_convert_separators(
 
 CORE_API b32 path_buffer_push( PathBuffer* path, PathSlice chunk ) {
     if( path_slice_is_absolute( chunk ) ) {
-        if( path->capacity < chunk.len ) {
+        if( path->cap < chunk.len ) {
             return false;
         }
 
         path->len = chunk.len;
-        memory_copy( path->buffer, chunk.buffer, chunk.len );
+        memory_copy( path->c, chunk.c, chunk.len );
         return true;
     }
 
     if( !path->len ) {
-        if( path->capacity < chunk.len ) {
+        if( path->cap < chunk.len ) {
             return false;
         }
 
-        memory_copy( path->buffer, chunk.buffer, chunk.len );
+        memory_copy( path->c, chunk.c, chunk.len );
         path->len = chunk.len;
         return true;
     }
 
-    b32 separator_needed = !___char_is_separator( path->buffer[path->len - 1] );
+    b32 separator_needed = !___char_is_separator( path->c[path->len - 1] );
     usize append_len = chunk.len;
     if( separator_needed ) {
         append_len += 1;
     }
-    if( path->capacity < path->len + append_len ) {
+    if( path->cap < path->len + append_len ) {
         return false;
     }
 
     if( separator_needed ) {
-        path->buffer[path->len++] = '/';
+#if defined(LD_PLATFORM_WINDOWS)
+        path->c[path->len++] = '\\';
+#else
+        path->c[path->len++] = '/';
+#endif
     }
-    memory_copy( path->buffer + path->len, chunk.buffer, chunk.len );
+    memory_copy( path->c + path->len, chunk.c, chunk.len );
     path->len += chunk.len;
     return true;
 }
@@ -279,16 +283,16 @@ CORE_API b32 path_buffer_set_extension( PathBuffer* path, PathSlice extension ) 
         slice.len -= ext.len;
     }
 
-    usize final_len = slice.len + extension.len + ( ext.buffer ? 0 : 1 );
-    if( final_len > path->capacity ) {
+    usize final_len = slice.len + extension.len + ( ext.c ? 0 : 1 );
+    if( final_len > path->cap ) {
         return false;
     }
-    if( !ext.buffer ) {
-        slice.buffer[slice.len++] = '.';
+    if( !ext.c ) {
+        slice.c[slice.len++] = '.';
     }
     path->len = slice.len;
 
-    memory_copy( path->buffer + path->len, extension.buffer, extension.len );
+    memory_copy( path->c + path->len, extension.c, extension.len );
     path->len += extension.len;
 
     return true;

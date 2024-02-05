@@ -108,7 +108,7 @@ int main( int argc, char** argv ) {
         return HASH_ERROR_INVALID_ARGUMENT;
     }
 
-    if( !( list_start || list_path.buffer ) ) {
+    if( !( list_start || list_path.str ) ) {
         hash_error( "no file path or list provided!" );
         print_help();
         return HASH_ERROR_INVALID_ARGUMENT;
@@ -136,7 +136,7 @@ int main( int argc, char** argv ) {
     }
 
     FileHandle* input_file = NULL;
-    if( list_path.buffer ) {
+    if( list_path.str ) {
         input_file = fs_file_open(
             list_path, FILE_OPEN_FLAG_READ | FILE_OPEN_FLAG_SHARE_ACCESS_READ );
         if( !input_file ) {
@@ -182,21 +182,21 @@ int main( int argc, char** argv ) {
         fs_file_close( input_file );
 
         StringSlice file_contents = {};
-        file_contents.buffer   = file_buffer;
-        file_contents.len      = file_size;
+        file_contents.str = file_buffer;
+        file_contents.len = file_size;
 
         while( file_contents.len ) {
             StringSlice line = {};
             if( !string_slice_split_char( file_contents, '\n', &line, NULL ) ) {
-                line.buffer = file_contents.buffer;
-                line.len    = file_contents.len;
+                line.str = file_contents.str;
+                line.len = file_contents.len;
             }
             if( !line.len ) {
-                file_contents.buffer++;
+                file_contents.str++;
                 file_contents.len--;
                 continue;
             }
-            if( line.len == 1 || line.buffer[0] == '\n' ) {
+            if( line.len == 1 || line.str[0] == '\n' ) {
                 goto skip_line;
             }
 
@@ -217,11 +217,11 @@ int main( int argc, char** argv ) {
             }
 
             if( string.len > 2 ) {
-                if( string.buffer[0] == '"' ) {
-                    string.buffer++;
+                if( string.str[0] == '"' ) {
+                    string.str++;
                     string.len--;
                 }
-                if( string.buffer[string.len - 1] == '"' ) {
+                if( string.str[string.len - 1] == '"' ) {
                     string.len--;
                 }
             }
@@ -231,8 +231,8 @@ int main( int argc, char** argv ) {
             output_write( "#define HASH_{s,u,30} ({u64}ULL)\n", identifier, hash );
 
 skip_line:
-            file_contents.buffer += line.len;
-            file_contents.len    -= line.len;
+            file_contents.str += line.len;
+            file_contents.len -= line.len;
         }
     } else {
         for( int i = 0; i < hash_count; ++i ) {

@@ -12,30 +12,20 @@
 #include "core/internal/logging.h"
 #include "core/system.h"
 #include "core/memory.h"
-#include "core/string.h"
 #include "core/path.h"
 #include "core/fs.h"
+#include "core/string.h"
 
 #define win32_log_note( format, ... )\
-    ___internal_core_log(\
-        CORE_LOGGING_TYPE_NOTE,\
-        sizeof( "[WIN32] " format), "[WIN32] " format, ##__VA_ARGS__ )
+    core_log_note( "[WIN32] " format, ##__VA_ARGS__ )
 #define win32_log_info( format, ... )\
-    ___internal_core_log(\
-        CORE_LOGGING_TYPE_INFO,\
-        sizeof( "[WIN32] " format), "[WIN32] " format, ##__VA_ARGS__ )
+    core_log_info( "[WIN32] " format, ##__VA_ARGS__ )
 #define win32_log_warn( format, ... )\
-    ___internal_core_log(\
-        CORE_LOGGING_TYPE_WARN,\
-        sizeof( "[WIN32] " format), "[WIN32] " format, ##__VA_ARGS__ )
+    core_log_warn( "[WIN32] " format, ##__VA_ARGS__ )
 #define win32_log_error( format, ... )\
-    ___internal_core_log(\
-        CORE_LOGGING_TYPE_ERROR,\
-        sizeof( "[WIN32] " format), "[WIN32] " format, ##__VA_ARGS__ )
+    core_log_error( "[WIN32] " format, ##__VA_ARGS__ )
 #define win32_log_fatal( format, ... )\
-    ___internal_core_log(\
-        CORE_LOGGING_TYPE_FATAL,\
-        sizeof( "[WIN32] " format), "[WIN32] " format, ##__VA_ARGS__ )   
+    core_log_fatal( "[WIN32] " format, ##__VA_ARGS__ )
 
 #define NOMINMAX
 #include <windows.h>
@@ -88,9 +78,9 @@ PlatformFile* platform_get_stdin(void) {
 void ___format_message( char* buffer, usize buffer_size, DWORD error_code );
 
 const char* ___make_win32_path( PathSlice path, usize* out_length ) {
-    if( path.len <= MAX_PATH && ( !path.buffer[path.len] || !path.buffer[path.len - 1] ) ) {
+    if( path.len <= MAX_PATH && ( !path.c[path.len] || !path.c[path.len - 1] ) ) {
         *out_length = 0;
-        return path.buffer;
+        return path.c;
     }
 
     HANDLE process_heap = GetProcessHeap();
@@ -98,24 +88,27 @@ const char* ___make_win32_path( PathSlice path, usize* out_length ) {
     usize null_terminated_path_size = path.len + 1;
     char* null_terminated_path =
         HeapAlloc( process_heap, HEAP_ZERO_MEMORY, null_terminated_path_size );
-    memory_copy( null_terminated_path, path.buffer, path.len );
+    memory_copy( null_terminated_path, path.c, path.len );
 
     #define PREPEND "\\\\?\\"
+    #define PREPEND_LEN (sizeof(PREPEND) - 1)
+
     DWORD required_size = GetFullPathNameA( null_terminated_path, 0, 0, 0 );
-    usize buffer_size = path.len + required_size + sizeof(PREPEND) - 1;
+    usize buffer_size = path.len + required_size + PREPEND_LEN;
 
     char* buffer = HeapAlloc( process_heap, HEAP_ZERO_MEMORY, buffer_size );
-    memory_copy( buffer, PREPEND, sizeof(PREPEND) - 1 );
+    memory_copy( buffer, PREPEND, PREPEND_LEN );
 
     GetFullPathNameA(
         null_terminated_path,
-        buffer_size - (sizeof(PREPEND) - 1),
-        buffer + (sizeof(PREPEND) - 1), NULL );
+        buffer_size - PREPEND_LEN,
+        buffer + PREPEND_LEN, NULL );
 
     HeapFree( process_heap, 0, null_terminated_path );
 
     *out_length = buffer_size;
     #undef PREPEND
+    #undef PREPEND_LEN
     return buffer;
 }
 void ___free_win32_path( usize length, const char* path ) {
@@ -207,15 +200,19 @@ usize platform_file_query_offset( PlatformFile* file ) {
     return result;
 #endif
 }
-void platform_file_set_offset( PlatformFile* file, usize offset ) {
+void platform_file_truncate( PlatformFile* file ) {
+    SetEndOfFile( file );
+}
+void platform_file_set_offset( PlatformFile* file, usize offset, b32 is_relative ) {
+    DWORD dwMoveMethod = is_relative ? FILE_CURRENT : FILE_BEGIN;
 #if defined(LD_ARCH_64_BIT)
     LARGE_INTEGER large_offset = {};
     large_offset.QuadPart = offset;
 
-    SetFilePointerEx( file, large_offset, NULL, FILE_BEGIN );
+    SetFilePointerEx( file, large_offset, NULL, dwMoveMethod );
 #else
     LONG small_offset = offset;
-    SetFilePointer( file, small_offset, NULL, FILE_BEGIN );
+    SetFilePointer( file, small_offset, NULL, dwMoveMethod );
 #endif
 }
 
@@ -373,6 +370,207 @@ b32 platform_path_is_directory( PathSlice path ) {
     ___free_win32_path( path_len, win32_path );
 
     return bitfield_check( attributes, FILE_ATTRIBUTE_DIRECTORY );
+}
+b32 platform_make_directory( PathSlice path ) {
+    usize path_len = 0;
+    const char* win32_path = ___make_win32_path( path, &path_len );
+
+    b32 result = CreateDirectory( win32_path, NULL ) == TRUE;
+    ___free_win32_path( path_len, win32_path );
+
+    return result;
+}
+b32 platform_directory_exists( PathSlice path ) {
+    usize path_len = 0;
+    const char* win32_path = ___make_win32_path( path, &path_len );
+
+    DWORD attributes = GetFileAttributesA( win32_path );
+
+    ___free_win32_path( path_len, win32_path );
+
+    if( attributes == INVALID_FILE_ATTRIBUTES ) {
+        return false;
+    }
+    return bitfield_check( attributes, FILE_ATTRIBUTE_DIRECTORY );
+}
+b32 ___recursive_delete( HANDLE ff, WIN32_FIND_DATAA* ffd, PathBuffer* root ) {
+    if( ff == INVALID_HANDLE_VALUE ) {
+        return true;
+    }
+
+    #define realloc( c ) do {\
+        char* new_buf = HeapReAlloc(\
+            GetProcessHeap(), HEAP_ZERO_MEMORY, root->v, root->cap + 256 + c );\
+        if( !new_buf ) {\
+            win32_log_error( "recursive_delete: failed to reallocate root path!" );\
+            return false;\
+        }\
+        root->str = new_buf;\
+        root->cap += 256 + c;\
+    } while(0)
+
+    #define push( c ) do {\
+        if( !string_buffer_push( &file_path, c ) ) {\
+            realloc( 0 );\
+            file_path.v   = root->v;\
+            file_path.cap = root->cap;\
+            string_buffer_push( &file_path, c );\
+        }\
+    } while(0)
+
+    do {
+        PathSlice  local_path = {};
+        local_path.str = ffd->cFileName;
+        local_path.len = cstr_len( local_path.c );
+
+        if(
+            path_slice_cmp( local_path, path_slice(".") ) ||
+            path_slice_cmp( local_path, path_slice("..") )
+        ) {
+            continue;
+        }
+
+        PathBuffer file_path = *root;
+        if( !path_buffer_push( &file_path, local_path ) ) {
+            realloc( local_path.len );
+            file_path = *root;
+            path_buffer_push( &file_path, local_path );
+        }
+
+        if( bitfield_check( ffd->dwFileAttributes, FILE_ATTRIBUTE_DIRECTORY ) ) {
+            push( '\\' ); push( '*' ); push( 0 );
+
+            HANDLE ff2 = FindFirstFileA( file_path.str, ffd );
+            if( ff2 == INVALID_HANDLE_VALUE ) {
+                if( RemoveDirectoryA( file_path.str ) == FALSE ) {
+                    // NOTE(alicia): heap allocating error buffer
+                    // to try to prevent stack overflow
+                    DWORD error = GetLastError();
+
+                    char* error_log =
+                        HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, 256 );
+                    if( error_log ) {
+                        ___format_message( error_log, 256, error );
+                    }
+
+                    win32_log_error( "recursive_delete: "
+                        "failed to delete directory '{p}'! WIN32: {u32,X} {cc}",
+                        to_slice( &file_path ), error, error_log );
+
+                    HeapFree( GetProcessHeap(), 0, error_log );
+                    return false;
+                }
+            } else {
+                // prevent null-terminator from interfering with
+                // generating child ___recursive_delete's file_path
+                file_path.len -= 3;
+                if( !___recursive_delete( ff2, ffd, &file_path ) ) {
+                    FindClose( ff2 );
+                    root->str = file_path.str;
+                    root->cap = file_path.cap;
+                    return false;
+                }
+                root->str = file_path.str;
+                root->cap = file_path.cap;
+
+                FindClose( ff2 );
+                push( 0 );
+                if( RemoveDirectoryA( file_path.str ) == FALSE ) {
+                    // NOTE(alicia): heap allocating error buffer
+                    // to try to prevent stack overflow
+                    DWORD error = GetLastError();
+
+                    char* error_log =
+                        HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, 256 );
+                    if( error_log ) {
+                        ___format_message( error_log, 256, error );
+                    }
+
+                    win32_log_error( "recursive_delete: "
+                        "failed to delete directory '{p}'! WIN32: {u32,X} {cc}",
+                        to_slice( &file_path ), error, error_log );
+
+                    HeapFree( GetProcessHeap(), 0, error_log );
+                    return false;
+                }
+            }
+        } else {
+            push( 0 );
+            if( DeleteFileA( file_path.str ) == FALSE ) {
+                // NOTE(alicia): heap allocating error buffer
+                // to try to prevent stack overflow
+                DWORD error = GetLastError();
+
+                char* error_log =
+                    HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, 256 );
+                if( error_log ) {
+                    ___format_message( error_log, 256, error );
+                }
+
+                win32_log_error( "recursive_delete: "
+                    "failed to delete file '{p}'! WIN32: {u32,X} {cc}",
+                    to_slice( &file_path ), error, error_log );
+
+                HeapFree( GetProcessHeap(), 0, error_log );
+                return false;
+            }
+        }
+    } while( FindNextFileA( ff, ffd ) );
+
+    #undef push
+    #undef realloc
+    return true;
+}
+b32 platform_delete_directory( PathSlice path, b32 recursive ) {
+    usize path_len = 0;
+    const char* win32_path = ___make_win32_path( path, &path_len );
+    usize win32_path_len;
+    if( !path_len ) {
+        win32_path_len = path.len;
+    } else {
+        win32_path_len = path_len - 1;
+    }
+
+    if( recursive ) {
+        PathBuffer root = {};
+        root.v = HeapAlloc(
+            GetProcessHeap(), HEAP_ZERO_MEMORY, win32_path_len + 256 );
+        if( !root.v ) {
+            win32_log_error(
+                "platform_delete_directory: failed to allocate root path buffer!" );
+            ___free_win32_path( path_len, win32_path );
+            return false;
+        }
+        root.cap = win32_path_len + 256;
+        memory_copy( root.v, win32_path, win32_path_len );
+        root.len = win32_path_len;
+
+        PathBuffer root_ex = root;
+        root_ex.c[root_ex.len++] = '\\';
+        root_ex.c[root_ex.len++] = '*';
+        root_ex.c[root_ex.len++] = 0;
+
+        WIN32_FIND_DATAA ffd;
+        HANDLE ff = FindFirstFileA( root_ex.str, &ffd );
+
+        if( ff == INVALID_HANDLE_VALUE ) {
+            goto platform_delete_directory_end;
+        }
+
+        b32 result = ___recursive_delete( ff, &ffd, &root );
+        FindClose( ff );
+
+        HeapFree( GetProcessHeap(), 0, root.v );
+
+        if( !result ) {
+            ___free_win32_path( path_len, win32_path );
+            return false;
+        }
+    }
+
+platform_delete_directory_end:
+    ___free_win32_path( path_len, win32_path );
+    return RemoveDirectoryA( win32_path ) == TRUE;
 }
 usize platform_get_working_directory(
     usize buffer_size, char* buffer, usize* opt_out_written_bytes

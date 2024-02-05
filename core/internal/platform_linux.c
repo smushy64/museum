@@ -117,8 +117,11 @@ usize platform_file_query_size( PlatformFile* file ) {
 usize platform_file_query_offset( PlatformFile* file ) {
     return ftello64( file );
 }
-void platform_file_set_offset( PlatformFile* file, usize offset ) {
-    fseeko64( file, offset, SEEK_SET );
+void platform_file_set_offset(
+    PlatformFile* file, usize offset, b32 is_relative
+) {
+    int whence = is_relative ? SEEK_CUR : SEEK_SET;
+    fseeko64( file, offset, is_relative );
 }
 b32 platform_file_read( PlatformFile* file, usize buffer_size, void* buffer ) {
     int fd = 0;

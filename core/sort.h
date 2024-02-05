@@ -25,4 +25,9 @@ CORE_API void sorting_quicksort(
 CORE_API void sorting_quicksort_u32(
     isize from_inclusive, isize to_inclusive, u32* buffer );
 
+/// Reverse items in buffer.
+CORE_API void sorting_reverse(
+    usize item_count, usize item_size,
+    void* buffer, void* temp_buffer );
+
 #endif /* header guard */

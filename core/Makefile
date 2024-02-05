@@ -77,6 +77,9 @@ $(TARGET) : $(GENERATED_DEP_PATH) $(C) $(H)
 	@$(CC) $(CSTD) -xc $(GENERATED_DEP_PATH) $(DLLMAIN) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)
 
 TEST_LDFLAGS := -L$(BUILD_PATH) -l$(LIB_CORE_NAME)
+ifeq ($(TARGET_PLATFORM), win32)
+	TEST_LDFLAGS += -g -gcodeview -fuse-ld=lld -Wl,//debug -O0
+endif
 ifeq ($(TARGET_PLATFORM), linux)
 	TEST_LDFLAGS += -Wl,-rpath,'$$ORIGIN' -mconsole
 endif

@@ -48,6 +48,8 @@ CORE_API usize fs_file_query_offset( FileHandle* file );
 /// If is_relative is true, offsets from the current file offset.
 CORE_API void fs_file_set_offset(
     FileHandle* file, usize offset, b32 is_relative );
+/// Truncate file to the current offset.
+CORE_API void fs_file_truncate( FileHandle* file );
 /// Read from a file from the current offset.
 /// Modifies the file's offset to be at the end of the read.
 CORE_API b32 fs_file_read( FileHandle* file, usize buffer_size, void* buffer );
@@ -86,26 +88,36 @@ header_only b32 fs_check_if_file_exists( PathSlice path ) {
 /// If either path buffer or the path buffer's buffer is null,
 /// returns required size of buffer.
 CORE_API usize fs_get_working_directory( PathBuffer* buffer );
+/// Create a directory at specified path.
+/// Returns true if successful.
+CORE_API b32 fs_directory_create( PathSlice path );
+/// Delete a directory.
+/// Returns true if successful.
+/// Fails if recursive is not specified and directory contains files.
+CORE_API b32 fs_directory_delete( PathSlice path, b32 recursive );
+/// Check if directory already exists.
+CORE_API b32 fs_directory_exists( PathSlice path );
 
 /// Write a formatted string directly to a file using variadic arguments.
-/// Writes at the file's current offset and modifies offset.
-CORE_API b32 ___internal_file_write_fmt_va(
+/// Begins write at the file's current offset and moves up to last successful write.
+CORE_API b32 fs_file_write_fmt_cstr_va(
     FileHandle* file, usize format_len, const char* format, va_list va );
 /// Write a formatted string directly to a file.
-/// Writes at the file's current offset and modifies offset.
-header_only b32 ___internal_file_write_fmt(
+/// Begins write at the file's current offset and moves up to last successful write.
+header_only b32 fs_file_write_fmt_cstr(
     FileHandle* file, usize format_len, const char* format, ...
 ) {
     va_list va;
     va_start( va, format );
-    b32 result = ___internal_file_write_fmt_va( file, format_len, format, va );
+    b32 result = fs_file_write_fmt_cstr_va( file, format_len, format, va );
     va_end( va );
+
     return result;
 }
 
 #define fs_file_write_fmt( file, format, ... )\
-    ___internal_file_write_fmt( file, sizeof(format) - 1, format, ##__VA_ARGS__ )
+    fs_file_write_fmt_cstr( file, sizeof(format) - 1, format, ##__VA_ARGS__ )
 #define fs_file_write_fmt_va( file, format, va )\
-    ___internal_file_write_fmt_va( file, sizeof(format) - 1, format, va )
+    fs_file_write_fmt_cstr_va( file, sizeof(format) - 1, format, va )
 
 #endif /* header guard */

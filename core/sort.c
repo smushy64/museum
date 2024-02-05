@@ -5,6 +5,7 @@
 */
 #include "shared/defines.h"
 #include "core/sort.h"
+#include "core/memory.h"
 
 internal isize sorting_quicksort_partition(
     isize low, isize high, usize element_size, void* buffer,
@@ -93,6 +94,26 @@ CORE_API void sorting_quicksort_u32( isize low, isize high, u32* buffer ) {
             sorting_quicksort_u32( partition_index + 1, high, buffer );
             high = partition_index - 1;
         }
+    }
+}
+
+CORE_API void sorting_reverse(
+    usize item_count, usize item_size,
+    void* buffer, void* temp_buffer
+) {
+    u8* bytes = buffer;
+    usize start = 0;
+    usize end   = item_count - 1;
+
+    while( start < end ) {
+        u8* start_ptr = bytes + ( start * item_size );
+        u8* end_ptr   = bytes + ( end * item_size );
+        memory_copy( temp_buffer, start_ptr, item_size );
+        memory_copy( start_ptr, end_ptr, item_size );
+        memory_copy( end_ptr, temp_buffer, item_size );
+
+        start++;
+        end--;
     }
 }
 

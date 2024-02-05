@@ -1448,8 +1448,8 @@ DWORD ___win32_report_last_error( usize format_len, const char* format, ... ) {
     char error_buffer[WIN32_ERROR_BUFFER_MAX_CAPACITY] = {};
 
     StringBuffer error = {};
-    error.buffer   = error_buffer;
-    error.capacity = WIN32_ERROR_BUFFER_MAX_CAPACITY;
+    error.c   = error_buffer;
+    error.cap = WIN32_ERROR_BUFFER_MAX_CAPACITY;
 
     DWORD error_code = GetLastError();
     if( error_code == ERROR_SUCCESS ) {
@@ -1458,7 +1458,7 @@ DWORD ___win32_report_last_error( usize format_len, const char* format, ... ) {
 
     va_list va;
     va_start( va, format );
-    ___internal_string_buffer_fmt_va( &error, format_len, format, va );
+    string_buffer_fmt_cstr_va( &error, format_len, format, va );
     va_end( va );
     // NOTE(alicia): get rid of trailing null
     if( error.len ) {
@@ -1474,10 +1474,10 @@ DWORD ___win32_report_last_error( usize format_len, const char* format, ... ) {
 
     FormatMessageA(
         dwFlags, lpSource, error_code,
-        dwLanguageId, error.buffer + error.len, error.capacity,
+        dwLanguageId, error.c + error.len, error.cap,
         NULL );
 
-    ___internal_media_log( LOGGING_LEVEL_ERROR, error.len, error.buffer );
+    ___internal_media_log( LOGGING_LEVEL_ERROR, error.len, error.str );
 
     return error_code;
 }

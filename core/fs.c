@@ -25,6 +25,9 @@ CORE_API void fs_file_set_offset(
 ) {
     platform_file_set_offset( file, offset, is_relative );
 }
+CORE_API void fs_file_truncate( FileHandle* file ) {
+    platform_file_truncate( file );
+}
 CORE_API b32 fs_file_read( FileHandle* file, usize buffer_size, void* buffer ) {
     return platform_file_read( file, buffer_size, buffer );
 }
@@ -68,14 +71,23 @@ CORE_API b32 fs_copy_by_path( PathSlice dst, PathSlice src, b32 fail_if_dst_exis
 CORE_API b32 fs_move_by_path( PathSlice dst, PathSlice src, b32 fail_if_dst_exists ) {
     return platform_file_move_by_path( dst, src, fail_if_dst_exists );
 }
+CORE_API b32 fs_directory_create( PathSlice path ) {
+    return platform_make_directory( path );
+}
+CORE_API b32 fs_directory_delete( PathSlice path, b32 recursive ) {
+    return platform_delete_directory( path, recursive );
+}
+CORE_API b32 fs_directory_exists( PathSlice path )  {
+    return platform_directory_exists( path );
+}
 CORE_API usize fs_get_working_directory( PathBuffer* buffer ) {
-    if( !buffer || !buffer->buffer ) {
+    if( !buffer || !buffer->v ) {
         return platform_get_working_directory( 0, 0, 0 );
     }
 
     usize bytes_written = 0;
     usize result = platform_get_working_directory(
-        buffer->capacity, buffer->buffer, &bytes_written );
+        buffer->cap, buffer->v, &bytes_written );
 
     buffer->len = bytes_written;
     return result;
@@ -98,14 +110,14 @@ usize ___file_write( void* target, usize count, char* characters ) {
     return 0;
 }
 
-CORE_API b32 ___internal_file_write_fmt_va(
+CORE_API b32 fs_file_write_fmt_cstr_va(
     FileHandle* file, usize format_len, const char* format, va_list va
 ) {
     struct FileWriteParams params = {};
     params.handle  = file;
     params.success = true;
 
-    (void)___internal_fmt_write_va(
+    (void)fmt_write_va(
         ___file_write, &params, format_len, format, va );
 
     return params.success;

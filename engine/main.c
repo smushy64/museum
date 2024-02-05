@@ -267,8 +267,8 @@ int main( int argc, char** argv ) {
             if( string_slice_find( current, libload, NULL ) ) {
                 if( current.len - libload.len < 1 ) {
                     StringSlice path = current;
-                    path.buffer += libload.len;
-                    path.len    -= libload.len;
+                    path.str += libload.len;
+                    path.len -= libload.len;
                     println_err(
                         CONSOLE_COLOR_RED
                         "invalid game library path: {s}"
@@ -277,8 +277,8 @@ int main( int argc, char** argv ) {
                     parse_error = true;
                     break;
                 }
-                game_library_path.buffer = current.buffer + libload.len;
-                game_library_path.len    = current.len - libload.len;
+                game_library_path.str = current.str + libload.len;
+                game_library_path.len = current.len - libload.len;
                 continue;
             }
             if( string_slice_cmp( current, clear_log ) ) {
@@ -311,8 +311,8 @@ int main( int argc, char** argv ) {
                     parse_error = true;
                     break;
                 }
-                current.buffer += set_width.len;
-                current.len    -= set_width.len;
+                current.str += set_width.len;
+                current.len -= set_width.len;
                 u64 parse_result = 0;
                 if( !string_slice_parse_uint( current, &parse_result ) ) {
                     println_err(
@@ -338,8 +338,8 @@ int main( int argc, char** argv ) {
                     parse_error = true;
                     break;
                 }
-                current.buffer += set_height.len;
-                current.len    -= set_height.len;
+                current.str += set_height.len;
+                current.len -= set_height.len;
                 u64 parse_result = 0;
                 if( !string_slice_parse_uint( current, &parse_result ) ) {
                     println_err(
@@ -365,8 +365,8 @@ int main( int argc, char** argv ) {
                     parse_error = true;
                     break;
                 }
-                current.buffer += set_resolution_scale.len;
-                current.len    -= set_resolution_scale.len;
+                current.str += set_resolution_scale.len;
+                current.len -= set_resolution_scale.len;
                 f64 parse_result = 0.0;
                 if( !string_slice_parse_float( current, &parse_result ) ) {
                     println_err(
@@ -391,8 +391,8 @@ int main( int argc, char** argv ) {
                     parse_error = true;
                     break;
                 }
-                current.buffer += set_master_volume.len;
-                current.len    -= set_master_volume.len;
+                current.str += set_master_volume.len;
+                current.len -= set_master_volume.len;
                 f64 parse_result = 0.0;
                 if( !string_slice_parse_float( current, &parse_result ) ) {
                     println_err(
@@ -415,8 +415,8 @@ int main( int argc, char** argv ) {
                     parse_error = true;
                     break;
                 }
-                current.buffer += set_music_volume.len;
-                current.len    -= set_music_volume.len;
+                current.str += set_music_volume.len;
+                current.len -= set_music_volume.len;
                 f64 parse_result = 0.0;
                 if( !string_slice_parse_float( current, &parse_result ) ) {
                     println_err(
@@ -439,8 +439,8 @@ int main( int argc, char** argv ) {
                     parse_error = true;
                     break;
                 }
-                current.buffer += set_sfx_volume.len;
-                current.len    -= set_sfx_volume.len;
+                current.str += set_sfx_volume.len;
+                current.len -= set_sfx_volume.len;
                 f64 parse_result = 0.0;
                 if( !string_slice_parse_float( current, &parse_result ) ) {
                     println_err(
@@ -538,7 +538,7 @@ int main( int argc, char** argv ) {
 
         fatal_log( "{s}", string_buffer_to_slice( &error_message ) );
         media_fatal_message_box_blocking(
-            error_title.buffer, error_message.buffer );
+            error_title.str, error_message.str );
         exit( ENGINE_ERROR_RENDERER_BACKEND_NOT_SUPPORTED );
     }
 
@@ -602,7 +602,7 @@ int main( int argc, char** argv ) {
     note_log( "Resolution:        {i}x{i}", width, height );
     note_log( "Resolution Scale:  {f,.2}x", global_resolution_scale );
 
-    SharedObject* game = shared_object_open( game_library_path.buffer );
+    SharedObject* game = shared_object_open( game_library_path.str );
     if( !game ) {
         string_buffer_empty( error_title, 64 );
         string_buffer_empty( error_message, 255 );
@@ -618,7 +618,7 @@ int main( int argc, char** argv ) {
 
         fatal_log( "{s}", string_buffer_to_slice( &error_message ) );
         media_fatal_message_box_blocking(
-            error_title.buffer, error_message.buffer );
+            error_title.str, error_message.str );
         exit( ENGINE_ERROR_OPEN_GAME_LIBRARY );
     }
 
@@ -651,7 +651,7 @@ int main( int argc, char** argv ) {
 
         fatal_log( "{s}", string_buffer_to_slice( &error_message ) );
         media_fatal_message_box_blocking(
-            error_title.buffer, error_message.buffer );
+            error_title.str, error_message.str );
         exit( ENGINE_ERROR_LOAD_GAME_FUNCTIONS );
     }
 
@@ -720,7 +720,7 @@ int main( int argc, char** argv ) {
 
             fatal_log( "{s}", string_buffer_to_slice( &error_message ) );
             media_fatal_message_box_blocking(
-                error_title.buffer, error_message.buffer );
+                error_title.str, error_message.str );
             exit( ENGINE_ERROR_ENGINE_MEMORY_ALLOCATION );
         }
 
@@ -941,15 +941,15 @@ internal b32 ___settings_parse_uint(
     StringSlice line, StringSlice token, u64* out_result
 ) {
     StringSlice number = {};
-    number.buffer = line.buffer + token.len;
-    number.len    = line.len    - token.len;
+    number.str = line.str + token.len;
+    number.len = line.len    - token.len;
 
     for( usize i = 0; i < number.len; ++i ) {
-        char current = number.buffer[i];
+        char current = number.str[i];
 
         if( char_is_digit( current ) ) {
-            number.buffer += i;
-            number.len    -= i;
+            number.str += i;
+            number.len -= i;
 
             u64 int_parse = 0;
             if( !string_slice_parse_uint( number, &int_parse ) ) {
@@ -967,17 +967,17 @@ internal b32 ___settings_parse_float(
     StringSlice line, StringSlice token, f64* out_result
 ) {
     StringSlice number = {};
-    number.buffer = line.buffer + token.len;
-    number.len    = line.len    - token.len;
+    number.str = line.str + token.len;
+    number.len = line.len    - token.len;
 
     for( usize i = 0; i < number.len; ++i ) {
-        char current = number.buffer[i];
+        char current = number.str[i];
 
         if( char_is_digit( current ) ) {
-            number.buffer += i;
-            number.len    -= i;
+            number.str += i;
+            number.len -= i;
 
-            while( number.len && !char_is_digit( number.buffer[number.len - 1] ) ) {
+            while( number.len && !char_is_digit( number.str[number.len - 1] ) ) {
                 string_slice_pop( number, &number, NULL );
             }
 
@@ -1073,8 +1073,8 @@ b32 parse_settings( struct SettingsParse* out_parse_result ) {
     }
 
     StringSlice settings;
-    settings.buffer   = settings_file_buffer;
-    settings.len      = settings_file_size;
+    settings.str = settings_file_buffer;
+    settings.len = settings_file_size;
 
     enum Section section = SECTION_UNKNOWN;
 
@@ -1103,7 +1103,7 @@ b32 parse_settings( struct SettingsParse* out_parse_result ) {
         StringSlice temp = line;
         temp.len = eol + 1;
 
-        switch( temp.buffer[0] ) {
+        switch( temp.str[0] ) {
             case '[': {
                 if( string_slice_find( temp, token_section_graphics, NULL ) ) {
                     section = SECTION_GRAPHICS;
@@ -1142,8 +1142,8 @@ b32 parse_settings( struct SettingsParse* out_parse_result ) {
                     }
                 } else if( string_slice_find( temp, token_graphics_backend, NULL ) ) {
                     StringSlice backend;
-                    backend.buffer = temp.buffer + token_graphics_backend.len;
-                    backend.len    = temp.len    - token_graphics_backend.len;
+                    backend.str = temp.str + token_graphics_backend.len;
+                    backend.len = temp.len - token_graphics_backend.len;
 
                     if( string_slice_find( backend, token_graphics_opengl, NULL ) ) {
                         parse_result.backend = RENDERER_BACKEND_OPENGL;
@@ -1184,8 +1184,8 @@ b32 parse_settings( struct SettingsParse* out_parse_result ) {
         }
 
     skip:
-        line.buffer += temp.len;
-        line.len    -= temp.len;
+        line.str += temp.len;
+        line.len -= temp.len;
     }
 
     if( !renderer_backend_is_supported( parse_result.backend ) ) {
@@ -1298,7 +1298,7 @@ internal b32 check_instructions( SystemInfo* system_info ) {
             string_buffer_to_slice( &missing_names ) );
         print_err( CONSOLE_COLOR_RESET );
 
-        media_fatal_message_box_blocking( "Fatal Error", missing_names.buffer );
+        media_fatal_message_box_blocking( "Fatal Error", missing_names.str );
 
         return false;
     }
@@ -1330,7 +1330,7 @@ internal b32 check_instructions( SystemInfo* system_info ) {
             string_buffer_to_slice( &missing_names ) );
         print_err( CONSOLE_COLOR_RESET );
 
-        media_fatal_message_box_blocking( "Fatal Error", missing_names.buffer );
+        media_fatal_message_box_blocking( "Fatal Error", missing_names.str );
 
         return false;
     }

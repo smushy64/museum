@@ -232,6 +232,11 @@ typedef void LoggingCallbackFN(
 /// Convert macro value to const char*
 #define macro_value_to_string( foo ) macro_name_to_string( foo )
 
+#if !defined(stringify)
+    /// Convert identifier to const char*
+    #define stringify( x ) #x
+#endif
+
 /// Make a version uint32
 #define ld_make_version( major, minor )\
     ((u32)( major ) << 15u) | ((u32)( minor ))
@@ -309,7 +314,7 @@ typedef void LoggingCallbackFN(
     } while(0)
 #else
     /// Runtime assertion
-    #define assert(condition) unused((condition))
+    #define assert(condition) (void)(condition)
 #endif
 
 /// Always optimize regardless of optimization level.

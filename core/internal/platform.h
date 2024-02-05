@@ -44,8 +44,10 @@ usize platform_file_query_size( PlatformFile* file );
 /// Query file offset.
 usize platform_file_query_offset( PlatformFile* file );
 /// Set file offset.
-void platform_file_set_offset( PlatformFile* file, usize offset );
-/// Read file.
+void platform_file_set_offset( PlatformFile* file, usize offset, b32 is_relative );
+/// Truncate.
+void platform_file_truncate( PlatformFile* file );
+// Read file.
 b32 platform_file_read( PlatformFile* file, usize buffer_size, void* buffer );
 /// Write file.
 b32 platform_file_write( PlatformFile* file, usize buffer_size, void* buffer );
@@ -59,6 +61,12 @@ b32 platform_file_move_by_path( PathSlice dst, PathSlice src, b32 fail_if_dst_ex
 b32 platform_path_is_file( PathSlice path );
 /// Check if path is directory.
 b32 platform_path_is_directory( PathSlice path );
+/// Create directory.
+/// Returns true if successful.
+b32 platform_make_directory( PathSlice path );
+/// Fails if not recursive and directory has files.
+b32 platform_delete_directory( PathSlice path, b32 recursive );
+b32 platform_directory_exists( PathSlice path );
 
 /// Get the current working directory.
 /// If buffer is null, returns required size.

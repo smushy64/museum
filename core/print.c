@@ -33,14 +33,14 @@ CORE_API void ___internal_print( usize format_len, const char* format, ... ) {
     va_list va;
     va_start( va, format );
 
-    ___internal_fmt_write_va(
+    fmt_write_va(
         ___internal_output_string,
         platform_get_stdout(), format_len, format, va );
 
     va_end( va );
 }
 CORE_API void ___internal_print_va( usize format_len, const char* format, va_list va ) {
-    ___internal_fmt_write_va(
+    fmt_write_va(
         ___internal_output_string,
         platform_get_stdout(), format_len, format, va );
 }
@@ -48,7 +48,7 @@ CORE_API void ___internal_print_err( usize format_len, const char* format, ... )
     va_list va;
     va_start( va, format );
 
-    ___internal_fmt_write_va(
+    fmt_write_va(
         ___internal_output_string,
         platform_get_stderr(), format_len, format, va );
 
@@ -57,7 +57,7 @@ CORE_API void ___internal_print_err( usize format_len, const char* format, ... )
 CORE_API void ___internal_print_err_va(
     usize format_len, const char* format, va_list va
 ) {
-    ___internal_fmt_write_va(
+    fmt_write_va(
         ___internal_output_string,
         platform_get_stderr(), format_len, format, va );
 }

@@ -6,12 +6,12 @@
  * File Created: January 05, 2024
 */
 #include "shared/defines.h"
-#include "core/internal/slice.h"
+#include "core/slice.h"
 
 /// Slice of a path buffer.
-typedef struct StringSlice  PathSlice;
+typedef struct CoreSlice PathSlice;
 /// Path buffer.
-typedef struct StringBuffer PathBuffer;
+typedef struct CoreBuffer PathBuffer;
 
 #if !defined(FORMAT_WRITE_FN_DEFINED)
 #define FORMAT_WRITE_FN_DEFINED
@@ -99,5 +99,13 @@ CORE_API b32 path_buffer_pop( PathBuffer* path, PathSlice* opt_out_chunk );
 /// Returns true if path has enough capacity to append extension.
 /// This function does NOT check if item pointed to by path is a file.
 CORE_API b32 path_buffer_set_extension( PathBuffer* path, PathSlice extension );
+/// Check if path buffer is empty.
+header_only b32 path_buffer_is_empty( PathBuffer* path ) {
+    return path->len == 0;
+}
+/// Check if path buffer is full.
+header_only b32 path_buffer_is_full( PathBuffer* path ) {
+    return path->len == path->cap;
+}
 
 #endif /* header guard */

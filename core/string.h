@@ -6,15 +6,15 @@
  * File Created: April 28, 2023
 */
 #include "shared/defines.h"
-#include "core/internal/slice.h"
+#include "core/slice.h"
 
 struct Iterator;
 enum FormatInteger : u32;
 
 /// Slice of a string buffer.
-typedef struct StringSlice StringSlice;
+typedef struct CoreSlice StringSlice;
 /// String buffer.
-typedef struct StringBuffer StringBuffer;
+typedef struct CoreBuffer StringBuffer;
 
 /// Convert String Buffer to String Slice.
 #define string_buffer_to_slice( buffer )\
@@ -60,7 +60,7 @@ header_only b32 char_is_digit_hexadecimal( char character ) {
 CORE_API u64 cstr_hash( usize opt_len, const char* string );
 /// Hash a string literal.
 #define text_hash( string )\
-    ___internal_hash( sizeof(string) - 1, string )
+    cstr_hash( sizeof(string) - 1, string )
 
 /// Calculate length of null-terminated C string.
 CORE_API usize cstr_len( const char* cstr );
@@ -83,8 +83,8 @@ CORE_API void cstr_copy_overlapped(
 /// Optionally provide length to skip calculating it.
 header_only StringSlice string_slice_from_cstr( usize opt_len, const char* cstr ) {
     StringSlice result = {};
-    result.buffer = (char*)cstr;
-    result.len    = opt_len ? opt_len : cstr_len( cstr );
+    result.str = cstr;
+    result.len = opt_len ? opt_len : cstr_len( cstr );
     return result;
 }
 /// Returns true if slice is empty.
@@ -93,7 +93,7 @@ header_only b32 string_slice_is_empty( StringSlice slice ) {
 }
 /// Generate hash for given String Slice.
 header_only u64 string_slice_hash( StringSlice slice ) {
-    return cstr_hash( slice.len, slice.buffer );
+    return cstr_hash( slice.len, slice.str );
 }
 /// Create an iterator from String Slice.
 CORE_API void string_slice_iterator( StringSlice slice, struct Iterator* out_iter );
@@ -195,17 +195,17 @@ CORE_API b32 string_slice_parse_float( StringSlice slice, f64* out_float );
 
 /// Output string slice to standard out.
 #define string_slice_output_stdout( slice )\
-    print_string_stdout( (slice).len, (slice).buffer )
+    print_string_stdout( (slice).len, (slice).str )
 /// Output string slice to standard error.
 #define string_slice_output_stderr( slice )\
-    print_string_stderr( (slice).len, (slice).buffer )
+    print_string_stderr( (slice).len, (slice).str )
 
 /// Create a String Buffer from provided buffer.
 header_only StringBuffer string_buffer( usize capacity, char* buffer ) {
     StringBuffer result;
-    result.buffer   = buffer;
-    result.capacity = capacity;
-    result.len      = 0;
+    result.c   = buffer;
+    result.len = 0;
+    result.cap = capacity;
 
     return result;
 }
@@ -216,7 +216,7 @@ header_only void string_buffer_clear( StringBuffer* buffer ) {
 }
 /// Returns true if String Buffer is full.
 header_only b32 string_buffer_is_full( StringBuffer buffer ) {
-    return buffer.len >= buffer.capacity;
+    return buffer.len >= buffer.cap;
 }
 /// Copy source String Slice to destination String Buffer.
 /// Keeps copying up to destination capacity.
@@ -256,21 +256,28 @@ CORE_API b32 string_buffer_insert_phrase(
 /// Format write function for String Buffer.
 /// Target pointer must point to a StringBuffer struct.
 CORE_API usize string_buffer_write( void* target, usize count, char* characters );
+
 /// Write a formatted string to String Buffer using variadic list.
-/// Returns number of bytes necessary to complete write operation if
-/// String Buffer is not large enough.
-CORE_API usize ___internal_string_buffer_fmt_va(
+/// Returns number of bytes required if string buffer is not large enough.
+CORE_API usize string_buffer_fmt_cstr_va(
     StringBuffer* buffer, usize format_len, const char* format, va_list va );
 /// Write a formatted string to String Buffer.
-/// Returns number of bytes necessary to complete write operation if
-/// String Buffer is not large enough.
-CORE_API usize ___internal_string_buffer_fmt(
-    StringBuffer* buffer, usize format_len, const char* format, ... );
+/// Returns number of bytes required if string buffer is not large enough.
+header_only usize string_buffer_fmt_cstr(
+    StringBuffer* buffer, usize format_len, const char* format, ...
+) {
+    va_list va;
+    va_start( va, format );
+    usize result = string_buffer_fmt_cstr_va( buffer, format_len, format, va );
+    va_end( va );
+
+    return result;
+}
 
 #define string_buffer_fmt( buffer, format, ... )\
-    ___internal_string_buffer_fmt( buffer, sizeof(format), format, ##__VA_ARGS__ )
+    string_buffer_fmt_cstr( buffer, sizeof(format) - 1, format, ##__VA_ARGS__ )
 #define string_buffer_fmt_va( buffer, format, va )\
-    ___internal_string_buffer_fmt_va( buffer, sizeof(format), format, va )
+    string_buffer_fmt_cstr_va( buffer, sizeof(format) - 1, format, va )
 
 /// Write the value of boolean into String Buffer.
 /// Returns number of bytes necessary to complete write operation if

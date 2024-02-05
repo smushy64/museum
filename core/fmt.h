@@ -104,29 +104,25 @@ header_only usize fmt_write_usize(
 #endif
 }
 
-/// Write formatted string to a target.
-/// Returns number of bytes necessary to complete write operation if
-/// target is not large enough.
-CORE_API usize ___internal_fmt_write(
-    FormatWriteFN* write, void* target,
-    usize format_len, const char* format, ... );
 /// Write formatted string to a target using variadic list.
 /// Returns number of bytes necessary to complete write operation if
 /// target is not large enough.
-CORE_API usize ___internal_fmt_write_va(
+CORE_API usize fmt_write_va(
     FormatWriteFN* write, void* target,
     usize format_len, const char* format, va_list va );
-
 /// Write formatted string to a target.
 /// Returns number of bytes necessary to complete write operation if
 /// target is not large enough.
-#define fmt_write( write, target, format, ... )\
-    ___internal_fmt_write( write, target, sizeof(format), format, ##__VA_ARGS__ )
+header_only usize fmt_write(
+    FormatWriteFN* write, void* target,
+    usize format_len, const char* format, ...
+) {
+    va_list va;
+    va_start( va, format );
+    usize result = fmt_write_va( write, target, format_len, format, va );
+    va_end( va );
 
-/// Write formatted string to a target using variadic arguments.
-/// Returns number of bytes necessary to complete write operation if
-/// target is not large enough.
-#define fmt_write_va( write, target, format, va )\
-    ___internal_fmt_write_va( write, target, sizeof(format), format, va )
+    return result;
+}
 
 #endif /* header guard */

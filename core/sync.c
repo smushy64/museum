@@ -18,9 +18,9 @@ CORE_API b32 semaphore_create( Semaphore* out_semaphore ) {
     char small_buffer[SEMAPHORE_NAME_BUFFER_CAPACITY] = {};
 
     StringBuffer buffer;
-    buffer.buffer   = small_buffer;
-    buffer.capacity = SEMAPHORE_NAME_BUFFER_CAPACITY;
-    buffer.len      = 0;
+    buffer.c   = small_buffer;
+    buffer.cap = SEMAPHORE_NAME_BUFFER_CAPACITY;
+    buffer.len = 0;
 
     string_buffer_fmt( &buffer, "sem{u,x}{0}", next_number );
 
@@ -71,9 +71,9 @@ CORE_API b32 mutex_create( Mutex* out_mutex ) {
     #define MUTEX_NAME_BUFFER_CAPACITY (64)
     char small_buffer[MUTEX_NAME_BUFFER_CAPACITY] = {};
     StringBuffer buffer;
-    buffer.buffer   = small_buffer;
-    buffer.capacity = MUTEX_NAME_BUFFER_CAPACITY;
-    buffer.len      = 0;
+    buffer.c   = small_buffer;
+    buffer.cap = MUTEX_NAME_BUFFER_CAPACITY;
+    buffer.len = 0;
 
     string_buffer_fmt( &buffer, "mtx{u,x}{c}", next_number, 0 );
 

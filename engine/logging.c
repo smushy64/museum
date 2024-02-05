@@ -37,7 +37,7 @@ global FileHandle* LOGGING_FILE = NULL;
 internal force_inline
 void ___log_output_file( StringSlice message ) {
     if( LOGGING_FILE ) {
-        fs_file_write( LOGGING_FILE, message.len, message.buffer );
+        fs_file_write( LOGGING_FILE, message.len, message.c );
     }
 }
 
@@ -46,7 +46,7 @@ void logging_subsystem_initialize( FileHandle* output_file ) {
     LOGGING_FILE  = output_file;
     if( LOGGING_FILE ) {
         usize file_size = fs_file_query_size( LOGGING_FILE );
-        fs_file_set_offset( LOGGING_FILE, file_size - 1 );
+        fs_file_set_offset( LOGGING_FILE, file_size - 1, false );
 
         StringSlice header = string_slice( "\n\n[PROGRAM START]\n\n" );
         ___log_output_file( header );
@@ -95,7 +95,7 @@ LD_API LoggingLevel logging_query_level(void) {
         if( !LOGGING_OUTPUT_DEBUG_STRING_ENABLED ) {
             return;
         }
-        output_debug_string( message.buffer );
+        output_debug_string( message.str );
     }
 
     #define ___log_output_debug_string( message )\
@@ -146,7 +146,7 @@ StringSlice ___logging_color( LoggingType type ) {
         CONSOLE_COLOR_RESET
     };
 
-    result.buffer = (char*)(colors[type]);
+    result.str = colors[type];
 
     return result;
 }
@@ -208,9 +208,9 @@ LD_API void logging_output(
     if( timestamped ) {
         char timestamp_buffer[LOGGING_TIMESTAMP_BUFFER_SIZE] = {0};
         StringBuffer timestamp;
-        timestamp.buffer   = timestamp_buffer;
-        timestamp.len      = 0;
-        timestamp.capacity = LOGGING_TIMESTAMP_BUFFER_SIZE;
+        timestamp.c   = timestamp_buffer;
+        timestamp.len = 0;
+        timestamp.cap = LOGGING_TIMESTAMP_BUFFER_SIZE;
 
         ___log_generate_timestamp( &timestamp );
 
@@ -226,8 +226,8 @@ LD_API void logging_output(
 
     if( new_line ) {
         StringSlice nl;
-        nl.buffer   = "\n";
-        nl.len      = 1;
+        nl.str = "\n";
+        nl.len = 1;
 
         ___log_output_console( type, nl );
         ___log_output_file( nl );
@@ -264,13 +264,13 @@ LD_API void ___internal_logging_output_fmt_va(
     }
 
     StringBuffer format_buffer;
-    format_buffer.buffer   = LOGGING_BUFFER;
-    format_buffer.len      = 0;
-    format_buffer.capacity = LOGGING_BUFFER_SIZE;
+    format_buffer.c   = LOGGING_BUFFER;
+    format_buffer.len = 0;
+    format_buffer.cap = LOGGING_BUFFER_SIZE;
 
-    ___internal_string_buffer_fmt_va( &format_buffer, format_len, format, va );
+    string_buffer_fmt_cstr_va( &format_buffer, format_len, format, va );
     if( !string_buffer_push( &format_buffer, 0 ) ) {
-        format_buffer.buffer[format_buffer.len - 1] = 0;
+        format_buffer.c[format_buffer.len - 1] = 0;
     }
 
     logging_output(
