@@ -1,0 +1,6 @@
+ARG_MODE_HEADER "header"
+ARG_MODE_HELP   "help"
+
+ARG_MODE_TEST        "test"
+ARG_TEST_RESOURCE_ID "--resource"
+

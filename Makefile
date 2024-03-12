@@ -3,7 +3,7 @@
 # * File Created: September 21, 2023
 
 # MAKEFLAGS += -j4
-MAKEFLAGS += -j4 -s
+MAKEFLAGS += -j 4 -s
 
 export CC     := clang
 export CSTD   := -std=c99
@@ -130,6 +130,9 @@ export LIB_TESTBED_FILE := lib$(LIB_TESTBED_NAME)$(SO_EXT)
 export UTIL_PKG_NAME := upkg
 export UTIL_PKG_FILE := $(UTIL_PKG_NAME)$(EXE_EXT)
 
+export UTIL_UNPACK_NAME := unpack
+export UTIL_UNPACK_FILE := $(UTIL_UNPACK_NAME)$(EXE_EXT)
+
 export UTIL_HASH_NAME := uhash
 export UTIL_HASH_FILE := $(UTIL_HASH_NAME)$(EXE_EXT)
 
@@ -210,7 +213,7 @@ ifeq ($(TARGET_PLATFORM), linux)
 endif
 export DEP_PLATFORM_C := $(addprefix .,$(filter-out ./platform/platform_dllmain.c,$(call recurse,./platform,*.c))) $(DEP_PLATFORM_S)
 
-all: build_core build_engine build_shaders build_package build_hash
+all: build_core build_engine build_shaders build_package build_hash build_unpack
 
 build_core:
 	@$(MAKE) --directory=core --no-print-directory
@@ -226,6 +229,9 @@ build_hash: build_core
 
 build_package: build_core build_hash
 	@$(MAKE) --directory=package --no-print-directory
+
+build_unpack: build_core build_media build_hash
+	@$(MAKE) --directory=unpack --no-print-directory
 
 build_shaders:
 	@$(MAKE) --directory=shaders --no-print-directory
@@ -246,6 +252,7 @@ config:
 	@$(MAKE) --directory=engine config
 	@$(MAKE) --directory=testbed config
 	@$(MAKE) --directory=package config
+	@$(MAKE) --directory=unpack config
 	@$(MAKE) --directory=hash config
 
 clean: clean_shaders clean_objects
@@ -258,6 +265,7 @@ clean_dep:
 	@$(MAKE) --directory=engine clean_dep
 	@$(MAKE) --directory=testbed clean_dep
 	@$(MAKE) --directory=package clean_dep
+	@$(MAKE) --directory=unpack clean_dep
 
 clean_shaders:
 	@echo "Make: cleaning "$(if $(RELEASE),release,debug)" shaders . . ."
@@ -303,12 +311,13 @@ init:
 	@$(MAKE) --directory=engine generate_compile_flags
 	@$(MAKE) --directory=testbed generate_compile_flags
 	@$(MAKE) --directory=package generate_compile_flags
+	@$(MAKE) --directory=unpack generate_compile_flags
 	@$(MAKE) --directory=hash generate_compile_flags
 
 .PHONY: all test clean help \
 	build_core build_hash build_package \
 	build_engine build_shaders build_media \
 	clean_objects clean_shaders clean_dep \
-	config init \
+	config init build_unpack\
 	help_ex help_opt
 

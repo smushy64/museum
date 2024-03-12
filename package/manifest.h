@@ -1,31 +1,43 @@
-#if !defined(LP_MANIFEST_H)
-#define LP_MANIFEST_H
+#if !defined(LD_PACKAGE_MANIFEST_H)
+#define LD_PACKAGE_MANIFEST_H
 /**
- * Description:  Package Manifest
+ * Description:  Package Utility Manifest
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
- * File Created: December 07, 2023
+ * File Created: January 08, 2024
 */
 #include "shared/defines.h"
-#include "core/string.h"
-#include "core/path.h"
 #include "shared/liquid_package.h"
+#include "core/path.h"
+#include "core/string.h"
+#include "package/error.h"
 
 typedef struct ManifestItem {
-    StringSlice               identifier;
-    LiquidPackageResourceType type;
-    LiquidPackageCompression  compression;
-    PathSlice                 path;
+    PackageResourceType type;
+    PackageCompression  compression;
+    PathSlice           path;
+    StringSlice         identifier;
+
+    union {
+        struct {
+            PackageTextureFlags flags;
+        } texture;
+    };
 } ManifestItem;
 
 typedef struct Manifest {
-    StringSlice   directory;
-    usize         item_count;
-    ManifestItem* items;
-    usize         text_buffer_size;
-    char*         text_buffer;
+    StringSlice text;
+    struct ManifestList {
+        ManifestItem* buffer;
+        u32 count;
+        u32 capacity;
+    } items;
+    usize longest_identifier_length;
+    usize longest_type_name_length;
+
+    volatile u32 item_completion_count;
 } Manifest;
 
-b32 manifest_parse( PathSlice path, Manifest* out_manifest );
-void manifest_free( Manifest* manifest );
+PackageError manifest_parse( PathSlice manifest_path, Manifest* out_manifest );
+void manifest_destroy( Manifest* manifest );
 
 #endif /* header guard */

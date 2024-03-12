@@ -1,396 +1,377 @@
 /**
- * Description:  Manifest implementation
+ * Description:  Package Utility Manifest
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
- * File Created: December 07, 2023
+ * File Created: January 09, 2024
 */
-#include "shared/defines.h"
+#include "shared/defines.h" // IWYU pragma: keep
 #include "core/string.h"
 #include "shared/liquid_package.h"
-#include "manifest.h"
-
-#include "logging.h"
-
-#include "core/collections.h"
-#include "core/memory.h"
 #include "core/path.h"
+#include "package/error.h"
+
+#include "package/manifest.h"
+#include "package/logging.h"
+
 #include "core/fs.h"
+#include "core/memory.h"
 
 #include "generated/package_hashes.h"
 
-b32 ___check_for_tab( StringSlice* line ) {
-    if( line->buffer[0] == '\t' ) {
-        return true;
+#define MANIFEST_LIST_MINIMUM_CAPACITY (12)
+
+ManifestItem* ___manifest_list_next( struct ManifestList* list ) {
+    if( list->count == list->capacity ) {
+        usize old_size = list->capacity * sizeof(ManifestItem);
+        usize new_size =
+            old_size + ( MANIFEST_LIST_MINIMUM_CAPACITY * sizeof(ManifestItem) );
+        ManifestItem* new_buffer = system_realloc( list->buffer, old_size, new_size );
+
+        if( !new_buffer ) {
+            return NULL;
+        }
+
+        list->capacity += MANIFEST_LIST_MINIMUM_CAPACITY;
+        list->buffer   = new_buffer;
     }
 
-    if(
-        line->len >= 4 &&
-        line->buffer[0] == ' ' &&
-        line->buffer[1] == ' ' &&
-        line->buffer[2] == ' ' &&
-        line->buffer[3]
-    ) {
-        return true;
-    }
-
-    return false;
+    return list->buffer + list->count++;
 }
 
-b32 ___validate_c_identifier( StringSlice* identifier ) {
+PackageError manifest_parse( PathSlice manifest_path, Manifest* out_manifest ) {
+    usize thread_index = 0;
 
-    for( usize i = 0; i < identifier->len; ++i ) {
-        char current = identifier->buffer[i];
-        b32 is_underscore = current == '_';
-        b32 is_digit      = char_is_digit( current );
-        b32 is_letter     = char_is_latin_letter( current );
-
-        if( !( is_underscore || is_digit || is_letter ) ) {
-            return false;
-        }
-    }
-    
-    return true;
-}
-
-global const char* global_local_directory = "./";
-
-b32 manifest_parse( PathSlice path, Manifest* out_manifest ) {
-
-    FileHandle* file = fs_file_open(
-        path, FILE_OPEN_FLAG_READ | FILE_OPEN_FLAG_SHARE_ACCESS_READ );
-    if( !file ) {
-        lp_error( "failed to open manifest '{cc}'!", path );
-        return false;
-    }
-
-    usize file_size = fs_file_query_size( file );
-    if( !file_size ) {
-        lp_error( "'{cc}' is not a manifest!" );
-        return false;
-    }
-    char* manifest_buffer = system_alloc( file_size );
-    if( !manifest_buffer ) {
-        lp_error(
-            "failed to allocate {f,m,.2} for manifest text buffer!", (f64)file_size );
-        return false;
-    }
-    
-    if( !fs_file_read( file, file_size, manifest_buffer ) ) {
-        lp_error( "failed to read manifest file!" );
-        return false;
-    }
-
-    fs_file_close( file );
-
-    StringSlice manifest = {};
-    manifest.buffer = manifest_buffer;
-    manifest.len    = file_size;
-    StringSlice line = {};
-    StringSlice token_left = {}, token_right = {};
-
-    #define next_line()\
-        string_slice_split_char( manifest, '\n', &line, &manifest )
-
-    #define missing_token( token )\
-        lp_error( "file '{cc}' is missing token: '{s}'!", token )
-
-    #define invalid_manifest()\
-        lp_error( "file '{cc}' is not a valid manifest!", path )
-
-    #define trim_whitespace( slice )\
-        slice = string_slice_trim_leading_whitespace( slice );\
-        slice = string_slice_trim_trailing_whitespace( slice )
-
-    #define split_line( char )\
-        string_slice_split_char( line, char, &token_left, &token_right )
-
-    b32 identifier_found  = false;
-    b32 item_count_parsed = false;
-    u64 item_count = 0;
-
-    StringSlice token_manifest_identifier = string_slice( "manifest" );
-    StringSlice token_count               = string_slice( "count" );
-
-    while( !(identifier_found && item_count_parsed) && next_line() ) {
-        if( !line.len || line.buffer[0] == '#' ) {
-            continue;
+    /* read manifest file */ {
+        FileHandle* manifest_file = fs_file_open(
+            manifest_path, FILE_OPEN_FLAG_READ | FILE_OPEN_FLAG_SHARE_ACCESS_READ );
+        if( !manifest_file ) {
+            log_error( "failed to open manifest file '{s}'!", manifest_path );
+            return PACKAGE_ERROR_OPEN_FILE;
         }
 
-        if( identifier_found ) {
-            if( !split_line( ':' ) ) {
-                break;
-            }
-
-            trim_whitespace( token_left );
-            trim_whitespace( token_right );
-
-            if( !string_slice_cmp( token_left, token_count ) ) {
-                break;
-            }
-
-            u64 parsed_count = 0;
-            if( !string_slice_parse_uint( token_right, &parsed_count ) ) {
-                break;
-            }
-
-            item_count = parsed_count;
-            item_count_parsed = true;
-        } else {
-            if( string_slice_cmp( line, token_manifest_identifier ) ) {
-                identifier_found = true;
-            } else {
-                break;
-            }
+        out_manifest->text.len = fs_file_query_size( manifest_file );
+        out_manifest->text.str = system_alloc( out_manifest->text.len );
+        if( !out_manifest->text.str ) {
+            log_error(
+                "failed to allocate {f,m,.2} for manifest text!",
+                (f64)out_manifest->text.len );
+            fs_file_close( manifest_file );
+            memory_zero( &out_manifest->text, sizeof(out_manifest->text) );
+            return PACKAGE_ERROR_OUT_OF_MEMORY;
         }
+
+        if( !fs_file_read(
+            manifest_file, out_manifest->text.len, out_manifest->text.c
+        ) ) {
+            log_error( "failed to read manifest file '{s}'!", manifest_path );
+            fs_file_close( manifest_file );
+            system_free( out_manifest->text.c, out_manifest->text.len );
+            memory_zero( &out_manifest->text, sizeof(out_manifest->text) );
+            return PACKAGE_ERROR_READ_FILE;
+        }
+
+        fs_file_close( manifest_file );
     }
 
-    if( !identifier_found ) {
-        invalid_manifest();
-        missing_token( token_manifest_identifier );
-        system_free( manifest_buffer, file_size );
-        return false;
+    struct ManifestList* list = &out_manifest->items;
+    list->capacity = MANIFEST_LIST_MINIMUM_CAPACITY;
+    list->buffer   = system_alloc( list->capacity * sizeof(ManifestItem) );
+    if( !list->buffer ) {
+        log_error(
+            "failed to allocate {f,m,.2} for manifest item list!",
+            (f64)(list->capacity * sizeof(ManifestItem)) );
+        manifest_destroy( out_manifest );
+        return PACKAGE_ERROR_OUT_OF_MEMORY;
     }
 
-    if( !item_count_parsed ) {
-        invalid_manifest();
-        lp_error( "manifest '{cc}' is missing item count!", path );
-        system_free( manifest_buffer, file_size );
-        return false;
-    }
+    #define skip_line() goto manifest_parse_skip_line
 
-    if( !item_count ) {
-        lp_error( "manifest '{cc}' does not have any items?!", path );
-        system_free( manifest_buffer, file_size );
-        return false;
-    }
-
-    usize item_buffer_size = sizeof(ManifestItem) * item_count;
-    void* item_buffer      = system_alloc( sizeof( ManifestItem ) * item_count );
-    if( !item_buffer ) {
-        lp_error(
-            "failed to allocate {f,m,.2} for manifest item buffer!",
-            (f64)item_buffer_size );
-        system_free( manifest_buffer, file_size );
-        return false;
-    }
-    List manifest_items = list_create( item_count, sizeof(ManifestItem), item_buffer );
-    unused(manifest_items);
-
-    usize initial_text_buffer_size = 256;
-    void* text_buffer              = system_alloc( initial_text_buffer_size );
-    if( !text_buffer ) {
-        lp_error(
-            "failed to allocate {f,m,.2} for manifest text buffer!",
-            (f64)initial_text_buffer_size );
-        system_free( manifest_buffer, file_size );
-        system_free(
-            manifest_items.buffer,
-            manifest_items.capacity * manifest_items.item_size );
-        return false;
-    }
-    StackAllocator text_buffer_stack =
-        stack_allocator_create( initial_text_buffer_size, text_buffer );
-
-    #define manifest_error()\
-        system_free( manifest_buffer, file_size );\
-        system_free(\
-            manifest_items.buffer,\
-            manifest_items.capacity * manifest_items.item_size );\
-        system_free( text_buffer_stack.buffer, text_buffer_stack.buffer_size )
-
-    #define text_push( slice, with_null ) do {\
-        usize buffer_size = slice.len + (with_null ? 1 : 0);\
-        void* buffer = stack_allocator_push( &text_buffer_stack, buffer_size );\
-        if( !buffer ) {\
-            usize new_stack_size   = text_buffer_stack.buffer_size + buffer_size + 256;\
-            void* new_stack_buffer = system_realloc(\
-                text_buffer_stack.buffer,\
-                text_buffer_stack.buffer_size, new_stack_size );\
-            if( !new_stack_buffer ) {\
-                lp_error( "failed to allocate {f,m,.2}!", new_stack_size );\
-                manifest_error();\
-                return false;\
-            }\
-            text_buffer_stack.buffer      = new_stack_buffer;\
-            text_buffer_stack.buffer_size = new_stack_size;\
-            buffer = stack_allocator_push( &text_buffer_stack, buffer_size );\
-        }\
-        memory_copy( buffer, slice.buffer, slice.len );\
-        slice.buffer = buffer;\
+    #define error( format, ... ) do {\
+        result = PACKAGE_ERROR_PARSE_MANIFEST;\
+        log_error( format, ##__VA_ARGS__ );\
+        goto manifest_parse_end;\
     } while(0)
 
-    typedef enum : u32 {
-        CTX_NONE,
-        CTX_PARSE_FIELDS,
-    } ManifestContext;
+    #define error_line( format, ... )\
+        error( format CONSOLE_COLOR_RESET "\n{usize}: {s}",\
+            ##__VA_ARGS__, line_number, line )
 
-    #define m_warn( format, ... )\
-        lp_warn( "manifest '{cc}': " format, path, ##__VA_ARGS__ )
-    #define m_error( format, ... )\
-        lp_error( "manifest '{cc}': " format, path, ##__VA_ARGS__ )
+    #define type_check() do {\
+        if( !current->type ) {\
+            error_line( "field 'type' must be defined before any other field!" );\
+        }\
+    } while(0)
 
-    ManifestContext ctx = CTX_NONE;
+    #define type_field_check( field, _type ) do {\
+        type_check();\
+        if( current->type != _type ) {\
+            error_line( "field '" #field "' is only valid for type '" #_type "'!" );\
+        }\
+    } while(0)
 
-    u32 running_placeholder_index = 0;
-    string_buffer_empty( placeholder_c_identifier, 64 );
+    StringSlice text = out_manifest->text;
 
-    #define try_next_line() if( !next_line() ) break
+    PackageError  result  = PACKAGE_SUCCESS;
+    ManifestItem* current = NULL;
+    usize line_number     = 1;
+    while( text.len ) {
+        StringSlice line = {};
+        usize nl_index   = 0;
+        if( string_slice_find_char( text, '\n', &nl_index ) ) {
+            line.len = nl_index;
+            line.str = text.str;
+        } else {
+            line = text;
+        }
 
-    ManifestItem item  = {};
-    usize excess_items = 0;
+manifest_parse_process_line:
 
-    next_line();
-    loop {
-        if( !line.len || line.buffer[0] == '#' ) {
-            try_next_line();
+        if( !line.len || ( line.len == 1 && line.str[0] == '\n' ) ) {
+            text.str++;
+            text.len--;
             continue;
         }
 
-        switch( ctx ) {
-            case CTX_NONE: {
-                usize position = 0;
-                if( string_slice_find_char( line, ':', &position ) ) {
-                    token_left.buffer   = line.buffer;
-                    token_left.len      = position;
-
-                    if( ___validate_c_identifier( &token_left ) ) {
-                        text_push( token_left, false );
-                        item.identifier = token_left;
-                    } else {
-                        m_warn( "'{s}' is not a valid C identifier!", token_left );
-                        string_buffer_fmt(
-                            &placeholder_c_identifier,
-                            "ITEM_{u}", running_placeholder_index++ );
-
-                        text_push( placeholder_c_identifier, false );
-
-                        item.identifier =
-                            string_buffer_to_slice( &placeholder_c_identifier );
-                        placeholder_c_identifier.len = 0;
-
-                    }
-                    ctx = CTX_PARSE_FIELDS;
-                }
-            } break;
-            case CTX_PARSE_FIELDS: {
-                if( !___check_for_tab( &line ) ) {
-                    if( !list_push( &manifest_items, &item ) ) {
-                        m_warn(
-                            "excess items in manifest: {usize}", ++excess_items );
-                    }
-                    memory_zero( &item, sizeof(item) );
-                    ctx = CTX_NONE;
-                    // deliberately skipping try_next_line()
-                    continue;
-                }
-
-                if( split_line( ':' ) ) {
-                    trim_whitespace( token_left );
-                    trim_whitespace( token_right );
-
-                    u64 token_left_hash  = string_slice_hash( token_left );
-                    u64 token_right_hash = string_slice_hash( token_right );
-
-                    switch( token_left_hash ) {
-                        case HASH_TOKEN_MANIFEST_PATH: {
-                            if( token_right.len < 2 ) {
-                                m_error( "invalid path: '{s}'!", token_right );
-                                break;
-                            }
-                            string_slice_pop( token_right, &token_right, NULL );
-                            string_slice_pop_start( token_right, &token_right, NULL );
-
-                            text_push( token_right, true );
-
-                            item.path = reinterpret_cast( PathSlice, &token_right );
-                        } break;
-                        case HASH_TOKEN_MANIFEST_TYPE: {
-                            switch( token_right_hash ) {
-                                case HASH_TOKEN_MANIFEST_TYPE_AUDIO: {
-                                    item.type = LIQUID_PACKAGE_RESOURCE_TYPE_AUDIO;
-                                } break;
-                                case HASH_TOKEN_MANIFEST_TYPE_MODEL: {
-                                    item.type = LIQUID_PACKAGE_RESOURCE_TYPE_MODEL;
-                                } break;
-                                case HASH_TOKEN_MANIFEST_TYPE_TEXTURE: {
-                                    item.type = LIQUID_PACKAGE_RESOURCE_TYPE_TEXTURE;
-                                } break;
-                                case HASH_TOKEN_MANIFEST_TYPE_TEXT: {
-                                    item.type = LIQUID_PACKAGE_RESOURCE_TYPE_TEXT;
-                                } break;
-                                case HASH_TOKEN_MANIFEST_TYPE_MAP: {
-                                    item.type = LIQUID_PACKAGE_RESOURCE_TYPE_MAP;
-                                } break;
-                                default: {
-                                    m_error( "unrecognized token '{s}'!", token_right );
-                                } break;
-                            }
-                        } break;
-                        case HASH_TOKEN_MANIFEST_COMPRESSION: {
-                            switch( token_right_hash ) {
-                                case HASH_TOKEN_MANIFEST_COMPRESSION_RLE: {
-                                    item.compression = LIQUID_PACKAGE_COMPRESSION_RLE;
-                                } break;
-                                default: {
-                                    m_error( "unrecognized token '{s}'!", token_right );
-                                } break;
-                            }
-                        } break;
-                        default: {
-                            m_error( "unrecognized token '{s}'!", token_left );
-                        } break;
-                    }
-
-                } else {
-                    m_error( "manifest is invalid!" );
-                    manifest_error();
-                    return false;
-                }
-            } break;
+        if( line.str[0] == '#' ) {
+            skip_line();
         }
 
-        if( !next_line() ) {
-            if( item.type ) {
-                if( !list_push( &manifest_items, &item ) ) {
-                    m_warn(
-                        "excess items in manifest: {usize}", ++excess_items );
-                }
+        StringSlice token_left = {}, token_right = {};
+
+        if( current ) {
+            goto manifest_parse_fields;
+        } else {
+            goto manifest_parse_new_item;
+        }
+
+manifest_parse_skip_line:
+        text.str += line.len;
+        text.len -= line.len;
+        // NOTE(alicia): remove trailing new line.
+        if( line.len > 1 ) {
+            text.str++;
+            text.len--;
+        }
+        line_number++;
+        continue;
+
+manifest_parse_new_item:
+
+        if( !token_left.str ) {
+            if( !string_slice_split_char( line, ':', &token_left, &token_right ) ) {
+                error_line( "unrecognized syntax:\n" );
             }
-            break;
         }
-    }
-
-    // extract directory of manifest
-    StringSlice path_slice = path_slice_to_string( &path );
-
-    usize last_slash_position = 0;
-    for( usize i = path_slice.len; i-- > 0; ) {
-        if( path_slice.buffer[i] == '/' ) {
-            last_slash_position = i;
-            break;
+        if( token_right.len ) {
+            error_line(
+                "unrecognized token! left: {s} right: {s}\n",
+                token_left, token_right );
         }
+
+        current = ___manifest_list_next( list );
+        if( !current ) {
+            log_error( "failed to reallocate manifest item list!" );
+            result = PACKAGE_ERROR_OUT_OF_MEMORY;
+            goto manifest_parse_end;
+        }
+
+        current->identifier = token_left;
+        if( current->identifier.len > out_manifest->longest_identifier_length ) {
+            out_manifest->longest_identifier_length = current->identifier.len;
+        }
+
+        skip_line();
+
+manifest_parse_fields:
+        if( !char_is_whitespace( line.str[0] ) ) {
+            if( !current->type ) {
+                error( "manifest item {usize} requires a type!", list->count - 1 );
+            }
+            if( !current->path.str ) {
+                error( "manifest item {usize} requires a path!", list->count - 1 );
+            }
+            current = NULL;
+            goto manifest_parse_process_line;
+        }
+
+        if( !string_slice_split_char( line, ':', &token_left, &token_right ) ) {
+            error_line( "unrecognized syntax:" );
+        }
+
+        token_left  = string_slice_trim_whitespace( token_left );
+        token_right = string_slice_trim_whitespace( token_right );
+
+        u64 token_left_hash = string_slice_hash( token_left );
+
+        switch( token_left_hash ) {
+            case HASH_TOKEN_MANIFEST_TYPE: {
+                u64 token_right_hash = string_slice_hash( token_right );
+
+                switch( token_right_hash ) {
+                    case HASH_TOKEN_MANIFEST_TYPE_AUDIO: {
+                        current->type = PACKAGE_RESOURCE_TYPE_AUDIO;
+                    } break;
+                    case HASH_TOKEN_MANIFEST_TYPE_MESH: {
+                        current->type = PACKAGE_RESOURCE_TYPE_MESH;
+                    } break;
+                    case HASH_TOKEN_MANIFEST_TYPE_TEXT: {
+                        current->type = PACKAGE_RESOURCE_TYPE_TEXT;
+                    } break;
+                    case HASH_TOKEN_MANIFEST_TYPE_TEXTURE: {
+                        current->type = PACKAGE_RESOURCE_TYPE_TEXTURE;
+                    } break;
+                    default: error_line( "unrecognized token:" );
+                }
+
+                usize type_name_length = 0;
+                package_resource_type_to_cstr(
+                    current->type, &type_name_length );
+                if( out_manifest->longest_type_name_length < type_name_length ) {
+                    out_manifest->longest_type_name_length = type_name_length;
+                }
+
+            } break;
+            case HASH_TOKEN_MANIFEST_PATH: {
+                type_check();
+
+                // NOTE(alicia): trim leading and trailing quotes, if path is quoted
+                if( token_right.len >= 2 ) {
+                    if( token_right.str[token_right.len - 1] == '"' ) {
+                        token_right.len--;
+                    }
+                    if( token_right.str[0] == '"' ) {
+                        token_right.str++;
+                        token_right.len--;
+                    }
+                }
+
+                current->path = reinterpret_cast( PathSlice, &token_right );
+            } break;
+            case HASH_TOKEN_MANIFEST_COMPRESSION: {
+                type_check();
+
+                u64 token_right_hash = string_slice_hash( token_right );
+
+                switch( token_right_hash ) {
+                    case HASH_TOKEN_MANIFEST_COMPRESSION_RLE: {
+                        current->compression = PACKAGE_COMPRESSION_RLE;
+                    } break;
+                    default: error_line( "unrecognized token: {s}", token_right );
+                }
+            } break;
+            case HASH_TOKEN_MANIFEST_TEXTURE_WRAP_X: {
+                type_field_check( "wrap_x", PACKAGE_RESOURCE_TYPE_TEXTURE );
+
+                u64 token_right_hash = string_slice_hash( token_right );
+
+                switch( token_right_hash ) {
+                    case HASH_TOKEN_MANIFEST_TEXTURE_WRAP_CLAMP: {
+                        current->texture.flags = bitfield_clear(
+                            current->texture.flags,
+                            PACKAGE_TEXTURE_FLAG_WRAP_X_REPEAT );
+                    } break;
+                    case HASH_TOKEN_MANIFEST_TEXTURE_WRAP_REPEAT: {
+                        current->texture.flags |=
+                            PACKAGE_TEXTURE_FLAG_WRAP_X_REPEAT;
+                    } break;
+                    default: error_line( "unrecognized token: {s}", token_right );
+                }
+            } break;
+            case HASH_TOKEN_MANIFEST_TEXTURE_WRAP_Y: {
+                type_field_check( "wrap_y", PACKAGE_RESOURCE_TYPE_TEXTURE );
+
+                u64 token_right_hash = string_slice_hash( token_right );
+
+                switch( token_right_hash ) {
+                    case HASH_TOKEN_MANIFEST_TEXTURE_WRAP_CLAMP: {
+                        current->texture.flags = bitfield_clear(
+                            current->texture.flags,
+                            PACKAGE_TEXTURE_FLAG_WRAP_Y_REPEAT );
+                    } break;
+                    case HASH_TOKEN_MANIFEST_TEXTURE_WRAP_REPEAT: {
+                        current->texture.flags |=
+                            PACKAGE_TEXTURE_FLAG_WRAP_Y_REPEAT;
+                    } break;
+                    default: error_line( "unrecognized token: {s}", token_right );
+                }
+            } break;
+            case HASH_TOKEN_MANIFEST_TEXTURE_WRAP_Z: {
+                type_field_check( "wrap_z", PACKAGE_RESOURCE_TYPE_TEXTURE );
+
+                u64 token_right_hash = string_slice_hash( token_right );
+
+                switch( token_right_hash ) {
+                    case HASH_TOKEN_MANIFEST_TEXTURE_WRAP_CLAMP: {
+                        current->texture.flags = bitfield_clear(
+                            current->texture.flags,
+                            PACKAGE_TEXTURE_FLAG_WRAP_Z_REPEAT );
+                    } break;
+                    case HASH_TOKEN_MANIFEST_TEXTURE_WRAP_REPEAT: {
+                        current->texture.flags |=
+                            PACKAGE_TEXTURE_FLAG_WRAP_Z_REPEAT;
+                    } break;
+                    default: error_line( "unrecognized token:" );
+                }
+            } break;
+            case HASH_TOKEN_MANIFEST_TEXTURE_FILTERING: {
+                type_field_check( "filtering", PACKAGE_RESOURCE_TYPE_TEXTURE );
+
+                u64 token_right_hash = string_slice_hash( token_right );
+
+                switch( token_right_hash ) {
+                    case HASH_TOKEN_MANIFEST_TEXTURE_FILTERING_NEAREST: {
+                        current->texture.flags = bitfield_clear(
+                            current->texture.flags,
+                            PACKAGE_TEXTURE_FLAG_BILINEAR_FILTER );
+                    } break;
+                    case HASH_TOKEN_MANIFEST_TEXTURE_FILTERING_BILINEAR: {
+                        current->texture.flags |=
+                            PACKAGE_TEXTURE_FLAG_BILINEAR_FILTER;
+                    } break;
+                    default: error_line( "unrecognized token: {s}", token_right );
+                }
+            } break;
+            case HASH_TOKEN_MANIFEST_TEXTURE_TRANSPARENT: {
+                type_field_check( "transparent", PACKAGE_RESOURCE_TYPE_TEXTURE );
+
+                u64 token_right_hash = string_slice_hash( token_right );
+
+                switch( token_right_hash ) {
+                    case HASH_TOKEN_MANIFEST_TRUE: {
+                        current->texture.flags |= PACKAGE_TEXTURE_FLAG_TRANSPARENT;
+                    } break;
+                    case HASH_TOKEN_MANIFEST_FALSE: {
+                        current->texture.flags = bitfield_clear(
+                            current->texture.flags,
+                            PACKAGE_TEXTURE_FLAG_TRANSPARENT );
+                    } break;
+                    default: error_line( "unrecognized token: {s}", token_right );
+                }
+            } break;
+            default: error_line( "unrecognized token: {s}", token_left );
+        }
+        skip_line();
     }
 
-    if( last_slash_position ) {
-        path_slice.len      = last_slash_position;
-    } else {
-        path_slice.buffer = (char*)global_local_directory;
-        path_slice.len    = 2;
+manifest_parse_end:
+    if( result ) {
+        manifest_destroy( out_manifest );
     }
-
-    out_manifest->directory = path_slice;
-
-    out_manifest->item_count       = item_count;
-    out_manifest->items            = item_buffer;
-    out_manifest->text_buffer      = text_buffer_stack.buffer;
-    out_manifest->text_buffer_size = text_buffer_stack.buffer_size;
-
-    return true;
+    #undef error
+    #undef error_line
+    #undef type_field_check 
+    #undef type_check 
+    #undef skip_line
+    return result;
 }
-
-void manifest_free( Manifest* manifest ) {
-    system_free( manifest->items, sizeof(ManifestItem) * manifest->item_count );
-    system_free( manifest->text_buffer, manifest->text_buffer_size );
-
+void manifest_destroy( Manifest* manifest ) {
+    if( manifest->text.str ) {
+        system_free( manifest->text.v, manifest->text.len );
+    }
+    if( manifest->items.buffer ) {
+        system_free(
+            manifest->items.buffer, manifest->items.capacity * sizeof(ManifestItem) );
+    }
     memory_zero( manifest, sizeof(*manifest) );
 }
+
 

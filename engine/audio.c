@@ -110,20 +110,19 @@ b32 ___debug_load_audio(
     }
     struct AudioBuffer buffer = {};
 
-    struct LiquidPackageHeader header = {};
+    struct PackageHeader header = {};
     assert( fs_file_read( file, sizeof(header), &header ) );
 
-    usize offset =
-        liquid_package_calculate_resource_file_offset( 0 );
-    struct LiquidPackageResource resource = {};
-    fs_file_set_offset( file, offset );
+    usize offset = package_resource_offset( 0 );
+    struct PackageResource resource = {};
+    fs_file_set_offset( file, offset, false );
     assert( fs_file_read( file, sizeof(resource), &resource ) );
-    assert( resource.type == LIQUID_PACKAGE_RESOURCE_TYPE_AUDIO );
+    assert( resource.type == PACKAGE_RESOURCE_TYPE_AUDIO );
 
     offset = (header.resource_count * sizeof(resource)) + sizeof(header);
     offset += resource.offset;
 
-    fs_file_set_offset( file, offset );
+    fs_file_set_offset( file, offset, false );
 
     buffer.buffer_size = resource.size;
     assert( buffer.right_channel_offset < buffer.buffer_size );
@@ -131,10 +130,10 @@ b32 ___debug_load_audio(
     assert( buffer.buffer );
 
     buffer.number_of_channels = 2;
-    buffer.bytes_per_sample   = LIQUID_PACKAGE_RESOURCE_AUDIO_BYTES_PER_CHANNEL_SAMPLE;
-    buffer.samples_per_second = LIQUID_PACKAGE_RESOURCE_AUDIO_SAMPLES_PER_SECOND;
-    buffer.sample_count       = resource.audio.sample_count;
-    buffer.right_channel_offset = resource.audio.right_channel_buffer_offset;
+    buffer.bytes_per_sample   = resource.audio.bytes_per_sample;
+    buffer.samples_per_second = resource.audio.samples_per_second;
+    buffer.sample_count       = package_audio_channel_sample_count( &resource );
+    buffer.right_channel_offset = package_audio_channel_offset( &resource, 1 );
 
     assert( fs_file_read( file, buffer.buffer_size, buffer.buffer ) );
 

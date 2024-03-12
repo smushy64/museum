@@ -1,554 +1,617 @@
 /**
- * Description:  Liquid Package Main
+ * Description:  Liquid Packager.
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
- * File Created: December 06, 2023
+ * File Created: January 07, 2024
 */
 #include "shared/defines.h"
-#include "shared/liquid_package.h"
 
-#include "package/logging.h"
-#include "package/manifest.h"
-#include "package/resource_header.h"
-#include "package/resource_package.h"
-
-#include "core/rand.h"
+#include "core/print.h"
 #include "core/string.h"
-#include "core/fs.h"
-#include "core/math.h"
-#include "core/sync.h"
-#include "core/memory.h"
+#include "core/path.h"
 #include "core/jobs.h"
-#include "core/system.h"
+#include "core/math.h"
+#include "core/memory.h"
+#include "core/fs.h"
+#include "core/sync.h"
+#include "core/rand.h"
 
 #include "generated/package_hashes.h"
 
+#include "package/logging.h"
+#include "package/manifest.h"
+#include "package/error.h"
+#include "package/header.h"
+#include "package/resource.h"
+
+global const char* global_program_name = "lpkg";
+
 #define PACKAGE_DEFAULT_OUTPUT_PATH "./package.lpkg"
-#define PACKAGE_DEFAULT_HEADER_OUTPUT_PATH "./package_generated_header.h"
+#define PACKAGE_DEFAULT_HEADER_OUTPUT_PATH "./package.h"
+#define PACKAGE_DEFAULT_THREAD_COUNT 4
 
-typedef enum PackageError : int {
-    PACKAGE_SUCCESS = 0,
-
-    PACKAGE_ERROR_ARGS_NO_ARGUMENTS = 128,
-    PACKAGE_ERROR_ARGS_UNRECOGNIZED_ARGUMENT,
-    PACKAGE_ERROR_ARGS_MISSING_ARGUMENT,
-    PACKAGE_ERROR_ARGS_INVALID_ARGUMENT,
-    PACKAGE_ERROR_ARGS_MISSING_MANIFEST_PATH,
-    PACKAGE_ERROR_OUT_OF_MEMORY,
-    PACKAGE_ERROR_LOGGING_INIT,
-    PACKAGE_ERROR_JOBS_SYSTEM_INIT,
-    PACKAGE_ERROR_PARSE_MANIFEST,
-    PACKAGE_ERROR_SYNC_OBJECT_CREATE,
-    PACKAGE_ERROR_NO_TMP_PATH,
-    PACKAGE_ERROR_OPEN_TMP_PATH,
-} PackageError;
-
-typedef enum PackageMode : u32 {
-    PACKAGE_MODE_INVALID,
-    PACKAGE_MODE_HELP,
+typedef enum : u32 {
+    PACKAGE_MODE_NONE,
     PACKAGE_MODE_CREATE,
+    PACKAGE_MODE_MODIFY,
+    PACKAGE_MODE_HELP,
 } PackageMode;
+const char* package_mode_to_cstr( PackageMode mode ) {
+    switch( mode ) {
+        case PACKAGE_MODE_CREATE: return "create";
+        case PACKAGE_MODE_MODIFY: return "modify";
+        case PACKAGE_MODE_HELP:   return "help";
 
-typedef struct PackageParams {
+        case PACKAGE_MODE_NONE: panic();
+    }
+}
+const char* package_mode_description( PackageMode mode ) {
+    switch( mode ) {
+        case PACKAGE_MODE_CREATE: return "create a liquid package from manifest file";
+        case PACKAGE_MODE_MODIFY: return "modify a liquid package and its corresponding header";
+        case PACKAGE_MODE_HELP:   return "print this message or help for specified mode";
+
+        case PACKAGE_MODE_NONE: panic();
+    }
+}
+
+#define HELP_MODE_MODE       (0)
+#define HELP_MODE_MANIFEST   (1 << 0)
+#define HELP_MODE_FILE_TYPES (1 << 1)
+
+#define CREATE_MODE_SILENT  (1 << 0)
+#define CREATE_MODE_VERBOSE (1 << 1)
+
+typedef struct {
     PackageMode mode;
-    b32 is_silent;
-    b32 is_verbose;
+    u32         bitflags;
     union {
         struct {
             PathSlice manifest_path;
             PathSlice output_path;
             PathSlice header_output_path;
-            usize max_threads;
+            u32 max_thread_count;
         } create;
         struct {
-            b32 manifest;
-            b32 supported_files;
-            PackageMode submode;
+            PackageMode  mode;
         } help;
     };
-} PackageParams;
+} Arguments;
 
-internal void print_help( PackageMode mode );
-internal void print_manifest(void);
-internal void print_supported(void);
-internal PackageError parse_arguments( int argc, char** argv, PackageParams* out_params );
-internal PackageError package_create( PackageParams* params );
+PackageError package_mode_create(
+    PathSlice manifest_path, PathSlice output_path, PathSlice header_output_path );
 
-c_linkage int application_main( int argc, char** argv ) {
+PackageMode parse_package_mode( u64 arg_hash );
+void print_help(void);
+void print_help_mode( PackageMode mode );
+void print_manifest_format(void);
+void print_file_types(void);
+PackageError thread_initialize( usize thread_count );
+void thread_shutdown(void);
+int main( int argc, char** argv ) {
+    usize thread_index = 0;
     rand_reset_global_state();
 
-    PackageParams params = {};
-    PackageError error = parse_arguments( argc, argv, &params );
-
-    if( error != PACKAGE_SUCCESS ) {
-        print_help( params.mode );
-        goto package_end;
-    }
-
-    if( params.mode == PACKAGE_MODE_HELP ) {
-        if( params.help.manifest ) {
-            print_manifest();
-        } else if( params.help.supported_files ) {
-            print_supported();
-        } else {
-            print_help( params.help.submode );
-        }
-        goto package_end;
-    }
-
-    if( !log_init( params.is_silent, params.is_verbose ) ) {
-        println_err(
-            CONSOLE_COLOR_MAGENTA "failed to initialize logging!" CONSOLE_COLOR_RESET );
-        return PACKAGE_ERROR_LOGGING_INIT;
-    }
-
-    switch( params.mode ) {
-        case PACKAGE_MODE_CREATE: {
-            error = package_create( &params );
-        } break;
-        default:
-            println_err(
-                CONSOLE_COLOR_MAGENTA "unimplemented mode!" CONSOLE_COLOR_RESET );
-            panic();
-    }
-
-package_end:
-    return error;
-}
-
-internal PackageError package_create( PackageParams* params ) {
-
-    /* apply defaults */ {
-        SystemInfo system_info = {};
-        system_info_query( &system_info );
-
-        if( !params->create.output_path.buffer ) {
-            params->create.output_path =
-                path_slice( PACKAGE_DEFAULT_OUTPUT_PATH );
-        }
-        if( !params->create.header_output_path.buffer ) {
-            params->create.header_output_path =
-                path_slice( PACKAGE_DEFAULT_HEADER_OUTPUT_PATH );
-        }
-
-        if( !params->create.max_threads ) {
-            params->create.max_threads = system_info.cpu_count;
-        } else {
-            params->create.max_threads =
-                min( params->create.max_threads, system_info.cpu_count );
-        }
-    }
-
-    #define SHARED_BUFFER_SLICE_SIZE (megabytes(1))
-    usize shared_buffer_size = SHARED_BUFFER_SLICE_SIZE * params->create.max_threads;
-    void* shared_buffer = system_alloc( shared_buffer_size );
-    if( !shared_buffer ) {
-        lp_error(
-            "unable to allocate {f,m,.2} for shared buffer!",
-            (f64)shared_buffer_size );
-        return PACKAGE_ERROR_OUT_OF_MEMORY;
-    }
-
-    /* startup jobs system */ {
-        usize job_system_memory_requirement =
-            job_system_query_memory_requirement( params->create.max_threads );
-        void* job_system_buffer = system_alloc( job_system_memory_requirement );
-        if( !job_system_buffer ) {
-            lp_error( "failed to allocate {f,m,.2}!",
-                (f64)job_system_memory_requirement );
-            return PACKAGE_ERROR_OUT_OF_MEMORY;
-        }
-
-        if( !job_system_initialize(
-            params->create.max_threads,
-            job_system_buffer
-        ) ) {
-            system_free( job_system_buffer, job_system_memory_requirement );
-            lp_error( "failed to initialize jobs system!" );
-            return PACKAGE_ERROR_JOBS_SYSTEM_INIT;
-        }
-
-        lp_note(
-            "initialized jobs system with {usize} threads.",
-            params->create.max_threads );
-    }
-
-    Manifest manifest = {};
-    if( !manifest_parse( params->create.manifest_path, &manifest ) ) {
-        return PACKAGE_ERROR_PARSE_MANIFEST;
-    }
-
-    GenerateHeaderParams generate_header_params = {};
-
-    generate_header_params.header_output_path = params->create.header_output_path;
-    generate_header_params.manifest           = &manifest;
-
-    if( !semaphore_create( &generate_header_params.finished ) ) {
-        lp_error( "failed to create semaphore!" );
-        return PACKAGE_ERROR_SYNC_OBJECT_CREATE;
-    }
-
-    read_write_fence();
-
-    job_system_push( job_generate_header, &generate_header_params );
-
-    string_buffer_empty( tmp_path_buffer, 32 );
-    u32 count = 0;
-    #define MAX_CHECK_TMP (9999)
-    do {
-        tmp_path_buffer.len = 0;
-        string_buffer_fmt( &tmp_path_buffer, "lpkg_tmp_{u,04}.tmp{0}", count++ );
-        if( count >= MAX_CHECK_TMP ) {
-            break;
-        }
-    } while( fs_check_if_file_exists(
-        reinterpret_cast( PathSlice, &tmp_path_buffer ) ) );
-
-    PathSlice tmp_path = reinterpret_cast( PathSlice, &tmp_path_buffer );
-
-    if( count >= MAX_CHECK_TMP ) {
-        lp_error( "no temp file paths available!" );
-        return PACKAGE_ERROR_NO_TMP_PATH;
-    }
-
-    // TODO(alicia): process manifest items here
-
-    volatile u32 signal = 0;
-    u32 last_signal = signal;
-
-    for( usize i = 0; i < manifest.item_count; ++i ) {
-        ResourcePackageParams resource_package_params = {};
-        resource_package_params.tmp_path     = tmp_path;
-        resource_package_params.manifest     = &manifest;
-        resource_package_params.index        = i;
-        resource_package_params.ready_signal = &signal;
-        resource_package_params.buffer_size  = SHARED_BUFFER_SLICE_SIZE;
-        resource_package_params.buffer       = shared_buffer;
-
-        read_write_fence();
-
-        job_system_push( job_package_resource, &resource_package_params );
-
-        while( last_signal == signal ) {}
-
-        read_write_fence();
-        last_signal = signal;
-    }
-
-    FileHandle* tmp_file = fs_file_open( tmp_path,
-        FILE_OPEN_FLAG_WRITE | FILE_OPEN_FLAG_SHARE_ACCESS_WRITE );
-    if( !tmp_file ) {
-        lp_error( "failed to open temp file!" );
-        return PACKAGE_ERROR_OPEN_TMP_PATH;
-    }
-
-    struct LiquidPackageHeader header = {};
-    header.identifier     = LIQUID_PACKAGE_FILE_IDENTIFIER;
-    header.resource_count = manifest.item_count;
-
-    fs_file_write( tmp_file, sizeof( header ), &header );
-    fs_file_close( tmp_file );
-
-    read_write_fence();
-
-    job_system_wait();
-
-    read_write_fence();
-    semaphore_destroy( &generate_header_params.finished );
-
-    if( fs_move_by_path( params->create.output_path, tmp_path, false ) ) {
-        lp_note( "created liquid package at path '{s}'", params->create.output_path );
-    } else {
-        lp_error(
-            "failed to move temp package to path '{s}'!",
-            params->create.output_path );
-        lp_error( "temp file path: '{s}'", tmp_path );
-    }
-
-    job_system_shutdown();
-    manifest_free( &manifest );
-    return PACKAGE_SUCCESS;
-}
-
-internal PackageMode parse_mode( StringSlice* slice ) {
-    u64 slice_hash = string_slice_hash( *slice );
-
-    switch( slice_hash ) {
-        case HASH_TOKEN_MODE_CREATE: return PACKAGE_MODE_CREATE;
-        case HASH_TOKEN_MODE_HELP:   return PACKAGE_MODE_HELP;
-        default:                     return PACKAGE_MODE_INVALID;
-    }
-}
-
-internal PackageError parse_arguments(
-    int argc, char** argv, PackageParams* out_params
-) {
-    if( argc == 1 ) {
-        return PACKAGE_ERROR_ARGS_NO_ARGUMENTS;
-    }
-
-    #define arg_error( format, ... )\
+    #define error( format, ... )\
         println_err( CONSOLE_COLOR_RED format CONSOLE_COLOR_RESET, ##__VA_ARGS__ )
 
-    #define check_next_exists( token ) do {\
-        if( (i + 1) >= argc ) {\
-            arg_error( "{s} requires an argument after it!", token );\
-            return PACKAGE_ERROR_ARGS_MISSING_ARGUMENT;\
-        }\
-    } while(0)
-    #define check_next( thing, token )\
-    argv[++i];\
-    do {\
-        if( *argv[i] == '-' ) {\
-            arg_error( "{s} requires a " #thing " after it!", token );\
-            return PACKAGE_ERROR_ARGS_INVALID_ARGUMENT;\
-        }\
-    } while(0)
+    if( argc == 1 ) {
+        error( "no arguments provided!" );
+        print_help();
+        return PACKAGE_ERROR_NO_ARGUMENTS;
+    }
 
-    PackageParams params = {};
+    global_program_name = argv[0];
 
-    StringSlice token_create_output        = string_slice( "--output" );
-    StringSlice token_create_header_output = string_slice( "--header-output" );
-    StringSlice token_create_max_threads   = string_slice( "--max-threads" );
+    Arguments args = {};
+
+    #define check_for_next( mode, format, ... ) do {\
+        if( i + 1 > argc ) {\
+            error( format, ##__VA_ARGS__ );\
+            print_help_mode( mode );\
+            return PACKAGE_ERROR_INVALID_ARGUMENTS;\
+        }\
+        arg      = string_slice_from_cstr( 0, argv[++i] );\
+        arg_hash = string_slice_hash( arg );\
+    } while(0)
 
     for( int i = 1; i < argc; ++i ) {
         StringSlice arg = string_slice_from_cstr( 0, argv[i] );
+        u64 arg_hash    = string_slice_hash( arg );
 
-        switch( params.mode ) {
-            case PACKAGE_MODE_INVALID: {
-                PackageMode parsed_mode = parse_mode( &arg );
-                if( parsed_mode != PACKAGE_MODE_INVALID ) {
-                    params.mode      = parsed_mode;
-                    out_params->mode = params.mode;
-                    continue;
-                }
-            } break;
+        if( !args.mode ) {
+            args.mode = parse_package_mode( arg_hash );
+            if( args.mode ) {
+                continue;
+            }
+        }
+
+        switch( args.mode ) {
             case PACKAGE_MODE_HELP: {
-                PackageMode parsed_mode = parse_mode( &arg );
-                switch( parsed_mode ) {
-                    case PACKAGE_MODE_INVALID: {
-                        u64 arg_hash = string_slice_hash( arg );
-                        switch( arg_hash ) {
-                            case HASH_TOKEN_HELP_SUPPORTED: {
-                                params.help.supported_files = true;
-                                goto parse_end;
-                            } break;
-                            case HASH_TOKEN_HELP_MANIFEST: {
-                                params.help.manifest = true;
-                                goto parse_end;
-                            } break;
-                        }
+                if( !args.help.mode ) {
+                    args.help.mode = parse_package_mode( arg_hash );
+                    if( args.help.mode ) {
+                        continue;
+                    }
+                }
+
+                switch( arg_hash ) {
+                    case HASH_ARG_HELP_MANIFEST: {
+                        args.bitflags |= HELP_MODE_MANIFEST;
+                        continue;
                     } break;
-                    default: {
-                        params.help.submode = parsed_mode;
-                        goto parse_end;
+                    case HASH_ARG_HELP_FILE_TYPES: {
+                        args.bitflags |= HELP_MODE_FILE_TYPES;
+                        continue;
                     } break;
                 }
             } break;
             case PACKAGE_MODE_CREATE: {
-                if( arg.buffer[0] != '-' )  {
-                    if( params.create.manifest_path.buffer ) {
-                        break;
-                    } else {
-                        params.create.manifest_path =
+                if( arg.str[0] == '-' ) {
+                    switch( arg_hash ) {
+                        case HASH_ARG_CREATE_OUTPUT: {
+                            check_for_next(
+                                PACKAGE_MODE_CREATE, "-o requires a path after it!" );
+                            if( !args.create.output_path.str ) {
+                                args.create.output_path = arg;
+
+                                PathSlice ext = {};
+                                if( !path_slice_get_extension(
+                                    args.create.output_path, &ext ) ||
+                                    !path_slice_cmp( ext, path_slice( ".lpkg" ) )
+                                ) {
+                                    usize capacity = args.create.output_path.len;
+                                    capacity += sizeof(".lpkg") - 1;
+                                    char* buffer = system_alloc( capacity );
+                                    if( !buffer ) {
+                                        error( "failed to allocate {f,m,.2}!", (f64)capacity );
+                                        return PACKAGE_ERROR_OUT_OF_MEMORY;
+                                    }
+
+                                    PathBuffer output_path_buffer = {};
+                                    output_path_buffer.str = buffer;
+                                    output_path_buffer.cap = capacity;
+                                    output_path_buffer.len =
+                                        args.create.output_path.len - ext.len;
+                                    memory_copy(
+                                        buffer,
+                                        args.create.output_path.str,
+                                        output_path_buffer.len );
+
+                                    assert( path_buffer_set_extension(
+                                        &output_path_buffer, path_slice( "lpkg" ) ) );
+
+                                    args.create.output_path =
+                                        to_slice( &output_path_buffer );
+                                }
+                                continue;
+                            }
+                        } break;
+                        case HASH_ARG_CREATE_HEADER_PATH: {
+                            check_for_next(
+                                PACKAGE_MODE_CREATE,
+                                "--header-path requires a path after it!" );
+                            if( !args.create.header_output_path.str ) {
+                                args.create.header_output_path =
+                                    reinterpret_cast( PathSlice, &arg );
+
+                                PathSlice ext = {};
+                                if( !path_slice_get_extension(
+                                    args.create.header_output_path, &ext ) ||
+                                    !path_slice_cmp( ext, path_slice( ".h" ) )
+                                ) {
+                                    usize capacity = args.create.header_output_path.len;
+                                    capacity += sizeof(".h") - 1;
+                                    char* buffer = system_alloc( capacity );
+                                    if( !buffer ) {
+                                        error( "failed to allocate {f,m,.2}!", (f64)capacity );
+                                        return PACKAGE_ERROR_OUT_OF_MEMORY;
+                                    }
+
+                                    PathBuffer output_path_buffer = {};
+                                    output_path_buffer.str = buffer;
+                                    output_path_buffer.cap = capacity;
+                                    output_path_buffer.len =
+                                        args.create.header_output_path.len - ext.len;
+                                    memory_copy(
+                                        buffer,
+                                        args.create.header_output_path.str,
+                                        output_path_buffer.len );
+
+                                    assert( path_buffer_set_extension(
+                                        &output_path_buffer, path_slice( "h" ) ) );
+
+                                    args.create.header_output_path =
+                                        to_slice( &output_path_buffer );
+                                }
+
+                                continue;
+                            }
+                        } break;
+                        case HASH_ARG_SILENT: {
+                            args.bitflags |= CREATE_MODE_SILENT;
+                            continue;
+                        } break;
+                        case HASH_ARG_VERBOSE: {
+                            args.bitflags |= CREATE_MODE_VERBOSE;
+                            continue;
+                        } break;
+                        case HASH_ARG_MAX_THREADS: {
+                            check_for_next(
+                                PACKAGE_MODE_CREATE,
+                                "--max-threads requires a thread count after it!" );
+
+                            u64 parsed_thread_count = 0;
+                            if( !string_slice_parse_uint(
+                                arg, &parsed_thread_count
+                            ) ) {
+                                error( "could not parse thread count: '{s}'", arg );
+                                return PACKAGE_ERROR_INVALID_ARGUMENTS;
+                            }
+
+                            args.create.max_thread_count = parsed_thread_count;
+                            continue;
+                        } break;
+                    }
+                } else {
+                    if( !args.create.manifest_path.str ) {
+                        args.create.manifest_path =
                             reinterpret_cast( PathSlice, &arg );
                         continue;
                     }
-                }
-                u64 arg_hash = string_slice_hash( arg );
-
-                switch( arg_hash ) {
-                    case HASH_TOKEN_CREATE_OUTPUT: {
-                        check_next_exists( token_create_output );
-                        const char* next = check_next( path, token_create_output );
-                        params.create.output_path = path_slice_from_cstr( 0, next );
-                        continue;
-                    } break;
-                    case HASH_TOKEN_CREATE_HEADER_OUTPUT: {
-                        check_next_exists( token_create_header_output );
-                        const char* next =
-                            check_next( path, token_create_header_output );
-                        params.create.header_output_path =
-                            path_slice_from_cstr( 0, next );
-                        continue;
-                    } break;
-                    case HASH_TOKEN_CREATE_MAX_THREADS: {
-                        check_next_exists( token_create_max_threads );
-                        arg = string_slice_from_cstr( 0, argv[++i] );
-
-                        u64 parsed_int = 0;
-                        if( !string_slice_parse_uint( arg, &parsed_int ) ) {
-                            arg_error(
-                                "{s} requires an unsigned integer after it!",
-                                token_create_max_threads );
-                            return PACKAGE_ERROR_ARGS_INVALID_ARGUMENT;
-                        }
-
-                        params.create.max_threads = parsed_int;
-                        continue;
-                    } break;
-                    case HASH_TOKEN_CREATE_SILENT: {
-                        params.is_silent = true;
-                        continue;
-                    } break;
-                    case HASH_TOKEN_CREATE_VERBOSE: {
-                        params.is_verbose = true;
-                        continue;
-                    } break;
                 }
             } break;
             default: break;
         }
 
-        arg_error( "Unrecognized argument '{s}'!", arg );
-        return PACKAGE_ERROR_ARGS_UNRECOGNIZED_ARGUMENT;
+        error( "unrecognized argument: '{s}'", arg );
+        print_help();
+
+        return PACKAGE_ERROR_UNRECOGNIZED_ARGUMENT;
     }
 
-    if( params.mode == PACKAGE_MODE_CREATE ) {
-        if( !params.create.manifest_path.buffer ) {
-            arg_error( "no manifest path provided!" );
-            return PACKAGE_ERROR_ARGS_MISSING_MANIFEST_PATH;
-        }
-        if( !fs_check_if_file_exists( params.create.manifest_path ) ) {
-            arg_error(
-                "path to manifest is invalid! '{cc}'", params.create.manifest_path );
-            return PACKAGE_ERROR_ARGS_MISSING_MANIFEST_PATH;
-        }
+    #undef check_for_next
+
+    switch( args.mode ) {
+        case PACKAGE_MODE_CREATE: {
+            if( !args.create.manifest_path.str ) {
+                error( "create mode requires a path to a manifest!" );
+                print_help_mode( PACKAGE_MODE_CREATE );
+                return PACKAGE_ERROR_MISSING_MANIFEST_PATH;
+            }
+
+            if( !args.create.output_path.str ) {
+                args.create.output_path =
+                    path_slice( PACKAGE_DEFAULT_OUTPUT_PATH );
+            }
+            if( !args.create.header_output_path.str ) {
+                args.create.header_output_path =
+                    path_slice( PACKAGE_DEFAULT_HEADER_OUTPUT_PATH );
+            }
+
+            if( args.create.max_thread_count ) {
+                args.create.max_thread_count =
+                    clamp( args.create.max_thread_count, 1, 16 );
+            } else {
+                args.create.max_thread_count = PACKAGE_DEFAULT_THREAD_COUNT;
+            }
+
+            b32 silent  = bitfield_check( args.bitflags, CREATE_MODE_SILENT );
+            b32 verbose = bitfield_check( args.bitflags, CREATE_MODE_VERBOSE );
+
+            if( !logging_initialize( verbose, silent ) ) {
+                error( "fatal error: failed to initialize logging!" );
+                return PACKAGE_ERROR_INITIALIZE_LOGGING;
+            }
+
+            PackageError thread_error =
+                thread_initialize( args.create.max_thread_count );
+            if( thread_error ) {
+                error( "fatal error: failed to initialize threads!" );
+                return thread_error;
+            }
+
+            log_note( "config:" );
+            log_note( "    manifest path: '{s}'", args.create.manifest_path );
+            log_note( "    output path:   '{s}'", args.create.output_path );
+            log_note( "    header path:   '{s}'", args.create.header_output_path );
+            log_note( "    max threads:   {u}", args.create.max_thread_count );
+            log_note( "    silent:        {b}", silent );
+            log_note( "    verbose:       {b}", verbose );
+
+            PackageError result = package_mode_create(
+                args.create.manifest_path,
+                args.create.output_path,
+                args.create.header_output_path );
+
+            if( result ) {
+                error( "failed to create package '{p}'", args.create.output_path );
+                return result;
+            }
+
+            log_print(
+                "successfully created package at path '{p}'",
+                args.create.output_path );
+
+            thread_shutdown();
+        } break;
+        case PACKAGE_MODE_HELP: {
+            print_help_mode( args.help.mode );
+            if( bitfield_check( args.bitflags, HELP_MODE_MANIFEST ) ) {
+                print_manifest_format();
+            }
+            if( bitfield_check( args.bitflags, HELP_MODE_FILE_TYPES ) ) {
+                print_file_types();
+            }
+        } break;
+        default: {
+            error( "mode '{cc}' has not been implemented yet!",
+                package_mode_to_cstr( args.mode ) );
+            print_help();
+        } return PACKAGE_ERROR_UNIMPLEMENTED;
     }
 
-parse_end:
-    *out_params = params;
+    #undef error
     return PACKAGE_SUCCESS;
 }
 
-internal void print_help( PackageMode mode ) {
-    println( "OVERVIEW: Liquid Engine Asset Packager\n" );
-    println( "USAGE: lpkg [mode] <arguments>\n" );
+GlobalProcessResourceParams* global_process_resource_params;
+PackageError package_mode_create(
+    PathSlice manifest_path, PathSlice output_path, PathSlice header_output_path
+) {
+    usize thread_index = 0;
+
+    GlobalProcessResourceParams process_resource_params = {};
+    global_process_resource_params = &process_resource_params;
+
+    /* attempt to create output file */ {
+        FileHandle* output = fs_file_open( output_path, FILE_OPEN_FLAG_READ );
+        if( !output ) {
+            output = fs_file_open( output_path, FILE_OPEN_FLAG_CREATE | FILE_OPEN_FLAG_WRITE );
+            if( !output ) {
+                log_error( "failed to open output path '{p}'!", output_path );
+                return PACKAGE_ERROR_OPEN_FILE;
+            }
+        }
+        fs_file_close( output );
+    }
+
+    /* attemp to create temp directory */ {
+        PathSlice pkgtemp = path_slice( "./pkgtemp" );
+        if( !fs_directory_exists( pkgtemp ) ) {
+            if( !fs_directory_create( path_slice( "./pkgtemp" ) ) ) {
+                log_error( "failed to create temp directory!" );
+                return PACKAGE_ERROR_CREATE_TEMP_DIRECTORY;
+            }
+        }
+    }
+
+    Manifest manifest = {};
+    PackageError result = manifest_parse( manifest_path, &manifest );
+    if( result != PACKAGE_SUCCESS ) {
+        return result;
+    }
+    log_note( "successfully parsed manifest '{s}'!", manifest_path );
+
+    HeaderGeneratorParams header_params = {};
+    header_params.manifest    = &manifest;
+    header_params.output_path = header_output_path;
+    read_write_fence();
+    job_system_push( job_header_generate, &header_params );
+
+    global_process_resource_params->manifest    = &manifest;
+    global_process_resource_params->output_path = output_path;
+    path_slice_get_parent( manifest_path,
+        &global_process_resource_params->manifest_directory );
+    read_write_fence();
+
+    #define MAX_RESOURCE_PROCESS_COUNT (16)
+
+    usize running_item_index  = 0;
+    usize remaining_resources = manifest.items.count;
+    while( remaining_resources ) {
+        usize desired_job_count = MAX_RESOURCE_PROCESS_COUNT;
+        if( remaining_resources < desired_job_count ) {
+            desired_job_count = remaining_resources;
+        }
+
+        usize jobs_kicked_off = 0;
+        for( usize i = 0; i < desired_job_count; ++i ) {
+            usize index = i + running_item_index;
+            if( !job_system_push( job_process_resource, (void*)index ) ) {
+                break;
+            }
+            jobs_kicked_off++;
+        }
+        running_item_index  += jobs_kicked_off;
+        remaining_resources -= jobs_kicked_off;
+
+        if( remaining_resources ) {
+            job_process_resource( 0, (void*)running_item_index );
+            running_item_index++;
+            remaining_resources--;
+        }
+
+        read_write_fence();
+        job_system_wait();
+
+        if( global_process_resource_params->error_code ) {
+            result = global_process_resource_params->error_code;
+            break;
+        }
+    }
+
+    read_write_fence();
+    job_system_wait();
+
+    if( header_params.error ) {
+        log_error( "failed to create header '{s}'!", header_output_path );
+        result = header_params.error;
+    }
+
+    if( result == PACKAGE_SUCCESS ) {
+        FileHandle* output_file =
+            fs_file_open( output_path, FILE_OPEN_FLAG_WRITE );
+        if( !output_file ) {
+            log_error( "failed to open output file???" );
+            result = PACKAGE_ERROR_OPEN_FILE;
+        }
+
+        struct PackageHeader header = {};
+        header.id             = PACKAGE_ID;
+        header.resource_count = manifest.items.count;
+
+        if( !fs_file_write( output_file, sizeof(header), &header ) ) {
+            log_error( "failed to write to output file???" );
+            result = PACKAGE_ERROR_WRITE_FILE;
+        }
+
+        fs_file_close( output_file );
+    }
+
+    fs_directory_delete( path_slice( "./pkgtemp" ), true );
+
+    manifest_destroy( &manifest );
+    #undef MAX_RESOURCE_PROCESS_COUNT
+    return result;
+}
+
+global usize global_thread_buffer_size   = 0;
+global void* global_thread_buffer        = NULL;
+global usize global_thread_buffer_offset = 0;
+PackageError thread_initialize( usize thread_count ) {
+    #define error( format, ... )\
+        println_err( CONSOLE_COLOR_RED format CONSOLE_COLOR_RESET, ##__VA_ARGS__ )
+
+    usize buffer_size = (thread_count + 1) * THREAD_BUFFER_SIZE;
+    global_thread_buffer_offset =
+        job_system_query_memory_requirement( thread_count );
+    buffer_size += global_thread_buffer_offset;
+
+    void* buffer = system_alloc( buffer_size );
+    if( !buffer ) {
+        error( "fatal error: failed to create job system" );
+        error( "fatal error: could not allocate {f,m,.2}!", (f64)buffer_size );
+        return PACKAGE_ERROR_OUT_OF_MEMORY;
+    }
+
+    global_thread_buffer      = buffer;
+    global_thread_buffer_size = buffer_size;
+
+    if( !job_system_initialize( thread_count, buffer ) ) {
+        error( "fatal error: failed to create job system" );
+        return PACKAGE_ERROR_CREATE_JOB_SYSTEM;
+    }
+
+    #undef error
+    return PACKAGE_SUCCESS;
+}
+void thread_shutdown(void) {
+    job_system_shutdown();
+    system_free( global_thread_buffer, global_thread_buffer_size );
+}
+void* thread_buffer_get( usize thread_index ) {
+    u8* start = (u8*)global_thread_buffer + global_thread_buffer_offset;
+
+    return start + (thread_index * THREAD_BUFFER_SIZE);
+}
+
+void print_help(void) {
+    println( "OVERVIEW: Utility Packager\n" );
+    println( "USAGE: {cc} <mode>\n", global_program_name );
+    println( "MODES:" );
+
+    for(
+        PackageMode mode = PACKAGE_MODE_NONE + 1;
+        mode <= PACKAGE_MODE_HELP;
+        mode++
+    ) {
+        println(
+            "    {cc,-10}{cc}",
+            package_mode_to_cstr( mode ),
+            package_mode_description( mode ) );
+    }
+    println("");
+}
+
+void print_help_mode( PackageMode mode ) {
+    if( !mode ) {
+        print_help();
+        return;
+    }
+
+    const char* mode_cstr = package_mode_to_cstr( mode );
+    println( "OVERVIEW: Utility Packager\n" );
+    println( "USAGE: {cc} {cc}\n", global_program_name, mode_cstr );
+    println( "ARGUMENTS:" );
 
     switch( mode ) {
-        case PACKAGE_MODE_INVALID: {
-            println( "MODES:" );
-            println( "   create  create a liquid engine package file." );
-            println( "   help    print this help message or print help for given mode" );
+        case PACKAGE_MODE_NONE: break;
+        case PACKAGE_MODE_CREATE: {
+            println( "    <path>                path to a manifest (required)" );
+            println( "    -o <path>             set output path (default=" PACKAGE_DEFAULT_OUTPUT_PATH ")" );
+            println( "    --header-path <path>  set header output path (default=" PACKAGE_DEFAULT_HEADER_OUTPUT_PATH ")" );
+            println( "    --max-threads <uint>  set maximum thread count (default=" macro_value_to_string( PACKAGE_DEFAULT_THREAD_COUNT ) ")" );
+            println( "    --silent              do not print any non-error messages" );
+            println( "    --verbose             print extra messages (silent takes precedence)" );
+        } break;
+        case PACKAGE_MODE_MODIFY: {
+            println( "    <path>                path to package's manifest (required)" );
+            println( "    --package <path>      path to package (required)" );
+            println( "    --header <path>       path to package's resource id header (required)" );
+            println( "    --list [<indices>]    comma separated list of indices of package resources that have changed. (required)" );
+            println( "    --max-threads <uint>  set maximum thread count (default=" macro_value_to_string( PACKAGE_DEFAULT_THREAD_COUNT ) ")" );
+            println( "    --silent              do not print any non-error messages" );
+            println( "    --verbose             print extra messages (silent takes precedence)" );
         } break;
         case PACKAGE_MODE_HELP: {
-            println( "ARGUMENTS: (mode = help)" );
-            println( "    [mode]       print help for given mode." );
-            println( "    --manifest   print how to format a manifest file." );
-            println( "    --supported  print supported file types." );
-        } break;
-        case PACKAGE_MODE_CREATE: {
-            println( "ARGUMENTS: (mode = create)" );
-            println( "    [path]                      path to a manifest file. (required)" );
-            println( "    --output [path]             set path to output package file. (default = '" PACKAGE_DEFAULT_OUTPUT_PATH "')" );
-            println( "    --header-output [path]      set path to output header. (default = '" PACKAGE_DEFAULT_HEADER_OUTPUT_PATH "')" );
-            println( "    --max-threads [uint >= 1]   limit maximum number of threads (default = system hyper-thread count)" );
-            println( "    --silent                    only print errors." );
-            println( "    --verbose                   print more messages (--silent takes precedence)" );
+            println( "    <mode>        display help for given mode" );
+            println( "    --manifest    display valid manifest formatting" );
+            println( "    --file-types  display supported file types" );
         } break;
     }
+    println("");
 }
 
-internal void print_manifest(void) {
-    println( "Liquid Package Manifest format." );
-    println( "File type:      ASCII text" );
-    println( "File extension: .manifest" );
-    println( "Each resource is denoted by a valid " );
-    println( "C identifier followed by a colon." );
-    println( "Example: 'SOME_IDENTIFIER:'" );
-    println( "A resource has a number of fields that are tabbed in." );
-    println( "Fields and their value are enclosed in quotes." );
-    println( "All lines starting with '#' are considered comments and ignored." );
-    println( "The following list contains all fields with the appropriate formatting:" );
-    println( "required:" );
-    println( "   path: \"./some/path/\" (must be relative to manifest's directory)" );
-    println( "   type: type (valid types listed below)" );
-    println( "        - audio" );
-    println( "        - model" );
-    println( "        - texture" );
-    println( "        - text" );
-    println( "\nManifest example:" );
-    println( "0: manifest" );
-    println( "1: count: 2" );
-    println( "2: SOUND_EFFECT:" );
-    println( "3:     path: \"./resources/audio.wav\"" );
-    println( "4:     type: audio" );
+void print_manifest_format(void) {
+    println( " - Utility Packager Manifest Format -----------------\n" );
+    println( "Package manifest must be a UTF-8 text file with .manifest extension." );
+    println( "Comments are lines that start with #" );
+    println( "Manifest contains Resource descriptions that start");
+    println( "with a valid C identifier followed by a colon." );
+    println( "Resource fields follow the identifer with a leading tab or 4 spaces." );
+    println( "All resources require a 'type' field and a 'path' field." );
+    println( "The following is an example of a manifest with every resource type.\n" );
+    println( "1: SOUND_EFFECT_0:" );
+    println( "2: \ttype: audio" );
+    println( "3: \tpath: \"./some/path/foo.wav\"" );
+    println( "4: TEXT_0:" );
+    println( "5: \tpath:        \"./some/other/path/test.txt\"" );
+    println( "6: \ttype:        text" );
+    println( "7: \tcompression: rle" );
+    println("");
 }
-internal void print_supported(void) {
-    println( "Liquid Package supported files:" );
-    println( "texture" );
-    println( "    .bmp - 32bpp RGBA or RGBX" );
-    println( "    .bmp - 24bpp RGB" );
+void print_file_types(void) {
+    println( " - Utility Packager Supported File Types ------------\n" );
     println( "audio" );
-    println( "    .wav - 16-bit PCM at 44.1Khz, mono or stereo only." );
-    println( "All unsupported file types are skipped "
-             "but they are still recorded in package." );
+    println( "  .wav - mono or stereo 16-bit PCM @ 48000hz" );
+    println( "map" );
+    println( "  .map - Liquid Engine map file" );
+    println( "mesh" );
+    println( "  .obj" );
+    println( "text" );
+    println( "  any text file with UTF-8 encoding" );
+    println( "texture" );
+    println( "  .bmp - 24-bit RGB, 32-bit RGBX, 32-bit RGBA" );
+    println("");
 }
 
-global Mutex global_logging_mutex      = {0};
-global b32   global_logging_is_silent  = false;
-global b32   global_logging_is_verbose = false;
-
-b32 log_init( b32 is_silent, b32 is_verbose ) {
-    if( !mutex_create( &global_logging_mutex ) ) {
-        return false;
+PackageMode parse_package_mode( u64 arg_hash ) {
+    switch( arg_hash ) {
+        case HASH_ARG_MODE_CREATE: return PACKAGE_MODE_CREATE;
+        case HASH_ARG_MODE_HELP:   return PACKAGE_MODE_HELP;
+        case HASH_ARG_MODE_MODIFY: return PACKAGE_MODE_MODIFY;
+        default: return PACKAGE_MODE_NONE;
     }
-    global_logging_is_silent  = is_silent;
-    global_logging_is_verbose = is_verbose;
-    return true;
-}
-void ___log( LogType type, usize format_len, const char* format, ... ) {
-    switch( type ) {
-        case LP_LOG_TYPE_WARN:
-        case LP_LOG_TYPE_NORMAL: {
-            if( global_logging_is_silent ) {
-                return;
-            }
-        } break;
-        case LP_LOG_TYPE_VERBOSE: {
-            if( global_logging_is_silent || !global_logging_is_verbose ) {
-                return;
-            }
-        } break;
-        default: break;
-    }
-
-    read_write_fence();
-
-    mutex_lock( &global_logging_mutex );
-
-    read_write_fence();
-
-    va_list va;
-    va_start( va, format );
-
-    switch( type ) {
-        case LP_LOG_TYPE_ERROR: {
-            print_string_stderr( sizeof(CONSOLE_COLOR_RED), CONSOLE_COLOR_RED );
-            ___internal_print_err_va( format_len, format, va );
-        } break;
-        case LP_LOG_TYPE_WARN:
-            print_string_stdout( sizeof(CONSOLE_COLOR_YELLOW), CONSOLE_COLOR_YELLOW );
-        default: {
-            ___internal_print_va( format_len, format, va );
-        } break;
-    }
-
-    va_end( va );
-
-    switch( type ) {
-        case LP_LOG_TYPE_WARN: {
-            print_string_stdout( sizeof(CONSOLE_COLOR_RESET), CONSOLE_COLOR_RESET );
-        } break;
-        case LP_LOG_TYPE_ERROR: {
-            print_string_stderr( sizeof(CONSOLE_COLOR_RESET), CONSOLE_COLOR_RESET );
-        } break;
-        default: break;
-    }
-
-    read_write_fence();
-
-    mutex_unlock( &global_logging_mutex );
 }
 
-#include "generated_dependencies.inl"
-
+#include "package/generated_dependencies.inl"

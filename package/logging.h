@@ -1,31 +1,27 @@
-#if !defined(LP_LOGGING_H)
-#define LP_LOGGING_H
+#if !defined(LD_PACKAGE_LOGGING_H)
+#define LD_PACKAGE_LOGGING_H
 /**
- * Description:  Liquid Package Logging
+ * Description:  Logging subsystem for Packager Utility
  * Author:       Alicia Amarilla (smushyaa@gmail.com)
- * File Created: December 06, 2023
+ * File Created: January 08, 2024
 */
 #include "shared/defines.h"
 #include "core/print.h"
 
-typedef enum LogType {
-    LP_LOG_TYPE_NORMAL,
-    LP_LOG_TYPE_VERBOSE,
-    LP_LOG_TYPE_ERROR,
-    LP_LOG_TYPE_WARN,
-} LogType;
+b32 logging_initialize( b32 verbose, b32 silent );
 
-b32 log_init( b32 is_silent, b32 is_verbose );
-void ___log( LogType type, usize format_len, const char* format, ... );
+void logging_print( b32 verbose, b32 error, usize format_len, char* format, ... );
 
-#define lp_print( format, ... )\
-    ___log( LP_LOG_TYPE_NORMAL, sizeof(format "\n"), format "\n", ##__VA_ARGS__ )
-#define lp_note( format, ... )\
-    ___log( LP_LOG_TYPE_VERBOSE, sizeof(format "\n"), format "\n", ##__VA_ARGS__ )
-#define lp_warn( format, ... )\
-    ___log( LP_LOG_TYPE_WARN, sizeof(format "\n"), format "\n", ##__VA_ARGS__ )
-#define lp_error( format, ... )\
-    ___log( LP_LOG_TYPE_ERROR, sizeof(format "\n"), format "\n", ##__VA_ARGS__ )
+#define log_error( format, ... )\
+    logging_print( false, true,\
+        sizeof( CONSOLE_COLOR_RED "[{usize}] " format "\n" CONSOLE_COLOR_RESET),\
+        CONSOLE_COLOR_RED "[{usize}] " format "\n" CONSOLE_COLOR_RESET,\
+        thread_index, ##__VA_ARGS__ )
+#define log_print( format, ... )\
+    logging_print( false, false, sizeof(format "\n" ),\
+    format "\n", ##__VA_ARGS__ )
+#define log_note( format, ... )\
+    logging_print( true, false, sizeof("[{usize}] " format "\n"),\
+    "[{usize}] " format "\n", thread_index, ##__VA_ARGS__ )
 
 #endif /* header guard */
-

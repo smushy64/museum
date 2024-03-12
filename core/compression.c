@@ -10,6 +10,100 @@
 #include "core/memory.h"
 #include "core/math.h"
 
+#include "core/sort.h"
+
+// struct MinHeapNode {
+//     char c;
+//     usize frequency;
+//
+//     struct MinHeapNode* left, *right;
+// };
+// b32 min_heap_node_lt( void* lhs, void* rhs, void* in_params ) {
+//     unused( in_params );
+//     struct MinHeapNode* l = lhs;
+//     struct MinHeapNode* r = rhs;
+//
+//     return l->frequency < r->frequency;
+// }
+// void min_heap_node_sort_swap( void* lhs, void* rhs ) {
+//     struct MinHeapNode* l = lhs;
+//     struct MinHeapNode* r = rhs;
+//     struct MinHeapNode temp = *l;
+//     *l = *r;
+//     *r = temp;
+// }
+//
+// struct MinHeap {
+//     usize size;
+//     usize count;
+//     struct MinHeapNode** array;
+// };
+//
+// void min_heap_node_swap( struct MinHeapNode** a, struct MinHeapNode** b ) {
+//     struct MinHeapNode* temp = *a;
+//     *a = *b;
+//     *b = temp;
+// }
+//
+// void min_heap_heapify( struct MinHeap* min_heap, usize index ) {
+//     usize smallest = index;
+//     usize left     = 2 * index + 1;
+//     usize right    = 2 * index + 2;
+//
+//     if(
+//         left < min_heap->size &&
+//         min_heap->array[left]->frequency < min_heap->array[smallest]->frequency
+//     ) {
+//         smallest = left;
+//     }
+//
+//     if(
+//         right < min_heap->size &&
+//         min_heap->array[right]->frequency < min_heap->array[smallest]->frequency
+//     ) {
+//         smallest = right;
+//     }
+//
+//     if( smallest != index ) {
+//         min_heap_node_swap( &min_heap->array[smallest], &min_heap->array[index] );
+//         min_heap_heapify( min_heap, smallest );
+//     }
+// }
+//
+// b32 min_heap_is_one( struct MinHeap* min_heap ) {
+//     return min_heap->size == 1;
+// }
+//
+// CORE_API usize compression_huffman_encode(
+//     CompressionStreamFN* stream_out, void* target,
+//     usize buffer_size, void* in_buffer, usize* opt_out_encode_size
+// ) {
+//     struct MinHeapNode node_buffer[256] = {};
+//
+//     unsigned char* buffer = in_buffer;
+//
+//     usize node_count = 0;
+//     for( usize i = 0; i < buffer_size; ++i ) {
+//         usize index = buffer[i];
+//         node_buffer[index].c = buffer[i];
+//
+//         if( !node_buffer[index].frequency ) {
+//             node_count++;
+//         }
+//         node_buffer[index].frequency++;
+//     }
+//
+//     sorting_quicksort(
+//         0, 255, sizeof( node_buffer[0] ), node_buffer,
+//         min_heap_node_lt, NULL, min_heap_node_sort_swap );
+//
+//     struct MinHeapNode* nodes =
+//         (node_buffer + static_array_count( node_buffer )) - node_count;
+//
+//     unused(nodes, target, stream_out, opt_out_encode_size);
+//     return 0;
+// }
+//
 CORE_API usize compression_rle_encode(
     CompressionStreamFN* stream_out, void* target,
     usize buffer_size, void* buffer, usize* opt_out_encode_size

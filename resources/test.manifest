@@ -1,17 +1,25 @@
 # * Description:  Test manifest file.
 # * Author:       Alicia Amarilla (smushyaa@gmail.com)
 # * File Created: December 06, 2023
-manifest
-count: 3
-
 SFX_TEST:
-    type: audio
-    path: "./sfx_test.wav"
+    type:        audio
+    path:        "./sfx_test.wav"
 MUSIC_TEST:
-    type: audio
-    path: "./music_test.wav"
-    compression: rle
+    type:        audio
+    path:        "./music_test.wav"
 LOREM_IPSUM:
-    type: text
-    path: "./test.txt"
+    type:        text
+    path:        "./test.txt"
+TEST2:
+    type:        text
+    path:        "./test2.txt"
+    compression: rle
+SHIP_BITMAP:
+    type:        texture
+    path:        "./ship.bmp"
+    filtering:   bilinear
+    wrap_x:      clamp
+    wrap_y:      repeat
+    transparent: true
+    compression: rle
 

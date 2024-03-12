@@ -30,7 +30,13 @@
 - [ ] input: customizeable controls
 - [ ] fmt: time formatting
 - [ ] fmt: more accurate float formatting (grisu3 or errol?)
+- [ ] fmt: KValue formatting
+- [ ] fmt: display NULL when const char* is null
+- [ ] fmt: PathSlice formatting argument
+    - / to change all slashes to forward
+    - \ to change all slashes to back
 ## Optimizations
+- [ ] collections: hash SIMD lookup
 ## Bug fixes
 - [x] fmt: len argument for pointer argument was failing end brace check
     - fix: advance 'at' pointer after checking for _

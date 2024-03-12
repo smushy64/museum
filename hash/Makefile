@@ -51,7 +51,10 @@ generate_compile_flags:
 	@echo "-I.." >> $(COMPILE_COMMANDS_PATH)
 	for i in $(LDFLAGS); do echo $$i >> $(COMPILE_COMMANDS_PATH); done
 
-$(TARGET): $(MAIN) $(DEP_CORE_H) $(DEP_SHARED_H) $(DEP_PLATFORM_C)
+LOCAL_DEP := ../shared/defines.h ../core/string.h ../core/string.c\
+	../core/memory.h ../core/print.h ../core/fs.h ../core/time.h ../core/rand.h
+
+$(TARGET): $(MAIN) $(LOCAL_DEP) $(DEP_PLATFORM_C)
 	@echo "Make: compiling "$(TARGET)" . . ."
 	@mkdir -p $(OBJ_PATH)
 	@$(CC) $(CSTD) $(DEP_PLATFORM_C) $(MAIN) -o $(TARGET) $(CFLAGS) $(CPPFLAGS) $(INCLUDE) $(LDFLAGS)

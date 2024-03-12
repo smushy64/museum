@@ -216,7 +216,6 @@ typedef void LoggingCallbackFN(
 #endif
 
 #if !defined(NULL)
-    // NOTE(alicia): i hate c++
     #if defined( __cplusplus )
         #define NULL nullptr
     #else
@@ -491,7 +490,7 @@ static_assert(sizeof(f64) == 8, "Expected f64 to be 8 bytes!");
     static_assert(sizeof(usize) == sizeof(u64), "Expected to be running on 64 bit architecture!");
 #endif // if arch64/32
 
-static inline __attribute__((always_inline)) void _0(int a,...){(void)(a);}
+static inline __attribute__((__always_inline__)) void _0(int a,...){(void)(a);}
 /// Mark value as unused.
 #define unused(...) _0( 0, __VA_ARGS__ )
 
